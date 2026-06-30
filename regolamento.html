@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,7 +20,9 @@
       --line: #d9bf8c;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -30,6 +33,8 @@
         radial-gradient(circle at 85% 0%, rgba(255, 176, 116, 0.6) 0%, rgba(255, 176, 116, 0) 40%),
         linear-gradient(160deg, var(--sand-1) 0%, var(--sand-2) 58%, var(--sand-3) 100%);
       min-height: 100vh;
+      background-attachment: fixed;
+      background-image: url(bg.png);
     }
 
     .container {
@@ -96,7 +101,8 @@
       color: var(--ink);
     }
 
-    ul, ol {
+    ul,
+    ol {
       margin: 12px 0;
       padding-left: 24px;
       color: var(--ink);
@@ -198,6 +204,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <a href="index.html" class="back-link">Torna alla pagina principale</a>
@@ -227,7 +234,8 @@
       <ul>
         <li>Le squadre sono composte da <strong>2 giocatori in campo</strong>.</li>
         <li>Ogni squadra può iscrivere <strong>un massimo di 3 giocatori</strong>.</li>
-        <li>È obbligatoria la presenza di <strong>almeno 1 donna in campo</strong> per tutta la durata della partita.</li>
+        <li>È obbligatoria la presenza di <strong>almeno 1 donna in campo</strong> per tutta la durata della partita.
+        </li>
       </ul>
 
       <div class="highlight-green">
@@ -255,12 +263,14 @@
         <li>Le 16 squadre saranno suddivise in <strong>4 gironi da 4 squadre</strong>.</li>
         <li>Ogni squadra incontrerà tutte le altre del proprio girone (round-robin).</li>
         <li>La classifica sarà determinata dai <strong>punti ottenuti</strong> durante il girone.</li>
-        <li>In caso di parità di punti, varranno i <strong>criteri di differenza set</strong> e <strong>differenza punti</strong>.</li>
+        <li>In caso di parità di punti, varranno i <strong>criteri di differenza set</strong> e <strong>differenza
+            punti</strong>.</li>
       </ul>
 
       <h2 id="qualificazione">Qualificazione</h2>
       <ul>
-        <li>Le <strong>prime 3 classificate</strong> di ogni girone accedono direttamente alla fase successiva (<strong>12 squadre</strong>).</li>
+        <li>Le <strong>prime 3 classificate</strong> di ogni girone accedono direttamente alla fase successiva
+          (<strong>12 squadre</strong>).</li>
         <li>Le <strong>quarte classificate</strong> disputeranno un <strong>girone di ripescaggio</strong>.</li>
       </ul>
 
@@ -270,18 +280,22 @@
         <li>Le <strong>prime 2 classificate del ripescaggio</strong> accederanno alla fase finale.</li>
         <li>Le altre 2 squadre avranno un'ulteriore possibilità di qualificazione:
           <ul>
-            <li>La <strong>penultima classificata</strong> del ripescaggio affronterà la <strong>miglior prima classificata</strong> dei gironi;</li>
-            <li>L'<strong>ultima classificata</strong> del ripescaggio affronterà la <strong>miglior seconda classificata</strong> dei gironi.</li>
+            <li>La <strong>penultima classificata</strong> del ripescaggio affronterà la <strong>miglior prima
+                classificata</strong> dei gironi;</li>
+            <li>L'<strong>ultima classificata</strong> del ripescaggio affronterà la <strong>miglior seconda
+                classificata</strong> dei gironi.</li>
           </ul>
         </li>
-      </li>
+        </li>
       </ul>
 
       <h2 id="finale">Fase finale</h2>
       <ul>
         <li>La fase finale sarà composta da <strong>16 squadre</strong>.</li>
-        <li>Gli accoppiamenti saranno determinati tramite una <strong>formula a castello</strong>, bilanciata in base ai risultati e ai punteggi ottenuti nelle fasi precedenti.</li>
-        <li>Le squadre con il <strong>miglior rendimento</strong> avranno una <strong>posizione di tabellone più favorevole</strong>.</li>
+        <li>Gli accoppiamenti saranno determinati tramite una <strong>formula a castello</strong>, bilanciata in base ai
+          risultati e ai punteggi ottenuti nelle fasi precedenti.</li>
+        <li>Le squadre con il <strong>miglior rendimento</strong> avranno una <strong>posizione di tabellone più
+            favorevole</strong>.</li>
       </ul>
 
       <div class="highlight">
@@ -297,48 +311,65 @@
       <h2 id="norme">Arbitraggio e Direzione di gara</h2>
       <ul>
         <li>L'<strong>arbitro sarà sorteggiato</strong> tra le squadre presenti al torneo.</li>
-        <li>In alternativa, la designazione potrà avvenire con una <strong>formula decisionale basata sui risultati</strong>:
+        <li>In alternativa, la designazione potrà avvenire con una <strong>formula decisionale basata sui
+            risultati</strong>:
           <ul>
             <li>Le squadre che hanno <strong>vinto più partite</strong> potranno arbitrare le fasi iniziali;</li>
-            <li>Le squadre che hanno <strong>perso partite</strong> potranno arbitrare in determinate fasi, a seconda della direzione organizzativa.</li>
+            <li>Le squadre che hanno <strong>perso partite</strong> potranno arbitrare in determinate fasi, a seconda
+              della direzione organizzativa.</li>
           </ul>
         </li>
-        <li><strong>L'arbitro designato non potrà rifiutare</strong> l'incarico, salvo cause di forza maggiore comunicate in anticipo.</li>
+        <li><strong>L'arbitro designato non potrà rifiutare</strong> l'incarico, salvo cause di forza maggiore
+          comunicate in anticipo.</li>
       </ul>
 
       <h3>Caso Eccezionale – Sostituzione per Infortunio</h3>
-      <p>Nel caso in cui una squadra sia composta da <strong>soli 2 giocatori in campo</strong> e si verifichi un <strong>infortunio importante</strong> che impedisca la continuazione della partita:</p>
+      <p>Nel caso in cui una squadra sia composta da <strong>soli 2 giocatori in campo</strong> e si verifichi un
+        <strong>infortunio importante</strong> che impedisca la continuazione della partita:</p>
       <ul>
-        <li>È possibile richiedere una <strong>sostituzione straordinaria</strong> di un giocatore dalle <strong>squadre escluse dal torneo</strong>.</li>
-        <li>La sostituzione avviene <strong>esclusivamente con il consenso unanime</strong> di tutti i partecipanti (sia della squadra che della squadra avversaria).</li>
-        <li>La squadra che fornisce il giocatore di sostituzione <strong>non ne acquista diritti di classifica o premi</strong>.</li>
-        <li>L'<strong>organizzazione ha il diritto decisionale finale</strong> sulla validità dell'infortunio e sull'autorizzazione della sostituzione.</li>
+        <li>È possibile richiedere una <strong>sostituzione straordinaria</strong> di un giocatore dalle <strong>squadre
+            escluse dal torneo</strong>.</li>
+        <li>La sostituzione avviene <strong>esclusivamente con il consenso unanime</strong> di tutti i partecipanti (sia
+          della squadra che della squadra avversaria).</li>
+        <li>La squadra che fornisce il giocatore di sostituzione <strong>non ne acquista diritti di classifica o
+            premi</strong>.</li>
+        <li>L'<strong>organizzazione ha il diritto decisionale finale</strong> sulla validità dell'infortunio e
+          sull'autorizzazione della sostituzione.</li>
         <li>Questo <strong>rimane un caso eccezionale</strong> e non può essere utilizzato come pratica ordinaria.</li>
       </ul>
 
       <div class="highlight-green">
-        <strong>⚠️ Nota Importante:</strong> La sostituzione per infortunio deve essere comunicata immediatamente all'organizzazione e richiede documentazione dell'infortunio. Non è consentito l'utilizzo di giocatori già iscritti a squadre partecipanti al torneo.
+        <strong>⚠️ Nota Importante:</strong> La sostituzione per infortunio deve essere comunicata immediatamente
+        all'organizzazione e richiede documentazione dell'infortunio. Non è consentito l'utilizzo di giocatori già
+        iscritti a squadre partecipanti al torneo.
       </div>
 
       <h2 id="norme">Norme generali</h2>
       <ul>
-        <li>È richiesto un <strong>comportamento corretto e rispettoso</strong> nei confronti di avversari, arbitri, organizzatori e pubblico.</li>
-        <li>Eventuali proteste devono essere presentate <strong>immediatamente</strong> al termine della partita all'organizzazione.</li>
-        <li>L'uso di linguaggio offensivo, minacce o aggressività comporta l'<strong>esclusione immediata dal torneo</strong>.</li>
-        <li>Eventuali decisioni organizzative non previste dal presente regolamento saranno valutate e decise <strong>insindacabilmente dall'organizzazione</strong>.</li>
+        <li>È richiesto un <strong>comportamento corretto e rispettoso</strong> nei confronti di avversari, arbitri,
+          organizzatori e pubblico.</li>
+        <li>Eventuali proteste devono essere presentate <strong>immediatamente</strong> al termine della partita
+          all'organizzazione.</li>
+        <li>L'uso di linguaggio offensivo, minacce o aggressività comporta l'<strong>esclusione immediata dal
+            torneo</strong>.</li>
+        <li>Eventuali decisioni organizzative non previste dal presente regolamento saranno valutate e decise
+          <strong>insindacabilmente dall'organizzazione</strong>.</li>
         <li>L'iscrizione al torneo implica l'<strong>accettazione integrale</strong> del presente regolamento.</li>
       </ul>
 
       <div class="highlight-green">
-        <strong>🏅 Fair Play:</strong> Il torneo promuove lo spirito sportivo e il divertimento. La mancanza di rispetto verso altre squadre, arbitri o organizzatori comporterà conseguenze disciplinari.
+        <strong>🏅 Fair Play:</strong> Il torneo promuove lo spirito sportivo e il divertimento. La mancanza di rispetto
+        verso altre squadre, arbitri o organizzatori comporterà conseguenze disciplinari.
       </div>
 
       <div class="highlight">
-        <strong>Contatti e Chiarimenti:</strong> Per eventuali dubbi o richieste di chiarimenti sul regolamento, rivolgersi all'organizzazione prima dell'inizio del torneo.
+        <strong>Contatti e Chiarimenti:</strong> Per eventuali dubbi o richieste di chiarimenti sul regolamento,
+        rivolgersi all'organizzazione prima dell'inizio del torneo.
       </div>
 
       <h2 style="margin-top: 40px; color: var(--leaf);">Buon Divertimento! 🏐</h2>
-      <p>Che il migliore vinca! Questo torneo è stato creato per divertirsi e condividere la passione per il beach volley.</p>
+      <p>Che il migliore vinca! Questo torneo è stato creato per divertirsi e condividere la passione per il beach
+        volley.</p>
     </div>
 
     <footer>
@@ -348,4 +379,5 @@
     </footer>
   </div>
 </body>
+
 </html>

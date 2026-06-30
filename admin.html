@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pannello Admin - Torneo Beach Volley</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
-<style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
+  <style>
     :root {
       --bg: #f3ead8;
       --ink: #1d1a13;
@@ -17,19 +18,57 @@
       --card: #fffdf8;
       --danger: #b11f00;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: "Original Surfer", sans-serif;
       background: radial-gradient(circle at 0 0, #fff3dc 0%, var(--bg) 50%, #e8d3ac 100%);
       color: var(--ink);
+      background-attachment: fixed;
+      background-image: url(bg.png);
     }
-    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
-    .title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    h1 { margin: 0; font-size: 30px; letter-spacing: 1px; }
-    .link-row { margin-top: 8px; font-size: 14px; }
-    .link-row a { color: var(--accent-2); font-weight: 700; text-decoration: none; }
-    .tabs { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      letter-spacing: 1px;
+    }
+
+    .link-row {
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .link-row a {
+      color: var(--accent-2);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
     .tab {
       border: 0;
       background: #e8dcc4;
@@ -39,22 +78,36 @@
       cursor: pointer;
       font-weight: 700;
     }
-    .tab.active { background: var(--accent-2); color: #fff; }
+
+    .tab.active {
+      background: var(--accent-2);
+      color: #fff;
+    }
+
     .card {
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 14px;
       margin-top: 14px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    input, select {
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input,
+    select {
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 8px;
       background: #fff;
     }
+
     .btn {
       border: 0;
       border-radius: 8px;
@@ -62,10 +115,26 @@
       font-weight: 700;
       cursor: pointer;
     }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-green { background: var(--accent-2); color: #fff; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .hidden { display: none !important; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-green {
+      background: var(--accent-2);
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
     .team {
       display: grid;
       grid-template-columns: 2fr 1fr auto;
@@ -74,22 +143,70 @@
       border-bottom: 1px dashed #e7d6b5;
       align-items: center;
     }
-    .team:last-child { border-bottom: 0; }
-    .badge { font-size: 12px; border-radius: 999px; padding: 3px 8px; }
-    .ok { background: #d9f1d2; color: #1f5f12; }
-    .no { background: #ffe0d7; color: #8d1800; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid #eadcbe; padding: 8px; text-align: left; }
-    th { background: #f8f0df; }
+
+    .team:last-child {
+      border-bottom: 0;
+    }
+
+    .badge {
+      font-size: 12px;
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+
+    .ok {
+      background: #d9f1d2;
+      color: #1f5f12;
+    }
+
+    .no {
+      background: #ffe0d7;
+      color: #8d1800;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eadcbe;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8f0df;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
-    .muted { color: #6b5d45; font-size: 13px; }
-    .team-info strong { display: block; }
-    .team-info small { color: #6b5d45; font-size: 12px; }
-    .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+
+    .muted {
+      color: #6b5d45;
+      font-size: 13px;
+    }
+
+    .team-info strong {
+      display: block;
+    }
+
+    .team-info small {
+      color: #6b5d45;
+      font-size: 12px;
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -100,14 +217,16 @@
       justify-content: center;
       padding: 14px;
     }
+
     .modal {
       width: min(700px, 100%);
       background: #fffdf8;
       border-radius: 12px;
       border: 1px solid var(--line);
-      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
       overflow: hidden;
     }
+
     .modal-head {
       display: flex;
       justify-content: space-between;
@@ -116,8 +235,18 @@
       background: #f8f0df;
       border-bottom: 1px solid #ead9b6;
     }
-    .modal-head h4 { margin: 0; font-size: 18px; }
-    .modal-body { padding: 14px; max-height: 70vh; overflow: auto; }
+
+    .modal-head h4 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-body {
+      padding: 14px;
+      max-height: 70vh;
+      overflow: auto;
+    }
+
     .modal-footer {
       display: flex;
       justify-content: flex-end;
@@ -126,14 +255,29 @@
       border-top: 1px solid #ead9b6;
       background: #fff8ea;
     }
+
     .form-grid-modal {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
-    .form-grid-modal .full { grid-column: 1 / -1; }
-    .field { display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 12px; color: #6b5d45; font-weight: 700; }
+
+    .form-grid-modal .full {
+      grid-column: 1 / -1;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: 12px;
+      color: #6b5d45;
+      font-weight: 700;
+    }
+
     .close-btn {
       border: 0;
       background: transparent;
@@ -142,12 +286,19 @@
       cursor: pointer;
       color: #6b5d45;
     }
+
     @media (max-width: 900px) {
-      .team { grid-template-columns: 1fr; }
-      .form-grid-modal { grid-template-columns: 1fr; }
+      .team {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid-modal {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="title">
@@ -207,7 +358,8 @@
         <h3>Strumenti rapidi</h3>
         <div class="row">
           <button class="btn btn-green" onclick="seedDemo()">Carica 16 squadre demo approvate</button>
-          <button class="btn btn-primary" onclick="simulateAll()">Pulsante TEST: simula tutto fino a finale e classifica</button>
+          <button class="btn btn-primary" onclick="simulateAll()">Pulsante TEST: simula tutto fino a finale e
+            classifica</button>
           <button class="btn btn-danger" onclick="resetAll()">Reset torneo</button>
         </div>
       </div>
@@ -591,4 +743,5 @@
     })();
   </script>
 </body>
+
 </html>

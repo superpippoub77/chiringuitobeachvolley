@@ -311,7 +311,7 @@ function buildGroupMatches(array &$state): void {
                     'time' => $hour . ':' . $mins
                 ];
                 $slot++;
-                if ($slot > 3) {
+                if ($slot > 5) {
                     $slot = 0;
                     $day++;
                 }

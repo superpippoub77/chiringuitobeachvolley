@@ -155,7 +155,7 @@ function publicState(array $state): array {
                 'id' => $t['id'],
                 'name' => $t['name'],
                 'players' => $t['players'],
-                'category' => $t['category'],
+                'category' => 'Misto',
                 'paid' => (bool)($t['paid'] ?? false),
                 'approved' => (bool)($t['approved'] ?? false)
             ];
@@ -534,7 +534,7 @@ if ($action === 'register_team' && $method === 'POST') {
     $p1 = trim((string)($body['player1'] ?? ''));
     $p2 = trim((string)($body['player2'] ?? ''));
     $p3 = trim((string)($body['player3'] ?? ''));
-    $category = trim((string)($body['category'] ?? 'Misto'));
+    $category = 'Misto';
     $phone = trim((string)($body['phone'] ?? ''));
 
     if ($name === '' || $p1 === '' || $p2 === '') {
@@ -626,6 +626,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             if (isset($body['phone'])) {
                 $team['phone'] = trim((string)$body['phone']);
             }
+            $team['category'] = 'Misto';
             break;
         }
         unset($team);

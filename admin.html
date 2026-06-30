@@ -65,7 +65,7 @@
     .hidden { display: none; }
     .team {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      grid-template-columns: 2fr 1fr auto;
       gap: 8px;
       padding: 8px;
       border-bottom: 1px dashed #e7d6b5;
@@ -83,8 +83,65 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
+    .muted { color: #6b5d45; font-size: 13px; }
+    .team-info strong { display: block; }
+    .team-info small { color: #6b5d45; font-size: 12px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+    .modal {
+      width: min(700px, 100%);
+      background: #fffdf8;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background: #f8f0df;
+      border-bottom: 1px solid #ead9b6;
+    }
+    .modal-head h4 { margin: 0; font-size: 18px; }
+    .modal-body { padding: 14px; max-height: 70vh; overflow: auto; }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 14px;
+      border-top: 1px solid #ead9b6;
+      background: #fff8ea;
+    }
+    .form-grid-modal {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .form-grid-modal .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; color: #6b5d45; font-weight: 700; }
+    .close-btn {
+      border: 0;
+      background: transparent;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      color: #6b5d45;
+    }
     @media (max-width: 900px) {
       .team { grid-template-columns: 1fr; }
+      .form-grid-modal { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -155,10 +212,23 @@
     </div>
   </div>
 
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <h4 id="modalTitle">Titolo</h4>
+        <button class="close-btn" id="modalCloseBtn" aria-label="Chiudi">×</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+      <div id="modalFooter" class="modal-footer"></div>
+    </div>
+  </div>
+
   <script>
     const API = 'api.php';
     let token = localStorage.getItem('adminToken') || '';
     let state = null;
+    let modalCloseHandler = null;
+    let modalOnClose = null;
 
     async function callApi(action, method = 'GET', body = null, auth = false) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -179,7 +249,10 @@
 
     async function login() {
       const password = document.getElementById('adminPassword').value.trim();
-      if (!password) return alert('Inserisci password');
+      if (!password) {
+        await showInfoDialog('Attenzione', 'Inserisci password');
+        return;
+      }
       try {
         const r = await callApi('admin_login', 'POST', { password });
         token = r.token;
@@ -188,7 +261,7 @@
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('logoutBtn').classList.remove('hidden');
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore login', e.message); }
     }
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -206,56 +279,100 @@
     }
 
     function teamRow(team) {
-      const p = team.players || ['', '', ''];
+      const p = (team.players || []).filter(Boolean).join(' | ') || 'Giocatori non inseriti';
       return `<div class="team">
-        <input value="${escapeHtml(team.name)}" data-id="${team.id}" data-field="name" onchange="updateTeamField(this)">
-        <label><input type="checkbox" ${team.paid ? 'checked' : ''} data-id="${team.id}" data-field="paid" onchange="updateTeamCheckbox(this)"> Pagato</label>
-        <label><input type="checkbox" ${team.approved ? 'checked' : ''} data-id="${team.id}" data-field="approved" onchange="updateTeamCheckbox(this)"> Approvato</label>
-        <span>${team.approved ? '<span class="badge ok">Confermato</span>' : '<span class="badge no">In attesa</span>'}</span>
-        <button class="btn" onclick="editPlayers('${team.id}')">Giocatori</button>
+        <div class="team-info">
+          <strong>${escapeHtml(team.name)}</strong>
+          <small>${escapeHtml(p)}</small>
+        </div>
+        <div class="chips">
+          <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
+          <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
+        </div>
+        <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
       </div>`;
     }
 
     function renderTeams() {
       const c = document.getElementById('teamsContainer');
       const all = state.teamsAll || [];
-      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount}</strong></p>` + all.map(teamRow).join('');
+      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
     }
 
-    async function updateTeamField(el) {
-      try {
-        await callApi('admin_update_team', 'POST', { id: el.dataset.id, [el.dataset.field]: el.value }, true);
-        await refresh();
-      } catch (e) { alert(e.message); }
-    }
-
-    async function updateTeamCheckbox(el) {
-      try {
-        await callApi('admin_update_team', 'POST', { id: el.dataset.id, [el.dataset.field]: el.checked }, true);
-        await refresh();
-      } catch (e) { alert(e.message); }
-    }
-
-    async function editPlayers(teamId) {
+    async function openTeamDialog(teamId) {
       const team = (state.teamsAll || []).find(t => t.id === teamId);
       if (!team) return;
-      const p1 = prompt('Giocatore 1', (team.players || [])[0] || '');
-      if (p1 === null) return;
-      const p2 = prompt('Giocatore 2', (team.players || [])[1] || '');
-      if (p2 === null) return;
-      const p3 = prompt('Giocatore 3', (team.players || [])[2] || '');
-      if (p3 === null) return;
-      try {
-        await callApi('admin_update_team', 'POST', { id: teamId, players: [p1, p2, p3] }, true);
-        await refresh();
-      } catch (e) { alert(e.message); }
+
+      const p = team.players || ['', '', ''];
+      openModal({
+        title: 'Modifica squadra',
+        bodyHtml: `
+          <div class="form-grid-modal">
+            <div class="field full">
+              <label>Nome squadra</label>
+              <input id="mTeamName" type="text" value="${escapeHtml(team.name)}">
+            </div>
+            <div class="field">
+              <label>Giocatore 1</label>
+              <input id="mPlayer1" type="text" value="${escapeHtml(p[0] || '')}">
+            </div>
+            <div class="field">
+              <label>Giocatore 2</label>
+              <input id="mPlayer2" type="text" value="${escapeHtml(p[1] || '')}">
+            </div>
+            <div class="field full">
+              <label>Giocatore 3</label>
+              <input id="mPlayer3" type="text" value="${escapeHtml(p[2] || '')}">
+            </div>
+            <div class="field full">
+              <label>Telefono</label>
+              <input id="mPhone" type="text" value="${escapeHtml(team.phone || '')}">
+            </div>
+            <div class="field">
+              <label><input id="mApproved" type="checkbox" ${team.approved ? 'checked' : ''}> Iscrizione approvata</label>
+            </div>
+            <div class="field">
+              <label><input id="mPaid" type="checkbox" ${team.paid ? 'checked' : ''}> Pagamento registrato</label>
+            </div>
+            <div class="field full muted">Categoria torneo: Misto (bloccata)</div>
+          </div>
+        `,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          {
+            text: 'Salva modifiche',
+            className: 'btn btn-primary',
+            onClick: async () => {
+              try {
+                const payload = {
+                  id: teamId,
+                  name: document.getElementById('mTeamName').value.trim(),
+                  players: [
+                    document.getElementById('mPlayer1').value.trim(),
+                    document.getElementById('mPlayer2').value.trim(),
+                    document.getElementById('mPlayer3').value.trim()
+                  ],
+                  phone: document.getElementById('mPhone').value.trim(),
+                  approved: document.getElementById('mApproved').checked,
+                  paid: document.getElementById('mPaid').checked
+                };
+                await callApi('admin_update_team', 'POST', payload, true);
+                closeModal();
+                await refresh();
+              } catch (e) {
+                await showInfoDialog('Errore salvataggio', e.message);
+              }
+            }
+          }
+        ]
+      });
     }
 
     async function generateGroups() {
       try {
         await callApi('admin_generate_groups', 'POST', {}, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     function renderGroups() {
@@ -304,14 +421,14 @@
           time
         }, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     async function createPlayoff() {
       try {
         await callApi('admin_create_playoff', 'POST', {}, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     function renderPlayoff() {
@@ -346,31 +463,108 @@
           score2: score2 === '' ? null : Number(score2)
         }, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     async function simulateAll() {
-      if (!confirm('Simulare tutto fino alla classifica finale?')) return;
+      const proceed = await showConfirmDialog('Conferma simulazione', 'Simulare tutto il torneo fino alla classifica finale?');
+      if (!proceed) return;
       try {
         await callApi('admin_simulate_all', 'POST', {}, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     async function seedDemo() {
       try {
         await callApi('admin_seed_demo', 'POST', {}, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
     async function resetAll() {
-      if (!confirm('Reset completo torneo?')) return;
+      const proceed = await showConfirmDialog('Conferma reset', 'Reset completo torneo? Questa operazione cancella gironi, partite e classifica.');
+      if (!proceed) return;
       try {
         await callApi('admin_reset', 'POST', {}, true);
         await refresh();
-      } catch (e) { alert(e.message); }
+      } catch (e) { await showInfoDialog('Errore', e.message); }
     }
+
+    function openModal({ title, bodyHtml, buttons, onClose }) {
+      const backdrop = document.getElementById('modalBackdrop');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+      const modalFooter = document.getElementById('modalFooter');
+      const closeBtn = document.getElementById('modalCloseBtn');
+
+      modalTitle.textContent = title || 'Dialog';
+      modalBody.innerHTML = bodyHtml || '';
+      modalFooter.innerHTML = '';
+      modalOnClose = onClose || null;
+
+      modalCloseHandler = () => closeModal();
+      closeBtn.onclick = modalCloseHandler;
+
+      (buttons || []).forEach((b) => {
+        const btn = document.createElement('button');
+        btn.textContent = b.text || 'Ok';
+        btn.className = b.className || 'btn';
+        btn.addEventListener('click', async () => {
+          if (b.onClick) await b.onClick();
+          if (b.closeOnClick) closeModal(true);
+        });
+        modalFooter.appendChild(btn);
+      });
+
+      backdrop.classList.remove('hidden');
+    }
+
+    function closeModal(skipOnClose = false) {
+      const backdrop = document.getElementById('modalBackdrop');
+      backdrop.classList.add('hidden');
+      if (!skipOnClose && modalOnClose) {
+        const cb = modalOnClose;
+        modalOnClose = null;
+        cb();
+      }
+      if (skipOnClose) {
+        modalOnClose = null;
+      }
+    }
+
+    function showConfirmDialog(title, message) {
+      return new Promise((resolve) => {
+        openModal({
+          title,
+          bodyHtml: `<p>${escapeHtml(message)}</p>`,
+          onClose: () => resolve(false),
+          buttons: [
+            { text: 'Annulla', className: 'btn', closeOnClick: true, onClick: () => resolve(false) },
+            { text: 'Conferma', className: 'btn btn-danger', closeOnClick: true, onClick: () => resolve(true) }
+          ]
+        });
+      });
+    }
+
+    function showInfoDialog(title, message) {
+      return new Promise((resolve) => {
+        openModal({
+          title,
+          bodyHtml: `<p>${escapeHtml(message)}</p>`,
+          onClose: () => resolve(true),
+          buttons: [
+            { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true, onClick: () => resolve(true) }
+          ]
+        });
+      });
+    }
+
+    document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+      if (e.target.id === 'modalBackdrop') {
+        closeModal();
+      }
+    });
 
     function escapeHtml(str) {
       return String(str || '')

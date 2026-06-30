@@ -415,11 +415,92 @@
       color: #fff;
     }
 
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .form-check input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .form-check a {
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .form-check a:hover {
+      text-decoration: underline;
+    }
+
+    .countdown {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .countdown-item {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px;
+      border-radius: 8px;
+      font-weight: 800;
+      color: #fff;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .countdown-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      display: block;
+      opacity: 0.9;
+    }
+
+    .closed-notice {
+      background: #ffe0d7;
+      border-left: 4px solid #8d1800;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+      color: #5f2211;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    footer a {
+      color: var(--leaf);
+      text-decoration: none;
+      margin: 0 8px;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
     @media (max-width: 920px) {
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .hero-strip { grid-template-columns: 1fr; }
       .hero-cell { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.2); }
       .hero-cell:last-child { border-bottom: 0; }
+      .countdown { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -437,6 +518,12 @@
         <div class="hero-cell">Avvio gare dalle 19:30</div>
         <div class="hero-cell">Max 16 squadre</div>
         <div class="hero-cell">2 contro 2 (max 3 giocatori iscritti)</div>
+      </div>
+      <div class="countdown" id="countdownContainer">
+        <div class="countdown-item"><span id="countDays">0</span><span class="countdown-label">giorni</span></div>
+        <div class="countdown-item"><span id="countHours">0</span><span class="countdown-label">ore</span></div>
+        <div class="countdown-item"><span id="countMinutes">0</span><span class="countdown-label">minuti</span></div>
+        <div class="countdown-item"><span id="countSeconds">0</span><span class="countdown-label">secondi</span></div>
       </div>
     </section>
 
@@ -462,15 +549,24 @@
     <section class="page active" id="page-iscrizione">
       <h3>Registrazione squadra</h3>
       <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non conferma.</div>
-      <div class="form-grid">
+      <div id="closedNotice" class="closed-notice hidden">Le iscrizioni sono chiuse - Torneo al completo (16 squadre)</div>
+      <div class="form-grid" id="registrationForm">
         <input id="fName" placeholder="Nome squadra">
         <input id="fP1" placeholder="Giocatore 1">
         <input id="fP2" placeholder="Giocatore 2">
         <input id="fP3" placeholder="Giocatore 3 (opzionale)">
         <input id="fPhone" placeholder="Telefono">
       </div>
+      <div class="form-check">
+        <input type="checkbox" id="fPrivacy">
+        <label for="fPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" id="fCookies">
+        <label for="fCookies">Accetto l'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label>
+      </div>
       <div style="margin-top:10px;">
-        <button class="btn" onclick="registerTeam()">Invia iscrizione</button>
+        <button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button>
       </div>
     </section>
 
@@ -480,6 +576,14 @@
     <section class="page" id="page-standings"></section>
     <section class="page" id="page-playoff"></section>
     <section class="page" id="page-ranking"></section>
+
+    <footer>
+      <a href="policy.html" target="_blank">Privacy Policy</a>
+      <a href="policy.html#cookies" target="_blank">Cookie Policy</a>
+      <a href="policy.html#terms" target="_blank">Termini e Condizioni</a>
+      <br>
+      <div style="margin-top: 10px;">© 2026 Chiringuito Varallo Beach Volley - Tutti i diritti riservati</div>
+    </footer>
   </div>
 
   <div id="modalBackdrop" class="modal-backdrop hidden">
@@ -521,11 +625,64 @@
       renderAll();
     }
 
+    function updateCountdown() {
+      // Data del torneo: 30 giugno 2026 alle 19:30
+      const tournamentDate = new Date('2026-06-30T19:30:00').getTime();
+      const now = new Date().getTime();
+      const diff = tournamentDate - now;
+
+      if (diff <= 0) {
+        document.getElementById('countDays').textContent = '0';
+        document.getElementById('countHours').textContent = '0';
+        document.getElementById('countMinutes').textContent = '0';
+        document.getElementById('countSeconds').textContent = '0';
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      document.getElementById('countDays').textContent = days;
+      document.getElementById('countHours').textContent = hours;
+      document.getElementById('countMinutes').textContent = minutes;
+      document.getElementById('countSeconds').textContent = seconds;
+    }
+
     function renderAll() {
       document.getElementById('statTeams').textContent = state.teams.length;
       document.getElementById('statPending').textContent = state.pendingCount;
       document.getElementById('statGroups').textContent = state.groups.length;
       document.getElementById('statMatches').textContent = state.groupMatches.length;
+      
+      // Controlla se le iscrizioni sono chiuse
+      const maxTeams = 16;
+      const totalTeams = state.teams.length + state.pendingCount;
+      const isClosed = totalTeams >= maxTeams;
+      
+      const form = document.getElementById('registrationForm');
+      const submitBtn = document.getElementById('submitBtn');
+      const closedNotice = document.getElementById('closedNotice');
+      
+      if (isClosed) {
+        form.style.opacity = '0.5';
+        form.style.pointerEvents = 'none';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        closedNotice.classList.remove('hidden');
+        const inputs = form.querySelectorAll('input');
+        inputs.forEach(inp => inp.disabled = true);
+      } else {
+        form.style.opacity = '1';
+        form.style.pointerEvents = 'auto';
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        closedNotice.classList.add('hidden');
+        const inputs = form.querySelectorAll('input');
+        inputs.forEach(inp => inp.disabled = false);
+      }
+      
       renderTeams();
       renderGroups();
       renderMatches();
@@ -615,9 +772,21 @@
       const player2 = document.getElementById('fP2').value.trim();
       const player3 = document.getElementById('fP3').value.trim();
       const phone = document.getElementById('fPhone').value.trim();
+      const privacyOk = document.getElementById('fPrivacy').checked;
+      const cookiesOk = document.getElementById('fCookies').checked;
 
       if (!name || !player1 || !player2) {
         await showInfoDialog('Dati mancanti', 'Compila nome squadra e i primi due giocatori');
+        return;
+      }
+
+      if (!privacyOk) {
+        await showInfoDialog('Privacy richiesta', 'Devi accettare l\'informativa privacy');
+        return;
+      }
+
+      if (!cookiesOk) {
+        await showInfoDialog('Cookie richiesti', 'Devi accettare l\'utilizzo dei cookie');
         return;
       }
 
@@ -631,6 +800,8 @@
         document.getElementById('fP2').value = '';
         document.getElementById('fP3').value = '';
         document.getElementById('fPhone').value = '';
+        document.getElementById('fPrivacy').checked = false;
+        document.getElementById('fCookies').checked = false;
         try {
           await loadState();
         } catch (err) {
@@ -692,6 +863,10 @@
     loadState().catch(err => {
       console.error('Errore caricamento:', err);
     });
+
+    // Aggiorna il countdown ogni secondo
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
   </script>
 </body>
 </html>

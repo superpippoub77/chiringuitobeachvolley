@@ -676,8 +676,8 @@
         .replaceAll("'", '&#039;');
     }
 
-    loadState().catch(async (err) => {
-      await showInfoDialog('Errore caricamento', err.message);
+    loadState().catch(err => {
+      console.error('Errore caricamento:', err);
     });
   </script>
 </body>

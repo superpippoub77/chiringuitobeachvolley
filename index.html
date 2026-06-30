@@ -622,16 +622,23 @@
       }
 
       try {
+        console.log('Registrazione squadra...', { name, player1, player2, player3, phone });
         const r = await api('register_team', 'POST', { name, player1, player2, player3, phone, category: 'Misto' });
-        await showInfoDialog('Iscrizione inviata', r.message || 'Iscrizione inviata');
+        console.log('Risposta API:', r);
+        await showInfoDialog('Iscrizione inviata', (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.');
         document.getElementById('fName').value = '';
         document.getElementById('fP1').value = '';
         document.getElementById('fP2').value = '';
         document.getElementById('fP3').value = '';
         document.getElementById('fPhone').value = '';
-        await loadState();
+        try {
+          await loadState();
+        } catch (err) {
+          console.error('Errore nel caricamento dello stato:', err);
+        }
       } catch (e) {
-        await showInfoDialog('Errore', e.message);
+        console.error('Errore registrazione:', e);
+        await showInfoDialog('Errore', e && e.message ? e.message : 'Errore sconosciuto');
       }
     }
 
@@ -642,6 +649,12 @@
         const bodyNode = document.getElementById('modalBody');
         const okBtn = document.getElementById('modalOk');
         const closeBtn = document.getElementById('modalClose');
+
+        if (!backdrop || !titleNode || !bodyNode || !okBtn || !closeBtn) {
+          console.error('Elementi modali non trovati', { backdrop, titleNode, bodyNode, okBtn, closeBtn });
+          resolve(true);
+          return;
+        }
 
         titleNode.textContent = title;
         bodyNode.textContent = message;

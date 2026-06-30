@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏐 Torneo Beach Volley 2026 – Valsesia Chiringuito</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Righteous&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --orange:   #E8520A;
+  --orange2:  #F27020;
+  --orange-light: #FF8C42;
+  --sand:     #F5EDD6;
+  --sand2:    #EDE0C0;
+  --sand3:    #E0D0A8;
+  --green:    #2D5A1B;
+  --green2:   #3A7023;
+  --text:     #1A1A1A;
+  --text-m:   #5A4A30;
+  --white:    #FFFFFF;
+  --border:   #D4C090;
+  --success:  #2D5A1B;
+  --warning:  #C87820;
+  --red:      #CC2200;
+}
+
+* { box-sizing: border-box; margin:0; padding:0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--sand);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ─── HERO ─── */
+.hero {
+  background: var(--sand2);
+  padding: 0 0 0 0;
+  border-bottom: 4px solid var(--orange);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Texture dots */
+.hero::before {
+  content:'';
+  position:absolute; inset:0;
+  background-image: radial-gradient(circle, rgba(232,82,10,0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+  pointer-events:none;
+}
+
+.hero-top {
+  background: var(--sand2);
+  padding: 18px 20px 10px;
+  text-align: center;
+  position: relative;
+}
+
+/* ALPÀA logo ricostruito SVG */
+.logo-alpaa {
+  font-family: 'Righteous', cursive;
+  font-size: 28px;
+  color: var(--orange);
+  letter-spacing: 3px;
+  text-transform: lowercase;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+.logo-alpaa span { color: var(--green); }
+
+/* Chiringuito badge */
+.chiringuito-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--green);
+  color: white;
+  padding: 6px 16px 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.chiringuito-badge .palme { font-size: 20px; }
+
+.valsesia-text {
+  font-family: 'Righteous', cursive;
+  font-size: 16px;
+  color: var(--green2);
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 2px;
+}
+.beach-volley-sub {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  background: var(--orange2);
+  color: white;
+  display: inline-block;
+  padding: 2px 14px;
+  letter-spacing: 3px;
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  line-height: 0.88;
+  text-align: center;
+  padding: 10px 16px 4px;
+  position: relative;
+}
+.title-torneo {
+  font-size: clamp(52px, 14vw, 90px);
+  color: var(--orange);
+  display: block;
+  -webkit-text-stroke: 2px var(--orange2);
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.15));
+}
+.title-beach {
+  font-size: clamp(48px, 13vw, 84px);
+  color: var(--orange);
+  display: block;
+  -webkit-text-stroke: 2px var(--orange2);
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.15));
+}
+.title-volley {
+  font-size: clamp(48px, 13vw, 84px);
+  color: var(--orange);
+  display: block;
+  -webkit-text-stroke: 2px var(--orange2);
+  filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.15));
+}
+.title-year {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(36px, 9vw, 60px);
+  color: var(--green2);
+  position: absolute;
+  top: 6px; right: 16px;
+  font-style: italic;
+  filter: drop-shadow(1px 2px 0 rgba(0,0,0,0.1));
+}
+
+.hero-date {
+  background: var(--text);
+  color: white;
+  text-align: center;
+  padding: 12px 20px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(16px, 4vw, 22px);
+  letter-spacing: 2px;
+  position: relative;
+}
+.hero-date::before, .hero-date::after {
+  content:'────';
+  color: var(--orange);
+  margin: 0 10px;
+}
+
+/* ─── TABS ─── */
+.tabs {
+  display: flex;
+  background: var(--green);
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 3px solid var(--orange);
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 1; min-width: 90px;
+  padding: 12px 10px;
+  text-align: center;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all .2s;
+  white-space: nowrap;
+  background: none; border-top:none; border-left:none; border-right:none;
+}
+.tab:hover { color: white; background: rgba(255,255,255,0.1); }
+.tab.active { color: var(--orange-light); border-bottom-color: var(--orange); }
+
+/* ─── PAGES ─── */
+.page { display:none; padding:20px; max-width:860px; margin:0 auto; }
+.page.active { display:block; }
+
+/* ─── SECTION TITLE ─── */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  color: var(--orange);
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--sand3);
+}
+
+/* ─── CARDS ─── */
+.card {
+  background: white;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  margin-bottom: 14px;
+  border: 1.5px solid var(--sand3);
+}
+.card h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  color: var(--green);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+/* ─── STATS STRIP ─── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+@media(max-width:500px) { .stats-strip { grid-template-columns: repeat(2,1fr); } }
+.stat-box {
+  background: white;
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+  border: 1.5px solid var(--sand3);
+  position: relative;
+  overflow: hidden;
+}
+.stat-box::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:3px;
+  background: var(--orange);
+}
+.stat-num { font-family:'Bebas Neue',sans-serif; font-size:36px; color:var(--orange); line-height:1; }
+.stat-lbl { font-size:10px; color:var(--text-m); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+
+/* ─── FORM ─── */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:580px) { .form-grid { grid-template-columns:1fr; } }
+.form-group { display:flex; flex-direction:column; gap:4px; }
+.form-group.full { grid-column:1/-1; }
+label { font-size:11px; font-weight:700; color:var(--text-m); text-transform:uppercase; letter-spacing:.5px; }
+input, select, textarea {
+  padding:9px 11px;
+  border:2px solid var(--sand3);
+  border-radius:7px;
+  font-family:'Inter',sans-serif;
+  font-size:14px;
+  color:var(--text);
+  background:#FDFBF5;
+  outline:none;
+  transition:border-color .2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--orange2); background:white; }
+textarea { resize:vertical; min-height:65px; }
+
+/* ─── BUTTONS ─── */
+.btn {
+  padding:11px 22px;
+  border-radius:7px;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:16px;
+  letter-spacing:1px;
+  cursor:pointer;
+  border:none;
+  transition:all .2s;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+.btn-primary { background:var(--orange); color:white; }
+.btn-primary:hover { background:var(--orange2); transform:translateY(-1px); box-shadow:0 4px 12px rgba(232,82,10,0.35); }
+.btn-green { background:var(--green); color:white; }
+.btn-green:hover { background:var(--green2); }
+.btn-outline { background:transparent; color:var(--orange); border:2px solid var(--orange); }
+.btn-outline:hover { background:var(--orange); color:white; }
+.btn-sm { padding:6px 13px; font-size:13px; }
+.btn-danger { background:#CC2200; color:white; }
+.btn-danger:hover { background:#AA1800; }
+.btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+
+/* ─── TEAM LIST ─── */
+.team-row {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 13px;
+  border-radius:8px;
+  background:#FDFBF5;
+  border:1.5px solid var(--sand3);
+  margin-bottom:7px;
+}
+.team-num { font-family:'Bebas Neue',sans-serif; font-size:24px; color:var(--orange); width:28px; text-align:center; }
+.team-info { flex:1; }
+.team-name { font-weight:800; font-size:14px; }
+.team-players { font-size:12px; color:var(--text-m); }
+.team-note { font-size:11px; color:#888; font-style:italic; }
+.tag { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.tag-orange { background:rgba(232,82,10,0.12); color:var(--orange); }
+.tag-green  { background:rgba(45,90,27,0.12); color:var(--green); }
+
+/* ─── GIRONI ─── */
+.gironi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-bottom:16px; }
+.girone-card { background:white; border-radius:9px; border:1.5px solid var(--sand3); overflow:hidden; }
+.girone-header { background:var(--orange); color:white; padding:9px 14px; font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; }
+.girone-team { padding:9px 14px; font-size:13px; border-bottom:1px solid #F0EAD6; display:flex; align-items:center; gap:8px; }
+.girone-team:last-child { border-bottom:none; }
+.seed { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-m); background:#F0EAD6; padding:2px 6px; border-radius:4px; }
+
+/* ─── CALENDARIO ─── */
+.match-day { margin-bottom:18px; }
+.match-day-header {
+  font-family:'Bebas Neue',sans-serif; font-size:19px; letter-spacing:1.5px;
+  color:var(--green); padding:8px 13px;
+  background:var(--sand2);
+  border-radius:8px 8px 0 0;
+  border-left:4px solid var(--orange);
+  display:flex; align-items:center; gap:8px;
+}
+.match-row {
+  background:white; padding:11px 13px;
+  border:1.5px solid #E8DFC0; border-top:none;
+  display:grid; grid-template-columns:55px 1fr auto 1fr 0;
+  align-items:center; gap:8px;
+}
+.match-row:last-child { border-radius:0 0 8px 8px; }
+.match-time { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--orange); font-weight:700; }
+.match-team { font-size:13px; font-weight:700; }
+.match-team.right { text-align:right; }
+.match-score { display:flex; align-items:center; gap:4px; justify-content:center; }
+.score-input { width:38px; padding:4px 5px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; border:2px solid var(--sand3); border-radius:5px; }
+.score-input:focus { border-color:var(--orange); outline:none; }
+.score-sep { font-weight:800; color:var(--text-m); }
+
+/* ─── CLASSIFICA ─── */
+.standings-table { width:100%; border-collapse:collapse; font-size:13px; }
+.standings-table th { background:var(--green); color:white; padding:9px 10px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+.standings-table th:first-child { border-radius:8px 0 0 0; }
+.standings-table th:last-child  { border-radius:0 8px 0 0; }
+.standings-table td { padding:9px 10px; border-bottom:1px solid var(--sand3); }
+.standings-table tr:nth-child(even) td { background:#FDFBF5; }
+.rank-badge { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--text-m); }
+.rank-1 .rank-badge { color:#D4AF37; }
+.rank-2 .rank-badge { color:#9EA0A3; }
+.rank-3 .rank-badge { color:#A0522D; }
+.qualified  { color:var(--green);   font-size:11px; font-weight:700; }
+.ripescag   { color:var(--warning); font-size:11px; font-weight:700; }
+.eliminata  { color:var(--red);     font-size:11px; }
+
+/* ─── FASE FINALE ─── */
+.bracket-phase { margin-bottom:22px; }
+.bracket-phase-title { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--orange); margin-bottom:10px; padding-bottom:5px; border-bottom:2px solid var(--sand3); letter-spacing:1px; }
+.bracket-matches { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; }
+.bracket-match { background:white; border:1.5px solid var(--sand3); border-radius:8px; overflow:hidden; }
+.bracket-match-header { background:var(--orange); color:white; padding:5px 10px; font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:1px; }
+.bracket-team-row { padding:9px 12px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #F0EAD6; }
+.bracket-team-row:last-child { border-bottom:none; }
+.bracket-team-name { font-size:13px; font-weight:700; }
+.bracket-score-input { width:38px; padding:3px 5px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; border:2px solid var(--sand3); border-radius:5px; }
+.bracket-score-input:focus { border-color:var(--orange); outline:none; }
+
+/* ─── INFO BOX ─── */
+.info-box {
+  background:linear-gradient(135deg,rgba(45,90,27,0.08),rgba(232,82,10,0.06));
+  border:1.5px solid rgba(45,90,27,0.2);
+  border-radius:9px; padding:12px 15px; font-size:13px; color:var(--green);
+  margin-bottom:14px; display:flex; gap:10px; align-items:flex-start;
+}
+.info-box .ico { font-size:20px; flex-shrink:0; }
+
+/* ─── PHASE LEGEND ─── */
+.phase-legend { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+.legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+/* ─── TOAST ─── */
+.toast-container { position:fixed; top:18px; right:18px; z-index:9999; display:flex; flex-direction:column; gap:7px; }
+.toast { background:var(--green); color:white; padding:11px 16px; border-radius:7px; font-size:13px; font-weight:700; box-shadow:0 4px 16px rgba(0,0,0,0.2); animation:slideIn .3s ease; max-width:270px; }
+.toast.success { background:var(--green2); }
+.toast.error   { background:var(--red); }
+.toast.warn    { background:var(--warning); }
+@keyframes slideIn { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* ─── DATI PAGE ─── */
+.export-row { display:flex; gap:10px; flex-wrap:wrap; }
+pre#stato-json { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-m); max-height:280px; overflow-y:auto; white-space:pre-wrap; background:#FDFBF5; border-radius:6px; padding:10px; border:1px solid var(--sand3); }
+
+/* ─── OMAGGIO BADGE ─── */
+.omaggio-strip {
+  background:var(--orange);
+  color:white;
+  text-align:center;
+  padding:10px 20px;
+  font-family:'Bebas Neue',sans-serif;
+  font-size:18px;
+  letter-spacing:2px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.hero-info-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+}
+@media(max-width:500px){ .hero-info-grid { grid-template-columns:1fr; } }
+
+.hero-info-cell {
+  padding:10px 16px;
+  border:1px solid rgba(0,0,0,0.08);
+  background:var(--sand2);
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+.hero-info-cell .ico { font-size:22px; margin-top:2px; }
+.hero-info-cell .lbl { font-family:'Bebas Neue',sans-serif; font-size:15px; color:var(--orange); letter-spacing:1px; line-height:1.2; }
+.hero-info-cell .val { font-size:12px; font-weight:700; color:var(--green); text-transform:uppercase; letter-spacing:.5px; line-height:1.6; }
+
+.prezzo-box {
+  background:var(--orange);
+  color:white;
+  padding:14px 20px;
+  border-radius:9px;
+  text-align:center;
+  margin:0 16px 0 16px;
+}
+.prezzo-box .prezzo-lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; opacity:.85; }
+.prezzo-box .prezzo-num { font-family:'Bebas Neue',sans-serif; font-size:48px; line-height:1; letter-spacing:1px; }
+.prezzo-box .prezzo-sub { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; opacity:.85; }
+
+.contacts-bar {
+  background:var(--green);
+  color:white;
+  padding:10px 20px;
+  font-size:11px;
+  font-weight:700;
+  text-align:center;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+}
+.contacts-bar span { opacity:.75; }
+.contacts-bar strong { opacity:1; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="hero-top">
+    <!-- ALPÀA logo -->
+    <div class="logo-alpaa">alp<span>à</span>a</div>
+    <br>
+    <!-- Chiringuito badge -->
+    <div style="margin-bottom:4px;">
+      <span class="chiringuito-badge">
+        <span class="palme">🌴</span>
+        <span>
+          <span class="valsesia-text">Valsesia</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:#90EE90;letter-spacing:2px;">CHIRINGUITO 🌺</span>
+        </span>
+        <span class="palme">🌴</span>
+      </span>
+    </div>
+    <div class="beach-volley-sub">BEACH VOLLEY</div>
+  </div>
+
+  <!-- Big title -->
+  <div class="hero-title">
+    <span class="title-year">2026</span>
+    <span class="title-torneo">TORNEO</span>
+    <span class="title-beach">BEACH</span>
+    <span class="title-volley">VOLLEY</span>
+  </div>
+
+  <div class="hero-date">DA LUNEDÌ 13 A SABATO 18 LUGLIO – DURANTE L'ALPÀA</div>
+
+  <!-- Info grid -->
+  <div class="hero-info-grid">
+    <div class="hero-info-cell">
+      <span class="ico">📅</span>
+      <div><div class="lbl">INIZIO GARE</div><div class="val">ORE 19:30</div></div>
+    </div>
+    <div class="hero-info-cell">
+      <span class="ico">👥</span>
+      <div><div class="lbl">16 SQUADRE</div><div class="val">4 GIRONI DA 4 SQUADRE</div></div>
+    </div>
+    <div class="hero-info-cell">
+      <span class="ico">📍</span>
+      <div><div class="lbl">DOVE</div><div class="val">Campo Beach · Varallo Sesia<br>Palestra Italo Grassi</div></div>
+    </div>
+    <div class="hero-info-cell">
+      <span class="ico">🏆</span>
+      <div><div class="lbl">PARTECIPANTI</div><div class="val">2vs2 · Max 3 giocatori<br>Almeno una donna 🏐</div></div>
+    </div>
+  </div>
+
+  <!-- Omaggio + prezzo -->
+  <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;">
+    <div class="omaggio-strip" style="flex:1;">
+      🎽 ALL'ISCRIZIONE IN OMAGGIO CANOTTA + CAPPELLINO!
+    </div>
+    <div class="prezzo-box">
+      <div class="prezzo-lbl">ISCRIZIONE</div>
+      <div class="prezzo-num">€20</div>
+      <div class="prezzo-sub">A PERSONA</div>
+    </div>
+  </div>
+
+  <!-- Contacts -->
+  <div class="contacts-bar">
+    <span>🍹 PREMI: FREE DRINKS E SECCHIELLI AL CHIRINGUITO!</span>
+    <span>·</span>
+    <strong>Filippo Morano 3488942658</strong>
+    <span>·</span>
+    <strong>Tamara Pezzano 3494094618</strong>
+  </div>
+</div>
+
+<!-- ══ TABS ══ -->
+<div class="tabs">
+  <button class="tab active" onclick="showPage('iscrizioni',this)">📋 ISCRIZIONI</button>
+  <button class="tab" onclick="showPage('gironi',this)">🔹 GIRONI</button>
+  <button class="tab" onclick="showPage('calendario',this)">📅 CALENDARIO</button>
+  <button class="tab" onclick="showPage('classifica',this)">🏆 CLASSIFICA</button>
+  <button class="tab" onclick="showPage('finale',this)">⚔️ FINALE</button>
+  <button class="tab" onclick="showPage('dati',this)">💾 DATI</button>
+</div>
+
+<!-- ══ PAGE: ISCRIZIONI ══ -->
+<div class="page active" id="page-iscrizioni">
+  <div class="stats-strip">
+    <div class="stat-box"><div class="stat-num" id="stat-iscritte">0</div><div class="stat-lbl">Iscritte</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-rimaste">16</div><div class="stat-lbl">Posti liberi</div></div>
+    <div class="stat-box"><div class="stat-num">4</div><div class="stat-lbl">Gironi</div></div>
+    <div class="stat-box"><div class="stat-num">16</div><div class="stat-lbl">Max squadre</div></div>
+  </div>
+
+  <div class="section-title">📋 ISCRIVITI AL TORNEO</div>
+  <div class="card">
+    <div class="form-grid">
+      <div class="form-group"><label>Nome Squadra *</label><input type="text" id="f-nome" placeholder="es. Sand Storm" maxlength="40"></div>
+      <div class="form-group"><label>Categoria</label>
+        <select id="f-cat">
+          <option value="Misto">Misto (Lui &amp; Lei) 🏐</option>
+          <option value="Maschile">Maschile</option>
+          <option value="Femminile">Femminile</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Giocatore/Giocatrice 1 *</label><input type="text" id="f-g1" placeholder="Nome e Cognome"></div>
+      <div class="form-group"><label>Giocatore/Giocatrice 2 *</label><input type="text" id="f-g2" placeholder="Nome e Cognome"></div>
+      <div class="form-group"><label>Giocatore/Giocatrice 3 (opz.)</label><input type="text" id="f-g3" placeholder="Nome e Cognome"></div>
+      <div class="form-group"><label>Telefono</label><input type="tel" id="f-tel" placeholder="+39 ..."></div>
+      <div class="form-group full"><label>Note</label><textarea id="f-note" placeholder="Richieste, disponibilità orarie..."></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="iscriviSquadra()">➕ ISCRIVITI</button>
+      <button class="btn btn-outline" onclick="clearForm()">🔄 Azzera</button>
+    </div>
+  </div>
+
+  <div class="section-title">📌 SQUADRE REGISTRATE</div>
+  <div id="team-list"><div style="text-align:center;padding:28px;color:var(--text-m);font-size:14px;">Nessuna squadra iscritta ancora.</div></div>
+  <div style="margin-top:8px;">
+    <button class="btn btn-green btn-sm" onclick="caricaDemo()">🎭 Carica 16 squadre demo</button>
+  </div>
+</div>
+
+<!-- ══ PAGE: GIRONI ══ -->
+<div class="page" id="page-gironi">
+  <div class="info-box"><span class="ico">ℹ️</span><div><strong>4 gironi da 4 squadre</strong> · Set unico ai 21 punti · Vittoria = 2pt · Sconfitta = 0pt<br>Passano le <strong>prime 3</strong> di ogni girone + <strong>2 ripescate</strong> dal girone delle quarte.</div></div>
+  <div class="section-title">🔀 GENERAZIONE GIRONI</div>
+  <div class="card">
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn btn-primary" onclick="generaGironi()">🎲 GENERA GIRONI CASUALI</button>
+      <button class="btn btn-outline" onclick="resetGironi()">🗑️ Azzera</button>
+    </div>
+    <div id="gironi-container" style="margin-top:14px;"><div style="text-align:center;padding:16px;color:var(--text-m);font-size:13px;">Iscriviti (almeno 4 squadre) poi genera i gironi.</div></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: CALENDARIO ══ -->
+<div class="page" id="page-calendario">
+  <div class="info-box"><span class="ico">📅</span><div>Girone all'italiana per ogni gruppo. Inserisci i punteggi per aggiornare la classifica in tempo reale.</div></div>
+  <div class="section-title">📅 CALENDARIO GARE</div>
+  <div id="calendario-container"><div style="text-align:center;padding:28px;color:var(--text-m);">Genera prima i gironi.</div></div>
+</div>
+
+<!-- ══ PAGE: CLASSIFICA ══ -->
+<div class="page" id="page-classifica">
+  <div class="phase-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2D5A1B"></div><span>Qualificata diretta (1ª–3ª)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C87820"></div><span>Ripescaggio (4ª)</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#CC2200"></div><span>Eliminata</span></div>
+  </div>
+  <div id="classifica-container"><div style="text-align:center;padding:28px;color:var(--text-m);">Inserisci i risultati nel calendario.</div></div>
+  <div id="ripescaggio-section" style="display:none;">
+    <div class="section-title" style="margin-top:22px;">🔄 GIRONE DI RIPESCAGGIO</div>
+    <div class="info-box"><span class="ico">🔄</span><div>Le 4 quarte classificate si sfidano. Le <strong>prime 2</strong> accedono alla fase finale.</div></div>
+    <div id="ripescaggio-container"></div>
+  </div>
+</div>
+
+<!-- ══ PAGE: FINALE ══ -->
+<div class="page" id="page-finale">
+  <div class="info-box"><span class="ico">⚔️</span><div><strong>14 squadre qualificate · Formula a castello.</strong><br>Preliminare (14→8) · Quarti · Semifinali · Finale 3°/4° e 1°/2°</div></div>
+  <div class="btn-row" style="margin-bottom:16px;">
+    <button class="btn btn-primary" onclick="generaFinale()">⚔️ GENERA TABELLONE</button>
+    <button class="btn btn-outline" onclick="resetFinale()">🗑️ Azzera</button>
+  </div>
+  <div id="finale-container"><div style="text-align:center;padding:28px;color:var(--text-m);">Completa la fase gironi poi genera il tabellone.</div></div>
+</div>
+
+<!-- ══ PAGE: DATI ══ -->
+<div class="page" id="page-dati">
+  <div class="section-title">💾 GESTIONE DATI</div>
+  <div class="card"><h3>📤 ESPORTA</h3><p style="font-size:13px;color:var(--text-m);margin-bottom:12px;">Salva tutti i dati del torneo come file JSON.</p>
+    <div class="export-row">
+      <button class="btn btn-green" onclick="esportaJSON()">⬇️ Esporta JSON</button>
+      <button class="btn btn-outline" onclick="esportaTesto()">📄 Riepilogo .txt</button>
+    </div>
+  </div>
+  <div class="card"><h3>📥 IMPORTA</h3><p style="font-size:13px;color:var(--text-m);margin-bottom:12px;">Carica un file JSON di un torneo precedente.</p>
+    <input type="file" id="import-file" accept=".json" onchange="importaJSON(event)" style="display:none">
+    <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">📂 Carica JSON</button>
+  </div>
+  <div class="card"><h3>🗑️ RESET COMPLETO</h3>
+    <button class="btn btn-danger" style="margin-top:4px;" onclick="resetCompleto()">🗑️ Reset Torneo</button>
+  </div>
+  <div class="card"><h3>📋 STATO CORRENTE</h3><pre id="stato-json"></pre></div>
+</div>
+
+<script>
+// ══ STATE ══
+let state = {
+  squadre: [], gironi: [], partite: [], ripescaggio: [],
+  finale: { preliminare:[], quarti:[], semifinali:[], finale3:null, finale1:null }
+};
+const GIORNI = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+// ══ UI ══
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='classifica') renderClassifica();
+  if(name==='calendario') renderCalendario();
+  if(name==='dati') renderStatoJSON();
+}
+
+function toast(msg,type='') {
+  const c=document.getElementById('toastContainer');
+  const d=document.createElement('div');
+  d.className='toast '+type; d.textContent=msg; c.appendChild(d);
+  setTimeout(()=>d.remove(),3000);
+}
+function uid(){ return Date.now()+Math.random().toString(36).slice(2,7); }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// ══ ISCRIZIONI ══
+function iscriviSquadra(){
+  const nome=document.getElementById('f-nome').value.trim();
+  const cat=document.getElementById('f-cat').value;
+  const g1=document.getElementById('f-g1').value.trim();
+  const g2=document.getElementById('f-g2').value.trim();
+  const g3=document.getElementById('f-g3').value.trim();
+  const tel=document.getElementById('f-tel').value.trim();
+  const note=document.getElementById('f-note').value.trim();
+  if(!nome) return toast('Inserisci il nome della squadra','error');
+  if(!g1||!g2) return toast('Inserisci almeno 2 giocatori','error');
+  if(state.squadre.length>=16) return toast('Torneo al completo! 16/16','error');
+  if(state.squadre.find(s=>s.nome.toLowerCase()===nome.toLowerCase())) return toast('Nome squadra già esistente','error');
+  state.squadre.push({id:uid(),nome,cat,g1,g2,g3,tel,note});
+  clearForm(); renderTeamList();
+  toast(`✅ "${nome}" iscritta!`,'success');
+}
+function clearForm(){
+  ['f-nome','f-g1','f-g2','f-g3','f-tel','f-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='Misto';
+}
+function eliminaSquadra(id){
+  if(!confirm('Eliminare questa squadra?')) return;
+  state.squadre=state.squadre.filter(s=>s.id!==id);
+  renderTeamList(); toast('Squadra rimossa');
+}
+function renderTeamList(){
+  const n=state.squadre.length;
+  document.getElementById('stat-iscritte').textContent=n;
+  document.getElementById('stat-rimaste').textContent=16-n;
+  const list=document.getElementById('team-list');
+  if(!n){ list.innerHTML='<div style="text-align:center;padding:28px;color:var(--text-m);font-size:14px;">Nessuna squadra iscritta.</div>'; return; }
+  list.innerHTML=state.squadre.map((s,i)=>`
+    <div class="team-row">
+      <div class="team-num">${i+1}</div>
+      <div class="team-info">
+        <div class="team-name">${s.nome} <span class="tag tag-orange">${s.cat}</span></div>
+        <div class="team-players">👤 ${s.g1} &amp; ${s.g2}${s.g3?' · '+s.g3:''}</div>
+        ${s.tel?`<div class="team-note">📞 ${s.tel}</div>`:''}
+        ${s.note?`<div class="team-note">💬 ${s.note}</div>`:''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="eliminaSquadra('${s.id}')">✕</button>
+    </div>`).join('');
+}
+function caricaDemo(){
+  const demo=[
+    ['Sunset Duo','Marco Rossi','Giulia Ferrari',''],['Sand Storm','Luca Bianchi','Chiara Ricci',''],
+    ['Wave Riders','Andrea Costa','Valentina Greco',''],['Beach Kings','Matteo Bruno','Sofia Conti',''],
+    ['Ace Smash','Paolo Neri','Alice Romano',''],['Spike Force','Davide Gallo','Francesca Sala',''],
+    ['Net Ninjas','Riccardo Serra','Laura Martini',''],['Block Party','Simone Riva','Elena Moretti',''],
+    ['Dig Deep','Fabio Longo','Marta Colombo',''],['Serve & Smash','Giorgio Poli','Sara Barbieri',''],
+    ['Jump Set Go','Roberto Fanti','Alessia Vitale',''],['Power Volley','Enrico Mazza','Claudia Sanna',''],
+    ['Sand Sharks','Nicola Ferro','Roberta Pini',''],['Flip Spike','Emanuele Cruz','Patrizia Gentile',''],
+    ['Top Spin','Francesco De Luca','Annalisa Marchi',''],['Last Stand','Massimo Grandi','Teresa Amato','']
+  ];
+  state.squadre=[];
+  demo.forEach(([nome,g1,g2,g3])=>state.squadre.push({id:uid(),nome,cat:'Misto',g1,g2,g3,tel:'',note:''}));
+  renderTeamList(); toast('16 squadre demo caricate!','success');
+}
+
+// ══ GIRONI ══
+function generaGironi(){
+  if(state.squadre.length<4) return toast('Servono almeno 4 squadre','error');
+  const s=shuffle(state.squadre);
+  state.gironi=[[],[],[],[]];
+  s.forEach((t,i)=>state.gironi[i%4].push(t));
+  state.partite=[];
+  let mc=0;
+  state.gironi.forEach((teams,gi)=>{
+    for(let a=0;a<teams.length-1;a++){
+      for(let b=a+1;b<teams.length;b++){
+        const day=Math.floor(mc/4);
+        const slot=mc%4;
+        const mins=30+slot*25;
+        const ora=`${19+Math.floor(mins/60)}:${String(mins%60).padStart(2,'0')}`;
+        state.partite.push({id:uid(),girone:gi,t1id:teams[a].id,t1:teams[a].nome,t2id:teams[b].id,t2:teams[b].nome,g1:null,g2:null,giorno:day,ora});
+        mc++;
+      }
+    }
+  });
+  state.ripescaggio=[];
+  state.finale={preliminare:[],quarti:[],semifinali:[],finale3:null,finale1:null};
+  renderGironi(); toast('Gironi generati!','success');
+}
+function resetGironi(){
+  state.gironi=[]; state.partite=[]; state.ripescaggio=[];
+  state.finale={preliminare:[],quarti:[],semifinali:[],finale3:null,finale1:null};
+  renderGironi();
+}
+function renderGironi(){
+  const c=document.getElementById('gironi-container');
+  if(!state.gironi.length){ c.innerHTML='<div style="text-align:center;padding:16px;color:var(--text-m);font-size:13px;">Nessun girone generato.</div>'; return; }
+  const labs=['A','B','C','D'];
+  c.innerHTML='<div class="gironi-grid">'+state.gironi.map((teams,gi)=>`
+    <div class="girone-card">
+      <div class="girone-header">🔹 GIRONE ${labs[gi]}</div>
+      ${teams.map((t,i)=>`<div class="girone-team"><span class="seed">${i+1}</span>${t.nome}</div>`).join('')}
+    </div>`).join('')+'</div>';
+}
+
+// ══ CALENDARIO ══
+function renderCalendario(){
+  const c=document.getElementById('calendario-container');
+  if(!state.partite.length){ c.innerHTML='<div style="text-align:center;padding:28px;color:var(--text-m);">Genera prima i gironi.</div>'; return; }
+  const labs=['A','B','C','D'];
+  const byDay={};
+  state.partite.forEach(p=>{ if(!byDay[p.giorno]) byDay[p.giorno]=[]; byDay[p.giorno].push(p); });
+  c.innerHTML=Object.entries(byDay).map(([day,partite])=>`
+    <div class="match-day">
+      <div class="match-day-header">📅 ${GIORNI[+day]} <span style="font-size:13px;color:var(--text-m);margin-left:auto;font-family:Inter;">${partite.length} partite</span></div>
+      ${partite.map(p=>`
+        <div class="match-row">
+          <div><div class="match-time">${p.ora}</div><div style="font-size:10px;color:var(--text-m);font-weight:700;text-transform:uppercase;">G${labs[p.girone]}</div></div>
+          <div class="match-team">${p.t1}</div>
+          <div class="match-score">
+            <input class="score-input" type="number" min="0" max="30" value="${p.g1!==null?p.g1:''}" onchange="aggiScore('${p.id}',0,this.value)" placeholder="-">
+            <span class="score-sep">–</span>
+            <input class="score-input" type="number" min="0" max="30" value="${p.g2!==null?p.g2:''}" onchange="aggiScore('${p.id}',1,this.value)" placeholder="-">
+          </div>
+          <div class="match-team right">${p.t2}</div>
+          <div></div>
+        </div>`).join('')}
+    </div>`).join('');
+  if(state.ripescaggio.length){
+    c.innerHTML+=`<div class="match-day">
+      <div class="match-day-header" style="background:var(--sand3);border-left-color:var(--warning);">🔄 GIRONE DI RIPESCAGGIO</div>
+      ${state.ripescaggio.map(p=>`
+        <div class="match-row">
+          <div><div class="match-time">${p.ora}</div><div style="font-size:10px;color:var(--text-m);font-weight:700;text-transform:uppercase;">RIP</div></div>
+          <div class="match-team">${p.t1}</div>
+          <div class="match-score">
+            <input class="score-input" type="number" min="0" value="${p.g1!==null?p.g1:''}" onchange="aggiScoreRip('${p.id}',0,this.value)" placeholder="-">
+            <span class="score-sep">–</span>
+            <input class="score-input" type="number" min="0" value="${p.g2!==null?p.g2:''}" onchange="aggiScoreRip('${p.id}',1,this.value)" placeholder="-">
+          </div>
+          <div class="match-team right">${p.t2}</div>
+          <div></div>
+        </div>`).join('')}
+    </div>`;
+  }
+}
+function aggiScore(id,team,val){
+  const p=state.partite.find(x=>x.id===id); if(!p) return;
+  if(team===0) p.g1=parseInt(val)||0; else p.g2=parseInt(val)||0;
+}
+function aggiScoreRip(id,team,val){
+  const p=state.ripescaggio.find(x=>x.id===id); if(!p) return;
+  if(team===0) p.g1=parseInt(val)||0; else p.g2=parseInt(val)||0;
+}
+
+// ══ CLASSIFICA ══
+function calcCls(teams,partite){
+  const st={};
+  teams.forEach(t=>st[t.id]={nome:t.nome,id:t.id,v:0,s:0,pt:0,pf:0,ps:0});
+  partite.forEach(p=>{
+    if(p.g1===null||p.g2===null) return;
+    const s1=st[p.t1id],s2=st[p.t2id]; if(!s1||!s2) return;
+    s1.pf+=p.g1;s1.ps+=p.g2;s2.pf+=p.g2;s2.ps+=p.g1;
+    if(p.g1>p.g2){s1.v++;s1.pt+=2;s2.s++;}
+    else if(p.g2>p.g1){s2.v++;s2.pt+=2;s1.s++;}
+  });
+  return Object.values(st).sort((a,b)=>b.pt-a.pt||(b.pf-b.ps)-(a.pf-a.ps)||b.pf-a.pf);
+}
+function renderClassifica(){
+  const c=document.getElementById('classifica-container');
+  if(!state.gironi.length){ c.innerHTML='<div style="text-align:center;padding:28px;color:var(--text-m);">Genera prima i gironi.</div>'; return; }
+  const labs=['A','B','C','D']; let quarte=[];
+  c.innerHTML=state.gironi.map((teams,gi)=>{
+    const cls=calcCls(teams,state.partite.filter(p=>p.girone===gi));
+    if(cls[3]) quarte.push(cls[3]);
+    return `<div style="margin-bottom:18px;">
+      <div class="section-title" style="font-size:20px;">GIRONE ${labs[gi]}</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="standings-table"><thead><tr><th>#</th><th>Squadra</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>±</th><th>Stato</th></tr></thead>
+        <tbody>${cls.map((t,i)=>{
+          let stato=i<3?'<span class="qualified">✅ Qualificata</span>':'<span class="ripescag">🔄 Ripescaggio</span>';
+          return `<tr class="rank-${i+1}" style="${i<3?'background:rgba(45,90,27,0.04)':'background:rgba(200,120,32,0.04)'}">
+            <td><span class="rank-badge">${i+1}</span></td><td><strong>${t.nome}</strong></td>
+            <td>${t.v}</td><td>${t.s}</td><td><strong>${t.pt}</strong></td>
+            <td>${t.pf}</td><td>${t.ps}</td><td>${t.pf-t.ps>=0?'+':''}${t.pf-t.ps}</td><td>${stato}</td></tr>`;
+        }).join('')}</tbody></table>
+      </div></div>`;
+  }).join('');
+  const ripSec=document.getElementById('ripescaggio-section');
+  if(quarte.length===4){ ripSec.style.display='block'; generaRip(quarte); renderClsRip(quarte); }
+  else ripSec.style.display='none';
+}
+function generaRip(quarte){
+  if(state.ripescaggio.length) return;
+  const combos=[[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  state.ripescaggio=combos.map(([a,b],i)=>({
+    id:uid(),t1id:quarte[a].id,t1:quarte[a].nome,t2id:quarte[b].id,t2:quarte[b].nome,
+    g1:null,g2:null,ora:`${19+Math.floor((30+i*20)/60)}:${String((30+i*20)%60).padStart(2,'0')}`
+  }));
+}
+function renderClsRip(quarte){
+  const cls=calcCls(quarte.map(t=>({id:t.id,nome:t.nome})),state.ripescaggio);
+  document.getElementById('ripescaggio-container').innerHTML=`
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="standings-table"><thead><tr><th>#</th><th>Squadra</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>±</th><th>Stato</th></tr></thead>
+      <tbody>${cls.map((t,i)=>`<tr style="${i<2?'background:rgba(45,90,27,0.04)':''}">
+        <td><span class="rank-badge">${i+1}</span></td><td><strong>${t.nome}</strong></td>
+        <td>${t.v}</td><td>${t.s}</td><td><strong>${t.pt}</strong></td>
+        <td>${t.pf}</td><td>${t.ps}</td><td>${t.pf-t.ps>=0?'+':''}${t.pf-t.ps}</td>
+        <td>${i<2?'<span class="qualified">✅ Qualificata</span>':'<span class="eliminata">❌ Eliminata</span>'}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+}
+
+// ══ FASE FINALE ══
+function getQual(){
+  if(!state.gironi.length) return [];
+  let q=[];
+  state.gironi.forEach((teams,gi)=>{ const cls=calcCls(teams,state.partite.filter(p=>p.girone===gi)); q.push(...cls.slice(0,3)); });
+  if(state.ripescaggio.length){
+    const quarte=state.gironi.map((teams,gi)=>{ const cls=calcCls(teams,state.partite.filter(p=>p.girone===gi)); return cls[3]; }).filter(Boolean);
+    const rip=calcCls(quarte.map(t=>({id:t.id,nome:t.nome})),state.ripescaggio);
+    q.push(...rip.slice(0,2));
+  }
+  return q.slice(0,14);
+}
+function generaFinale(){
+  const qual=getQual();
+  if(qual.length<12) return toast('Completa la fase gironi (min 12 qualificate)','error');
+  const seeded=qual.slice(0,2);
+  const bracket=qual.slice(2,14);
+  state.finale.preliminare=[];
+  for(let i=0;i<bracket.length;i+=2){
+    state.finale.preliminare.push({id:uid(),t1:bracket[i].nome,t2:bracket[i+1]?.nome||'TBD',t1id:bracket[i].id,t2id:bracket[i+1]?.id||null,g1:null,g2:null});
+  }
+  state.finale.quarti=['Q1','Q2','Q3','Q4'].map((lbl,i)=>({id:uid(),label:lbl,
+    t1:i===0?seeded[0].nome:i===1?seeded[1].nome:'Vin. Prel.'+(i+1),t2:'TBD',g1:null,g2:null}));
+  state.finale.semifinali=[{id:uid(),label:'SF1',t1:'Vin. Q1',t2:'Vin. Q2',g1:null,g2:null},{id:uid(),label:'SF2',t1:'Vin. Q3',t2:'Vin. Q4',g1:null,g2:null}];
+  state.finale.finale3={id:uid(),label:'3°/4°',t1:'Perd. SF1',t2:'Perd. SF2',g1:null,g2:null};
+  state.finale.finale1={id:uid(),label:'1°/2°',t1:'Vin. SF1',t2:'Vin. SF2',g1:null,g2:null};
+  renderFinale(); toast('Tabellone generato!','success');
+}
+function resetFinale(){ state.finale={preliminare:[],quarti:[],semifinali:[],finale3:null,finale1:null}; renderFinale(); }
+function renderFinale(){
+  const c=document.getElementById('finale-container'),f=state.finale;
+  if(!f.preliminare.length){ c.innerHTML='<div style="text-align:center;padding:28px;color:var(--text-m);">Genera il tabellone finale.</div>'; return; }
+  const rm=(m,phase,lbl)=>`
+    <div class="bracket-match">
+      <div class="bracket-match-header">${lbl||m.label||''}</div>
+      <div class="bracket-team-row">
+        <span class="bracket-team-name">${m.t1||'TBD'}</span>
+        <input class="bracket-score-input" type="number" min="0" value="${m.g1!==null?m.g1:''}" placeholder="-" onchange="aggiFinale('${phase}','${m.id}',0,this.value)">
+      </div>
+      <div class="bracket-team-row">
+        <span class="bracket-team-name">${m.t2||'TBD'}</span>
+        <input class="bracket-score-input" type="number" min="0" value="${m.g2!==null?m.g2:''}" placeholder="-" onchange="aggiFinale('${phase}','${m.id}',1,this.value)">
+      </div>
+    </div>`;
+  c.innerHTML=`
+    <div class="bracket-phase"><div class="bracket-phase-title">🎯 TURNO PRELIMINARE <small style="font-size:14px;font-family:Inter;font-weight:400;color:var(--text-m);">12 squadre → 6 vincitori</small></div>
+    <div class="bracket-matches">${f.preliminare.map(m=>rm(m,'preliminare','Preliminare')).join('')}</div></div>
+    <div class="bracket-phase"><div class="bracket-phase-title">⚡ QUARTI DI FINALE</div>
+    <div class="bracket-matches">${f.quarti.map(m=>rm(m,'quarti',m.label)).join('')}</div></div>
+    <div class="bracket-phase"><div class="bracket-phase-title">🔥 SEMIFINALI</div>
+    <div class="bracket-matches">${f.semifinali.map(m=>rm(m,'semifinali',m.label)).join('')}</div></div>
+    <div class="bracket-phase"><div class="bracket-phase-title">🏆 FINALI</div>
+    <div class="bracket-matches">${rm(f.finale3,'finale3','🥉 Finale 3°/4° posto')}${rm(f.finale1,'finale1','🥇 Finale 1°/2° posto')}</div></div>`;
+}
+function aggiFinale(phase,id,team,val){
+  const arr=phase==='finale3'?[state.finale.finale3]:phase==='finale1'?[state.finale.finale1]:state.finale[phase];
+  const m=arr.find(x=>x.id===id); if(!m) return;
+  if(team===0) m.g1=parseInt(val)||0; else m.g2=parseInt(val)||0;
+}
+
+// ══ DATI ══
+function renderStatoJSON(){ document.getElementById('stato-json').textContent=JSON.stringify(state,null,2); }
+function esportaJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='torneo_bv_2026.json'; a.click();
+  toast('JSON esportato!','success');
+}
+function esportaTesto(){
+  let txt='🏐 TORNEO BEACH VOLLEY LUI & LEI 2026\nValsesia Chiringuito · Varallo Sesia\n'+'═'.repeat(40)+'\n\n';
+  txt+=`SQUADRE ISCRITTE (${state.squadre.length}/16)\n`+'─'.repeat(30)+'\n';
+  state.squadre.forEach((s,i)=>txt+=`${i+1}. ${s.nome} (${s.cat})\n   👤 ${s.g1} & ${s.g2}${s.g3?' · '+s.g3:''}\n`);
+  const labs=['A','B','C','D'];
+  txt+='\nGIRONI\n'+'─'.repeat(30)+'\n';
+  state.gironi.forEach((t,i)=>{ txt+=`\nGirone ${labs[i]}:\n`; t.forEach((s,j)=>txt+=`  ${j+1}. ${s.nome}\n`); });
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='torneo_bv_2026.txt'; a.click();
+  toast('Riepilogo esportato!','success');
+}
+function importaJSON(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ try{ state=JSON.parse(ev.target.result); renderTeamList(); renderGironi(); toast('Dati importati!','success'); }catch{ toast('Errore file JSON','error'); } };
+  r.readAsText(f);
+}
+function resetCompleto(){
+  if(!confirm('⚠️ Reset completo. Sei sicuro?')) return;
+  state={squadre:[],gironi:[],partite:[],ripescaggio:[],finale:{preliminare:[],quarti:[],semifinali:[],finale3:null,finale1:null}};
+  renderTeamList(); renderGironi(); toast('Torneo resettato');
+}
+</script>
+</body>
+</html>

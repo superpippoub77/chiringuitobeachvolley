@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pannello Admin - Torneo Beach Volley</title>
+  <style>
+    :root {
+      --bg: #f3ead8;
+      --ink: #1d1a13;
+      --accent: #e45a0a;
+      --accent-2: #2f6a23;
+      --line: #d8c39f;
+      --card: #fffdf8;
+      --danger: #b11f00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: radial-gradient(circle at 0 0, #fff3dc 0%, var(--bg) 50%, #e8d3ac 100%);
+      color: var(--ink);
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    h1 { margin: 0; font-size: 30px; letter-spacing: 1px; }
+    .link-row { margin-top: 8px; font-size: 14px; }
+    .link-row a { color: var(--accent-2); font-weight: 700; text-decoration: none; }
+    .tabs { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .tab {
+      border: 0;
+      background: #e8dcc4;
+      color: #5c4d2f;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .tab.active { background: var(--accent-2); color: #fff; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input, select {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+    }
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-green { background: var(--accent-2); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .hidden { display: none; }
+    .team {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px dashed #e7d6b5;
+      align-items: center;
+    }
+    .team:last-child { border-bottom: 0; }
+    .badge { font-size: 12px; border-radius: 999px; padding: 3px 8px; }
+    .ok { background: #d9f1d2; color: #1f5f12; }
+    .no { background: #ffe0d7; color: #8d1800; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #eadcbe; padding: 8px; text-align: left; }
+    th { background: #f8f0df; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 900px) {
+      .team { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">
+      <h1>Pannello di Controllo Admin</h1>
+      <div>
+        <button id="logoutBtn" class="btn btn-danger hidden">Logout</button>
+      </div>
+    </div>
+    <div class="link-row">
+      Vista pubblica: <a href="index.html" target="_blank">apri pagina torneo</a>
+    </div>
+
+    <div id="loginBox" class="card">
+      <h3>Login amministratore</h3>
+      <div class="row">
+        <input id="adminPassword" type="password" placeholder="Password admin">
+        <button class="btn btn-primary" onclick="login()">Accedi</button>
+      </div>
+      <p>Password demo: <strong>admin123</strong></p>
+    </div>
+
+    <div id="app" class="hidden">
+      <div class="tabs">
+        <button class="tab active" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
+        <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
+        <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
+        <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
+        <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
+      </div>
+
+      <div id="page-teams" class="card page">
+        <h3>Gestione squadre</h3>
+        <div id="teamsContainer"></div>
+      </div>
+
+      <div id="page-groups" class="card page hidden">
+        <h3>Gestione gironi</h3>
+        <div class="row">
+          <button class="btn btn-primary" onclick="generateGroups()">Genera gironi (solo approvate)</button>
+        </div>
+        <div id="groupsContainer" style="margin-top:10px"></div>
+      </div>
+
+      <div id="page-matches" class="card page hidden">
+        <h3>Gestione partite e orari</h3>
+        <div id="matchesContainer"></div>
+      </div>
+
+      <div id="page-playoff" class="card page hidden">
+        <h3>Gestione playoff</h3>
+        <div class="row">
+          <button class="btn btn-primary" onclick="createPlayoff()">Crea playoff</button>
+        </div>
+        <div id="playoffContainer" style="margin-top:10px"></div>
+      </div>
+
+      <div id="page-tools" class="card page hidden">
+        <h3>Strumenti rapidi</h3>
+        <div class="row">
+          <button class="btn btn-green" onclick="seedDemo()">Carica 16 squadre demo approvate</button>
+          <button class="btn btn-primary" onclick="simulateAll()">Pulsante TEST: simula tutto fino a finale e classifica</button>
+          <button class="btn btn-danger" onclick="resetAll()">Reset torneo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'api.php';
+    let token = localStorage.getItem('adminToken') || '';
+    let state = null;
+
+    async function callApi(action, method = 'GET', body = null, auth = false) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      if (auth && token) opts.headers.Authorization = 'Bearer ' + token;
+      const res = await fetch(`${API}?action=${action}`, opts);
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Errore API');
+      return json;
+    }
+
+    function showPage(page, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.querySelector('#page-' + page).classList.remove('hidden');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    async function login() {
+      const password = document.getElementById('adminPassword').value.trim();
+      if (!password) return alert('Inserisci password');
+      try {
+        const r = await callApi('admin_login', 'POST', { password });
+        token = r.token;
+        localStorage.setItem('adminToken', token);
+        document.getElementById('loginBox').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        document.getElementById('logoutBtn').classList.remove('hidden');
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.removeItem('adminToken');
+      location.reload();
+    });
+
+    async function refresh() {
+      const r = await callApi('admin_state', 'GET', null, true);
+      state = r.data;
+      renderTeams();
+      renderGroups();
+      renderMatches();
+      renderPlayoff();
+    }
+
+    function teamRow(team) {
+      const p = team.players || ['', '', ''];
+      return `<div class="team">
+        <input value="${escapeHtml(team.name)}" data-id="${team.id}" data-field="name" onchange="updateTeamField(this)">
+        <label><input type="checkbox" ${team.paid ? 'checked' : ''} data-id="${team.id}" data-field="paid" onchange="updateTeamCheckbox(this)"> Pagato</label>
+        <label><input type="checkbox" ${team.approved ? 'checked' : ''} data-id="${team.id}" data-field="approved" onchange="updateTeamCheckbox(this)"> Approvato</label>
+        <span>${team.approved ? '<span class="badge ok">Confermato</span>' : '<span class="badge no">In attesa</span>'}</span>
+        <button class="btn" onclick="editPlayers('${team.id}')">Giocatori</button>
+      </div>`;
+    }
+
+    function renderTeams() {
+      const c = document.getElementById('teamsContainer');
+      const all = state.teamsAll || [];
+      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount}</strong></p>` + all.map(teamRow).join('');
+    }
+
+    async function updateTeamField(el) {
+      try {
+        await callApi('admin_update_team', 'POST', { id: el.dataset.id, [el.dataset.field]: el.value }, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function updateTeamCheckbox(el) {
+      try {
+        await callApi('admin_update_team', 'POST', { id: el.dataset.id, [el.dataset.field]: el.checked }, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function editPlayers(teamId) {
+      const team = (state.teamsAll || []).find(t => t.id === teamId);
+      if (!team) return;
+      const p1 = prompt('Giocatore 1', (team.players || [])[0] || '');
+      if (p1 === null) return;
+      const p2 = prompt('Giocatore 2', (team.players || [])[1] || '');
+      if (p2 === null) return;
+      const p3 = prompt('Giocatore 3', (team.players || [])[2] || '');
+      if (p3 === null) return;
+      try {
+        await callApi('admin_update_team', 'POST', { id: teamId, players: [p1, p2, p3] }, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function generateGroups() {
+      try {
+        await callApi('admin_generate_groups', 'POST', {}, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    function renderGroups() {
+      const c = document.getElementById('groupsContainer');
+      if (!state.groups.length) {
+        c.innerHTML = '<p>Nessun girone generato.</p>';
+        return;
+      }
+      c.innerHTML = '<div class="grid">' + state.groups.map(g => `<div class="card"><strong>Girone ${g.name}</strong><ul>${g.teams.map(t => `<li>${escapeHtml(t.name)}</li>`).join('')}</ul></div>`).join('') + '</div>';
+    }
+
+    function renderMatches() {
+      const c = document.getElementById('matchesContainer');
+      const m = state.groupMatches || [];
+      if (!m.length) {
+        c.innerHTML = '<p>Nessuna partita.</p>';
+        return;
+      }
+      c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Giorno</th><th>Ora</th><th>Salva</th></tr></thead><tbody>
+      ${m.map(match => `<tr>
+        <td>${match.group}</td>
+        <td>${escapeHtml(match.team1Name)}</td>
+        <td>
+          <input id="s1-${match.id}" type="number" min="0" style="width:60px" value="${match.score1 ?? ''}"> -
+          <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
+        </td>
+        <td>${escapeHtml(match.team2Name)}</td>
+        <td><input id="d-${match.id}" type="number" min="1" style="width:80px" value="${match.day}"></td>
+        <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.time}"></td>
+        <td><button class="btn btn-primary" onclick="saveMatch('${match.id}')">OK</button></td>
+      </tr>`).join('')}
+      </tbody></table>`;
+    }
+
+    async function saveMatch(id) {
+      const score1 = document.getElementById('s1-' + id).value;
+      const score2 = document.getElementById('s2-' + id).value;
+      const day = document.getElementById('d-' + id).value;
+      const time = document.getElementById('t-' + id).value;
+      try {
+        await callApi('admin_update_group_match', 'POST', {
+          id,
+          score1: score1 === '' ? null : Number(score1),
+          score2: score2 === '' ? null : Number(score2),
+          day: Number(day),
+          time
+        }, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function createPlayoff() {
+      try {
+        await callApi('admin_create_playoff', 'POST', {}, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    function renderPlayoff() {
+      const c = document.getElementById('playoffContainer');
+      const p = state.playoff || {};
+      const blocks = [];
+      const draw = (title, phase, arr) => {
+        if (!arr || !arr.length) return;
+        blocks.push(`<h4>${title}</h4><table><thead><tr><th>Match</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Salva</th></tr></thead><tbody>${arr.map(m => `<tr>
+          <td>${m.label}</td>
+          <td>${escapeHtml(m.team1Name)}</td>
+          <td><input id="p1-${m.id}" type="number" min="0" style="width:60px" value="${m.score1 ?? ''}"> - <input id="p2-${m.id}" type="number" min="0" style="width:60px" value="${m.score2 ?? ''}"></td>
+          <td>${escapeHtml(m.team2Name)}</td>
+          <td><button class="btn btn-primary" onclick="savePlayoff('${phase}','${m.id}')">OK</button></td>
+        </tr>`).join('')}</tbody></table>`);
+      };
+      draw('Quarti', 'quarterFinals', p.quarterFinals || []);
+      draw('Semifinali', 'semiFinals', p.semiFinals || []);
+      if (p.thirdPlace) draw('Finale 3 posto', 'thirdPlace', [p.thirdPlace]);
+      if (p.final) draw('Finale', 'final', [p.final]);
+      c.innerHTML = blocks.length ? blocks.join('') : '<p>Nessun playoff creato.</p>';
+    }
+
+    async function savePlayoff(phase, id) {
+      const score1 = document.getElementById('p1-' + id).value;
+      const score2 = document.getElementById('p2-' + id).value;
+      try {
+        await callApi('admin_update_playoff_match', 'POST', {
+          phase,
+          id,
+          score1: score1 === '' ? null : Number(score1),
+          score2: score2 === '' ? null : Number(score2)
+        }, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function simulateAll() {
+      if (!confirm('Simulare tutto fino alla classifica finale?')) return;
+      try {
+        await callApi('admin_simulate_all', 'POST', {}, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function seedDemo() {
+      try {
+        await callApi('admin_seed_demo', 'POST', {}, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    async function resetAll() {
+      if (!confirm('Reset completo torneo?')) return;
+      try {
+        await callApi('admin_reset', 'POST', {}, true);
+        await refresh();
+      } catch (e) { alert(e.message); }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    (async function bootstrap() {
+      if (!token) return;
+      document.getElementById('loginBox').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      document.getElementById('logoutBtn').classList.remove('hidden');
+      try {
+        await refresh();
+      } catch {
+        localStorage.removeItem('adminToken');
+        location.reload();
+      }
+    })();
+  </script>
+</body>
+</html>

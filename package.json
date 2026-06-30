@@ -1,0 +1,10 @@
+{
+  "name": "chiringuitobeachvolley",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestione torneo beach volley con frontend pubblico e pannello admin",
+  "main": "api.php",
+  "scripts": {
+    "start": "php -S 0.0.0.0:3000"
+  }
+}

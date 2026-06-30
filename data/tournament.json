@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "maxTeams": 16
+  },
+  "teams": [],
+  "groups": [],
+  "groupMatches": [],
+  "playoff": {
+    "quarterFinals": [],
+    "semiFinals": [],
+    "thirdPlace": null,
+    "final": null
+  },
+  "finalRanking": [],
+  "meta": {
+    "lastUpdated": null
+  }
+}

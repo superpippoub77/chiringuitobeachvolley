@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy project (no build) to FTP server
+      - name: Deploy to production
         uses: SamKirkland/FTP-Deploy-Action@v4.3.0
         with:
           server: ftp.filippomorano.com
@@ -22,6 +22,22 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/
+          exclude: |
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            **/.vscode/**
+            **/.DS_Store
+            **/README.md
+
+      - name: Deploy to test
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.0
+        with:
+          server: ftp.filippomorano.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/test/
           exclude: |
             **/.git*/**
             **/.github/**

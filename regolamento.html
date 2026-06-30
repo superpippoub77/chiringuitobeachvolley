@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regolamento - Torneo Beach Volley Chiringuito</title>
+  <style>
+    :root {
+      --sand-1: #f8edd8;
+      --sand-2: #f1dfbc;
+      --sand-3: #e7cf9e;
+      --sun: #ea5b0c;
+      --sun-2: #ff7f32;
+      --leaf: #2e5d1f;
+      --leaf-2: #3b7428;
+      --ink: #201c14;
+      --ink-soft: #6a5737;
+      --white: #fffdfa;
+      --line: #d9bf8c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255, 230, 170, 0.8) 0%, rgba(255, 230, 170, 0) 35%),
+        radial-gradient(circle at 85% 0%, rgba(255, 176, 116, 0.6) 0%, rgba(255, 176, 116, 0) 40%),
+        linear-gradient(160deg, var(--sand-1) 0%, var(--sand-2) 58%, var(--sand-3) 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%, #efc37f 100%);
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+    }
+
+    .header h1 {
+      margin: 0;
+      color: var(--sun);
+      font-size: 36px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .header .subtitle {
+      margin: 12px 0 0;
+      color: var(--leaf);
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header p {
+      margin: 8px 0 0;
+      color: var(--ink-soft);
+      font-size: 14px;
+    }
+
+    .content {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      line-height: 1.8;
+    }
+
+    h2 {
+      color: var(--sun);
+      font-size: 22px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+    }
+
+    h2:first-child {
+      margin-top: 0;
+    }
+
+    p {
+      margin: 12px 0;
+      color: var(--ink);
+    }
+
+    ul, ol {
+      margin: 12px 0;
+      padding-left: 24px;
+      color: var(--ink);
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+
+    strong {
+      color: var(--sun);
+      font-weight: 800;
+    }
+
+    .highlight {
+      background: #fff8ea;
+      border-left: 4px solid var(--sun);
+      padding: 12px 14px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+
+    .highlight-green {
+      background: #f0f8eb;
+      border-left: 4px solid var(--leaf);
+      padding: 12px 14px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+
+    a {
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .back-link:before {
+      content: "← ";
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .table-of-contents {
+      background: #f8edd6;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 15px 20px;
+      margin: 20px 0;
+    }
+
+    .table-of-contents h4 {
+      margin: 0 0 10px;
+      color: var(--leaf);
+    }
+
+    .table-of-contents ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .table-of-contents a {
+      color: var(--leaf);
+    }
+
+    .balloon {
+      display: inline-block;
+      background: var(--leaf);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="index.html" class="back-link">Torna alla pagina principale</a>
+
+    <div class="header">
+      <h1>🏐 Regolamento Torneo</h1>
+      <div class="subtitle">Beach Volley Lui & Lei</div>
+      <p>Categoria Mista - Chiringuito Varallo 2026</p>
+    </div>
+
+    <div class="content">
+      <div class="table-of-contents">
+        <h4>Indice dei contenuti</h4>
+        <ul>
+          <li><a href="#composizione">Composizione delle squadre</a></li>
+          <li><a href="#formula">Formula di gioco</a></li>
+          <li><a href="#gironi">Prima fase – Gironi</a></li>
+          <li><a href="#qualificazione">Qualificazione</a></li>
+          <li><a href="#ripescaggio">Ripescaggio</a></li>
+          <li><a href="#finale">Fase finale</a></li>
+          <li><a href="#norme">Norme generali</a></li>
+        </ul>
+      </div>
+
+      <h2 id="composizione">Composizione delle squadre</h2>
+      <ul>
+        <li>Le squadre sono composte da <strong>2 giocatori in campo</strong>.</li>
+        <li>Ogni squadra può iscrivere <strong>un massimo di 3 giocatori</strong>.</li>
+        <li>È obbligatoria la presenza di <strong>almeno 1 donna in campo</strong> per tutta la durata della partita.</li>
+      </ul>
+
+      <div class="highlight-green">
+        <strong>Importante:</strong> La mancanza di una donna in campo comporta la sconfitta della partita per rinuncia.
+      </div>
+
+      <h2 id="formula">Formula di gioco</h2>
+      <ul>
+        <li>Tutte le partite si disputano con <strong>set secco ai 21 punti</strong>.</li>
+        <li>In caso di 20-20 si prosegue fino a ottenere <strong>2 punti di vantaggio</strong>.</li>
+        <li>Ogni squadra ha a disposizione <strong>1 timeout da 30 secondi</strong> per partita.</li>
+        <li>Al raggiungimento degli <strong>11 punti</strong> si effettua il cambio di campo.</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Sistema di Punteggio:</strong>
+        <ul>
+          <li>Vittoria: <strong>3 punti</strong></li>
+          <li>Sconfitta: <strong>0 punti</strong></li>
+        </ul>
+      </div>
+
+      <h2 id="gironi">Prima fase – Gironi</h2>
+      <ul>
+        <li>Le 16 squadre saranno suddivise in <strong>4 gironi da 4 squadre</strong>.</li>
+        <li>Ogni squadra incontrerà tutte le altre del proprio girone (round-robin).</li>
+        <li>La classifica sarà determinata dai <strong>punti ottenuti</strong> durante il girone.</li>
+        <li>In caso di parità di punti, varranno i <strong>criteri di differenza set</strong> e <strong>differenza punti</strong>.</li>
+      </ul>
+
+      <h2 id="qualificazione">Qualificazione</h2>
+      <ul>
+        <li>Le <strong>prime 3 classificate</strong> di ogni girone accedono direttamente alla fase successiva (<strong>12 squadre</strong>).</li>
+        <li>Le <strong>quarte classificate</strong> disputeranno un <strong>girone di ripescaggio</strong>.</li>
+      </ul>
+
+      <h2 id="ripescaggio">Ripescaggio</h2>
+      <ul>
+        <li>Le 4 ultime classificate dei gironi si affronteranno in un <strong>mini-girone</strong>.</li>
+        <li>Le <strong>prime 2 classificate del ripescaggio</strong> accederanno alla fase finale.</li>
+        <li>Le altre 2 squadre avranno un'ulteriore possibilità di qualificazione:
+          <ul>
+            <li>La <strong>penultima classificata</strong> del ripescaggio affronterà la <strong>miglior prima classificata</strong> dei gironi;</li>
+            <li>L'<strong>ultima classificata</strong> del ripescaggio affronterà la <strong>miglior seconda classificata</strong> dei gironi.</li>
+          </ul>
+        </li>
+      </li>
+      </ul>
+
+      <h2 id="finale">Fase finale</h2>
+      <ul>
+        <li>La fase finale sarà composta da <strong>16 squadre</strong>.</li>
+        <li>Gli accoppiamenti saranno determinati tramite una <strong>formula a castello</strong>, bilanciata in base ai risultati e ai punteggi ottenuti nelle fasi precedenti.</li>
+        <li>Le squadre con il <strong>miglior rendimento</strong> avranno una <strong>posizione di tabellone più favorevole</strong>.</li>
+      </ul>
+
+      <div class="highlight">
+        <strong>Formato Fase Finale:</strong>
+        <ul>
+          <li><strong>Quarti di finale:</strong> 16 → 8 squadre</li>
+          <li><strong>Semifinali:</strong> 8 → 4 squadre</li>
+          <li><strong>Finale 3° posto:</strong> Determina 3° e 4° classificata</li>
+          <li><strong>Finale:</strong> Determina Campioni e Vice-campioni</li>
+        </ul>
+      </div>
+
+      <h2 id="norme">Norme generali</h2>
+      <ul>
+        <li>È richiesto un <strong>comportamento corretto e rispettoso</strong> nei confronti di avversari, arbitri, organizzatori e pubblico.</li>
+        <li>Eventuali proteste devono essere presentate <strong>immediatamente</strong> al termine della partita all'organizzazione.</li>
+        <li>L'uso di linguaggio offensivo, minacce o aggressività comporta l'<strong>esclusione immediata dal torneo</strong>.</li>
+        <li>Eventuali decisioni organizzative non previste dal presente regolamento saranno valutate e decise <strong>insindacabilmente dall'organizzazione</strong>.</li>
+        <li>L'iscrizione al torneo implica l'<strong>accettazione integrale</strong> del presente regolamento.</li>
+      </ul>
+
+      <div class="highlight-green">
+        <strong>🏅 Fair Play:</strong> Il torneo promuove lo spirito sportivo e il divertimento. La mancanza di rispetto verso altre squadre, arbitri o organizzatori comporterà conseguenze disciplinari.
+      </div>
+
+      <div class="highlight">
+        <strong>Contatti e Chiarimenti:</strong> Per eventuali dubbi o richieste di chiarimenti sul regolamento, rivolgersi all'organizzazione prima dell'inizio del torneo.
+      </div>
+
+      <h2 style="margin-top: 40px; color: var(--leaf);">Buon Divertimento! 🏐</h2>
+      <p>Che il migliore vinca! Questo torneo è stato creato per divertirsi e condividere la passione per il beach volley.</p>
+    </div>
+
+    <footer>
+      <a href="index.html">Torna alla pagina principale</a>
+      <br>
+      <div style="margin-top: 10px;">© 2026 Chiringuito Varallo Beach Volley - Tutti i diritti riservati</div>
+    </footer>
+  </div>
+</body>
+</html>

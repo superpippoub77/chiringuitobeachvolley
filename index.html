@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
   <title>Chiringuito Beach Volley LUI&Lei 2026</title>
   <style>
     :root {
@@ -20,12 +24,14 @@
       --ok: #2e5d1f;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
       color: var(--ink);
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      font-family: "Original Surfer", sans-serif;
       background:
         radial-gradient(circle at 15% 10%, rgba(255, 230, 170, 0.8) 0%, rgba(255, 230, 170, 0) 35%),
         radial-gradient(circle at 85% 0%, rgba(255, 176, 116, 0.6) 0%, rgba(255, 176, 116, 0) 40%),
@@ -127,7 +133,9 @@
       letter-spacing: 0.4px;
     }
 
-    .hero-cell:last-child { border-right: 0; }
+    .hero-cell:last-child {
+      border-right: 0;
+    }
 
     .hero-links {
       margin-top: 10px;
@@ -195,7 +203,10 @@
       transition: all 0.2s ease;
     }
 
-    .tab:hover { transform: translateY(-1px); }
+    .tab:hover {
+      transform: translateY(-1px);
+    }
+
     .tab.active {
       background: linear-gradient(140deg, var(--sun) 0%, var(--sun-2) 100%);
       color: #fff;
@@ -212,7 +223,9 @@
       padding: 14px;
     }
 
-    .page.active { display: block; }
+    .page.active {
+      display: block;
+    }
 
     h3 {
       margin: 0 0 10px;
@@ -242,7 +255,8 @@
       gap: 9px;
     }
 
-    input, button {
+    input,
+    button {
       border-radius: 10px;
       padding: 10px;
       border: 1px solid var(--line);
@@ -265,7 +279,9 @@
       box-shadow: 0 6px 12px rgba(234, 91, 12, 0.3);
     }
 
-    .btn:hover { filter: brightness(1.05); }
+    .btn:hover {
+      filter: brightness(1.05);
+    }
 
     .team-row {
       display: flex;
@@ -276,7 +292,9 @@
       padding: 10px 0;
     }
 
-    .team-row:last-child { border-bottom: 0; }
+    .team-row:last-child {
+      border-bottom: 0;
+    }
 
     .tag {
       display: inline-block;
@@ -314,8 +332,14 @@
       letter-spacing: 0.6px;
     }
 
-    .group ul { margin: 0; padding: 8px 20px 10px; }
-    .group li { margin: 5px 0; }
+    .group ul {
+      margin: 0;
+      padding: 8px 20px 10px;
+    }
+
+    .group li {
+      margin: 5px 0;
+    }
 
     table {
       width: 100%;
@@ -325,7 +349,8 @@
       overflow: hidden;
     }
 
-    th, td {
+    th,
+    td {
       padding: 8px;
       text-align: left;
       border-bottom: 1px solid #efdfbd;
@@ -340,7 +365,9 @@
       letter-spacing: 0.5px;
     }
 
-    tr:nth-child(even) td { background: #fff9ef; }
+    tr:nth-child(even) td {
+      background: #fff9ef;
+    }
 
     .empty {
       color: var(--ink-soft);
@@ -348,11 +375,25 @@
       padding: 8px 0;
     }
 
-    .rank-1 { color: #a36c00; font-weight: 800; }
-    .rank-2 { color: #747474; font-weight: 800; }
-    .rank-3 { color: #8a4d00; font-weight: 800; }
+    .rank-1 {
+      color: #a36c00;
+      font-weight: 800;
+    }
 
-    .hidden { display: none !important; }
+    .rank-2 {
+      color: #747474;
+      font-weight: 800;
+    }
+
+    .rank-3 {
+      color: #8a4d00;
+      font-weight: 800;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -363,6 +404,7 @@
       justify-content: center;
       padding: 14px;
     }
+
     .modal {
       width: min(520px, 100%);
       background: #fffdf8;
@@ -371,6 +413,7 @@
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
       overflow: hidden;
     }
+
     .modal-head {
       display: flex;
       justify-content: space-between;
@@ -379,11 +422,13 @@
       background: #f8edd6;
       border-bottom: 1px solid #ebd9b6;
     }
+
     .modal-head h4 {
       margin: 0;
       color: #5f4a28;
       font-size: 17px;
     }
+
     .modal-close {
       border: 0;
       background: transparent;
@@ -392,11 +437,13 @@
       color: #7b6540;
       cursor: pointer;
     }
+
     .modal-body {
       padding: 14px;
       color: var(--ink);
       line-height: 1.45;
     }
+
     .modal-footer {
       padding: 12px 14px;
       border-top: 1px solid #ebd9b6;
@@ -404,6 +451,7 @@
       justify-content: flex-end;
       background: #fff8ea;
     }
+
     .btn-modal {
       border: 0;
       border-radius: 10px;
@@ -496,14 +544,30 @@
     }
 
     @media (max-width: 920px) {
-      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .hero-strip { grid-template-columns: 1fr; }
-      .hero-cell { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.2); }
-      .hero-cell:last-child { border-bottom: 0; }
-      .countdown { grid-template-columns: repeat(2, 1fr); }
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-cell {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .hero-cell:last-child {
+        border-bottom: 0;
+      }
+
+      .countdown {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <section class="hero">
@@ -527,13 +591,26 @@
       </div>
     </section>
 
-    <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
+    <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
+        href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
 
     <section class="stats">
-      <div class="stat"><div class="n" id="statTeams">0</div><div class="l">Squadre confermate</div></div>
-      <div class="stat"><div class="n" id="statPending">0</div><div class="l">In attesa</div></div>
-      <div class="stat"><div class="n" id="statGroups">0</div><div class="l">Gironi</div></div>
-      <div class="stat"><div class="n" id="statMatches">0</div><div class="l">Partite</div></div>
+      <div class="stat">
+        <div class="n" id="statTeams">0</div>
+        <div class="l">Squadre confermate</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statPending">0</div>
+        <div class="l">In attesa</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statGroups">0</div>
+        <div class="l">Gironi</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statMatches">0</div>
+        <div class="l">Partite</div>
+      </div>
     </section>
 
     <nav class="tabs">
@@ -548,8 +625,10 @@
 
     <section class="page active" id="page-iscrizione">
       <h3>Registrazione squadra</h3>
-      <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non conferma.</div>
-      <div id="closedNotice" class="closed-notice hidden">Le iscrizioni sono chiuse - Torneo al completo (16 squadre)</div>
+      <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
+        conferma.</div>
+      <div id="closedNotice" class="closed-notice hidden">Le iscrizioni sono chiuse - Torneo al completo (16 squadre)
+      </div>
       <div class="form-grid" id="registrationForm">
         <input id="fName" placeholder="Nome squadra">
         <input id="fP1" placeholder="Giocatore 1">
@@ -655,16 +734,16 @@
       document.getElementById('statPending').textContent = state.pendingCount;
       document.getElementById('statGroups').textContent = state.groups.length;
       document.getElementById('statMatches').textContent = state.groupMatches.length;
-      
+
       // Controlla se le iscrizioni sono chiuse
       const maxTeams = 16;
       const totalTeams = state.teams.length + state.pendingCount;
       const isClosed = totalTeams >= maxTeams;
-      
+
       const form = document.getElementById('registrationForm');
       const submitBtn = document.getElementById('submitBtn');
       const closedNotice = document.getElementById('closedNotice');
-      
+
       if (isClosed) {
         form.style.opacity = '0.5';
         form.style.pointerEvents = 'none';
@@ -682,7 +761,7 @@
         const inputs = form.querySelectorAll('input');
         inputs.forEach(inp => inp.disabled = false);
       }
-      
+
       renderTeams();
       renderGroups();
       renderMatches();
@@ -869,4 +948,5 @@
     setInterval(updateCountdown, 1000);
   </script>
 </body>
+
 </html>

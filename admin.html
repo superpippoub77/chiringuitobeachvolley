@@ -637,6 +637,19 @@
           </div>
         </div>
 
+        <div class="card" style="background: #f0f4e6; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">📄 Generazione Documenti Automatici</h4>
+          <p class="muted">Genera automaticamente le pagine di regolamento, privacy policy e cookie policy basate sulla configurazione del torneo.</p>
+          <div class="row" style="margin-top: 10px; flex-wrap: wrap; gap: 8px">
+            <button class="btn btn-success" onclick="generateRegolamento()">📋 Genera Regolamento</button>
+            <button class="btn btn-success" onclick="generatePolicy()">🔒 Genera Privacy Policy</button>
+            <button class="btn btn-success" onclick="generateCookiePolicy()">🍪 Genera Cookie Policy</button>
+          </div>
+          <div id="docGenerationStatusContainer" style="margin-top: 10px; display: none; padding: 8px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px">
+            <div id="docGenerationStatusMessage" style="color: #e65100"></div>
+          </div>
+        </div>
+
         <div class="card" style="background: #ffebee; margin-top: 16px; padding: 12px">
           <h4 style="margin-top: 0">🔴 Cancellazione Completa</h4>
           <p class="muted" style="color: #c62828">Cancella completamente il torneo, tutte le squadre, i gironi, le fasi e torna a stato iniziale. Non sarà possibile recuperare i dati!</p>
@@ -1740,6 +1753,72 @@
         await showInfoDialog('Errore importazione', e.message);
       } finally {
         document.getElementById('backupFileInput').value = '';
+      }
+    }
+
+    async function generateRegolamento() {
+      const statusEl = document.getElementById('docGenerationStatusContainer');
+      const msgEl = document.getElementById('docGenerationStatusMessage');
+      
+      try {
+        statusEl.style.display = 'block';
+        msgEl.innerHTML = '⏳ Generazione regolamento in corso...';
+        
+        const result = await callApi('admin_generate_regolamento', 'POST', {}, true);
+        msgEl.innerHTML = `✅ ${result.message} - File: <strong>${result.filename}</strong>`;
+        
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 3000);
+      } catch (e) {
+        msgEl.innerHTML = `❌ Errore: ${e.message}`;
+        statusEl.style.backgroundColor = '#ffebee';
+        statusEl.style.borderLeftColor = '#d32f2f';
+        msgEl.style.color = '#b71c1c';
+      }
+    }
+
+    async function generatePolicy() {
+      const statusEl = document.getElementById('docGenerationStatusContainer');
+      const msgEl = document.getElementById('docGenerationStatusMessage');
+      
+      try {
+        statusEl.style.display = 'block';
+        msgEl.innerHTML = '⏳ Generazione privacy policy in corso...';
+        
+        const result = await callApi('admin_generate_policy', 'POST', {}, true);
+        msgEl.innerHTML = `✅ ${result.message} - File: <strong>${result.filename}</strong>`;
+        
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 3000);
+      } catch (e) {
+        msgEl.innerHTML = `❌ Errore: ${e.message}`;
+        statusEl.style.backgroundColor = '#ffebee';
+        statusEl.style.borderLeftColor = '#d32f2f';
+        msgEl.style.color = '#b71c1c';
+      }
+    }
+
+    async function generateCookiePolicy() {
+      const statusEl = document.getElementById('docGenerationStatusContainer');
+      const msgEl = document.getElementById('docGenerationStatusMessage');
+      
+      try {
+        statusEl.style.display = 'block';
+        msgEl.innerHTML = '⏳ Generazione cookie policy in corso...';
+        
+        const result = await callApi('admin_generate_cookie_policy', 'POST', {}, true);
+        msgEl.innerHTML = `✅ ${result.message} - File: <strong>${result.filename}</strong>`;
+        
+        setTimeout(() => {
+          statusEl.style.display = 'none';
+        }, 3000);
+      } catch (e) {
+        msgEl.innerHTML = `❌ Errore: ${e.message}`;
+        statusEl.style.backgroundColor = '#ffebee';
+        statusEl.style.borderLeftColor = '#d32f2f';
+        msgEl.style.color = '#b71c1c';
       }
     }
 

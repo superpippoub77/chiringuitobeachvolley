@@ -2069,4 +2069,373 @@ if ($action === 'admin_reschedule_matches' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_generate_regolamento' && $method === 'POST') {
+    try {
+        $config = readConfig();
+        $tournament = $config['tournament'] ?? [];
+        
+        $tournamentName = htmlspecialchars($tournament['name'] ?? 'Torneo Beach Volley', ENT_QUOTES, 'UTF-8');
+        $maxTeams = $tournament['maxTeams'] ?? 16;
+        $numGroups = $tournament['numGroups'] ?? 4;
+        $numSets = $tournament['numSets'] ?? 2;
+        $winScore = $tournament['winScore'] ?? 21;
+        $maxScore = $tournament['maxScore'] ?? 25;
+        $maxTimeouts = $tournament['maxTimeoutsPerSet'] ?? 2;
+        $timePerSet = $tournament['timePerSetMinutes'] ?? 35;
+        $phases = $config['phases'] ?? [];
+        
+        $phasesText = '';
+        if (!empty($phases)) {
+            $phasesText = '<h3>Fasi del Torneo</h3><ul>';
+            foreach ($phases as $phase) {
+                $phaseType = htmlspecialchars($phase['type'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
+                $phaseName = htmlspecialchars($phase['name'] ?? 'Fase', ENT_QUOTES, 'UTF-8');
+                $phasesText .= "<li><strong>$phaseName</strong> ($phaseType)</li>";
+            }
+            $phasesText .= '</ul>';
+        }
+        
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regolamento - $tournamentName</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #e45a0a; text-align: center; border-bottom: 3px solid #e45a0a; padding-bottom: 10px; }
+        h2 { color: #2f6a23; margin-top: 30px; }
+        h3 { color: #555; }
+        .section { margin: 20px 0; }
+        ul { padding-left: 20px; }
+        li { margin: 8px 0; }
+        .generated { text-align: center; color: #888; font-size: 12px; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <h1>⚽ Regolamento Torneo: $tournamentName</h1>
+    
+    <div class="section">
+        <h2>1. Informazioni Generali</h2>
+        <ul>
+            <li><strong>Nome Torneo:</strong> $tournamentName</li>
+            <li><strong>Numero massimo squadre:</strong> $maxTeams</li>
+            <li><strong>Formato squadre:</strong> Beach Volley (2 vs 2)</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>2. Regole di Gioco</h2>
+        <ul>
+            <li><strong>Numero set da giocare:</strong> Miglior di $numSets set</li>
+            <li><strong>Punti per vincere un set:</strong> $winScore punti (con minimo 2 di differenza)</li>
+            <li><strong>Massimo punti nel set:</strong> $maxScore punti</li>
+            <li><strong>Timeout per set:</strong> Massimo $maxTimeouts timeout per set</li>
+            <li><strong>Durata set:</strong> Circa $timePerSet minuti a set</li>
+        </ul>
+    </div>
+    
+    $phasesText
+    
+    <div class="section">
+        <h2>3. Gironi</h2>
+        <ul>
+            <li><strong>Numero gironi:</strong> $numGroups</li>
+            <li><strong>Criteri di classifica:</strong> Punti totali > Differenza set > Differenza punti</li>
+            <li>Le squadre si affrontano in tutti gli incontri con ogni altra squadra dello stesso girone</li>
+            <li>Vittoria = 2 punti; Sconfitta = 0 punti (non è previsto il pareggio)</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>4. Competizione Leale</h2>
+        <ul>
+            <li>Tutti i giocatori devono comportarsi correttamente e rispettare gli avversari</li>
+            <li>Proteste e ricorsi devono essere fatti agli arbitri entro 5 minuti dalla fine della partita</li>
+            <li>Le decisioni degli arbitri sono definitive</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>5. Sanzioni</h2>
+        <ul>
+            <li>Comportamento violento o ingiurioso: squalifica immediata</li>
+            <li>Assenza alla partita programmata senza giustificazione: penalità di 2 set (0-21, 0-21)</li>
+            <li>Ritardo superiore a 15 minuti dall'inizio della partita: perdita della partita</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>6. Modifiche al Regolamento</h2>
+        <p>Lo staff organizzativo si riserva il diritto di modificare il regolamento prima dell'inizio della competizione con comunicazione ufficiale a tutti i partecipanti.</p>
+    </div>
+    
+    <div class="generated">
+        <p>📄 Regolamento generato automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p><em>Questo regolamento è valido solo per il torneo <strong>$tournamentName</strong></em></p>
+    </div>
+</body>
+</html>
+HTML;
+        
+        $filename = __DIR__ . '/regolamento.html';
+        file_put_contents($filename, $html);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Regolamento generato con successo',
+            'filename' => 'regolamento.html'
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore generazione regolamento: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_generate_policy' && $method === 'POST') {
+    try {
+        $config = readConfig();
+        $tournament = $config['tournament'] ?? [];
+        $tournamentName = htmlspecialchars($tournament['name'] ?? 'Torneo Beach Volley', ENT_QUOTES, 'UTF-8');
+        
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - $tournamentName</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #e45a0a; text-align: center; border-bottom: 3px solid #e45a0a; padding-bottom: 10px; }
+        h2 { color: #2f6a23; margin-top: 30px; }
+        h3 { color: #555; }
+        .section { margin: 20px 0; }
+        ul { padding-left: 20px; }
+        li { margin: 8px 0; }
+        .generated { text-align: center; color: #888; font-size: 12px; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <h1>🔒 Privacy Policy - $tournamentName</h1>
+    
+    <div class="section">
+        <h2>1. Introduzione</h2>
+        <p>Questa Privacy Policy descrive come utilizziamo i dati personali raccolti attraverso la piattaforma di gestione del torneo di Beach Volley.</p>
+    </div>
+    
+    <div class="section">
+        <h2>2. Dati Raccolti</h2>
+        <p>Raccogliamo i seguenti dati dei partecipanti:</p>
+        <ul>
+            <li>Nome completo</li>
+            <li>Numero di telefono</li>
+            <li>Indirizzo email</li>
+            <li>Informazioni relative alla partecipazione al torneo</li>
+            <li>Risultati delle partite e classifiche</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>3. Scopo del Trattamento</h2>
+        <p>I dati personali sono trattati esclusivamente per:</p>
+        <ul>
+            <li>Gestione e organizzazione del torneo</li>
+            <li>Comunicazioni relative al torneo (orari, risultati, aggiornamenti)</li>
+            <li>Compilation di classifiche e statistiche ufficiali</li>
+            <li>Conformità a obblighi legali e normativi</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>4. Diritti dell'Interessato</h2>
+        <p>In conformità al GDPR (Regolamento UE 2016/679), hai i seguenti diritti:</p>
+        <ul>
+            <li>Diritto di accesso ai tuoi dati personali</li>
+            <li>Diritto alla rettificazione dei dati inesatti</li>
+            <li>Diritto alla cancellazione ("diritto all'oblio")</li>
+            <li>Diritto di limitare il trattamento</li>
+            <li>Diritto di portabilità dei dati</li>
+            <li>Diritto di opposizione al trattamento</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>5. Conservazione dei Dati</h2>
+        <p>I dati personali saranno conservati per la durata del torneo e per il periodo necessario per gestire eventuali ricorsi o rivendicazioni legali, e non più di 1 anno dopo la conclusione dell'evento.</p>
+    </div>
+    
+    <div class="section">
+        <h2>6. Contatti</h2>
+        <p>Per qualsiasi domanda riguardante questa Privacy Policy o l'utilizzo dei tuoi dati personali, contatta l'organizzatore del torneo.</p>
+    </div>
+    
+    <div class="generated">
+        <p>🔒 Privacy Policy generata automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p><em>Valida per il torneo <strong>$tournamentName</strong></em></p>
+    </div>
+</body>
+</html>
+HTML;
+        
+        $filename = __DIR__ . '/policy.html';
+        file_put_contents($filename, $html);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Privacy Policy generata con successo',
+            'filename' => 'policy.html'
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore generazione policy: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_generate_cookie_policy' && $method === 'POST') {
+    try {
+        $config = readConfig();
+        $tournament = $config['tournament'] ?? [];
+        $tournamentName = htmlspecialchars($tournament['name'] ?? 'Torneo Beach Volley', ENT_QUOTES, 'UTF-8');
+        
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie Policy - $tournamentName</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #e45a0a; text-align: center; border-bottom: 3px solid #e45a0a; padding-bottom: 10px; }
+        h2 { color: #2f6a23; margin-top: 30px; }
+        h3 { color: #555; }
+        .section { margin: 20px 0; }
+        ul { padding-left: 20px; }
+        li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; font-weight: bold; }
+        .generated { text-align: center; color: #888; font-size: 12px; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <h1>🍪 Cookie Policy - $tournamentName</h1>
+    
+    <div class="section">
+        <h2>1. Che cosa sono i Cookie?</h2>
+        <p>I cookie sono piccoli file di testo che vengono memorizzati sul tuo dispositivo (computer, tablet o smartphone) quando visiti il nostro sito. Vengono utilizzati per migliorare l'esperienza dell'utente e per ricordare le tue preferenze.</p>
+    </div>
+    
+    <div class="section">
+        <h2>2. Tipologie di Cookie Utilizzati</h2>
+        
+        <h3>Cookie Tecnici (Essenziali)</h3>
+        <p>Questi cookie sono necessari per il funzionamento del sito e non possono essere disabilitati. Includono:</p>
+        <ul>
+            <li><strong>sessionStorage:</strong> Memorizziamo il token di autenticazione per la sessione amministrativa</li>
+            <li><strong>localStorage:</strong> Salviamo le preferenze dell'utente (tema, lingua)</li>
+        </ul>
+        
+        <h3>Cookie di Analisi</h3>
+        <p>Utilizziamo cookie per analizzare il traffico del sito e migliorare le nostre performance. Questi cookie non identificano direttamente l'utente.</p>
+    </div>
+    
+    <div class="section">
+        <h2>3. Tabella dei Cookie</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome Cookie</th>
+                    <th>Scopo</th>
+                    <th>Tipo</th>
+                    <th>Durata</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>adminToken</td>
+                    <td>Autenticazione amministratore</td>
+                    <td>Tecnico</td>
+                    <td>Sessione</td>
+                </tr>
+                <tr>
+                    <td>themePreference</td>
+                    <td>Preferenza tema visual</td>
+                    <td>Preferenze</td>
+                    <td>Permanente</td>
+                </tr>
+                <tr>
+                    <td>languagePreference</td>
+                    <td>Preferenza lingua</td>
+                    <td>Preferenze</td>
+                    <td>Permanente</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>4. Come Gestire i Cookie</h2>
+        <p>Puoi controllare e gestire i cookie nel tuo browser:</p>
+        <ul>
+            <li><strong>Chrome:</strong> Impostazioni → Privacy e sicurezza → Cookie e altri dati dei siti</li>
+            <li><strong>Firefox:</strong> Preferenze → Privacy e sicurezza → Cookie e dati dei siti</li>
+            <li><strong>Safari:</strong> Preferenze → Privacy → Gestisci dati dei siti web</li>
+            <li><strong>Edge:</strong> Impostazioni → Privacy, ricerca e servizi → Cancella dati di esplorazione</li>
+        </ul>
+        <p><strong>Nota:</strong> La disabilitazione dei cookie tecnici potrebbe impedire il corretto funzionamento della piattaforma.</p>
+    </div>
+    
+    <div class="section">
+        <h2>5. Consenso ai Cookie</h2>
+        <p>Continuando a utilizzare questo sito, accetti l'utilizzo dei cookie come descritto in questa Cookie Policy. Se non desideri che vengano utilizzati i cookie, ti consigliamo di disabilitarli dal tuo browser.</p>
+    </div>
+    
+    <div class="section">
+        <h2>6. Modifiche a questa Policy</h2>
+        <p>Potremmo aggiornare questa Cookie Policy in qualsiasi momento. Ti consigliamo di controllarla periodicamente per rimanere aggiornato.</p>
+    </div>
+    
+    <div class="generated">
+        <p>🍪 Cookie Policy generata automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p><em>Valida per il torneo <strong>$tournamentName</strong></em></p>
+    </div>
+</body>
+</html>
+HTML;
+        
+        $filename = __DIR__ . '/cookie.html';
+        file_put_contents($filename, $html);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Cookie Policy generata con successo',
+            'filename' => 'cookie.html'
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore generazione cookie policy: ' . $e->getMessage()]);
+    }
+}
+
 jsonResponse(404, ['ok' => false, 'error' => 'Endpoint non trovato']);

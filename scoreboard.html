@@ -215,7 +215,6 @@
   </div>
 
   <script>
-    const API_BASE = window.location.origin;
     let match = null;
     let currentSet = 1;
 
@@ -233,7 +232,7 @@
 
       try {
         // Carica lo stato pubblico per ottenere i dati della partita
-        const r = await fetch(`${API_BASE}/api.php?action=get_public`);
+        const r = await fetch(`api.php?action=get_public`);
         const data = await r.json();
         
         match = (data.data.groupMatches || []).find(m => m.id === matchId);
@@ -309,7 +308,7 @@
 
     async function updateMatch() {
       try {
-        await fetch(`${API_BASE}/api.php?action=admin_update_group_match`, {
+        await fetch(`api.php?action=admin_update_group_match`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

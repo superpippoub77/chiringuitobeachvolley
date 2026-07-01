@@ -12,3 +12,4 @@ Impostare correttamente le favicon che si trovano sotto a images/favicon
 Mettere solo il pallino grigio, verden o rosso e non il testo altrimenti occupa pareccgio spazio e unificare giorno e orario in un unaica colonna ✅
 In home page Se il torneo è iniziato la home page punta subito a partite (se gironi è stato creato) altrimenti a squadre ✅
 In home page il count down non si vede perchè il testo è bianco fallo di colore nero ✅
+c'è un problema di aprtura del tabellone mi dice 404 perchè punta alla api della root del sito generale e non da dove viene lanciato e va in errore ✅

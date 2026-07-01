@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
-  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="api.php?action=get_favicon" type="image/png">
   <title>Chiringuito Beach Volley LUI&Lei 2026</title>
   <link id="themeLink" rel="stylesheet" href="theme-chiringuito.css">
   <style>
@@ -818,8 +818,8 @@
       const r = await api('get_public');
       state = r.data;
       
-      // Controlla se il torneo è configurato
-      const isTournamentConfigured = state && state.teams !== undefined;
+      // Controlla se il torneo è configurato verificando il nome del torneo
+      const isTournamentConfigured = state && state.settings && state.settings.tournamentName && state.settings.tournamentName.trim() !== '';
       const noticeEl = document.getElementById('notConfiguredNotice');
       const mainContentEl = document.getElementById('mainContent');
       

@@ -1,0 +1,19 @@
+{
+    "settings": {
+        "maxTeams": 16,
+        "tournamentName": "Beach Volley 2026"
+    },
+    "teams": [],
+    "groups": [],
+    "groupMatches": [],
+    "playoff": {
+        "quarterFinals": [],
+        "semiFinals": [],
+        "thirdPlace": null,
+        "final": null
+    },
+    "finalRanking": [],
+    "meta": {
+        "lastUpdated": null
+    }
+}

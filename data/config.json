@@ -1,0 +1,23 @@
+{
+    "tournament": {
+        "name": "Beach Volley 2026",
+        "maxTeams": 16,
+        "numGroups": 0,
+        "numSets": 2,
+        "winScore": 21,
+        "maxScore": 25,
+        "timePerSetMinutes": 35,
+        "setupTimeMinutes": 5,
+        "maxTimeoutsPerSet": 2
+    },
+    "schedule": {
+        "courts": []
+    },
+    "phases": [],
+    "contact": {
+        "managerEmail": ""
+    },
+    "display": {
+        "theme": "chiringuito"
+    }
+}

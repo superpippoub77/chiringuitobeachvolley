@@ -1994,6 +1994,41 @@ if ($action === 'admin_get_config' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 
+if ($action === 'get_favicon' && $method === 'GET') {
+    // Endpoint per ottenere il favicon dal logo caricato
+    $logoPath = getLogoFile();
+    
+    // Verifica direttamente se il file esiste
+    if (file_exists($logoPath) && is_file($logoPath)) {
+        $ext = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+        $mimeType = match($ext) {
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            default => 'image/png'
+        };
+        
+        header('Content-Type: ' . $mimeType);
+        header('Cache-Control: public, max-age=86400');
+        header('Content-Length: ' . filesize($logoPath));
+        readfile($logoPath);
+        exit;
+    }
+    
+    // Fallback a favicon.ico di default
+    if (file_exists('favicon.ico')) {
+        header('Content-Type: image/x-icon');
+        header('Cache-Control: public, max-age=86400');
+        readfile('favicon.ico');
+        exit;
+    }
+    
+    // Se niente esiste, ritorna 404
+    http_response_code(404);
+    exit;
+}
+
 if ($action === 'get_config' && $method === 'GET') {
     // Endpoint pubblico per ottenere la configurazione display (tema e logo)
     $config = readConfig();
@@ -2148,6 +2183,13 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     }
     
     writeConfig($config);
+    
+    // Aggiorna anche lo state con le nuove impostazioni da config
+    $state = readJsonFile(DATA_FILE, initialState());
+    $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
+    $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
+    writeJsonFile(DATA_FILE, $state);
+    
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 

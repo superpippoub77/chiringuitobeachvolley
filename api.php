@@ -353,6 +353,42 @@ function computeStandings(array $state): array {
     return $out;
 }
 
+function validateScheduleForTournament(array $state): array {
+    $config = readConfig();
+    $schedule = $config['schedule']['days'] ?? [];
+
+    if (empty($schedule)) {
+        return ['valid' => false, 'message' => 'Nessun giorno schedulato nel torneo'];
+    }
+
+    // Calcola numero totale di partite nei gironi
+    $totalMatches = 0;
+    foreach ($state['groups'] as $group) {
+        $teamCount = count($group['teamIds']);
+        if ($teamCount >= 2) {
+            $totalMatches += intdiv($teamCount * ($teamCount - 1), 2);
+        }
+    }
+
+    // Calcola numero totale di slot disponibili (giorno * timeSlot * courtCount)
+    $totalSlots = 0;
+    foreach ($schedule as $day) {
+        foreach ($day['timeSlots'] as $slot) {
+            $totalSlots += ($slot['courtCount'] ?? 1);
+        }
+    }
+
+    if ($totalMatches === 0) {
+        return ['valid' => false, 'message' => 'Nessuna partita da programmare'];
+    }
+
+    if ($totalMatches > $totalSlots) {
+        return ['valid' => false, 'message' => 'Il sistema non è in grado di generare il torneo sei prega di modificare i giorni e i time range'];
+    }
+
+    return ['valid' => true];
+}
+
 function buildGroupMatches(array &$state): void {
     $matches = [];
     $day = 1;
@@ -559,7 +595,13 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             }
         }
         
+        // Raggruppa partite dello stesso girone nello stesso giorno
         foreach ($groupMatches as $match) {
+            if ($dayIndex >= count($schedule)) {
+                // Finiti gli slot disponibili
+                break 2;
+            }
+            
             $courtsPerSlot = $schedule[$dayIndex]['timeSlots'][$slotIndex]['courtCount'] ?? 3;
             
             if ($matchesInSlot >= $courtsPerSlot) {
@@ -569,11 +611,12 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 if ($slotIndex >= count($schedule[$dayIndex]['timeSlots'])) {
                     $dayIndex++;
                     $slotIndex = 0;
-                    
-                    if ($dayIndex >= count($schedule)) {
-                        $dayIndex = 0;
-                    }
                 }
+            }
+            
+            if ($dayIndex >= count($schedule)) {
+                // Finiti gli slot disponibili
+                break 2;
             }
             
             $currentDay = $schedule[$dayIndex];
@@ -872,7 +915,14 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         }
 
         $state['groups'] = $groups;
-        buildGroupMatches($state);
+        
+        // Valida lo schedule prima di generare le partite
+        $validation = validateScheduleForTournament($state);
+        if (!$validation['valid']) {
+            jsonResponse(422, ['ok' => false, 'error' => $validation['message']]);
+        }
+        
+        buildGroupMatchesWithSchedule($state);
         $state['playoff'] = [
             'quarterFinals' => [],
             'semiFinals' => [],
@@ -1157,6 +1207,12 @@ if ($action === 'admin_reschedule_matches' && $method === 'POST') {
         $config = readConfig();
         if (empty($config['schedule']['days'])) {
             jsonResponse(400, ['ok' => false, 'error' => 'Nessun giorno di schedule configurato']);
+        }
+        
+        // Valida lo schedule prima di rigenerare le partite
+        $validation = validateScheduleForTournament($state);
+        if (!$validation['valid']) {
+            jsonResponse(422, ['ok' => false, 'error' => $validation['message']]);
         }
         
         buildGroupMatchesWithSchedule($state);

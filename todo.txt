@@ -1,3 +1,4 @@
-Tutte le partite dello stesso girone devono essere nello stesso giorno
-Definire i giorni disponibili per il torneo ed eventualmente le fasce orarie
+Tutte le partite dello stesso girone devono essere nello stesso giorno ✅
+Definire i giorni disponibili per il torneo ed eventualmente le fasce orarie ✅
 Dare la possibilità di fare un cambio girone per una squadra solo nella fase realizzazione gironi (pannello admin) ✅
+Validazione: il sistema deve verificare se è possibile generare il torneo in base ai giorni e time range, altrimenti mostrare errore ✅

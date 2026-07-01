@@ -1,48 +1,135 @@
 {
-  "tournament": {
-    "name": "Chiringuito Beach Volley 2026",
-    "maxTeams": 16,
-    "numGroups": 4,
-    "numSets": 2,
-    "winScore": 21,
-    "maxScore": 25,
-    "timePerSetMinutes": 35,
-    "setupTimeMinutes": 5
-  },
-  "schedule": {
-    "days": [
-      {
-        "date": "2026-07-04",
-        "dayNumber": 1,
-        "timeSlots": [
-          {
-            "startTime": "19:30",
-            "endTime": "20:30",
-            "courtCount": 3
-          },
-          {
-            "startTime": "20:30",
-            "endTime": "21:30",
-            "courtCount": 3
-          }
+    "tournament": {
+        "name": "Torneo Modificato",
+        "maxTeams": 16,
+        "numGroups": 4,
+        "numSets": 2,
+        "winScore": 21,
+        "maxScore": 25,
+        "timePerSetMinutes": 35,
+        "setupTimeMinutes": 5,
+        "maxTimeoutsPerSet": 2
+    },
+    "schedule": {
+        "courts": [
+            {
+                "courtId": "1",
+                "courtName": "Campo 1",
+                "availability": [
+                    {
+                        "date": "2026-07-04",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-05",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "courtId": "2",
+                "courtName": "Campo 2",
+                "availability": [
+                    {
+                        "date": "2026-07-04",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-05",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "courtId": "3",
+                "courtName": "Campo 3",
+                "availability": [
+                    {
+                        "date": "2026-07-04",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-05",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            }
+                        ]
+                    }
+                ]
+            }
         ]
-      },
-      {
-        "date": "2026-07-05",
-        "dayNumber": 2,
-        "timeSlots": [
-          {
-            "startTime": "19:30",
-            "endTime": "20:30",
-            "courtCount": 3
-          },
-          {
-            "startTime": "20:30",
-            "endTime": "21:30",
-            "courtCount": 3
-          }
-        ]
-      }
+    },
+    "phases": [
+        {
+            "phaseNumber": 1,
+            "name": "Gironi",
+            "type": "groups",
+            "numGroups": 4,
+            "teamsAdvance": 2,
+            "hasRepescage": false
+        },
+        {
+            "phaseNumber": 2,
+            "name": "Semifinali",
+            "type": "knockout",
+            "numTeams": 4
+        },
+        {
+            "phaseNumber": 3,
+            "name": "Finale",
+            "type": "knockout",
+            "numTeams": 2
+        }
     ]
-  }
 }

@@ -51,15 +51,68 @@ function defaultConfig(): array {
             'maxTimeoutsPerSet' => 2
         ],
         'schedule' => [
-            'days' => [
+            'courts' => [
                 [
-                    'date' => date('Y-m-d'),
-                    'dayNumber' => 1,
-                    'timeSlots' => [
-                        ['startTime' => '19:30', 'endTime' => '20:30', 'courtCount' => 3],
-                        ['startTime' => '20:30', 'endTime' => '21:30', 'courtCount' => 3]
+                    'courtId' => '1',
+                    'courtName' => 'Campo 1',
+                    'availability' => [
+                        [
+                            'date' => date('Y-m-d'),
+                            'timeSlots' => [
+                                ['startTime' => '19:30', 'endTime' => '20:30'],
+                                ['startTime' => '20:30', 'endTime' => '21:30']
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    'courtId' => '2',
+                    'courtName' => 'Campo 2',
+                    'availability' => [
+                        [
+                            'date' => date('Y-m-d'),
+                            'timeSlots' => [
+                                ['startTime' => '19:30', 'endTime' => '20:30'],
+                                ['startTime' => '20:30', 'endTime' => '21:30']
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    'courtId' => '3',
+                    'courtName' => 'Campo 3',
+                    'availability' => [
+                        [
+                            'date' => date('Y-m-d'),
+                            'timeSlots' => [
+                                ['startTime' => '19:30', 'endTime' => '20:30'],
+                                ['startTime' => '20:30', 'endTime' => '21:30']
+                            ]
+                        ]
                     ]
                 ]
+            ]
+        ],
+        'phases' => [
+            [
+                'phaseNumber' => 1,
+                'name' => 'Gironi',
+                'type' => 'groups',
+                'numGroups' => 4,
+                'teamsAdvance' => 2,
+                'hasRepescage' => false
+            ],
+            [
+                'phaseNumber' => 2,
+                'name' => 'Semifinali',
+                'type' => 'knockout',
+                'numTeams' => 4
+            ],
+            [
+                'phaseNumber' => 3,
+                'name' => 'Finale',
+                'type' => 'knockout',
+                'numTeams' => 2
             ]
         ]
     ];
@@ -1135,6 +1188,52 @@ if ($action === 'admin_reset' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_export_backup' && $method === 'GET') {
+    $config = readConfig();
+    $state = readJsonFile(DATA_FILE, initialState());
+    
+    $backup = [
+        'exportDate' => gmdate('c'),
+        'version' => '1.0',
+        'config' => $config,
+        'state' => $state
+    ];
+    
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="chiringuito-backup-' . date('Y-m-d-His') . '.json"');
+    echo json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if ($action === 'admin_import_backup' && $method === 'POST') {
+    $raw = file_get_contents('php://input');
+    $backup = json_decode($raw, true);
+    
+    if (!is_array($backup)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File backup non valido']);
+    }
+    
+    if (!isset($backup['config']) || !isset($backup['state'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Backup incompleto: mancano config o state']);
+    }
+    
+    try {
+        // Ripristina la configurazione
+        if (is_array($backup['config'])) {
+            writeConfig($backup['config']);
+        }
+        
+        // Ripristina lo stato del torneo
+        if (is_array($backup['state'])) {
+            writeJsonFile(DATA_FILE, $backup['state']);
+        }
+        
+        jsonResponse(200, ['ok' => true, 'message' => 'Backup ripristinato con successo']);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il ripristino: ' . $e->getMessage()]);
+    }
+}
+
 if ($action === 'admin_get_config' && $method === 'GET') {
     $config = readConfig();
     jsonResponse(200, ['ok' => true, 'config' => $config]);
@@ -1156,22 +1255,64 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['maxTimeoutsPerSet'])) $config['tournament']['maxTimeoutsPerSet'] = max(0, min(5, (int)$t['maxTimeoutsPerSet']));
     }
     
-    if (isset($body['schedule']) && is_array($body['schedule']['days'] ?? null)) {
-        $config['schedule']['days'] = [];
-        foreach ($body['schedule']['days'] as $idx => $day) {
-            $slots = [];
-            foreach ($day['timeSlots'] ?? [] as $slot) {
-                $slots[] = [
-                    'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
-                    'endTime' => trim((string)($slot['endTime'] ?? '20:30')),
-                    'courtCount' => max(1, (int)($slot['courtCount'] ?? 3))
+    if (isset($body['schedule']) && is_array($body['schedule']['courts'] ?? null)) {
+        $config['schedule']['courts'] = [];
+        foreach ($body['schedule']['courts'] as $courtData) {
+            $courtId = trim((string)($courtData['courtId'] ?? ''));
+            $courtName = trim((string)($courtData['courtName'] ?? 'Campo'));
+            
+            $availability = [];
+            foreach ($courtData['availability'] ?? [] as $dateAvail) {
+                $date = trim((string)($dateAvail['date'] ?? date('Y-m-d')));
+                $timeSlots = [];
+                foreach ($dateAvail['timeSlots'] ?? [] as $slot) {
+                    $timeSlots[] = [
+                        'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
+                        'endTime' => trim((string)($slot['endTime'] ?? '20:30'))
+                    ];
+                }
+                if (count($timeSlots) > 0) {
+                    $availability[] = [
+                        'date' => $date,
+                        'timeSlots' => $timeSlots
+                    ];
+                }
+            }
+            
+            if (count($availability) > 0) {
+                $config['schedule']['courts'][] = [
+                    'courtId' => $courtId ?: bin2hex(random_bytes(4)),
+                    'courtName' => $courtName ?: 'Campo',
+                    'availability' => $availability
                 ];
             }
-            $config['schedule']['days'][] = [
-                'date' => trim((string)($day['date'] ?? date('Y-m-d'))),
-                'dayNumber' => $idx + 1,
-                'timeSlots' => $slots
+        }
+    }
+    
+    if (isset($body['phases']) && is_array($body['phases'])) {
+        $phases = [];
+        foreach ($body['phases'] as $idx => $phase) {
+            $phaseData = [
+                'phaseNumber' => $idx + 1,
+                'name' => trim((string)($phase['name'] ?? "Fase $idx")),
+                'type' => in_array($phase['type'] ?? '', ['groups', 'knockout']) ? $phase['type'] : 'groups'
             ];
+            
+            if ($phaseData['type'] === 'groups') {
+                $phaseData['numGroups'] = max(1, min(16, (int)($phase['numGroups'] ?? 4)));
+                $phaseData['teamsAdvance'] = max(1, min(8, (int)($phase['teamsAdvance'] ?? 2)));
+                $phaseData['hasRepescage'] = (bool)($phase['hasRepescage'] ?? false);
+            } elseif ($phaseData['type'] === 'knockout') {
+                $numTeams = (int)($phase['numTeams'] ?? 4);
+                $validPowers = [2, 4, 8, 16, 32, 64, 128];
+                $phaseData['numTeams'] = in_array($numTeams, $validPowers) ? $numTeams : 4;
+            }
+            
+            $phases[] = $phaseData;
+        }
+        
+        if (count($phases) > 0) {
+            $config['phases'] = $phases;
         }
     }
     
@@ -1183,21 +1324,32 @@ if ($action === 'admin_update_schedule' && $method === 'POST') {
     $body = bodyJson();
     $config = readConfig();
     
-    if (isset($body['days']) && is_array($body['days'])) {
-        $config['schedule']['days'] = [];
-        foreach ($body['days'] as $idx => $day) {
-            $slots = [];
-            foreach ($day['timeSlots'] ?? [] as $slot) {
-                $slots[] = [
-                    'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
-                    'endTime' => trim((string)($slot['endTime'] ?? '20:30')),
-                    'courtCount' => max(1, (int)($slot['courtCount'] ?? 3))
+    if (isset($body['courts']) && is_array($body['courts'])) {
+        $config['schedule']['courts'] = [];
+        foreach ($body['courts'] as $courtData) {
+            $courtId = trim((string)($courtData['courtId'] ?? ''));
+            $courtName = trim((string)($courtData['courtName'] ?? 'Campo'));
+            
+            $availability = [];
+            foreach ($courtData['availability'] ?? [] as $dateAvail) {
+                $date = trim((string)($dateAvail['date'] ?? date('Y-m-d')));
+                $timeSlots = [];
+                foreach ($dateAvail['timeSlots'] ?? [] as $slot) {
+                    $timeSlots[] = [
+                        'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
+                        'endTime' => trim((string)($slot['endTime'] ?? '20:30'))
+                    ];
+                }
+                $availability[] = [
+                    'date' => $date,
+                    'timeSlots' => $timeSlots
                 ];
             }
-            $config['schedule']['days'][] = [
-                'date' => trim((string)($day['date'] ?? date('Y-m-d'))),
-                'dayNumber' => $idx + 1,
-                'timeSlots' => $slots
+            
+            $config['schedule']['courts'][] = [
+                'courtId' => $courtId ?: bin2hex(random_bytes(4)),
+                'courtName' => $courtName ?: 'Campo',
+                'availability' => $availability
             ];
         }
     }

@@ -470,6 +470,7 @@
         <button class="tab active" data-page="settings" onclick="showPage('settings', this)">Impostazioni</button>
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
+        <button class="tab" data-page="phases" onclick="showPage('phases', this)">Fasi torneo</button>
         <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
         <button class="tab" data-page="standings" onclick="showPage('standings', this)">Classifiche</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
@@ -492,13 +493,23 @@
       </div>
 
       <div id="page-schedule" class="card page hidden">
-        <h3>Configurazione giorni e fasce orarie</h3>
-        <p class="muted">Definisci i giorni disponibili per il torneo e le fasce orarie con numero di campi disponibili.</p>
+        <h3>Configurazione Campi e Disponibilità</h3>
+        <p class="muted">Definisci i campi da utilizzare nel torneo, con le date e fasce orarie disponibili per ciascuno. Ogni campo può avere disponibilità diverse.</p>
         <div id="scheduleContainer" style="margin-top:10px"></div>
         <div class="row" style="margin-top:14px">
-          <button class="btn btn-primary" onclick="addScheduleDay()">+ Aggiungi giorno</button>
+          <button class="btn btn-primary" onclick="addScheduleCourt()">+ Aggiungi campo</button>
           <button class="btn btn-green" onclick="saveSchedule()">Salva schedule</button>
           <button class="btn btn-primary" onclick="rescheduleMatches()" id="rescheduleBtn" style="display:none">Rischedulare partite</button>
+        </div>
+      </div>
+
+      <div id="page-phases" class="card page hidden">
+        <h3>Configurazione Fasi Torneo</h3>
+        <p class="muted">Definisci la struttura del torneo: numero di fasi, tipo (gironi o eliminazione diretta), e parametri specifici per ogni fase.</p>
+        <div id="phasesContainer" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn btn-primary" onclick="addPhase()">+ Aggiungi fase</button>
+          <button class="btn btn-green" onclick="savePhases()">Salva fasi</button>
         </div>
       </div>
 
@@ -540,6 +551,16 @@
           <button class="btn btn-primary" onclick="simulateAll()">Pulsante TEST: simula tutto fino a finale e
             classifica</button>
           <button class="btn btn-danger" onclick="resetAll()">Reset torneo</button>
+        </div>
+
+        <div class="card" style="background: #e8f5e9; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">💾 Backup e Ripristino</h4>
+          <p class="muted">Esporta l'intero stato del torneo (config, squadre, gironi, partite) e ripristinalo in seguito.</p>
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-green" onclick="exportBackup()">⬇️ Scarica Backup</button>
+            <button class="btn btn-primary" onclick="document.getElementById('backupFileInput').click()">⬆️ Carica Backup</button>
+            <input type="file" id="backupFileInput" accept=".json" style="display: none" onchange="importBackup(event)">
+          </div>
         </div>
       </div>
     </div>
@@ -609,6 +630,7 @@
       await renderSettings();
       renderTeams();
       renderSchedule();
+      renderPhases();
       renderGroups();
       renderStandings();
       renderMatches();
@@ -1252,6 +1274,60 @@
       } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
+    async function exportBackup() {
+      try {
+        await showInfoDialog('Esportazione', 'Il download del backup inizierà tra poco...');
+        const link = document.createElement('a');
+        link.href = `${API}?action=admin_export_backup`;
+        link.download = `chiringuito-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore durante l\'esportazione: ' + e.message);
+      }
+    }
+
+    async function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const proceed = await showConfirmDialog(
+        'Conferma ripristino',
+        '⚠️ Attenzione! Questa operazione sovrascriverà:\n- Configurazione torneo\n- Squadre e gironi\n- Tutte le partite e risultati\n\nContinuare?'
+      );
+      if (!proceed) {
+        document.getElementById('backupFileInput').value = '';
+        return;
+      }
+
+      try {
+        const fileContent = await file.text();
+        const backup = JSON.parse(fileContent);
+
+        const res = await fetch(`${API}?action=admin_import_backup`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          },
+          body: fileContent
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || 'Errore sconosciuto');
+        }
+
+        await showInfoDialog('Successo', '✅ Backup ripristinato con successo. La pagina verrà ricaricata.');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        await showInfoDialog('Errore importazione', e.message);
+      } finally {
+        document.getElementById('backupFileInput').value = '';
+      }
+    }
+
     function openModal({ title, bodyHtml, buttons, onClose }) {
       const backdrop = document.getElementById('modalBackdrop');
       const modalTitle = document.getElementById('modalTitle');
@@ -1344,10 +1420,10 @@
 
     function renderSchedule() {
       const c = document.getElementById('scheduleContainer');
-      const sched = state.schedule || { days: [] };
+      const sched = config.schedule || { courts: [] };
       
-      if (!sched.days.length) {
-        c.innerHTML = '<p class="muted">Nessun giorno configurato. Clicca su "+ Aggiungi giorno" per iniziare.</p>';
+      if (!sched.courts || sched.courts.length === 0) {
+        c.innerHTML = '<p class="muted">Nessun campo configurato. Clicca su "+ Aggiungi campo" per iniziare.</p>';
         document.getElementById('rescheduleBtn').style.display = 'none';
         return;
       }
@@ -1355,113 +1431,175 @@
       document.getElementById('rescheduleBtn').style.display = (state.groupMatches || []).length > 0 ? 'inline-block' : 'none';
       
       let html = '';
-      sched.days.forEach((day, dayIdx) => {
+      sched.courts.forEach((court, courtIdx) => {
         html += `<div class="card" style="margin-top: 12px; padding: 10px; background: #f9f3e6">
-          <div class="row" style="justify-content: space-between; margin-bottom: 10px">
-            <div><strong>Giorno ${dayIdx + 1}</strong></div>
-            <button class="btn btn-danger" onclick="removeScheduleDay(${dayIdx})">Rimuovi giorno</button>
+          <div class="row" style="justify-content: space-between; margin-bottom: 10px; align-items: center">
+            <div>
+              <strong>Campo</strong>
+              <input type="text" id="courtName-${courtIdx}" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
+            </div>
+            <button class="btn btn-danger" onclick="removeScheduleCourt(${courtIdx})">Rimuovi campo</button>
           </div>
           
-          <div class="field" style="margin-bottom: 10px">
-            <label>Data</label>
-            <input type="date" id="date-${dayIdx}" value="${day.date || ''}">
-          </div>
-          
-          <div style="background: #fff; padding: 8px; border-radius: 6px; margin-bottom: 8px">
-            <p style="margin: 0 0 8px 0"><strong>Fasce orarie:</strong></p>
-            <div id="slots-${dayIdx}"></div>
-            <button class="btn btn-primary" style="width: 100%; margin-top: 6px" onclick="addTimeSlot(${dayIdx})">+ Aggiungi fascia</button>
-          </div>
+          <div id="availDates-${courtIdx}" style="background: #fff; padding: 8px; border-radius: 6px; margin-bottom: 8px"></div>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 6px" onclick="addCourtDate(${courtIdx})">+ Aggiungi data</button>
         </div>`;
       });
       
       c.innerHTML = html;
       
-      // Render time slots
-      sched.days.forEach((day, dayIdx) => {
-        const slotsContainer = document.getElementById(`slots-${dayIdx}`);
-        let slotsHtml = '';
-        (day.timeSlots || []).forEach((slot, slotIdx) => {
-          slotsHtml += `<div class="row" style="margin-bottom: 8px; background: #f3f3f3; padding: 8px; border-radius: 4px; align-items: flex-end">
-            <div style="flex: 1">
-              <label style="font-size: 11px; color: #6b5d45">Inizio</label>
-              <input type="time" id="start-${dayIdx}-${slotIdx}" value="${slot.startTime || '19:30'}">
+      // Render availability dates
+      sched.courts.forEach((court, courtIdx) => {
+        const availContainer = document.getElementById(`availDates-${courtIdx}`);
+        let availHtml = '<p style="margin: 0 0 8px 0; font-size: 12px; color: #6b5d45"><strong>Date disponibili:</strong></p>';
+        (court.availability || []).forEach((dateAvail, dateIdx) => {
+          availHtml += `<div style="background: #f3f3f3; padding: 8px; border-radius: 4px; margin-bottom: 8px">
+            <div class="row" style="margin-bottom: 8px; justify-content: space-between; align-items: center">
+              <div>
+                <label style="font-size: 11px; color: #6b5d45">Data</label>
+                <input type="date" id="courtDate-${courtIdx}-${dateIdx}" value="${dateAvail.date || ''}">
+              </div>
+              <button class="btn btn-danger" style="align-self: flex-end" onclick="removeCourtDate(${courtIdx}, ${dateIdx})">Rimuovi</button>
             </div>
-            <div style="flex: 1; margin-left: 6px">
-              <label style="font-size: 11px; color: #6b5d45">Fine</label>
-              <input type="time" id="end-${dayIdx}-${slotIdx}" value="${slot.endTime || '20:30'}">
-            </div>
-            <div style="flex: 0.8; margin-left: 6px">
-              <label style="font-size: 11px; color: #6b5d45">Campi</label>
-              <input type="number" id="courts-${dayIdx}-${slotIdx}" min="1" max="10" value="${slot.courtCount || 3}">
-            </div>
-            <button class="btn btn-danger" style="margin-left: 6px" onclick="removeTimeSlot(${dayIdx}, ${slotIdx})">-</button>
+            
+            <div id="slots-${courtIdx}-${dateIdx}"></div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 6px; font-size: 12px" onclick="addCourtTimeSlot(${courtIdx}, ${dateIdx})">+ Fascia oraria</button>
           </div>`;
         });
-        slotsContainer.innerHTML = slotsHtml;
+        availContainer.innerHTML = availHtml;
+      });
+      
+      // Render time slots for each date
+      sched.courts.forEach((court, courtIdx) => {
+        (court.availability || []).forEach((dateAvail, dateIdx) => {
+          const slotsContainer = document.getElementById(`slots-${courtIdx}-${dateIdx}`);
+          let slotsHtml = '';
+          (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
+            slotsHtml += `<div class="row" style="margin-bottom: 6px; background: #f0f0f0; padding: 6px; border-radius: 3px; align-items: flex-end">
+              <div style="flex: 1">
+                <label style="font-size: 10px; color: #6b5d45">Inizio</label>
+                <input type="time" id="start-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.startTime || '19:30'}">
+              </div>
+              <div style="flex: 1; margin-left: 4px">
+                <label style="font-size: 10px; color: #6b5d45">Fine</label>
+                <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}">
+              </div>
+              <button class="btn btn-danger" style="margin-left: 4px; padding: 6px 8px" onclick="removeCourtTimeSlot(${courtIdx}, ${dateIdx}, ${slotIdx})">-</button>
+            </div>`;
+          });
+          slotsContainer.innerHTML = slotsHtml;
+        });
       });
     }
 
-    function addScheduleDay() {
-      if (!state.schedule) state.schedule = { days: [] };
+    function addScheduleCourt() {
+      if (!config.schedule) config.schedule = { courts: [] };
       const today = new Date().toISOString().split('T')[0];
-      state.schedule.days.push({
-        date: today,
-        timeSlots: [
-          { startTime: '19:30', endTime: '20:30', courtCount: 3 },
-          { startTime: '20:30', endTime: '21:30', courtCount: 3 }
+      const newCourt = {
+        courtId: 'court-' + Date.now(),
+        courtName: 'Campo ' + (config.schedule.courts.length + 1),
+        availability: [
+          {
+            date: today,
+            timeSlots: [
+              { startTime: '19:30', endTime: '20:30' },
+              { startTime: '20:30', endTime: '21:30' }
+            ]
+          }
         ]
+      };
+      config.schedule.courts.push(newCourt);
+      renderSchedule();
+    }
+
+    function removeScheduleCourt(courtIdx) {
+      if (!config.schedule || !config.schedule.courts) return;
+      config.schedule.courts.splice(courtIdx, 1);
+      renderSchedule();
+    }
+
+    function addCourtDate(courtIdx) {
+      if (!config.schedule || !config.schedule.courts[courtIdx]) return;
+      const today = new Date().toISOString().split('T')[0];
+      if (!config.schedule.courts[courtIdx].availability) {
+        config.schedule.courts[courtIdx].availability = [];
+      }
+      config.schedule.courts[courtIdx].availability.push({
+        date: today,
+        timeSlots: [{ startTime: '19:30', endTime: '20:30' }]
       });
       renderSchedule();
     }
 
-    function removeScheduleDay(dayIdx) {
-      if (!state.schedule || !state.schedule.days) return;
-      state.schedule.days.splice(dayIdx, 1);
+    function removeCourtDate(courtIdx, dateIdx) {
+      if (!config.schedule || !config.schedule.courts[courtIdx]) return;
+      config.schedule.courts[courtIdx].availability.splice(dateIdx, 1);
       renderSchedule();
     }
 
-    function addTimeSlot(dayIdx) {
-      if (!state.schedule || !state.schedule.days[dayIdx]) return;
-      if (!state.schedule.days[dayIdx].timeSlots) state.schedule.days[dayIdx].timeSlots = [];
-      state.schedule.days[dayIdx].timeSlots.push({
+    function addCourtTimeSlot(courtIdx, dateIdx) {
+      if (!config.schedule || !config.schedule.courts[courtIdx] || !config.schedule.courts[courtIdx].availability[dateIdx]) return;
+      config.schedule.courts[courtIdx].availability[dateIdx].timeSlots.push({
         startTime: '21:30',
-        endTime: '22:30',
-        courtCount: 3
+        endTime: '22:30'
       });
       renderSchedule();
     }
 
-    function removeTimeSlot(dayIdx, slotIdx) {
-      if (!state.schedule || !state.schedule.days[dayIdx]) return;
-      state.schedule.days[dayIdx].timeSlots.splice(slotIdx, 1);
+    function removeCourtTimeSlot(courtIdx, dateIdx, slotIdx) {
+      if (!config.schedule || !config.schedule.courts[courtIdx] || !config.schedule.courts[courtIdx].availability[dateIdx]) return;
+      config.schedule.courts[courtIdx].availability[dateIdx].timeSlots.splice(slotIdx, 1);
       renderSchedule();
     }
 
     async function saveSchedule() {
       try {
-        if (!state.schedule || !state.schedule.days) {
-          await showInfoDialog('Attenzione', 'Nessun giorno configurato');
+        if (!config.schedule || !config.schedule.courts || config.schedule.courts.length === 0) {
+          await showInfoDialog('Attenzione', 'Nessun campo configurato');
           return;
         }
 
-        // Leggi i valori dai form
-        const days = [];
-        state.schedule.days.forEach((day, dayIdx) => {
-          const date = document.getElementById(`date-${dayIdx}`).value;
-          const slots = [];
-          (day.timeSlots || []).forEach((slot, slotIdx) => {
-            const startTime = document.getElementById(`start-${dayIdx}-${slotIdx}`).value;
-            const endTime = document.getElementById(`end-${dayIdx}-${slotIdx}`).value;
-            const courtCount = Math.max(1, parseInt(document.getElementById(`courts-${dayIdx}-${slotIdx}`).value) || 3);
-            slots.push({ startTime, endTime, courtCount });
+        // Leggi i valori dai form per ogni campo
+        const courts = [];
+        config.schedule.courts.forEach((court, courtIdx) => {
+          const courtName = document.getElementById(`courtName-${courtIdx}`).value.trim() || court.courtName || 'Campo';
+          const availability = [];
+          
+          (court.availability || []).forEach((dateAvail, dateIdx) => {
+            const date = document.getElementById(`courtDate-${courtIdx}-${dateIdx}`).value;
+            if (!date) return; // Skip se non ha data
+            
+            const timeSlots = [];
+            (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
+              const startTime = document.getElementById(`start-${courtIdx}-${dateIdx}-${slotIdx}`)?.value;
+              const endTime = document.getElementById(`end-${courtIdx}-${dateIdx}-${slotIdx}`)?.value;
+              if (startTime && endTime) {
+                timeSlots.push({ startTime, endTime });
+              }
+            });
+            
+            if (timeSlots.length > 0) {
+              availability.push({ date, timeSlots });
+            }
           });
-          days.push({ date, timeSlots: slots });
+          
+          if (availability.length > 0) {
+            courts.push({
+              courtId: court.courtId,
+              courtName,
+              availability
+            });
+          }
         });
 
-        await callApi('admin_update_schedule', 'POST', { days }, true);
-        state.schedule.days = days;
-        await showInfoDialog('Successo', 'Schedule salvata');
+        if (courts.length === 0) {
+          await showInfoDialog('Attenzione', 'Nessun campo con disponibilità configurata');
+          return;
+        }
+
+        await callApi('admin_update_config', 'POST', { schedule: { courts } }, true);
+        config.schedule.courts = courts;
+        await showInfoDialog('Successo', 'Schedule salvato');
         renderSchedule();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
@@ -1484,6 +1622,131 @@
         await callApi('admin_reschedule_matches', 'POST', {}, true);
         await refresh();
         await showInfoDialog('Successo', 'Partite rischedulate con successo');
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    function renderPhases() {
+      const c = document.getElementById('phasesContainer');
+      const phases = config.phases || [];
+
+      if (phases.length === 0) {
+        c.innerHTML = '<p class="muted">Nessuna fase configurata. Clicca "Aggiungi fase" per iniziare.</p>';
+        return;
+      }
+
+      let html = '<div class="phases-list">';
+      phases.forEach((phase, idx) => {
+        html += `<div class="card" style="background: #f5f5f5; margin-bottom: 12px; padding: 12px">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+            <h4 style="margin: 0">Fase ${idx + 1}</h4>
+            <button class="btn btn-danger" onclick="removePhase(${idx})">Rimuovi</button>
+          </div>
+          <div class="form-grid-modal">
+            <div class="field">
+              <label>Nome fase</label>
+              <input id="phase-name-${idx}" type="text" value="${escapeHtml(phase.name || 'Fase ' + (idx + 1))}">
+            </div>
+            <div class="field">
+              <label>Tipo fase</label>
+              <select id="phase-type-${idx}" onchange="updatePhaseType(${idx})">
+                <option value="groups" ${phase.type === 'groups' ? 'selected' : ''}>Gironi</option>
+                <option value="knockout" ${phase.type === 'knockout' ? 'selected' : ''}>Eliminazione diretta (Castello)</option>
+              </select>
+            </div>`;
+        
+        if (phase.type === 'groups') {
+          html += `<div class="field">
+              <label>Numero di gironi</label>
+              <input id="phase-numGroups-${idx}" type="number" min="1" max="16" value="${phase.numGroups || 4}">
+            </div>
+            <div class="field">
+              <label>Squadre che avanzano per girone</label>
+              <input id="phase-teamsAdvance-${idx}" type="number" min="1" max="8" value="${phase.teamsAdvance || 2}">
+            </div>
+            <div class="field" style="grid-column: 1 / -1">
+              <label style="display: flex; align-items: center; gap: 8px; margin: 0">
+                <input type="checkbox" id="phase-repescage-${idx}" ${phase.hasRepescage ? 'checked' : ''}>
+                Aggiungere girone di ripescaggio per le eliminate
+              </label>
+            </div>`;
+        } else {
+          html += `<div class="field">
+              <label>Numero di squadre (potenza di 2)</label>
+              <select id="phase-numTeams-${idx}">
+                <option value="2" ${phase.numTeams === 2 ? 'selected' : ''}>2 (Finale)</option>
+                <option value="4" ${phase.numTeams === 4 ? 'selected' : ''}>4 (Semifinali)</option>
+                <option value="8" ${phase.numTeams === 8 ? 'selected' : ''}>8 (Quarti)</option>
+                <option value="16" ${phase.numTeams === 16 ? 'selected' : ''}>16 (Sedicesimi)</option>
+                <option value="32" ${phase.numTeams === 32 ? 'selected' : ''}>32</option>
+                <option value="64" ${phase.numTeams === 64 ? 'selected' : ''}>64</option>
+                <option value="128" ${phase.numTeams === 128 ? 'selected' : ''}>128</option>
+              </select>
+            </div>`;
+        }
+
+        html += `</div>
+        </div>`;
+      });
+      html += '</div>';
+      c.innerHTML = html;
+    }
+
+    function updatePhaseType(phaseIdx) {
+      renderPhases();
+    }
+
+    function addPhase() {
+      const phases = config.phases || [];
+      const newPhase = {
+        phaseNumber: phases.length + 1,
+        name: 'Nuova fase',
+        type: 'groups',
+        numGroups: 4,
+        teamsAdvance: 2,
+        hasRepescage: false
+      };
+      config.phases = [...phases, newPhase];
+      renderPhases();
+    }
+
+    function removePhase(idx) {
+      const phases = config.phases || [];
+      phases.splice(idx, 1);
+      config.phases = phases;
+      renderPhases();
+    }
+
+    async function savePhases() {
+      try {
+        const phases = config.phases || [];
+        if (phases.length === 0) {
+          await showInfoDialog('Attenzione', 'Configura almeno una fase');
+          return;
+        }
+
+        const phasesToSave = phases.map((phase, idx) => {
+          const name = document.getElementById(`phase-name-${idx}`).value.trim() || `Fase ${idx + 1}`;
+          const type = document.getElementById(`phase-type-${idx}`).value;
+
+          const phaseData = { phaseNumber: idx + 1, name, type };
+
+          if (type === 'groups') {
+            phaseData.numGroups = Math.max(1, Math.min(16, parseInt(document.getElementById(`phase-numGroups-${idx}`).value) || 4));
+            phaseData.teamsAdvance = Math.max(1, Math.min(8, parseInt(document.getElementById(`phase-teamsAdvance-${idx}`).value) || 2));
+            phaseData.hasRepescage = document.getElementById(`phase-repescage-${idx}`).checked;
+          } else {
+            phaseData.numTeams = parseInt(document.getElementById(`phase-numTeams-${idx}`).value) || 4;
+          }
+
+          return phaseData;
+        });
+
+        await callApi('admin_update_config', 'POST', { phases: phasesToSave }, true);
+        config.phases = phasesToSave;
+        await showInfoDialog('Successo', 'Fasi salvate con successo');
+        renderPhases();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }

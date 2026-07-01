@@ -14,3 +14,9 @@ In home page Se il torneo è iniziato la home page punta subito a partite (se gi
 In home page il count down non si vede perchè il testo è bianco fallo di colore nero ✅
 c'è un problema di aprtura del tabellone mi dice 404 perchè punta alla api della root del sito generale e non da dove viene lanciato e va in errore ✅
 al posto di srivere giorno: 1 metti il giorno effettivo come data ✅
+In configurazione bisogna inserire come si svolgerà il torneo: Quante fasi  e quanti gironi per fasi o se la fase è castello, tutte le fasi a castello saranno con multiple di 2 (2 o 4 o 8) e così via da ogni fase se gironi bisogna dire quante nepassano alla fase successiva e la formula può essere con la'ggiunta di un girone di ripescaggio con le elminate per determinare il numero corretto nella fase successiva ✅
+Definire anche il numero di campi in configurazione con il correspndento time range, quinid i time range e le date sono definite per campo ✅
+Possibilità di inserire time ragne successivi per recupero gare  e quinid ho la possibilità di selezionare toto gare non ancora disputare e cambiare il time ragne con quelli alternativi
+Inserisci nel pannello di controllo il pulsante e la gestione dei back del sito fatto manualemnte così recupera tutto ✅
+Possibilità di inserire diversi template stili di cvisualizzazione del torneo e associarlo nel file di configurazione
+Inserire il logo del torneo facendo direttamente un upload dell'immaginie e prende da quella

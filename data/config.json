@@ -1,8 +1,8 @@
 {
     "tournament": {
         "name": "Chiringuito Beach Volley",
-        "maxTeams": 16,
-        "numGroups": 4,
+        "maxTeams": 8,
+        "numGroups": 2,
         "numSets": 2,
         "winScore": 21,
         "maxScore": 25,
@@ -26,6 +26,27 @@
                             {
                                 "startTime": "20:30",
                                 "endTime": "21:30"
+                            },
+                            {
+                                "startTime": "21:30",
+                                "endTime": "22:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-02",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "20:30"
+                            },
+                            {
+                                "startTime": "20:30",
+                                "endTime": "21:30"
+                            },
+                            {
+                                "startTime": "21:30",
+                                "endTime": "22:30"
                             }
                         ]
                     }
@@ -45,17 +66,15 @@
                             {
                                 "startTime": "20:30",
                                 "endTime": "21:30"
+                            },
+                            {
+                                "startTime": "21:30",
+                                "endTime": "22:30"
                             }
                         ]
-                    }
-                ]
-            },
-            {
-                "courtId": "3",
-                "courtName": "Campo 3",
-                "availability": [
+                    },
                     {
-                        "date": "2026-07-01",
+                        "date": "2026-07-02",
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
@@ -64,6 +83,10 @@
                             {
                                 "startTime": "20:30",
                                 "endTime": "21:30"
+                            },
+                            {
+                                "startTime": "21:30",
+                                "endTime": "22:30"
                             }
                         ]
                     }
@@ -76,15 +99,9 @@
             "phaseNumber": 1,
             "name": "Gironi",
             "type": "groups",
-            "numGroups": 4,
-            "teamsAdvance": 2,
+            "numGroups": 2,
+            "teamsAdvance": 1,
             "hasRepescage": false
-        },
-        {
-            "phaseNumber": 2,
-            "name": "Finale",
-            "type": "knockout",
-            "numTeams": 2
         }
     ],
     "display": {

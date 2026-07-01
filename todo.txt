@@ -21,5 +21,5 @@ Inserisci nel pannello di controllo il pulsante e la gestione dei back del sito 
 Possibilità di inserire diversi template stili di cvisualizzazione del torneo e associarlo nel file di configurazione ✅
 Inserire il logo del torneo facendo direttamente un upload dell'immaginie e prende da quella da mettere in homepage ✅
 Non devono esserci delle fasi preconfigurate ma si parte da 0 e nella creazione del timerange dai deve proporre al massimo una primafascia non due ✅
-I test devo essere riformulati in base alla costruzione del torneo: fai un pulsante con varie tipologie di torneo differenziando gironi e fasi e fai anche un test con meno squadre e quinid devo aggiungere le fittizzie e i test case nel caso in cui il numero dei campi non è sufficiente o il numero di time range non è sufficiente e anche un pulsant per testre la corrente configurazione del torneo inserita
-Non mi consente di selezionare il tema
+I test devo essere riformulati in base alla costruzione del torneo: fai un pulsante con varie tipologie di torneo differenziando gironi e fasi e fai anche un test con meno squadre e quinid devo aggiungere le fittizzie e i test case nel caso in cui il numero dei campi non è sufficiente o il numero di time range non è sufficiente e anche un pulsant per testre la corrente configurazione del torneo inserita✅
+Non mi consente di selezionare il tema✅

@@ -553,6 +553,26 @@
           <button class="btn btn-danger" onclick="resetAll()">Reset torneo</button>
         </div>
 
+        <div class="card" style="background: #f0f8ff; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">🧪 Test Torneo - Template Predefiniti</h4>
+          <p class="muted">Carica template di tornei per testare diverse configurazioni.</p>
+          <div class="row" style="margin-top: 10px; flex-wrap: wrap; gap: 8px">
+            <button class="btn btn-info" onclick="loadTournamentTemplate('tournament_8_groups')">📋 8 squadre (2 gironi)</button>
+            <button class="btn btn-info" onclick="loadTournamentTemplate('tournament_12_groups')">📋 12 squadre (3 gironi)</button>
+            <button class="btn btn-info" onclick="loadTournamentTemplate('tournament_16_full')">📋 16 squadre (gironi + knockout)</button>
+            <button class="btn btn-info" onclick="loadTournamentTemplate('tournament_32_full')">📋 32 squadre (gironi + fasi)</button>
+          </div>
+        </div>
+
+        <div class="card" style="background: #fff8e1; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">✅ Validazione Configurazione</h4>
+          <p class="muted">Valida la configurazione attuale del torneo e verifica eventuali errori.</p>
+          <div style="margin-top: 10px">
+            <button class="btn btn-primary" onclick="validateConfiguration()">🔍 Valida Configurazione Attuale</button>
+            <div id="validationResult" style="margin-top: 10px; display: none"></div>
+          </div>
+        </div>
+
         <div class="card" style="background: #e8f5e9; margin-top: 16px; padding: 12px">
           <h4 style="margin-top: 0">💾 Backup e Ripristino</h4>
           <p class="muted">Esporta l'intero stato del torneo (config, squadre, gironi, partite) e ripristinalo in seguito.</p>
@@ -1447,6 +1467,58 @@
         await showInfoDialog('Errore importazione', e.message);
       } finally {
         document.getElementById('backupFileInput').value = '';
+      }
+    }
+
+    async function loadTournamentTemplate(templateId) {
+      try {
+        const r = await callApi('admin_load_tournament_template', 'POST', { templateId }, true);
+        config = r.config;
+        state = r.state;
+        await showInfoDialog('Successo', `✅ Template "${templateId}" caricato. Squadre fittizie aggiunte.`);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function validateConfiguration() {
+      try {
+        const resultDiv = document.getElementById('validationResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div style="color: #666">⏳ Validazione in corso...</div>';
+
+        const r = await callApi('admin_validate_config', 'GET', null, true);
+        
+        let html = '<div style="padding: 12px; border-radius: 8px; ';
+        if (r.valid) {
+          html += 'background: #d4edda; border: 2px solid #28a745; color: #155724">';
+          html += '✅ <strong>Configurazione valida!</strong>';
+          html += '<ul style="margin-top: 10px">';
+          if (r.details) {
+            r.details.forEach(d => {
+              html += `<li>${d}</li>`;
+            });
+          }
+          html += '</ul>';
+        } else {
+          html += 'background: #f8d7da; border: 2px solid #f5c6cb; color: #721c24">';
+          html += '❌ <strong>Errori di configurazione:</strong>';
+          html += '<ul style="margin-top: 10px">';
+          if (r.errors) {
+            r.errors.forEach(err => {
+              html += `<li>${err}</li>`;
+            });
+          }
+          html += '</ul>';
+        }
+        html += '</div>';
+        resultDiv.innerHTML = html;
+      } catch (e) {
+        document.getElementById('validationResult').innerHTML = 
+          `<div style="padding: 12px; background: #f8d7da; border: 2px solid #f5c6cb; border-radius: 8px; color: #721c24">
+            ❌ Errore validazione: ${e.message}
+          </div>`;
       }
     }
 

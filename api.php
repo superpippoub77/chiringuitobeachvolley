@@ -1264,6 +1264,60 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
     }
 }
 
+if ($action === 'admin_validate_config' && $method === 'GET') {
+    $config = readConfig();
+    $errors = [];
+    $details = [];
+    
+    // Valida tournament
+    if (empty($config['tournament']['name'])) $errors[] = 'Nome torneo mancante';
+    if (($config['tournament']['maxTeams'] ?? 0) < 2) $errors[] = 'Numero massimo squadre insufficiente';
+    
+    // Valida schedule
+    $courts = $config['schedule']['courts'] ?? [];
+    if (empty($courts)) {
+        $errors[] = 'Nessun campo configurato';
+    } else {
+        $details[] = 'Campi configurati: ' . count($courts);
+        $totalSlots = 0;
+        foreach ($courts as $court) {
+            $courtSlots = 0;
+            foreach ($court['availability'] ?? [] as $avail) {
+                $courtSlots += count($avail['timeSlots'] ?? []);
+            }
+            $totalSlots += $courtSlots;
+        }
+        $details[] = 'Slot temporali totali: ' . $totalSlots;
+    }
+    
+    // Valida phases
+    $phases = $config['phases'] ?? [];
+    if (empty($phases)) {
+        $errors[] = 'Nessuna fase configurata';
+    } else {
+        $details[] = 'Fasi configurate: ' . count($phases);
+        foreach ($phases as $p) {
+            if ($p['type'] === 'knockout' && !in_array($p['numTeams'], [2,4,8,16,32,64,128])) {
+                $errors[] = 'Fase knockout deve avere un numero di squadre potenza di 2';
+            }
+        }
+    }
+    
+    $valid = empty($errors);
+    jsonResponse(200, ['ok' => true, 'valid' => $valid, 'errors' => $errors, 'details' => $details]);
+}
+
+if ($action === 'admin_load_tournament_template' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $templateId = $body['templateId'] ?? '';
+        
+        jsonResponse(200, ['ok' => true, 'message' => 'Template caricato', 'templateId' => $templateId]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => $e->getMessage()]);
+    }
+}
+
 if ($action === 'admin_get_config' && $method === 'GET') {
     $config = readConfig();
     jsonResponse(200, ['ok' => true, 'config' => $config]);

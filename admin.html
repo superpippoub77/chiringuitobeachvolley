@@ -437,6 +437,7 @@
 
     function teamRow(team) {
       const p = (team.players || []).filter(Boolean).join(' | ') || 'Giocatori non inseriti';
+      const canDelete = !isTournamentStarted();
       return `<div class="team">
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
@@ -446,7 +447,10 @@
           <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
           <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
         </div>
-        <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
+          ${canDelete ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
+        </div>
       </div>`;
     }
 
@@ -456,11 +460,95 @@
       c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
     }
 
+    async function deleteTeamFromList(teamId, teamName) {
+      if (isTournamentStarted()) {
+        await showInfoDialog('Operazione non consentita', 'Non puoi cancellare squadre: il torneo e gia iniziato.');
+        return;
+      }
+
+      const confirmed = await showConfirmDialog(
+        'Conferma cancellazione',
+        `Vuoi davvero cancellare la squadra "${teamName}"?`
+      );
+      if (!confirmed) return;
+
+      try {
+        await callApi('admin_delete_team', 'POST', { id: teamId }, true);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore eliminazione', e.message);
+      }
+    }
+
+    function isTournamentStarted() {
+      const p = state?.playoff || {};
+      return (state?.groups || []).length > 0
+        || (state?.groupMatches || []).length > 0
+        || (p.quarterFinals || []).length > 0
+        || (p.semiFinals || []).length > 0
+        || !!p.thirdPlace
+        || !!p.final
+        || (state?.finalRanking || []).length > 0;
+    }
+
     async function openTeamDialog(teamId) {
       const team = (state.teamsAll || []).find(t => t.id === teamId);
       if (!team) return;
+      const started = isTournamentStarted();
 
       const p = team.players || ['', '', ''];
+      const buttons = [
+        { text: 'Annulla', className: 'btn', closeOnClick: true }
+      ];
+
+      if (!started) {
+        buttons.push({
+          text: 'Elimina squadra',
+          className: 'btn btn-danger',
+          onClick: async () => {
+            const confirmed = await showConfirmDialog(
+              'Conferma cancellazione',
+              `Vuoi davvero cancellare la squadra "${team.name}"?`
+            );
+            if (!confirmed) return;
+
+            try {
+              await callApi('admin_delete_team', 'POST', { id: teamId }, true);
+              closeModal();
+              await refresh();
+            } catch (e) {
+              await showInfoDialog('Errore eliminazione', e.message);
+            }
+          }
+        });
+      }
+
+      buttons.push({
+        text: 'Salva modifiche',
+        className: 'btn btn-primary',
+        onClick: async () => {
+          try {
+            const payload = {
+              id: teamId,
+              name: document.getElementById('mTeamName').value.trim(),
+              players: [
+                document.getElementById('mPlayer1').value.trim(),
+                document.getElementById('mPlayer2').value.trim(),
+                document.getElementById('mPlayer3').value.trim()
+              ],
+              phone: document.getElementById('mPhone').value.trim(),
+              approved: document.getElementById('mApproved').checked,
+              paid: document.getElementById('mPaid').checked
+            };
+            await callApi('admin_update_team', 'POST', payload, true);
+            closeModal();
+            await refresh();
+          } catch (e) {
+            await showInfoDialog('Errore salvataggio', e.message);
+          }
+        }
+      });
+
       openModal({
         title: 'Modifica squadra',
         bodyHtml: `
@@ -492,36 +580,10 @@
               <label><input id="mPaid" type="checkbox" ${team.paid ? 'checked' : ''}> Pagamento registrato</label>
             </div>
             <div class="field full muted">Categoria torneo: Misto (bloccata)</div>
+            <div class="field full muted">${started ? 'Cancellazione disattivata: torneo gia iniziato.' : 'Puoi cancellare la squadra finche il torneo non e iniziato.'}</div>
           </div>
         `,
-        buttons: [
-          { text: 'Annulla', className: 'btn', closeOnClick: true },
-          {
-            text: 'Salva modifiche',
-            className: 'btn btn-primary',
-            onClick: async () => {
-              try {
-                const payload = {
-                  id: teamId,
-                  name: document.getElementById('mTeamName').value.trim(),
-                  players: [
-                    document.getElementById('mPlayer1').value.trim(),
-                    document.getElementById('mPlayer2').value.trim(),
-                    document.getElementById('mPlayer3').value.trim()
-                  ],
-                  phone: document.getElementById('mPhone').value.trim(),
-                  approved: document.getElementById('mApproved').checked,
-                  paid: document.getElementById('mPaid').checked
-                };
-                await callApi('admin_update_team', 'POST', payload, true);
-                closeModal();
-                await refresh();
-              } catch (e) {
-                await showInfoDialog('Errore salvataggio', e.message);
-              }
-            }
-          }
-        ]
+        buttons
       });
     }
 

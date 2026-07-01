@@ -146,6 +146,23 @@ function approvedTeams(array $state): array {
     return array_values(array_filter($state['teams'], fn($t) => !empty($t['approved'])));
 }
 
+function tournamentStarted(array $state): bool {
+    if (count($state['groups']) > 0 || count($state['groupMatches']) > 0) {
+        return true;
+    }
+
+    if (
+        count($state['playoff']['quarterFinals']) > 0 ||
+        count($state['playoff']['semiFinals']) > 0 ||
+        $state['playoff']['thirdPlace'] !== null ||
+        $state['playoff']['final'] !== null
+    ) {
+        return true;
+    }
+
+    return count($state['finalRanking']) > 0;
+}
+
 function publicState(array $state): array {
     $teamMap = getTeamMap($state);
     return [
@@ -632,6 +649,32 @@ if ($action === 'admin_update_team' && $method === 'POST') {
         unset($team);
 
         if (!$found) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+        }
+
+        return ['ok' => true];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_delete_team' && $method === 'POST') {
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID squadra obbligatorio']);
+    }
+
+    withStateTransaction(function (&$state) use ($id) {
+        if (tournamentStarted($state)) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Non puoi cancellare squadre: il torneo e gia iniziato']);
+        }
+
+        $before = count($state['teams']);
+        $state['teams'] = array_values(array_filter($state['teams'], fn($t) => $t['id'] !== $id));
+
+        if (count($state['teams']) === $before) {
             jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
         }
 

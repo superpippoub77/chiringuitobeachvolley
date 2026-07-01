@@ -343,6 +343,7 @@
         <div class="row">
           <button class="btn btn-primary" onclick="generateGroups()">Genera gironi (solo approvate)</button>
         </div>
+        <p class="muted" style="margin-top:10px">Se non hai abbastanza squadre approvate per raggiungere il massimo (16), saranno aggiunte automaticamente squadre fittizie.</p>
         <div id="groupsContainer" style="margin-top:10px"></div>
       </div>
 
@@ -440,18 +441,20 @@
     function teamRow(team) {
       const p = (team.players || []).filter(Boolean).join(' | ') || 'Giocatori non inseriti';
       const canDelete = !isTournamentStarted();
+      const isDummy = team.dummy === true;
       return `<div class="team">
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
           <small>${escapeHtml(p)}</small>
         </div>
         <div class="chips">
+          ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
           <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
           <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
         </div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
-          ${canDelete ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
+          ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
         </div>
       </div>`;
     }
@@ -497,13 +500,14 @@
       const team = (state.teamsAll || []).find(t => t.id === teamId);
       if (!team) return;
       const started = isTournamentStarted();
+      const isDummy = team.dummy === true;
 
       const p = team.players || ['', '', ''];
       const buttons = [
         { text: 'Annulla', className: 'btn', closeOnClick: true }
       ];
 
-      if (!started) {
+      if (!started && !isDummy) {
         buttons.push({
           text: 'Elimina squadra',
           className: 'btn btn-danger',
@@ -582,7 +586,8 @@
               <label><input id="mPaid" type="checkbox" ${team.paid ? 'checked' : ''}> Pagamento registrato</label>
             </div>
             <div class="field full muted">Categoria torneo: Misto (bloccata)</div>
-            <div class="field full muted">${started ? 'Cancellazione disattivata: torneo gia iniziato.' : 'Puoi cancellare la squadra finche il torneo non e iniziato.'}</div>
+            ${isDummy ? '<div class="field full muted" style="color: #8d1800; background: #ffe0d7; padding: 6px; border-radius: 4px;">Squadra fittizia generata automaticamente - eliminazione disabilitata</div>' : ''}
+            <div class="field full muted">${started ? 'Cancellazione disattivata: torneo gia iniziato.' : (!isDummy ? 'Puoi cancellare la squadra finche il torneo non e iniziato.' : '')}</div>
           </div>
         `,
         buttons

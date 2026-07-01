@@ -146,6 +146,16 @@ function approvedTeams(array $state): array {
     return array_values(array_filter($state['teams'], fn($t) => !empty($t['approved'])));
 }
 
+function generateDummyTeamName(int $index): string {
+    $names = [
+        'Sand Force', 'Wave Warriors', 'Sunset Strikers', 'Beach Kings',
+        'Ace Smash', 'Spike Force', 'Net Ninjas', 'Block Party',
+        'Dig Deep', 'Serve Smash', 'Jump Set Go', 'Power Volley',
+        'Sand Sharks', 'Top Spin', 'Last Stand', 'Blue Fire'
+    ];
+    return $names[$index % count($names)] . (intdiv($index, count($names)) > 0 ? ' ' . (intdiv($index, count($names))) : '');
+}
+
 function tournamentStarted(array $state): bool {
     if (count($state['groups']) > 0 || count($state['groupMatches']) > 0) {
         return true;
@@ -691,7 +701,26 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
             jsonResponse(422, ['ok' => false, 'error' => 'Servono almeno 4 squadre approvate']);
         }
 
-        $approved = array_slice(shuffleArray($approved), 0, (int)$state['settings']['maxTeams']);
+        $maxTeams = (int)$state['settings']['maxTeams'];
+        $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
+
+        // Aggiungere squadre fittive se non si raggiunge il massimo
+        while (count($approved) < $maxTeams) {
+            $dummyTeam = [
+                'id' => uid(),
+                'name' => generateDummyTeamName(count($approved)),
+                'category' => 'Misto',
+                'players' => ['Bot 1', 'Bot 2', 'Bot 3'],
+                'phone' => '',
+                'paid' => true,
+                'approved' => true,
+                'dummy' => true,
+                'createdAt' => gmdate('c')
+            ];
+            $state['teams'][] = $dummyTeam;
+            $approved[] = $dummyTeam;
+        }
+
         $groupCount = min(4, max(1, (int)ceil(count($approved) / 4)));
         $groups = [];
         for ($i = 0; $i < $groupCount; $i++) {

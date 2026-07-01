@@ -583,6 +583,29 @@
           </div>
         </div>
 
+        <div class="card" style="background: #e3f2fd; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">🔄 Sistema di Aggiornamento</h4>
+          <p class="muted">Controlla gli aggiornamenti, scarica il programma completo o installa una nuova versione.</p>
+          
+          <div style="margin-top: 12px; padding: 8px; background: white; border-radius: 8px">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span>📦 Versione attuale: <strong id="currentVersionLabel">Caricamento...</strong></span>
+              <span id="updateStatusLabel" style="font-weight: bold; color: #1976d2"></span>
+            </div>
+          </div>
+          
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-primary" onclick="checkForUpdates()">🔍 Controlla Aggiornamenti</button>
+            <button class="btn btn-blue" onclick="downloadProgram()">📥 Scarica Programma Completo</button>
+            <button class="btn btn-success" onclick="document.getElementById('updateFileInput').click()">⬆️ Installa Aggiornamento</button>
+            <input type="file" id="updateFileInput" accept=".zip" style="display: none" onchange="installUpdate(event)">
+          </div>
+          
+          <div id="updateStatusContainer" style="margin-top: 10px; display: none; padding: 8px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px">
+            <div id="updateStatusMessage" style="color: #e65100"></div>
+          </div>
+        </div>
+
         <div class="card" style="background: #ffebee; margin-top: 16px; padding: 12px">
           <h4 style="margin-top: 0">🔴 Cancellazione Completa</h4>
           <p class="muted" style="color: #c62828">Cancella completamente il torneo, tutte le squadre, i gironi, le fasi e torna a stato iniziale. Non sarà possibile recuperare i dati!</p>
@@ -1725,6 +1748,120 @@
         await showInfoDialog('Errore', e.message);
       }
     }
+
+    async function loadCurrentVersion() {
+      try {
+        const r = await callApi('get_version', 'GET', {}, false);
+        const versionText = `${r.version} (${r.releaseDate})`;
+        document.getElementById('currentVersionLabel').textContent = versionText;
+      } catch (e) {
+        document.getElementById('currentVersionLabel').textContent = 'Errore nel caricamento';
+      }
+    }
+
+    async function checkForUpdates() {
+      try {
+        const statusLabel = document.getElementById('updateStatusLabel');
+        const statusContainer = document.getElementById('updateStatusContainer');
+        const statusMessage = document.getElementById('updateStatusMessage');
+        
+        statusLabel.textContent = '⏳ Verifica in corso...';
+        statusContainer.style.display = 'none';
+        
+        const r = await callApi('check_update', 'GET', {}, false);
+        
+        if (r.hasUpdate) {
+          statusLabel.textContent = `⚠️ Aggiornamento disponibile: ${r.latestVersion}`;
+          statusLabel.style.color = '#ff9800';
+          statusMessage.innerHTML = `<strong>✨ Nuova versione disponibile!</strong><br>
+            <strong>Versione attuale:</strong> ${r.currentVersion}<br>
+            <strong>Versione disponibile:</strong> ${r.latestVersion}<br>
+            <strong>Note:</strong> ${r.releaseNotes}<br>
+            ${r.breaking ? '<br>⚠️ Aggiornamento con cambiamenti significativi' : ''}`;
+          statusContainer.style.display = 'block';
+        } else {
+          statusLabel.textContent = '✅ Versione aggiornata';
+          statusLabel.style.color = '#4caf50';
+          statusMessage.textContent = '✓ Stai utilizzando l\'ultima versione disponibile';
+          statusContainer.style.display = 'block';
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore nella verifica degli aggiornamenti: ' + e.message);
+      }
+    }
+
+    async function downloadProgram() {
+      try {
+        const response = await fetch('api.php?action=admin_download_program', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chiringuitobeachvolley-${Date.now()}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        await showInfoDialog('Successo', '✅ Download del programma completato. Puoi metterlo su un server e usare la funzione "Installa Aggiornamento" per aggiornare.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore nello scaricamento del programma: ' + e.message);
+      }
+    }
+
+    async function installUpdate(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      
+      const confirmed = await showConfirmDialog(
+        '🔄 Installa Aggiornamento',
+        `Sei sicuro di voler installare l'aggiornamento? Il sistema farà un backup automatico prima di procedere.\n\nFile: ${file.name}`
+      );
+      
+      if (!confirmed) {
+        event.target.value = '';
+        return;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('updateFile', file);
+        
+        const response = await fetch('api.php?action=admin_upload_and_install_update', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          await showInfoDialog('Successo', '✅ ' + result.message);
+          setTimeout(() => location.reload(), 2000);
+        } else {
+          await showInfoDialog('Errore', 'Errore nell\'installazione: ' + (result.error || 'Sconosciuto'));
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore nell\'installazione dell\'aggiornamento: ' + e.message);
+      } finally {
+        event.target.value = '';
+      }
+    }
+
+    // Carica versione all'avvio
+    loadCurrentVersion();
 
     async function validateConfiguration() {
       try {

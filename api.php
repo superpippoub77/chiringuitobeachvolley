@@ -6,6 +6,10 @@ header('Content-Type: application/json; charset=utf-8');
 const DATA_FILE = __DIR__ . '/data/tournament.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
+const VERSION_FILE = __DIR__ . '/data/version.json';
+const RELEASES_FILE = __DIR__ . '/data/releases.json';
+const UPLOADS_DIR = __DIR__ . '/data/uploads';
+const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
 
 function jsonResponse(int $code, array $payload): void {
@@ -287,6 +291,112 @@ function uid(): string {
 
 function randomInt(int $min, int $max): int {
     return random_int($min, $max);
+}
+
+function getVersionInfo(): array {
+    return readJsonFile(VERSION_FILE, [
+        'version' => '1.0.0',
+        'releaseDate' => date('Y-m-d'),
+        'features' => [],
+        'minPhpVersion' => '8.0.0'
+    ]);
+}
+
+function getReleasesInfo(): array {
+    return readJsonFile(RELEASES_FILE, [
+        'latestVersion' => '1.0.0',
+        'latestReleaseDate' => date('Y-m-d'),
+        'downloadUrl' => '',
+        'releaseNotes' => 'No updates available',
+        'breaking' => false,
+        'migrations' => []
+    ]);
+}
+
+function compareVersions(string $v1, string $v2): int {
+    // Ritorna: -1 se v1 < v2, 0 se uguali, 1 se v1 > v2
+    $p1 = array_map('intval', explode('.', $v1));
+    $p2 = array_map('intval', explode('.', $v2));
+    
+    $len = max(count($p1), count($p2));
+    for ($i = 0; $i < $len; $i++) {
+        $a = $p1[$i] ?? 0;
+        $b = $p2[$i] ?? 0;
+        if ($a < $b) return -1;
+        if ($a > $b) return 1;
+    }
+    return 0;
+}
+
+function createProgramZip(): ?string {
+    if (!is_dir(UPDATES_DIR)) {
+        mkdir(UPDATES_DIR, 0777, true);
+    }
+    
+    $zipPath = UPDATES_DIR . '/chiringuitobeachvolley-' . time() . '.zip';
+    $rootDir = __DIR__;
+    $tmpList = UPDATES_DIR . '/.ziplist';
+    
+    // Crea lista di file da includere nel ZIP
+    $command = "cd " . escapeshellarg($rootDir) . " && find . -type f";
+    $output = [];
+    exec($command, $output, $returnCode);
+    
+    $files = [];
+    foreach ($output as $file) {
+        $file = substr($file, 2); // Rimuove il "./" iniziale
+        
+        // Ignora questi path
+        if (preg_match('~^\.git|^\.gitignore|^node_modules|^data/updates|^\.~', $file)) {
+            continue;
+        }
+        
+        $files[] = $file;
+    }
+    
+    if (empty($files)) {
+        return null;
+    }
+    
+    // Crea ZIP con i file trovati
+    $fileList = implode(' ', array_map('escapeshellarg', $files));
+    $command = "cd " . escapeshellarg($rootDir) . " && zip -q -r " . escapeshellarg($zipPath) . " " . $fileList;
+    
+    exec($command, $output, $returnCode);
+    
+    if ($returnCode !== 0 || !file_exists($zipPath)) {
+        return null;
+    }
+    
+    return $zipPath;
+}
+
+function extractUpdateZip(string $zipPath, bool $backup = true): array {
+    // Crea backup se richiesto
+    if ($backup) {
+        $backupPath = UPDATES_DIR . '/backup-pre-update-' . time() . '.zip';
+        $rootDir = __DIR__;
+        $command = "cd " . escapeshellarg($rootDir) . " && zip -q -r " . escapeshellarg($backupPath) . " " .
+                   escapeshellarg('data/config.json') . " " . escapeshellarg('data/tournament.json');
+        exec($command, $output, $returnCode);
+    }
+    
+    // Verifica che il file ZIP esista e sia valido
+    if (!file_exists($zipPath)) {
+        return ['ok' => false, 'error' => 'ZIP file not found'];
+    }
+    
+    // Estrae lo ZIP nella root del progetto
+    $extractPath = __DIR__;
+    $command = "cd " . escapeshellarg($extractPath) . " && unzip -q -o " . escapeshellarg($zipPath);
+    
+    exec($command, $output, $returnCode);
+    
+    if ($returnCode !== 0) {
+        return ['ok' => false, 'error' => 'Failed to extract files. Return code: ' . $returnCode];
+    }
+    
+    return ['ok' => true, 'message' => 'Update installed successfully'];
 }
 
 function randomScore(): array {
@@ -1425,6 +1535,57 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
     }
 }
 
+if ($action === 'admin_download_program' && $method === 'GET') {
+    $zipPath = createProgramZip();
+    if (!$zipPath || !file_exists($zipPath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Failed to create ZIP file']);
+    }
+    
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="chiringuitobeachvolley-' . time() . '.zip"');
+    header('Content-Length: ' . filesize($zipPath));
+    readfile($zipPath);
+    exit;
+}
+
+if ($action === 'admin_upload_and_install_update' && $method === 'POST') {
+    $files = $_FILES ?? [];
+    if (empty($files['updateFile'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Carica un file ZIP di aggiornamento']);
+    }
+    
+    $uploadedFile = $files['updateFile'];
+    if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Upload fallito']);
+    }
+    
+    $mimeType = $uploadedFile['type'];
+    if (!in_array($mimeType, ['application/zip', 'application/x-zip-compressed'], true)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Solo file ZIP sono accettati']);
+    }
+    
+    // Crea una directory temporanea per il file caricato
+    if (!is_dir(UPDATES_DIR)) {
+        mkdir(UPDATES_DIR, 0777, true);
+    }
+    
+    $tmpPath = UPDATES_DIR . '/' . time() . '-update.zip';
+    if (!move_uploaded_file($uploadedFile['tmp_name'], $tmpPath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile salvare il file']);
+    }
+    
+    // Estrae e installa l'aggiornamento
+    $result = extractUpdateZip($tmpPath, true);
+    
+    if ($result['ok']) {
+        // Aggiorna il file version.json se presente nello ZIP
+        // Questo viene fatto automaticamente dall'extract
+        jsonResponse(200, ['ok' => true, 'message' => 'Aggiornamento installato con successo. Pagina in ricaricamento...']);
+    } else {
+        jsonResponse(500, $result);
+    }
+}
+
 if ($action === 'admin_save_custom_theme' && $method === 'POST') {
     $body = bodyJson();
     $themeName = trim((string)($body['name'] ?? 'Tema Personalizzato'));
@@ -1571,6 +1732,27 @@ if ($action === 'get_themes' && $method === 'GET') {
         ['id' => 'minimalista', 'name' => '✨ Minimalista', 'description' => 'Tema pulito e minimalista']
     ];
     jsonResponse(200, ['ok' => true, 'themes' => $themes]);
+}
+
+if ($action === 'get_version' && $method === 'GET') {
+    $version = getVersionInfo();
+    jsonResponse(200, ['ok' => true, 'version' => $version['version'], 'releaseDate' => $version['releaseDate']]);
+}
+
+if ($action === 'check_update' && $method === 'GET') {
+    $current = getVersionInfo();
+    $releases = getReleasesInfo();
+    $hasUpdate = compareVersions($current['version'], $releases['latestVersion']) < 0;
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'currentVersion' => $current['version'],
+        'latestVersion' => $releases['latestVersion'],
+        'hasUpdate' => $hasUpdate,
+        'releaseNotes' => $releases['releaseNotes'],
+        'breaking' => $releases['breaking'] ?? false,
+        'downloadUrl' => $releases['downloadUrl'] ?? ''
+    ]);
 }
 
 if ($action === 'admin_update_config' && $method === 'POST') {

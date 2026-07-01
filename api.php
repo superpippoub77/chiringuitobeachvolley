@@ -399,6 +399,88 @@ function extractUpdateZip(string $zipPath, bool $backup = true): array {
     return ['ok' => true, 'message' => 'Update installed successfully'];
 }
 
+function uploadViaFtp(string $localFilePath, string $ftpHost, int $ftpPort, string $ftpUsername, string $ftpPassword, string $ftpRemotePath): array {
+    if (!function_exists('ftp_connect')) {
+        return ['ok' => false, 'error' => 'FTP extension not available'];
+    }
+    
+    if (!file_exists($localFilePath)) {
+        return ['ok' => false, 'error' => 'Local file not found: ' . $localFilePath];
+    }
+    
+    // Connessione FTP
+    $ftpConn = @ftp_connect($ftpHost, $ftpPort, 30);
+    if (!$ftpConn) {
+        return ['ok' => false, 'error' => 'Cannot connect to FTP server: ' . $ftpHost . ':' . $ftpPort];
+    }
+    
+    // Login
+    if (!@ftp_login($ftpConn, $ftpUsername, $ftpPassword)) {
+        ftp_close($ftpConn);
+        return ['ok' => false, 'error' => 'FTP login failed. Invalid credentials or permissions'];
+    }
+    
+    // Abilita passive mode
+    if (!@ftp_pasv($ftpConn, true)) {
+        ftp_close($ftpConn);
+        return ['ok' => false, 'error' => 'Cannot enable passive mode'];
+    }
+    
+    // Crea directory remota se non esiste
+    $remotePath = rtrim($ftpRemotePath, '/');
+    $fileName = basename($localFilePath);
+    $remoteFilePath = $remotePath . '/' . $fileName;
+    
+    // Upload file
+    if (!@ftp_put($ftpConn, $remoteFilePath, $localFilePath, FTP_BINARY)) {
+        ftp_close($ftpConn);
+        return ['ok' => false, 'error' => 'Upload failed. Check remote path permissions'];
+    }
+    
+    ftp_close($ftpConn);
+    return ['ok' => true, 'message' => 'File uploaded successfully via FTP to ' . $remoteFilePath, 'remoteFile' => $remoteFilePath];
+}
+
+function uploadViaSftp(string $localFilePath, string $sftpHost, int $sftpPort, string $sftpUsername, string $sftpPassword, string $sftpRemotePath): array {
+    // Controlla se SSH2 è disponibile
+    if (!function_exists('ssh2_connect')) {
+        return ['ok' => false, 'error' => 'SSH2 extension not available. Installare php-ssh2 o usare FTP'];
+    }
+    
+    if (!file_exists($localFilePath)) {
+        return ['ok' => false, 'error' => 'Local file not found: ' . $localFilePath];
+    }
+    
+    // Connessione SSH2
+    $sshConn = @ssh2_connect($sftpHost, $sftpPort);
+    if (!$sshConn) {
+        return ['ok' => false, 'error' => 'Cannot connect to SFTP server: ' . $sftpHost . ':' . $sftpPort];
+    }
+    
+    // Autenticazione con password
+    if (!@ssh2_auth_password($sshConn, $sftpUsername, $sftpPassword)) {
+        // Prova con chiave pubblica se disponibile
+        return ['ok' => false, 'error' => 'SFTP authentication failed. Check credentials'];
+    }
+    
+    // Sftp subsystem
+    $sftpConn = @ssh2_sftp($sshConn);
+    if (!$sftpConn) {
+        return ['ok' => false, 'error' => 'Cannot initialize SFTP'];
+    }
+    
+    // Upload file
+    $remotePath = rtrim($sftpRemotePath, '/');
+    $fileName = basename($localFilePath);
+    $remoteFilePath = 'ssh2.sftp://' . intval($sftpConn) . $remotePath . '/' . $fileName;
+    
+    if (!@copy($localFilePath, $remoteFilePath)) {
+        return ['ok' => false, 'error' => 'SFTP upload failed. Check remote path permissions'];
+    }
+    
+    return ['ok' => true, 'message' => 'File uploaded successfully via SFTP to ' . $remotePath . '/' . $fileName, 'remoteFile' => $remotePath . '/' . $fileName];
+}
+
 function randomScore(): array {
     $a = randomInt(10, 21);
     $b = randomInt(10, 21);
@@ -1584,6 +1666,108 @@ if ($action === 'admin_upload_and_install_update' && $method === 'POST') {
     } else {
         jsonResponse(500, $result);
     }
+}
+
+if ($action === 'admin_test_ftp_connection' && $method === 'POST') {
+    $body = bodyJson();
+    $ftpHost = trim((string)($body['ftpHost'] ?? ''));
+    $ftpPort = (int)($body['ftpPort'] ?? 21);
+    $ftpUsername = (string)($body['ftpUsername'] ?? '');
+    $ftpPassword = (string)($body['ftpPassword'] ?? '');
+    
+    if (empty($ftpHost) || empty($ftpUsername) || empty($ftpPassword)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Host, username e password sono obbligatori']);
+    }
+    
+    if (!function_exists('ftp_connect')) {
+        jsonResponse(500, ['ok' => false, 'error' => 'FTP extension non disponibile']);
+    }
+    
+    $ftpConn = @ftp_connect($ftpHost, $ftpPort, 30);
+    if (!$ftpConn) {
+        jsonResponse(200, ['ok' => false, 'error' => 'Impossibile connettersi a ' . $ftpHost . ':' . $ftpPort]);
+    }
+    
+    if (!@ftp_login($ftpConn, $ftpUsername, $ftpPassword)) {
+        ftp_close($ftpConn);
+        jsonResponse(200, ['ok' => false, 'error' => 'FTP login fallito. Credenziali non valide']);
+    }
+    
+    ftp_close($ftpConn);
+    jsonResponse(200, ['ok' => true, 'message' => 'Connessione FTP riuscita']);
+}
+
+if ($action === 'admin_test_sftp_connection' && $method === 'POST') {
+    $body = bodyJson();
+    $sftpHost = trim((string)($body['sftpHost'] ?? ''));
+    $sftpPort = (int)($body['sftpPort'] ?? 22);
+    $sftpUsername = (string)($body['sftpUsername'] ?? '');
+    $sftpPassword = (string)($body['sftpPassword'] ?? '');
+    
+    if (empty($sftpHost) || empty($sftpUsername) || empty($sftpPassword)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Host, username e password sono obbligatori']);
+    }
+    
+    if (!function_exists('ssh2_connect')) {
+        jsonResponse(200, ['ok' => false, 'error' => 'SSH2 extension non disponibile. Installare php-ssh2 o usare FTP']);
+    }
+    
+    $sshConn = @ssh2_connect($sftpHost, $sftpPort);
+    if (!$sshConn) {
+        jsonResponse(200, ['ok' => false, 'error' => 'Impossibile connettersi a ' . $sftpHost . ':' . $sftpPort]);
+    }
+    
+    if (!@ssh2_auth_password($sshConn, $sftpUsername, $sftpPassword)) {
+        jsonResponse(200, ['ok' => false, 'error' => 'SFTP login fallito. Credenziali non valide']);
+    }
+    
+    jsonResponse(200, ['ok' => true, 'message' => 'Connessione SFTP riuscita']);
+}
+
+if ($action === 'admin_upload_program_to_ftp' && $method === 'POST') {
+    $body = bodyJson();
+    $ftpHost = trim((string)($body['ftpHost'] ?? ''));
+    $ftpPort = (int)($body['ftpPort'] ?? 21);
+    $ftpUsername = (string)($body['ftpUsername'] ?? '');
+    $ftpPassword = (string)($body['ftpPassword'] ?? '');
+    $ftpRemotePath = trim((string)($body['ftpRemotePath'] ?? '/'));
+    
+    if (empty($ftpHost) || empty($ftpUsername) || empty($ftpPassword)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Host, username e password sono obbligatori']);
+    }
+    
+    // Crea il programma ZIP
+    $zipPath = createProgramZip();
+    if (!$zipPath || !file_exists($zipPath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile creare il file ZIP']);
+    }
+    
+    // Upload via FTP
+    $result = uploadViaFtp($zipPath, $ftpHost, $ftpPort, $ftpUsername, $ftpPassword, $ftpRemotePath);
+    jsonResponse($result['ok'] ? 200 : 500, $result);
+}
+
+if ($action === 'admin_upload_program_to_sftp' && $method === 'POST') {
+    $body = bodyJson();
+    $sftpHost = trim((string)($body['sftpHost'] ?? ''));
+    $sftpPort = (int)($body['sftpPort'] ?? 22);
+    $sftpUsername = (string)($body['sftpUsername'] ?? '');
+    $sftpPassword = (string)($body['sftpPassword'] ?? '');
+    $sftpRemotePath = trim((string)($body['sftpRemotePath'] ?? '/'));
+    
+    if (empty($sftpHost) || empty($sftpUsername) || empty($sftpPassword)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Host, username e password sono obbligatori']);
+    }
+    
+    // Crea il programma ZIP
+    $zipPath = createProgramZip();
+    if (!$zipPath || !file_exists($zipPath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile creare il file ZIP']);
+    }
+    
+    // Upload via SFTP
+    $result = uploadViaSftp($zipPath, $sftpHost, $sftpPort, $sftpUsername, $sftpPassword, $sftpRemotePath);
+    jsonResponse($result['ok'] ? 200 : 500, $result);
 }
 
 if ($action === 'admin_save_custom_theme' && $method === 'POST') {

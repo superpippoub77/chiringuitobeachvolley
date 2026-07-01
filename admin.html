@@ -606,6 +606,37 @@
           </div>
         </div>
 
+        <div class="card" style="background: #f3e5f5; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">📤 Deposita su Server Remoto (FTP/SFTP)</h4>
+          <p class="muted">Carica il pacchetto di installazione su un server remoto via FTP o SFTP.</p>
+          
+          <div style="margin-top: 12px">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold">
+              <input type="radio" name="ftpType" value="ftp" checked onchange="updateFtpPortUI()"> FTP (porta default 21)
+            </label>
+            <label style="display: block; margin-bottom: 12px; font-weight: bold">
+              <input type="radio" name="ftpType" value="sftp" onchange="updateFtpPortUI()"> SFTP (porta default 22)
+            </label>
+          </div>
+          
+          <div style="background: white; padding: 12px; border-radius: 6px">
+            <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="number" id="ftpPort" placeholder="Porta" value="21" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpUsername" placeholder="Username" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="password" id="ftpPassword" placeholder="Password" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            
+            <div class="row" style="margin-top: 10px">
+              <button class="btn btn-primary" onclick="testFtpConnection()">🔌 Testa Connessione</button>
+              <button class="btn btn-success" onclick="uploadProgramViaFtp()">📤 Deposita su Server</button>
+            </div>
+            
+            <div id="ftpStatusContainer" style="margin-top: 10px; display: none; padding: 8px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px">
+              <div id="ftpStatusMessage" style="color: #e65100"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" style="background: #ffebee; margin-top: 16px; padding: 12px">
           <h4 style="margin-top: 0">🔴 Cancellazione Completa</h4>
           <p class="muted" style="color: #c62828">Cancella completamente il torneo, tutte le squadre, i gironi, le fasi e torna a stato iniziale. Non sarà possibile recuperare i dati!</p>
@@ -1857,6 +1888,133 @@
         await showInfoDialog('Errore', 'Errore nell\'installazione dell\'aggiornamento: ' + e.message);
       } finally {
         event.target.value = '';
+      }
+    }
+
+    function updateFtpPortUI() {
+      const ftpType = document.querySelector('input[name="ftpType"]:checked').value;
+      const portInput = document.getElementById('ftpPort');
+      
+      if (ftpType === 'ftp') {
+        portInput.value = '21';
+      } else {
+        portInput.value = '22';
+      }
+    }
+
+    async function testFtpConnection() {
+      try {
+        const ftpType = document.querySelector('input[name="ftpType"]:checked').value;
+        const ftpHost = document.getElementById('ftpHost').value.trim();
+        const ftpPort = parseInt(document.getElementById('ftpPort').value) || 21;
+        const ftpUsername = document.getElementById('ftpUsername').value;
+        const ftpPassword = document.getElementById('ftpPassword').value;
+        
+        if (!ftpHost || !ftpUsername || !ftpPassword) {
+          await showInfoDialog('Errore', 'Inserisci host, username e password');
+          return;
+        }
+        
+        const statusContainer = document.getElementById('ftpStatusContainer');
+        const statusMessage = document.getElementById('ftpStatusMessage');
+        statusMessage.textContent = '⏳ Test connessione in corso...';
+        statusContainer.style.display = 'block';
+        
+        let response;
+        if (ftpType === 'ftp') {
+          response = await callApi('admin_test_ftp_connection', 'POST', {
+            ftpHost, ftpPort, ftpUsername, ftpPassword
+          }, true);
+        } else {
+          response = await callApi('admin_test_sftp_connection', 'POST', {
+            sftpHost: ftpHost, sftpPort: ftpPort, sftpUsername: ftpUsername, sftpPassword: ftpPassword
+          }, true);
+        }
+        
+        if (response.ok) {
+          statusMessage.textContent = '✅ ' + response.message;
+          statusMessage.style.color = '#2e7d32';
+          statusContainer.style.background = '#e8f5e9';
+          statusContainer.style.borderLeftColor = '#4caf50';
+        } else {
+          statusMessage.textContent = '❌ ' + response.error;
+          statusMessage.style.color = '#c62828';
+          statusContainer.style.background = '#ffebee';
+          statusContainer.style.borderLeftColor = '#d32f2f';
+        }
+      } catch (e) {
+        const statusContainer = document.getElementById('ftpStatusContainer');
+        const statusMessage = document.getElementById('ftpStatusMessage');
+        statusMessage.textContent = '❌ Errore: ' + e.message;
+        statusMessage.style.color = '#c62828';
+        statusContainer.style.display = 'block';
+        statusContainer.style.background = '#ffebee';
+        statusContainer.style.borderLeftColor = '#d32f2f';
+      }
+    }
+
+    async function uploadProgramViaFtp() {
+      try {
+        const ftpType = document.querySelector('input[name="ftpType"]:checked').value;
+        const ftpHost = document.getElementById('ftpHost').value.trim();
+        const ftpPort = parseInt(document.getElementById('ftpPort').value) || 21;
+        const ftpUsername = document.getElementById('ftpUsername').value;
+        const ftpPassword = document.getElementById('ftpPassword').value;
+        const ftpRemotePath = document.getElementById('ftpRemotePath').value.trim() || '/';
+        
+        if (!ftpHost || !ftpUsername || !ftpPassword) {
+          await showInfoDialog('Errore', 'Inserisci host, username e password');
+          return;
+        }
+        
+        const confirmed = await showConfirmDialog(
+          '📤 Deposita Pacchetto',
+          `Sei sicuro di voler caricare il pacchetto su ${ftpType.toUpperCase()}?\n\nServer: ${ftpHost}:${ftpPort}\nPercorso: ${ftpRemotePath}`
+        );
+        
+        if (!confirmed) return;
+        
+        const statusContainer = document.getElementById('ftpStatusContainer');
+        const statusMessage = document.getElementById('ftpStatusMessage');
+        statusMessage.textContent = '⏳ Upload in corso...';
+        statusContainer.style.display = 'block';
+        statusContainer.style.background = '#fff3e0';
+        statusContainer.style.borderLeftColor = '#ff9800';
+        statusMessage.style.color = '#e65100';
+        
+        let response;
+        if (ftpType === 'ftp') {
+          response = await callApi('admin_upload_program_to_ftp', 'POST', {
+            ftpHost, ftpPort, ftpUsername, ftpPassword, ftpRemotePath
+          }, true);
+        } else {
+          response = await callApi('admin_upload_program_to_sftp', 'POST', {
+            sftpHost: ftpHost, sftpPort: ftpPort, sftpUsername: ftpUsername, sftpPassword: ftpPassword, sftpRemotePath: ftpRemotePath
+          }, true);
+        }
+        
+        if (response.ok) {
+          statusMessage.textContent = '✅ ' + response.message + '\n\nFile depositato come: ' + (response.remoteFile || '');
+          statusMessage.style.color = '#2e7d32';
+          statusContainer.style.background = '#e8f5e9';
+          statusContainer.style.borderLeftColor = '#4caf50';
+          await showInfoDialog('Successo', '✅ Pacchetto depositato con successo su ' + ftpType.toUpperCase());
+        } else {
+          statusMessage.textContent = '❌ ' + response.error;
+          statusMessage.style.color = '#c62828';
+          statusContainer.style.background = '#ffebee';
+          statusContainer.style.borderLeftColor = '#d32f2f';
+          await showInfoDialog('Errore', '❌ Errore durante il deposito:\n' + response.error);
+        }
+      } catch (e) {
+        const statusContainer = document.getElementById('ftpStatusContainer');
+        const statusMessage = document.getElementById('ftpStatusMessage');
+        statusMessage.textContent = '❌ Errore: ' + e.message;
+        statusMessage.style.color = '#c62828';
+        statusContainer.style.display = 'block';
+        statusContainer.style.background = '#ffebee';
+        statusContainer.style.borderLeftColor = '#d32f2f';
+        await showInfoDialog('Errore', '❌ Errore durante il deposito:\n' + e.message);
       }
     }
 

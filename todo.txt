@@ -28,4 +28,4 @@ Dammi la possibilità di associare diversi font con i vari template che mi hai p
 Cancellazione completa di tutto il torneo e comprese le configurazioni in modo tale da prtire da 0 e in home page comparirà la scritta crea il tuo torneo accedi alla pagina di admin✅
 In caso di torneo esistente anche di una altr aversione deve fare la merge con quello che trova in fase di deploy come se fosse un update✅
 Considerando questo sviluppo quello principale dao la possibilità di scaricarsi il proramma completo e metterselo su di un server e dare la possibilità di schiacciare un pulsante Update o check update per scaricarsi dal sito ufficiale la nuova versione o gli aggiornamenti✅
-Mettimi la possibilità di depositare via ftp su un altro server il pacchetto per l'installazione, lìutente deve inserire i paramentri FTP o SFTP in base alla connessione
+Mettimi la possibilità di depositare via ftp su un altro server il pacchetto per l'installazione, lìutente deve inserire i paramentri FTP o SFTP in base alla connessione✅

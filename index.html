@@ -697,10 +697,18 @@
       </div>
     </section>
 
+    <div id="notConfiguredNotice" class="hidden" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 12px; padding: 24px; text-align: center; margin-top: 16px">
+      <h2 style="color: #e65100; margin: 0 0 12px 0">🎯 Crea il tuo torneo</h2>
+      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px">Nessun torneo è stato configurato. Accedi al panel di amministrazione per iniziare.</p>
+      <a href="admin.html" target="_blank" style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s">
+        📋 Accedi al Panel Admin
+      </a>
+    </div>
+
+    <div id="mainContent" style="display: none">
+
     <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
         href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
-
-    <section class="stats">
       <div class="stat">
         <div class="n" id="statTeams">0</div>
         <div class="l">Squadre confermate</div>
@@ -769,6 +777,8 @@
       <br>
       <div style="margin-top: 10px;">© 2026 Chiringuito Beach Volley LUI&Lei 2026 - Tutti i diritti riservati</div>
     </footer>
+
+    </div> <!-- Fine mainContent -->
   </div>
 
   <div id="modalBackdrop" class="modal-backdrop hidden">
@@ -807,6 +817,23 @@
     async function loadState() {
       const r = await api('get_public');
       state = r.data;
+      
+      // Controlla se il torneo è configurato
+      const isTournamentConfigured = state && state.teams !== undefined;
+      const noticeEl = document.getElementById('notConfiguredNotice');
+      const mainContentEl = document.getElementById('mainContent');
+      
+      if (!isTournamentConfigured) {
+        // Torneo non configurato - mostra il messaggio
+        if (noticeEl) noticeEl.classList.remove('hidden');
+        if (mainContentEl) mainContentEl.style.display = 'none';
+        return;
+      }
+      
+      // Torneo configurato - mostra il contenuto principale
+      if (noticeEl) noticeEl.classList.add('hidden');
+      if (mainContentEl) mainContentEl.style.display = 'block';
+      
       renderAll();
       
       // Al primo caricamento, reindirizza automaticamente alla tab appropriata

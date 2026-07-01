@@ -100,8 +100,66 @@ function defaultConfig(): array {
     ];
 }
 
+function mergeConfig(array $existingConfig, array $defaultConfig): array {
+    // Funzione per merge ricorsivo intelligente
+    $merged = $defaultConfig;
+    
+    // Preserva i dati critici dell'utente dal config esistente
+    if (isset($existingConfig['tournament'])) {
+        $merged['tournament'] = array_merge(
+            $defaultConfig['tournament'] ?? [],
+            $existingConfig['tournament']
+        );
+    }
+    
+    if (isset($existingConfig['schedule'])) {
+        $merged['schedule'] = $existingConfig['schedule'];
+    }
+    
+    if (isset($existingConfig['phases'])) {
+        $merged['phases'] = $existingConfig['phases'];
+    }
+    
+    // Preserva i temi personalizzati
+    if (isset($existingConfig['display']['customThemes'])) {
+        if (!isset($merged['display'])) {
+            $merged['display'] = [];
+        }
+        $merged['display']['customThemes'] = $existingConfig['display']['customThemes'];
+    }
+    
+    // Preserva il tema corrente se è personalizzato
+    if (isset($existingConfig['display']['theme'])) {
+        if (!isset($merged['display'])) {
+            $merged['display'] = [];
+        }
+        $merged['display']['theme'] = $existingConfig['display']['theme'];
+    }
+    
+    // Preserva logo e background
+    if (isset($existingConfig['display']['logoFile'])) {
+        $merged['display']['logoFile'] = $existingConfig['display']['logoFile'];
+    }
+    if (isset($existingConfig['display']['backgroundFile'])) {
+        $merged['display']['backgroundFile'] = $existingConfig['display']['backgroundFile'];
+    }
+    
+    return $merged;
+}
+
 function readConfig(): array {
-    return readJsonFile(CONFIG_FILE, defaultConfig());
+    $default = defaultConfig();
+    
+    if (!file_exists(CONFIG_FILE)) {
+        // Se il file non esiste, crea il default
+        writeJsonFile(CONFIG_FILE, $default);
+        return $default;
+    }
+    
+    $existing = readJsonFile(CONFIG_FILE, $default);
+    
+    // Se il config esiste, fai un merge intelligente per upgrade compatibility
+    return mergeConfig($existing, $default);
 }
 
 function writeConfig(array $config): void {
@@ -125,8 +183,14 @@ function withStateTransaction(callable $callback): array {
     }
 
     $raw = stream_get_contents($fp);
-    $state = json_decode($raw ?: '', true);
-    if (!is_array($state)) {
+    $loadedState = json_decode($raw ?: '', true);
+    
+    if (is_array($loadedState)) {
+        // Lo state esiste - fai un merge intelligente per upgrade compatibility
+        $newState = initialState();
+        $state = mergeState($loadedState, $newState);
+    } else {
+        // Lo state non esiste o non è valido - crea uno nuovo
         $state = initialState();
     }
 
@@ -164,6 +228,39 @@ function initialState(): array {
             'lastUpdated' => null
         ]
     ];
+}
+
+function mergeState(array $existingState, array $newState): array {
+    // Preserva i dati critici del torneo dal state esistente
+    $merged = $newState;
+    
+    // Preserva squadre, gironi, partite e risultati
+    if (isset($existingState['teams']) && is_array($existingState['teams'])) {
+        $merged['teams'] = $existingState['teams'];
+    }
+    
+    if (isset($existingState['groups']) && is_array($existingState['groups'])) {
+        $merged['groups'] = $existingState['groups'];
+    }
+    
+    if (isset($existingState['groupMatches']) && is_array($existingState['groupMatches'])) {
+        $merged['groupMatches'] = $existingState['groupMatches'];
+    }
+    
+    if (isset($existingState['playoff']) && is_array($existingState['playoff'])) {
+        $merged['playoff'] = $existingState['playoff'];
+    }
+    
+    if (isset($existingState['finalRanking']) && is_array($existingState['finalRanking'])) {
+        $merged['finalRanking'] = $existingState['finalRanking'];
+    }
+    
+    // Preserva i metadata
+    if (isset($existingState['meta']) && is_array($existingState['meta'])) {
+        $merged['meta'] = array_merge($merged['meta'] ?? [], $existingState['meta']);
+    }
+    
+    return $merged;
 }
 
 function bodyJson(): array {
@@ -1309,6 +1406,22 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
         jsonResponse(200, ['ok' => true, 'message' => 'Backup ripristinato con successo']);
     } catch (Exception $e) {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il ripristino: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_reset_tournament' && $method === 'POST') {
+    try {
+        // Ripristina configurazione ai valori di default
+        $defaultCfg = defaultConfig();
+        writeConfig($defaultCfg);
+        
+        // Ripristina stato ai valori iniziali
+        $initialData = initialState();
+        writeJsonFile(DATA_FILE, $initialData);
+        
+        jsonResponse(200, ['ok' => true, 'message' => 'Torneo azzerato completamente. Sistema ripristinato a stato iniziale.']);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il reset: ' . $e->getMessage()]);
     }
 }
 

@@ -582,6 +582,14 @@
             <input type="file" id="backupFileInput" accept=".json" style="display: none" onchange="importBackup(event)">
           </div>
         </div>
+
+        <div class="card" style="background: #ffebee; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">🔴 Cancellazione Completa</h4>
+          <p class="muted" style="color: #c62828">Cancella completamente il torneo, tutte le squadre, i gironi, le fasi e torna a stato iniziale. Non sarà possibile recuperare i dati!</p>
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-danger" onclick="resetTournament()" style="background: #d32f2f">🗑️ Cancella Tutto e Ripristina</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1678,6 +1686,31 @@
         await showInfoDialog('Errore importazione', e.message);
       } finally {
         document.getElementById('backupFileInput').value = '';
+      }
+    }
+
+    async function resetTournament() {
+      const confirmed = await showConfirmDialog(
+        '⛔ Cancellazione Completa',
+        '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo e sfondo\n- Temi personalizzati\n\nNon sarà possibile recuperare i dati. Continuare?'
+      );
+
+      if (!confirmed) return;
+
+      // Seconda conferma per evitare cancellazioni accidentali
+      const doubleConfirm = await showConfirmDialog(
+        'Conferma Finale',
+        'Sei VERAMENTE sicuro? Scrivi "SÌ" per confermare la cancellazione completa.'
+      );
+
+      if (!doubleConfirm) return;
+
+      try {
+        await callApi('admin_reset_tournament', 'POST', {}, true);
+        await showInfoDialog('Successo', '✅ Torneo azzerato completamente. Sistema ripristinato a stato iniziale. La pagina verrà ricaricata.');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore durante la cancellazione: ' + e.message);
       }
     }
 

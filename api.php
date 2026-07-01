@@ -887,6 +887,62 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_move_team_group' && $method === 'POST') {
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+    $newGroup = (string)($body['newGroup'] ?? '');
+
+    withStateTransaction(function (&$state) use ($teamId, $newGroup) {
+        // Verifica che il torneo non sia iniziato
+        if (tournamentStarted($state)) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Impossibile spostare squadre: il torneo è già iniziato']);
+        }
+
+        // Trova il girone attuale
+        $currentGroup = null;
+        $currentGroupIdx = null;
+        foreach ($state['groups'] as $idx => &$group) {
+            $pos = array_search($teamId, $group['teamIds'], true);
+            if ($pos !== false) {
+                $currentGroup = $group['name'];
+                $currentGroupIdx = $idx;
+                unset($group['teamIds'][$pos]);
+                $group['teamIds'] = array_values($group['teamIds']); // Re-index array
+                break;
+            }
+        }
+
+        if ($currentGroup === null) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata in nessun girone']);
+        }
+
+        if ($currentGroup === $newGroup) {
+            jsonResponse(400, ['ok' => false, 'error' => 'La squadra è già in questo girone']);
+        }
+
+        // Aggiunge squadra al nuovo girone
+        $newGroupFound = false;
+        foreach ($state['groups'] as &$group) {
+            if ($group['name'] === $newGroup) {
+                $group['teamIds'][] = $teamId;
+                $newGroupFound = true;
+                break;
+            }
+        }
+
+        if (!$newGroupFound) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Girone di destinazione non trovato']);
+        }
+
+        // Rigenerare le partite
+        buildGroupMatches($state);
+
+        return ['ok' => true];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
 if ($action === 'admin_update_group_match' && $method === 'POST') {
     $body = bodyJson();
     $id = (string)($body['id'] ?? '');

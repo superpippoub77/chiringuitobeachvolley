@@ -716,7 +716,62 @@
         c.innerHTML = '<p>Nessun girone generato.</p>';
         return;
       }
-      c.innerHTML = '<div class="grid">' + state.groups.map(g => `<div class="card"><strong>Girone ${g.name}</strong><ul>${g.teams.map(t => `<li>${escapeHtml(t.name)}</li>`).join('')}</ul></div>`).join('') + '</div>';
+
+      // Crea mappa squadra -> girone per accesso rapido
+      const teamToGroup = {};
+      state.groups.forEach(g => {
+        g.teams.forEach(t => {
+          teamToGroup[t.id] = g.name;
+        });
+      });
+
+      // Raccoglie tutte le squadre in un'unica lista
+      const allTeams = [];
+      state.groups.forEach(g => {
+        g.teams.forEach(t => {
+          allTeams.push({ ...t, currentGroup: g.name });
+        });
+      });
+
+      // HTML per modifica gironi
+      let html = '<p class="muted">Clicca sul girone di una squadra per spostarla. Le partite verranno rigenerate automaticamente.</p>';
+      html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">';
+
+      allTeams.forEach(team => {
+        html += `
+          <div style="border: 1px solid #d8c39f; border-radius: 8px; padding: 10px; background: #f9f3e6">
+            <strong>${escapeHtml(team.name)}</strong>
+            <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center">
+              <label style="font-size: 12px; color: #6b5d45">Girone:</label>
+              <select id="group-${team.id}" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #d8c39f">
+                ${state.groups.map(g => `<option value="${g.name}" ${g.name === team.currentGroup ? 'selected' : ''}>${g.name}</option>`).join('')}
+              </select>
+              <button class="btn btn-primary" style="padding: 6px 10px; font-size: 12px" onclick="updateTeamGroup('${team.id}', '${team.name}')">Sposta</button>
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      c.innerHTML = html;
+    }
+
+    async function updateTeamGroup(teamId, teamName) {
+      const newGroup = document.getElementById(`group-${teamId}`).value;
+      const oldGroup = state.groups.find(g => g.teams.some(t => t.id === teamId))?.name;
+
+      if (newGroup === oldGroup) {
+        await showInfoDialog('Attenzione', 'La squadra è già in questo girone');
+        return;
+      }
+
+      try {
+        await callApi('admin_move_team_group', 'POST', { teamId, newGroup }, true);
+        await refresh();
+        await showInfoDialog('Successo', `${teamName} spostata nel girone ${newGroup}`);
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     function renderMatches() {

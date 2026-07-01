@@ -729,6 +729,17 @@
               <button class="btn btn-danger" onclick="removeLogo()" style="margin-left: 8px">🗑️ Rimuovi Logo</button>
             </div>
           </div>
+
+          <div class="card" style="background: #f5e8e8; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🌅 Sfondo Torneo</h4>
+            <p class="muted">Carica lo sfondo da visualizzare nelle pagine del torneo.</p>
+            <div id="backgroundPreview" style="margin-top: 10px; text-align: center"></div>
+            <div style="margin-top: 10px">
+              <input type="file" id="backgroundUpload" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none">
+              <button class="btn btn-primary" onclick="document.getElementById('backgroundUpload').click()">📤 Carica Sfondo</button>
+              <button class="btn btn-danger" onclick="removeBackground()" style="margin-left: 8px">🗑️ Rimuovi Sfondo</button>
+            </div>
+          </div>
         `;
         
         // Carica i temi disponibili e crea UI
@@ -745,7 +756,17 @@
             }
           }
           
-          // Setup file upload handler
+          // Carica preview sfondo
+          const backgroundPreview = document.getElementById('backgroundPreview');
+          if (backgroundPreview) {
+            if (config.display?.backgroundFile) {
+              backgroundPreview.innerHTML = `<img src="${config.display.backgroundFile}" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 2px solid #d8b4b4; object-fit: cover">`;
+            } else {
+              backgroundPreview.innerHTML = '<div style="color: #aaa; padding: 20px">Nessuno sfondo caricato</div>';
+            }
+          }
+          
+          // Setup file upload handler per logo
           const logoUploadInput = document.getElementById('logoUpload');
           if (logoUploadInput) {
             logoUploadInput.onchange = async (e) => {
@@ -770,6 +791,42 @@
                   config.display.logoFile = data.logoFile;
                   await renderSettings();
                   await showInfoDialog('Successo', 'Logo caricato correttamente');
+                } else {
+                  await showInfoDialog('Errore', data.error || 'Errore nel caricamento');
+                }
+              } catch (err) {
+                await showInfoDialog('Errore', err.message);
+              }
+              
+              e.target.value = '';
+            };
+          }
+          
+          // Setup file upload handler per sfondo
+          const backgroundUploadInput = document.getElementById('backgroundUpload');
+          if (backgroundUploadInput) {
+            backgroundUploadInput.onchange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              
+              const formData = new FormData();
+              formData.append('background', file);
+              
+              try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('api.php?action=admin_upload_background', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': 'Bearer ' + token
+                  },
+                  body: formData
+                });
+                
+                const data = await response.json();
+                if (data.ok) {
+                  config.display.backgroundFile = data.backgroundFile;
+                  await renderSettings();
+                  await showInfoDialog('Successo', 'Sfondo caricato correttamente');
                 } else {
                   await showInfoDialog('Errore', data.error || 'Errore nel caricamento');
                 }
@@ -838,6 +895,21 @@
         delete config.display.logoFile;
         await renderSettings();
         await showInfoDialog('Successo', 'Logo rimosso');
+      }
+    }
+
+    async function removeBackground() {
+      if (!config.display?.backgroundFile) {
+        await showInfoDialog('Info', 'Nessuno sfondo caricato');
+        return;
+      }
+      
+      const confirmed = await showConfirmDialog('Rimozione Sfondo', 'Sei sicuro di voler rimuovere lo sfondo del torneo?');
+      if (confirmed) {
+        if (!config.display) config.display = {};
+        delete config.display.backgroundFile;
+        await renderSettings();
+        await showInfoDialog('Successo', 'Sfondo rimosso');
       }
     }
 

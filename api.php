@@ -1218,6 +1218,54 @@ if ($action === 'admin_upload_logo' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'logoFile' => $config['display']['logoFile']]);
 }
 
+if ($action === 'admin_upload_background' && $method === 'POST') {
+    if (!isset($_FILES['background'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+    }
+
+    $file = $_FILES['background'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore nel caricamento del file']);
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Tipo di file non supportato. Usa JPG, PNG, GIF o WebP']);
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExts)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Estensione file non valida']);
+    }
+
+    $uploadsDir = dirname(CONFIG_FILE) . '/uploads';
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $filename = 'tournament-background.' . $ext;
+    $filepath = $uploadsDir . '/' . $filename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel salvataggio del file']);
+    }
+
+    $config = readConfig();
+    if (!isset($config['display'])) {
+        $config['display'] = [];
+    }
+    $config['display']['backgroundFile'] = 'data/uploads/' . $filename;
+    writeConfig($config);
+
+    jsonResponse(200, ['ok' => true, 'backgroundFile' => $config['display']['backgroundFile']]);
+}
+
 if ($action === 'admin_export_backup' && $method === 'GET') {
     $config = readConfig();
     $state = readJsonFile(DATA_FILE, initialState());

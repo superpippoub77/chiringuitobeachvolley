@@ -106,6 +106,7 @@
     ],
     "display": {
         "theme": "scuro",
-        "logoFile": "data\/uploads\/tournament-logo.png"
+        "logoFile": "data\/uploads\/tournament-logo.png",
+        "backgroundFile": "data\/uploads\/tournament-background.png"
     }
 }

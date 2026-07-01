@@ -698,26 +698,68 @@
             <p class="muted">Seleziona lo stile di visualizzazione del torneo nel sito pubblico.</p>
             <div id="themeSelector" style="margin-top: 10px"></div>
           </div>
+
+          <div class="card" style="background: #e8f0f5; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🏆 Logo Torneo</h4>
+            <p class="muted">Carica il logo da visualizzare nella homepage.</p>
+            <div id="logoPreview" style="margin-top: 10px; text-align: center"></div>
+            <div style="margin-top: 10px">
+              <input type="file" id="logoUpload" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none">
+              <button class="btn btn-primary" onclick="document.getElementById('logoUpload').click()">📤 Carica Logo</button>
+              <button class="btn btn-danger" onclick="removeLogo()" style="margin-left: 8px">🗑️ Rimuovi Logo</button>
+            </div>
+          </div>
         `;
         
-        // Carica i temi disponibili
+        // Carica i temi disponibili e crea UI
         try {
-          const themesResp = await callApi('get_themes', 'GET', null);
-          const themes = themesResp.themes || [];
-          const currentTheme = config.display?.theme || 'chiringuito';
+          renderThemeButtons();
           
-          let themeHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px">';
-          themes.forEach(t => {
-            const isSelected = t.id === currentTheme;
-            themeHtml += `<div style="padding: 8px; border: 2px ${isSelected ? '#2f6a23' : '#d8c39f'}; border-radius: 8px; cursor: pointer; background: ${isSelected ? '#d9f1d2' : '#fff'};" onclick="selectTheme('${t.id}')">
-              <div style="font-weight: bold; font-size: 14px">${t.name}</div>
-              <div style="font-size: 12px; color: #6b5d45; margin-top: 4px">${t.description}</div>
-            </div>`;
-          });
-          themeHtml += '</div>';
+          // Carica preview logo
+          const logoPreview = document.getElementById('logoPreview');
+          if (logoPreview) {
+            if (config.display?.logoFile) {
+              logoPreview.innerHTML = `<img src="${config.display.logoFile}" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 2px solid #e8b4b4">`;
+            } else {
+              logoPreview.innerHTML = '<div style="color: #aaa; padding: 20px">Nessun logo caricato</div>';
+            }
+          }
           
-          const selector = document.getElementById('themeSelector');
-          if (selector) selector.innerHTML = themeHtml;
+          // Setup file upload handler
+          const logoUploadInput = document.getElementById('logoUpload');
+          if (logoUploadInput) {
+            logoUploadInput.onchange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              
+              const formData = new FormData();
+              formData.append('logo', file);
+              
+              try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('api.php?action=admin_upload_logo', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': 'Bearer ' + token
+                  },
+                  body: formData
+                });
+                
+                const data = await response.json();
+                if (data.ok) {
+                  config.display.logoFile = data.logoFile;
+                  await renderSettings();
+                  await showInfoDialog('Successo', 'Logo caricato correttamente');
+                } else {
+                  await showInfoDialog('Errore', data.error || 'Errore nel caricamento');
+                }
+              } catch (err) {
+                await showInfoDialog('Errore', err.message);
+              }
+              
+              e.target.value = '';
+            };
+          }
         } catch (e) {
           console.error('Errore caricamento temi:', e);
         }
@@ -733,6 +775,50 @@
     function selectTheme(themeId) {
       if (!config.display) config.display = {};
       config.display.theme = themeId;
+      // Re-render per mostrare visivamente il tema selezionato
+      renderThemeButtons();
+    }
+
+    function renderThemeButtons() {
+      const themesResp = {
+        themes: [
+          { id: 'chiringuito', name: '🏖️ Chiringuito', description: 'Tema spiaggia con colori caldi' },
+          { id: 'moderno', name: '🎨 Moderno', description: 'Tema moderno con colori vibranti' },
+          { id: 'scuro', name: '🌙 Scuro', description: 'Tema dark mode' },
+          { id: 'minimalista', name: '✨ Minimalista', description: 'Tema pulito e minimalista' }
+        ]
+      };
+      
+      const themes = themesResp.themes || [];
+      const currentTheme = config.display?.theme || 'chiringuito';
+      
+      let themeHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px">';
+      themes.forEach(t => {
+        const isSelected = t.id === currentTheme;
+        themeHtml += `<div style="padding: 8px; border: 2px ${isSelected ? '#2f6a23' : '#d8c39f'}; border-radius: 8px; cursor: pointer; background: ${isSelected ? '#d9f1d2' : '#fff'}; transition: all 0.3s;" onclick="selectTheme('${t.id}')">
+          <div style="font-weight: bold; font-size: 14px">${t.name}</div>
+          <div style="font-size: 12px; color: #6b5d45; margin-top: 4px">${t.description}</div>
+        </div>`;
+      });
+      themeHtml += '</div>';
+      
+      const selector = document.getElementById('themeSelector');
+      if (selector) selector.innerHTML = themeHtml;
+    }
+
+    async function removeLogo() {
+      if (!config.display?.logoFile) {
+        await showInfoDialog('Info', 'Nessun logo caricato');
+        return;
+      }
+      
+      const confirmed = await showConfirmDialog('Rimozione Logo', 'Sei sicuro di voler rimuovere il logo del torneo?');
+      if (confirmed) {
+        if (!config.display) config.display = {};
+        delete config.display.logoFile;
+        await renderSettings();
+        await showInfoDialog('Successo', 'Logo rimosso');
+      }
     }
 
     async function saveSettings() {

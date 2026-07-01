@@ -681,7 +681,7 @@
       </div>
       <div class="hero-title">
         <!-- <h1>Chiringuito Beach Volley<br>LUI&Lei 2026</h1> -->
-        <img src="logo.png" alt="Logo">
+        <img id="mainLogo" src="logo.png" alt="Logo" style="max-width: 200px; max-height: 200px;">
       </div>
       <div class="hero-sub">Solo categoria mista | Iscrizione soggetta ad approvazione amministratore</div>
       <div class="hero-strip">
@@ -1104,14 +1104,28 @@
     // Carica il tema dalla configurazione
     async function loadTheme() {
       try {
-        const response = await fetch('api.php?action=admin_get_config&method=GET');
+        const response = await fetch('api.php?action=get_config&method=GET');
         if (response.ok) {
           const data = await response.json();
-          if (data.config && data.config.display && data.config.display.theme) {
-            const themeName = data.config.display.theme;
-            const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
-            if (validThemes.includes(themeName)) {
-              document.getElementById('themeLink').href = `theme-${themeName}.css`;
+          if (data.config && data.config.display) {
+            // Carica tema
+            if (data.config.display.theme) {
+              const themeName = data.config.display.theme;
+              const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+              if (validThemes.includes(themeName)) {
+                document.getElementById('themeLink').href = `theme-${themeName}.css`;
+              }
+            }
+            
+            // Carica logo
+            if (data.config.display.logoFile) {
+              const mainLogo = document.getElementById('mainLogo');
+              if (mainLogo) {
+                mainLogo.src = data.config.display.logoFile;
+                mainLogo.onerror = () => {
+                  mainLogo.src = 'logo.png'; // Fallback a logo di default se non trovato
+                };
+              }
             }
           }
         }

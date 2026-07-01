@@ -93,28 +93,7 @@ function defaultConfig(): array {
                 ]
             ]
         ],
-        'phases' => [
-            [
-                'phaseNumber' => 1,
-                'name' => 'Gironi',
-                'type' => 'groups',
-                'numGroups' => 4,
-                'teamsAdvance' => 2,
-                'hasRepescage' => false
-            ],
-            [
-                'phaseNumber' => 2,
-                'name' => 'Semifinali',
-                'type' => 'knockout',
-                'numTeams' => 4
-            ],
-            [
-                'phaseNumber' => 3,
-                'name' => 'Finale',
-                'type' => 'knockout',
-                'numTeams' => 2
-            ]
-        ],
+        'phases' => [],
         'display' => [
             'theme' => 'chiringuito'
         ]
@@ -1191,6 +1170,54 @@ if ($action === 'admin_reset' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_upload_logo' && $method === 'POST') {
+    if (!isset($_FILES['logo'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+    }
+
+    $file = $_FILES['logo'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore nel caricamento del file']);
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Tipo di file non supportato. Usa JPG, PNG, GIF o WebP']);
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExts)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Estensione file non valida']);
+    }
+
+    $uploadsDir = dirname(CONFIG_FILE) . '/uploads';
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $filename = 'tournament-logo.' . $ext;
+    $filepath = $uploadsDir . '/' . $filename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel salvataggio del file']);
+    }
+
+    $config = readConfig();
+    if (!isset($config['display'])) {
+        $config['display'] = [];
+    }
+    $config['display']['logoFile'] = 'data/uploads/' . $filename;
+    writeConfig($config);
+
+    jsonResponse(200, ['ok' => true, 'logoFile' => $config['display']['logoFile']]);
+}
+
 if ($action === 'admin_export_backup' && $method === 'GET') {
     $config = readConfig();
     $state = readJsonFile(DATA_FILE, initialState());
@@ -1240,6 +1267,15 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
 if ($action === 'admin_get_config' && $method === 'GET') {
     $config = readConfig();
     jsonResponse(200, ['ok' => true, 'config' => $config]);
+}
+
+if ($action === 'get_config' && $method === 'GET') {
+    // Endpoint pubblico per ottenere la configurazione display (tema e logo)
+    $config = readConfig();
+    $publicConfig = [
+        'display' => $config['display'] ?? []
+    ];
+    jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
 
 if ($action === 'get_themes' && $method === 'GET') {

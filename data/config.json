@@ -1,6 +1,6 @@
 {
     "tournament": {
-        "name": "Torneo Modificato",
+        "name": "Chiringuito Beach Volley",
         "maxTeams": 16,
         "numGroups": 4,
         "numSets": 2,
@@ -10,9 +10,6 @@
         "setupTimeMinutes": 5,
         "maxTimeoutsPerSet": 2
     },
-    "display": {
-        "theme": "minimalista"
-    },
     "schedule": {
         "courts": [
             {
@@ -20,20 +17,7 @@
                 "courtName": "Campo 1",
                 "availability": [
                     {
-                        "date": "2026-07-04",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-05",
+                        "date": "2026-07-01",
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
@@ -52,20 +36,7 @@
                 "courtName": "Campo 2",
                 "availability": [
                     {
-                        "date": "2026-07-04",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-05",
+                        "date": "2026-07-01",
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
@@ -84,20 +55,7 @@
                 "courtName": "Campo 3",
                 "availability": [
                     {
-                        "date": "2026-07-04",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-05",
+                        "date": "2026-07-01",
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
@@ -124,15 +82,13 @@
         },
         {
             "phaseNumber": 2,
-            "name": "Semifinali",
-            "type": "knockout",
-            "numTeams": 4
-        },
-        {
-            "phaseNumber": 3,
             "name": "Finale",
             "type": "knockout",
             "numTeams": 2
         }
-    ]
+    ],
+    "display": {
+        "theme": "scuro",
+        "logoFile": "data\/uploads\/tournament-logo.png"
+    }
 }

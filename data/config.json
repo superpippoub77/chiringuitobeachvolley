@@ -1,0 +1,48 @@
+{
+  "tournament": {
+    "name": "Chiringuito Beach Volley 2026",
+    "maxTeams": 16,
+    "numGroups": 4,
+    "numSets": 2,
+    "winScore": 21,
+    "maxScore": 25,
+    "timePerSetMinutes": 35,
+    "setupTimeMinutes": 5
+  },
+  "schedule": {
+    "days": [
+      {
+        "date": "2026-07-04",
+        "dayNumber": 1,
+        "timeSlots": [
+          {
+            "startTime": "19:30",
+            "endTime": "20:30",
+            "courtCount": 3
+          },
+          {
+            "startTime": "20:30",
+            "endTime": "21:30",
+            "courtCount": 3
+          }
+        ]
+      },
+      {
+        "date": "2026-07-05",
+        "dayNumber": 2,
+        "timeSlots": [
+          {
+            "startTime": "19:30",
+            "endTime": "20:30",
+            "courtCount": 3
+          },
+          {
+            "startTime": "20:30",
+            "endTime": "21:30",
+            "courtCount": 3
+          }
+        ]
+      }
+    ]
+  }
+}

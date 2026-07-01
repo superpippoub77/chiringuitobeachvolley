@@ -326,16 +326,38 @@
 
     <div id="app" class="hidden">
       <div class="tabs">
-        <button class="tab active" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
+        <button class="tab active" data-page="settings" onclick="showPage('settings', this)">Impostazioni</button>
+        <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
+        <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
         <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
       </div>
 
-      <div id="page-teams" class="card page">
+      <div id="page-settings" class="card page">
+        <h3>Impostazioni Torneo</h3>
+        <p class="muted">Configura i parametri del torneo. Salva le impostazioni prima di generare i gironi.</p>
+        <div id="settingsContainer" style="margin-top: 14px"></div>
+        <div class="row" style="margin-top: 14px">
+          <button class="btn btn-green" onclick="saveSettings()">Salva impostazioni</button>
+        </div>
+      </div>
+
+      <div id="page-teams" class="card page hidden">
         <h3>Gestione squadre</h3>
         <div id="teamsContainer"></div>
+      </div>
+
+      <div id="page-schedule" class="card page hidden">
+        <h3>Configurazione giorni e fasce orarie</h3>
+        <p class="muted">Definisci i giorni disponibili per il torneo e le fasce orarie con numero di campi disponibili.</p>
+        <div id="scheduleContainer" style="margin-top:10px"></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn btn-primary" onclick="addScheduleDay()">+ Aggiungi giorno</button>
+          <button class="btn btn-green" onclick="saveSchedule()">Salva schedule</button>
+          <button class="btn btn-primary" onclick="rescheduleMatches()" id="rescheduleBtn" style="display:none">Rischedulare partite</button>
+        </div>
       </div>
 
       <div id="page-groups" class="card page hidden">
@@ -387,6 +409,7 @@
     const API = 'api.php';
     let token = localStorage.getItem('adminToken') || '';
     let state = null;
+    let config = null;
     let modalCloseHandler = null;
     let modalOnClose = null;
 
@@ -432,10 +455,96 @@
     async function refresh() {
       const r = await callApi('admin_state', 'GET', null, true);
       state = r.data;
+      await renderSettings();
       renderTeams();
+      renderSchedule();
       renderGroups();
       renderMatches();
       renderPlayoff();
+    }
+
+    async function renderSettings() {
+      try {
+        const r = await callApi('admin_get_config', 'GET', null, true);
+        config = r.config;
+        const c = document.getElementById('settingsContainer');
+        const t = config.tournament || {};
+        const s = config.schedule || { days: [] };
+
+        c.innerHTML = `
+          <div class="card" style="background: #f9f3e6; padding: 12px">
+            <h4 style="margin-top: 0">Parametri Torneo</h4>
+            <div class="form-grid-modal">
+              <div class="field">
+                <label>Nome torneo</label>
+                <input id="cfg-tournamentName" type="text" value="${escapeHtml(t.name || '')}">
+              </div>
+              <div class="field">
+                <label>Max squadre</label>
+                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || 16}">
+              </div>
+              <div class="field">
+                <label>Numero gironi</label>
+                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || 4}">
+              </div>
+              <div class="field">
+                <label>Set da vincere</label>
+                <select id="cfg-numSets">
+                  <option value="1" ${t.numSets === 1 ? 'selected' : ''}>1 set (primo vince)</option>
+                  <option value="2" ${t.numSets === 2 ? 'selected' : ''}>2 set (2-0 o 1-1)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Punteggio per vincere set</label>
+                <input id="cfg-winScore" type="number" min="15" max="30" value="${t.winScore || 21}">
+              </div>
+              <div class="field">
+                <label>Minuti per set (stima)</label>
+                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || 35}">
+              </div>
+              <div class="field">
+                <label>Minuti setup match</label>
+                <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || 5}">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">Schedule Giorni</h4>
+            <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
+            <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
+          </div>
+        `;
+      } catch (e) {
+        console.error('Errore caricamento config:', e);
+      }
+    }
+
+    function showScheduleConfig() {
+      showPage('schedule', document.querySelector('[data-page="schedule"]'));
+    }
+
+    async function saveSettings() {
+      try {
+        const payload = {
+          tournament: {
+            name: document.getElementById('cfg-tournamentName').value.trim(),
+            maxTeams: Math.max(4, parseInt(document.getElementById('cfg-maxTeams').value) || 16),
+            numGroups: Math.max(1, parseInt(document.getElementById('cfg-numGroups').value) || 4),
+            numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
+            winScore: Math.max(15, Math.min(30, parseInt(document.getElementById('cfg-winScore').value) || 21)),
+            timePerSetMinutes: Math.max(20, Math.min(60, parseInt(document.getElementById('cfg-timePerSet').value) || 35)),
+            setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5))
+          }
+        };
+
+        await callApi('admin_update_config', 'POST', payload, true);
+        config = payload;
+        await showInfoDialog('Successo', 'Impostazioni salvate');
+        await renderSettings();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     function teamRow(team) {
@@ -799,6 +908,153 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function renderSchedule() {
+      const c = document.getElementById('scheduleContainer');
+      const sched = state.schedule || { days: [] };
+      
+      if (!sched.days.length) {
+        c.innerHTML = '<p class="muted">Nessun giorno configurato. Clicca su "+ Aggiungi giorno" per iniziare.</p>';
+        document.getElementById('rescheduleBtn').style.display = 'none';
+        return;
+      }
+      
+      document.getElementById('rescheduleBtn').style.display = (state.groupMatches || []).length > 0 ? 'inline-block' : 'none';
+      
+      let html = '';
+      sched.days.forEach((day, dayIdx) => {
+        html += `<div class="card" style="margin-top: 12px; padding: 10px; background: #f9f3e6">
+          <div class="row" style="justify-content: space-between; margin-bottom: 10px">
+            <div><strong>Giorno ${dayIdx + 1}</strong></div>
+            <button class="btn btn-danger" onclick="removeScheduleDay(${dayIdx})">Rimuovi giorno</button>
+          </div>
+          
+          <div class="field" style="margin-bottom: 10px">
+            <label>Data</label>
+            <input type="date" id="date-${dayIdx}" value="${day.date || ''}">
+          </div>
+          
+          <div style="background: #fff; padding: 8px; border-radius: 6px; margin-bottom: 8px">
+            <p style="margin: 0 0 8px 0"><strong>Fasce orarie:</strong></p>
+            <div id="slots-${dayIdx}"></div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 6px" onclick="addTimeSlot(${dayIdx})">+ Aggiungi fascia</button>
+          </div>
+        </div>`;
+      });
+      
+      c.innerHTML = html;
+      
+      // Render time slots
+      sched.days.forEach((day, dayIdx) => {
+        const slotsContainer = document.getElementById(`slots-${dayIdx}`);
+        let slotsHtml = '';
+        (day.timeSlots || []).forEach((slot, slotIdx) => {
+          slotsHtml += `<div class="row" style="margin-bottom: 8px; background: #f3f3f3; padding: 8px; border-radius: 4px; align-items: flex-end">
+            <div style="flex: 1">
+              <label style="font-size: 11px; color: #6b5d45">Inizio</label>
+              <input type="time" id="start-${dayIdx}-${slotIdx}" value="${slot.startTime || '19:30'}">
+            </div>
+            <div style="flex: 1; margin-left: 6px">
+              <label style="font-size: 11px; color: #6b5d45">Fine</label>
+              <input type="time" id="end-${dayIdx}-${slotIdx}" value="${slot.endTime || '20:30'}">
+            </div>
+            <div style="flex: 0.8; margin-left: 6px">
+              <label style="font-size: 11px; color: #6b5d45">Campi</label>
+              <input type="number" id="courts-${dayIdx}-${slotIdx}" min="1" max="10" value="${slot.courtCount || 3}">
+            </div>
+            <button class="btn btn-danger" style="margin-left: 6px" onclick="removeTimeSlot(${dayIdx}, ${slotIdx})">-</button>
+          </div>`;
+        });
+        slotsContainer.innerHTML = slotsHtml;
+      });
+    }
+
+    function addScheduleDay() {
+      if (!state.schedule) state.schedule = { days: [] };
+      const today = new Date().toISOString().split('T')[0];
+      state.schedule.days.push({
+        date: today,
+        timeSlots: [
+          { startTime: '19:30', endTime: '20:30', courtCount: 3 },
+          { startTime: '20:30', endTime: '21:30', courtCount: 3 }
+        ]
+      });
+      renderSchedule();
+    }
+
+    function removeScheduleDay(dayIdx) {
+      if (!state.schedule || !state.schedule.days) return;
+      state.schedule.days.splice(dayIdx, 1);
+      renderSchedule();
+    }
+
+    function addTimeSlot(dayIdx) {
+      if (!state.schedule || !state.schedule.days[dayIdx]) return;
+      if (!state.schedule.days[dayIdx].timeSlots) state.schedule.days[dayIdx].timeSlots = [];
+      state.schedule.days[dayIdx].timeSlots.push({
+        startTime: '21:30',
+        endTime: '22:30',
+        courtCount: 3
+      });
+      renderSchedule();
+    }
+
+    function removeTimeSlot(dayIdx, slotIdx) {
+      if (!state.schedule || !state.schedule.days[dayIdx]) return;
+      state.schedule.days[dayIdx].timeSlots.splice(slotIdx, 1);
+      renderSchedule();
+    }
+
+    async function saveSchedule() {
+      try {
+        if (!state.schedule || !state.schedule.days) {
+          await showInfoDialog('Attenzione', 'Nessun giorno configurato');
+          return;
+        }
+
+        // Leggi i valori dai form
+        const days = [];
+        state.schedule.days.forEach((day, dayIdx) => {
+          const date = document.getElementById(`date-${dayIdx}`).value;
+          const slots = [];
+          (day.timeSlots || []).forEach((slot, slotIdx) => {
+            const startTime = document.getElementById(`start-${dayIdx}-${slotIdx}`).value;
+            const endTime = document.getElementById(`end-${dayIdx}-${slotIdx}`).value;
+            const courtCount = Math.max(1, parseInt(document.getElementById(`courts-${dayIdx}-${slotIdx}`).value) || 3);
+            slots.push({ startTime, endTime, courtCount });
+          });
+          days.push({ date, timeSlots: slots });
+        });
+
+        await callApi('admin_update_schedule', 'POST', { days }, true);
+        state.schedule.days = days;
+        await showInfoDialog('Successo', 'Schedule salvata');
+        renderSchedule();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function rescheduleMatches() {
+      if (!state.groupMatches || !state.groupMatches.length) {
+        await showInfoDialog('Attenzione', 'Nessuna partita da rischedulare');
+        return;
+      }
+
+      const confirmed = await showConfirmDialog(
+        'Conferma rischedulazione',
+        'Rischedulare le partite in base alla schedule configurata? Le partite dello stesso girone rimarranno nello stesso giorno.'
+      );
+      if (!confirmed) return;
+
+      try {
+        await callApi('admin_reschedule_matches', 'POST', {}, true);
+        await refresh();
+        await showInfoDialog('Successo', 'Partite rischedulate con successo');
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     (async function bootstrap() {

@@ -5,10 +5,48 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente di deploy'
+        required: true
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - production
 
 jobs:
-  deploy:
+  deploy-test:
     runs-on: ubuntu-latest
+    # Deploy automaticamente su test con i push, o manualmente se selezionato da workflow_dispatch
+    if: |
+      github.event_name == 'push' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to test
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.0
+        with:
+          server: ftp.filippomorano.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/test/
+          exclude: |
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            **/.vscode/**
+            **/.DS_Store
+            **/README.md
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    # Deploy in production solo se manualmente richiesto tramite workflow_dispatch
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
 
     steps:
       - name: Checkout code
@@ -22,22 +60,6 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
           server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/
-          exclude: |
-            **/.git*/**
-            **/.github/**
-            **/node_modules/**
-            **/.vscode/**
-            **/.DS_Store
-            **/README.md
-
-      - name: Deploy to test
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.0
-        with:
-          server: ftp.filippomorano.com
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/test/
           exclude: |
             **/.git*/**
             **/.github/**

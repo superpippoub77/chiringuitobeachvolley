@@ -5,6 +5,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 const DATA_FILE = __DIR__ . '/data/tournament.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
+const CONFIG_FILE = __DIR__ . '/data/config.json';
 const ADMIN_PASSWORD = 'admin123';
 
 function jsonResponse(int $code, array $payload): void {
@@ -34,6 +35,41 @@ function writeJsonFile(string $file, array $data): void {
         mkdir($dir, 0777, true);
     }
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+}
+
+function defaultConfig(): array {
+    return [
+        'tournament' => [
+            'name' => 'Chiringuito Beach Volley',
+            'maxTeams' => 16,
+            'numGroups' => 4,
+            'numSets' => 2,
+            'winScore' => 21,
+            'maxScore' => 25,
+            'timePerSetMinutes' => 35,
+            'setupTimeMinutes' => 5
+        ],
+        'schedule' => [
+            'days' => [
+                [
+                    'date' => date('Y-m-d'),
+                    'dayNumber' => 1,
+                    'timeSlots' => [
+                        ['startTime' => '19:30', 'endTime' => '20:30', 'courtCount' => 3],
+                        ['startTime' => '20:30', 'endTime' => '21:30', 'courtCount' => 3]
+                    ]
+                ]
+            ]
+        ]
+    ];
+}
+
+function readConfig(): array {
+    return readJsonFile(CONFIG_FILE, defaultConfig());
+}
+
+function writeConfig(array $config): void {
+    writeJsonFile(CONFIG_FILE, $config);
 }
 
 function withStateTransaction(callable $callback): array {
@@ -72,10 +108,11 @@ function withStateTransaction(callable $callback): array {
 }
 
 function initialState(): array {
+    $config = readConfig();
     return [
         'settings' => [
-            'maxTeams' => 16,
-            'tournamentName' => 'Torneo Beach Volley Chiringuito'
+            'maxTeams' => $config['tournament']['maxTeams'] ?? 16,
+            'tournamentName' => $config['tournament']['name'] ?? 'Torneo Beach Volley Chiringuito'
         ],
         'teams' => [],
         'groups' => [],
@@ -452,6 +489,110 @@ function computeFinalRanking(array &$state): void {
             'name' => $teamMap[$teamId]['name'] ?? 'N/D'
         ];
     }
+}
+
+function calculateMatchDuration(array $state, ?int $score1, ?int $score2): int {
+    $config = readConfig();
+    $tournament = $config['tournament'];
+    
+    if ($score1 === null || $score2 === null) {
+        return $tournament['setupTimeMinutes'] + ($tournament['numSets'] * $tournament['timePerSetMinutes']);
+    }
+    
+    $setsPlayed = 1;
+    $s1Win = ($score1 >= $tournament['winScore'] && $score1 - $score2 >= 2);
+    $s2Win = ($score2 >= $tournament['winScore'] && $score2 - $score1 >= 2);
+    
+    if ($s1Win || $s2Win) {
+        $setsPlayed = 1;
+    } elseif (($score1 >= $tournament['winScore'] && $score2 >= $tournament['winScore'] - 1) ||
+              ($score2 >= $tournament['winScore'] && $score1 >= $tournament['winScore'] - 1)) {
+        $setsPlayed = 2;
+    }
+    
+    return $tournament['setupTimeMinutes'] + ($setsPlayed * $tournament['timePerSetMinutes']);
+}
+
+function parseTime(string $timeStr): int {
+    [$h, $m] = explode(':', $timeStr);
+    return (int)$h * 60 + (int)$m;
+}
+
+function addMinutes(string $timeStr, int $minutes): string {
+    $totalMin = parseTime($timeStr) + $minutes;
+    $h = intdiv($totalMin, 60);
+    $m = $totalMin % 60;
+    return str_pad((string)$h, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)$m, 2, '0', STR_PAD_LEFT);
+}
+
+function buildGroupMatchesWithSchedule(array &$state): void {
+    $config = readConfig();
+    $schedule = $config['schedule']['days'] ?? [];
+    
+    if (empty($schedule)) {
+        buildGroupMatches($state);
+        return;
+    }
+    
+    $matches = [];
+    $dayIndex = 0;
+    $slotIndex = 0;
+    $matchesInSlot = 0;
+    
+    foreach ($state['groups'] as $group) {
+        $groupMatches = [];
+        $teamIds = $group['teamIds'];
+        for ($i = 0; $i < count($teamIds) - 1; $i++) {
+            for ($j = $i + 1; $j < count($teamIds); $j++) {
+                $groupMatches[] = [
+                    'id' => uid(),
+                    'group' => $group['name'],
+                    'team1Id' => $teamIds[$i],
+                    'team2Id' => $teamIds[$j],
+                    'score1' => null,
+                    'score2' => null,
+                    'day' => null,
+                    'time' => null,
+                    'endTime' => null,
+                    'timeSlot' => null
+                ];
+            }
+        }
+        
+        foreach ($groupMatches as $match) {
+            $courtsPerSlot = $schedule[$dayIndex]['timeSlots'][$slotIndex]['courtCount'] ?? 3;
+            
+            if ($matchesInSlot >= $courtsPerSlot) {
+                $slotIndex++;
+                $matchesInSlot = 0;
+                
+                if ($slotIndex >= count($schedule[$dayIndex]['timeSlots'])) {
+                    $dayIndex++;
+                    $slotIndex = 0;
+                    
+                    if ($dayIndex >= count($schedule)) {
+                        $dayIndex = 0;
+                    }
+                }
+            }
+            
+            $currentDay = $schedule[$dayIndex];
+            $currentSlot = $currentDay['timeSlots'][$slotIndex] ?? null;
+            
+            if ($currentDay && $currentSlot) {
+                $match['day'] = $currentDay['dayNumber'] ?? ($dayIndex + 1);
+                $match['timeSlot'] = $slotIndex;
+                $match['time'] = $currentSlot['startTime'];
+                $duration = calculateMatchDuration($state, $match['score1'], $match['score2']);
+                $match['endTime'] = addMinutes($match['time'], $duration);
+            }
+            
+            $matches[] = $match;
+            $matchesInSlot++;
+        }
+    }
+    
+    $state['groupMatches'] = $matches;
 }
 
 function simulateAll(array &$state): bool {
@@ -878,6 +1019,94 @@ if ($action === 'admin_reset' && $method === 'POST') {
         return ['ok' => true];
     });
 
+    jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_get_config' && $method === 'GET') {
+    $config = readConfig();
+    jsonResponse(200, ['ok' => true, 'config' => $config]);
+}
+
+if ($action === 'admin_update_config' && $method === 'POST') {
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (isset($body['tournament'])) {
+        $t = $body['tournament'];
+        if (isset($t['name'])) $config['tournament']['name'] = trim((string)$t['name']);
+        if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(4, min(100, (int)$t['maxTeams']));
+        if (isset($t['numGroups'])) $config['tournament']['numGroups'] = max(1, min(8, (int)$t['numGroups']));
+        if (isset($t['numSets'])) $config['tournament']['numSets'] = ((int)$t['numSets'] === 1 ? 1 : 2);
+        if (isset($t['winScore'])) $config['tournament']['winScore'] = max(15, min(30, (int)$t['winScore']));
+        if (isset($t['timePerSetMinutes'])) $config['tournament']['timePerSetMinutes'] = max(20, min(60, (int)$t['timePerSetMinutes']));
+        if (isset($t['setupTimeMinutes'])) $config['tournament']['setupTimeMinutes'] = max(1, min(15, (int)$t['setupTimeMinutes']));
+    }
+    
+    if (isset($body['schedule']) && is_array($body['schedule']['days'] ?? null)) {
+        $config['schedule']['days'] = [];
+        foreach ($body['schedule']['days'] as $idx => $day) {
+            $slots = [];
+            foreach ($day['timeSlots'] ?? [] as $slot) {
+                $slots[] = [
+                    'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
+                    'endTime' => trim((string)($slot['endTime'] ?? '20:30')),
+                    'courtCount' => max(1, (int)($slot['courtCount'] ?? 3))
+                ];
+            }
+            $config['schedule']['days'][] = [
+                'date' => trim((string)($day['date'] ?? date('Y-m-d'))),
+                'dayNumber' => $idx + 1,
+                'timeSlots' => $slots
+            ];
+        }
+    }
+    
+    writeConfig($config);
+    jsonResponse(200, ['ok' => true, 'config' => $config]);
+}
+
+if ($action === 'admin_update_schedule' && $method === 'POST') {
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (isset($body['days']) && is_array($body['days'])) {
+        $config['schedule']['days'] = [];
+        foreach ($body['days'] as $idx => $day) {
+            $slots = [];
+            foreach ($day['timeSlots'] ?? [] as $slot) {
+                $slots[] = [
+                    'startTime' => trim((string)($slot['startTime'] ?? '19:30')),
+                    'endTime' => trim((string)($slot['endTime'] ?? '20:30')),
+                    'courtCount' => max(1, (int)($slot['courtCount'] ?? 3))
+                ];
+            }
+            $config['schedule']['days'][] = [
+                'date' => trim((string)($day['date'] ?? date('Y-m-d'))),
+                'dayNumber' => $idx + 1,
+                'timeSlots' => $slots
+            ];
+        }
+    }
+    
+    writeConfig($config);
+    jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_reschedule_matches' && $method === 'POST') {
+    withStateTransaction(function (&$state) {
+        if (empty($state['groups'])) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Nessun girone generato']);
+        }
+        
+        $config = readConfig();
+        if (empty($config['schedule']['days'])) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Nessun giorno di schedule configurato']);
+        }
+        
+        buildGroupMatchesWithSchedule($state);
+        return ['ok' => true];
+    });
+    
     jsonResponse(200, ['ok' => true]);
 }
 

@@ -1,4 +1,3 @@
-Se non si raggiungere il numero di squadre inserire dei nomi fittizzi per comletare in modo intelligente
 Tutte le partite dello stesso girone devono essere nello stesso giorno
 Definire i giorni disponibili per il torneo ed eventualmente le fasce orarie
 Dare la possibilità di fare un cambio girone per una squadra

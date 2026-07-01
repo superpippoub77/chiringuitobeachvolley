@@ -213,6 +213,11 @@ function tournamentStarted(array $state): bool {
 
 function publicState(array $state): array {
     $teamMap = getTeamMap($state);
+    $config = readConfig();
+    $dayDateMap = [];
+    foreach ($config['schedule']['days'] ?? [] as $d) {
+        $dayDateMap[$d['dayNumber']] = $d['date'];
+    }
     return [
         'settings' => $state['settings'],
         'teams' => array_values(array_map(function ($t) {
@@ -237,7 +242,7 @@ function publicState(array $state): array {
                 }, $g['teamIds']))
             ];
         }, $state['groups'])),
-        'groupMatches' => array_values(array_map(function ($m) use ($teamMap) {
+        'groupMatches' => array_values(array_map(function ($m) use ($teamMap, $dayDateMap) {
             return [
                 'id' => $m['id'],
                 'group' => $m['group'],
@@ -248,6 +253,7 @@ function publicState(array $state): array {
                 'score1' => $m['score1'],
                 'score2' => $m['score2'],
                 'day' => $m['day'],
+                'dayDate' => $dayDateMap[$m['day']] ?? '',
                 'time' => $m['time']
             ];
         }, $state['groupMatches'])),

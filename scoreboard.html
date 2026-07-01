@@ -293,7 +293,7 @@
 
         <div class="center-section">
           <div style="font-size: clamp(16px, 4vw, 32px); color: #aaa">
-            Girone ${escapeHtml(match.group)} • Giorno ${match.day} • Ora ${escapeHtml(match.time)}
+            Girone ${escapeHtml(match.group)} • ${formatDateIta(match.dayDate)} • Ora ${escapeHtml(match.time)}
           </div>
           <div style="display: flex; gap: 10px; width: 100%; justify-content: center">
             <button class="btn btn-reset" onclick="resetMatch()" style="flex: 1; max-width: 200px">Reset Partita</button>
@@ -386,6 +386,12 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function formatDateIta(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
     // Carica la partita al caricamento della pagina

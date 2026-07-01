@@ -935,7 +935,7 @@
         const status = getMatchStatus(m);
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
-          <td>G${m.day} ${esc(m.time)}</td>
+          <td>${formatDateIta(m.dayDate)} ${esc(m.time)}</td>
           <td>${m.group}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
@@ -1077,6 +1077,12 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function formatDateIta(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
     loadState().catch(err => {

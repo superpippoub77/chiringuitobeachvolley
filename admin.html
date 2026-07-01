@@ -1097,7 +1097,7 @@
         c.innerHTML = '<p>Nessuna partita.</p>';
         return;
       }
-      c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Giorno</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr>
         <td>${match.group}</td>
         <td>${escapeHtml(match.team1Name)}</td>
@@ -1106,7 +1106,7 @@
           <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
         </td>
         <td>${escapeHtml(match.team2Name)}</td>
-        <td><input id="d-${match.id}" type="number" min="1" style="width:80px" value="${match.day}"></td>
+        <td>${formatDateIta(match.dayDate)}</td>
         <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.time}"></td>
         <td>
           <button class="btn btn-primary" onclick="saveMatch('${match.id}')">Salva</button>
@@ -1123,14 +1123,12 @@
     async function saveMatch(id) {
       const score1 = document.getElementById('s1-' + id).value;
       const score2 = document.getElementById('s2-' + id).value;
-      const day = document.getElementById('d-' + id).value;
       const time = document.getElementById('t-' + id).value;
       try {
         await callApi('admin_update_group_match', 'POST', {
           id,
           score1: score1 === '' ? null : Number(score1),
           score2: score2 === '' ? null : Number(score2),
-          day: Number(day),
           time
         }, true);
         await refresh();
@@ -1336,6 +1334,12 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function formatDateIta(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
     function renderSchedule() {

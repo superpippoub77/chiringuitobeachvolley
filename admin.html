@@ -655,6 +655,10 @@
                 <label>Minuti setup match</label>
                 <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || 5}">
               </div>
+              <div class="field">
+                <label>Timeout max per set</label>
+                <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || 2}">
+              </div>
             </div>
           </div>
 
@@ -683,7 +687,8 @@
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
             winScore: Math.max(15, Math.min(30, parseInt(document.getElementById('cfg-winScore').value) || 21)),
             timePerSetMinutes: Math.max(20, Math.min(60, parseInt(document.getElementById('cfg-timePerSet').value) || 35)),
-            setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5))
+            setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5)),
+            maxTimeoutsPerSet: Math.max(0, Math.min(5, parseInt(document.getElementById('cfg-maxTimeouts').value) || 2))
           }
         };
 
@@ -979,7 +984,7 @@
         c.innerHTML = '<p>Nessuna partita.</p>';
         return;
       }
-      c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Giorno</th><th>Ora</th><th>Salva</th></tr></thead><tbody>
+      c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Giorno</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr>
         <td>${match.group}</td>
         <td>${escapeHtml(match.team1Name)}</td>
@@ -990,9 +995,16 @@
         <td>${escapeHtml(match.team2Name)}</td>
         <td><input id="d-${match.id}" type="number" min="1" style="width:80px" value="${match.day}"></td>
         <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.time}"></td>
-        <td><button class="btn btn-primary" onclick="saveMatch('${match.id}')">OK</button></td>
+        <td>
+          <button class="btn btn-primary" onclick="saveMatch('${match.id}')">Salva</button>
+          <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="margin-left: 4px">Tabellone</button>
+        </td>
       </tr>`).join('')}
       </tbody></table>`;
+    }
+
+    function openScoreboard(matchId) {
+      window.open(`scoreboard.html?matchId=${matchId}`, 'scoreboard', 'width=1200,height=800');
     }
 
     async function saveMatch(id) {

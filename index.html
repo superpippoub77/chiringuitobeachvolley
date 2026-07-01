@@ -556,6 +556,51 @@
       text-decoration: underline;
     }
 
+    /* Match Status Indicators */
+    .match-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Online - Green blinking */
+    .status-online .status-dot {
+      background: #22c55e;
+      animation: blink 1.2s infinite;
+    }
+
+    /* Concluded - Red static */
+    .status-concluded .status-dot {
+      background: #ef4444;
+    }
+
+    /* Not started - Gray static */
+    .status-pending .status-dot {
+      background: #9ca3af;
+    }
+
+    @keyframes blink {
+      0%, 49%, 100% {
+        opacity: 1;
+      }
+      50%, 99% {
+        opacity: 0.3;
+      }
+    }
+
     @media (max-width: 920px) {
       .stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -576,6 +621,19 @@
 
       .countdown {
         grid-template-columns: repeat(2, 1fr);
+      }
+
+      .match-status {
+        font-size: 10px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 6px;
       }
     }
   </style>
@@ -812,9 +870,31 @@
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
         return;
       }
-      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th>Giorno</th><th>Ora</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m =>
-        `<tr><td>${m.day}</td><td>${esc(m.time)}</td><td>${m.group}</td><td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td><td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td></tr>`
-      ).join('')}</tbody></table>`;
+
+      function getMatchStatus(m) {
+        // If both scores are null/undefined: not started (gray)
+        if ((m.score1 === null || m.score1 === undefined) && (m.score2 === null || m.score2 === undefined)) {
+          return { status: 'pending', label: 'Da giocare', class: 'status-pending' };
+        }
+        // If both scores are set: concluded (red)
+        if (m.score1 !== null && m.score1 !== undefined && m.score2 !== null && m.score2 !== undefined) {
+          return { status: 'concluded', label: 'Conclusa', class: 'status-concluded' };
+        }
+        // If only one or partially filled: online (green blinking)
+        return { status: 'online', label: 'Online', class: 'status-online' };
+      }
+
+      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th>Stato</th><th>Giorno</th><th>Ora</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m => {
+        const status = getMatchStatus(m);
+        return `<tr>
+          <td><span class="match-status ${status.class}"><span class="status-dot"></span>${status.label}</span></td>
+          <td>${m.day}</td>
+          <td>${esc(m.time)}</td>
+          <td>${m.group}</td>
+          <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
+          <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
     }
 
     function renderStandings() {
@@ -960,6 +1040,13 @@
     // Aggiorna il countdown ogni secondo
     updateCountdown();
     setInterval(updateCountdown, 1000);
+
+    // Auto-refresh pagina ogni 30 secondi
+    setInterval(() => {
+      loadState().catch(err => {
+        console.error('Errore refresh:', err);
+      });
+    }, 30000);
   </script>
 </body>
 

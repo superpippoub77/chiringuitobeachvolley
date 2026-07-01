@@ -32,3 +32,6 @@ Mettimi la possibilità di depositare via ftp su un altro server il pacchetto pe
 Come mai se resetto da 0 mi maniente lo sfondo e il logo e e il font✅
 In sostanza quando faccio il reset completo deve cancellare tutto ache i default non devono esistere quindi inizia con "Crea un torneo" partendo dalla configurazione
 Aggiungi i pulsanti di creazine automatica delle pagine di regolamento in funzione della tipologia del torneo e i file fi cookie e policy in base la fine di configurazione ✅
+Ho fatto la cacnellazione ma mi ringono lo sfondo bg.png e logo.png per tutte le pagine non va bene deve mettere quelli ddi default che saranno sotto images/default se non ci sono creali tu ✅
+Inserisci in configurazione l'indirizzi email del gestore se presente ad ogni iscrizione parte una mail al gestore
+

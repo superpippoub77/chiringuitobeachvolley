@@ -1,8 +1,8 @@
 {
     "tournament": {
-        "name": "Torneo Demo Spiaggia 2026",
-        "maxTeams": 24,
-        "numGroups": 6,
+        "name": "Test Torneo",
+        "maxTeams": 16,
+        "numGroups": 4,
         "numSets": 2,
         "winScore": 21,
         "maxScore": 25,
@@ -14,6 +14,9 @@
         "courts": []
     },
     "phases": [],
+    "contact": {
+        "managerEmail": ""
+    },
     "display": {
         "theme": "chiringuito"
     }

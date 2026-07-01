@@ -782,6 +782,16 @@
             </div>
           </div>
 
+          <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">📧 Contatti e Notifiche</h4>
+            <p class="muted">Configura i contatti per ricevere notifiche sulle iscrizioni.</p>
+            <div class="field">
+              <label>Email del gestore (riceve notifiche iscrizioni)</label>
+              <input id="cfg-managerEmail" type="email" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
+              <small style="color: #666; display: block; margin-top: 4px">Riceverai una mail ogni volta che una squadra si iscrive</small>
+            </div>
+          </div>
+
           <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
             <h4 style="margin-top: 0">Schedule Giorni</h4>
             <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
@@ -1139,6 +1149,9 @@
             timePerSetMinutes: Math.max(20, Math.min(60, parseInt(document.getElementById('cfg-timePerSet').value) || 35)),
             setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5)),
             maxTimeoutsPerSet: Math.max(0, Math.min(5, parseInt(document.getElementById('cfg-maxTimeouts').value) || 2))
+          },
+          contact: {
+            managerEmail: document.getElementById('cfg-managerEmail').value.trim()
           },
           display: {
             theme: config.display?.theme || 'chiringuito'

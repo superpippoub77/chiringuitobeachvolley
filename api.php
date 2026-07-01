@@ -41,6 +41,49 @@ function writeJsonFile(string $file, array $data): void {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
+function getLogoFile(): string {
+    // Se esiste un file di upload personalizzato, restituiscilo
+    $uploadsDir = UPLOADS_DIR;
+    if (is_dir($uploadsDir)) {
+        $files = glob($uploadsDir . '/tournament-logo.*');
+        if (!empty($files)) {
+            return 'data/uploads/' . basename($files[0]);
+        }
+    }
+    // Altrimenti restituisci il default
+    return 'images/default/logo.png';
+}
+
+function getBackgroundFile(): string {
+    // Se esiste un file di upload personalizzato, restituiscilo
+    $uploadsDir = UPLOADS_DIR;
+    if (is_dir($uploadsDir)) {
+        $files = glob($uploadsDir . '/tournament-background.*');
+        if (!empty($files)) {
+            return 'data/uploads/' . basename($files[0]);
+        }
+    }
+    // Altrimenti restituisci il default
+    return 'images/default/bg.png';
+}
+
+function sendEmail(string $to, string $subject, string $body, string $from = ''): bool {
+    // Validazione email
+    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+    
+    $headers = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-type: text/html; charset=UTF-8\r\n";
+    
+    if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        $headers .= "From: $from\r\n";
+    }
+    
+    // Invia email
+    return @mail($to, $subject, $body, $headers);
+}
+
 function defaultConfig(): array {
     return [
         'tournament' => [
@@ -58,6 +101,9 @@ function defaultConfig(): array {
             'courts' => []
         ],
         'phases' => [],
+        'contact' => [
+            'managerEmail' => ''
+        ],
         'display' => [
             'theme' => 'chiringuito'
         ]
@@ -106,6 +152,14 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     }
     if (isset($existingConfig['display']['backgroundFile'])) {
         $merged['display']['backgroundFile'] = $existingConfig['display']['backgroundFile'];
+    }
+    
+    // Preserva la sezione contact (email del gestore, etc.)
+    if (isset($existingConfig['contact'])) {
+        $merged['contact'] = array_merge(
+            $defaultConfig['contact'] ?? [],
+            $existingConfig['contact']
+        );
     }
     
     return $merged;
@@ -1043,7 +1097,11 @@ if ($action === 'register_team' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Compila nome squadra e almeno 2 giocatori']);
     }
 
-    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone) {
+    // Leggi configurazione per email del gestore
+    $config = readConfig();
+    $managerEmail = $config['contact']['managerEmail'] ?? '';
+
+    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -1054,8 +1112,9 @@ if ($action === 'register_team' && $method === 'POST') {
             jsonResponse(422, ['ok' => false, 'error' => 'Torneo pieno']);
         }
 
+        $teamId = uid();
         $state['teams'][] = [
-            'id' => uid(),
+            'id' => $teamId,
             'name' => $name,
             'category' => $category,
             'players' => [$p1, $p2, $p3],
@@ -1064,6 +1123,62 @@ if ($action === 'register_team' && $method === 'POST') {
             'approved' => false,
             'createdAt' => gmdate('c')
         ];
+
+        // Invia email al gestore se configurato
+        if (!empty($managerEmail)) {
+            $subject = '📋 Nuova iscrizione squadra al torneo';
+            $body = <<<HTML
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; border-radius: 8px; }
+        .header { background: #e45a0a; color: white; padding: 15px; border-radius: 8px 8px 0 0; }
+        .content { background: white; padding: 20px; border-radius: 0 0 8px 8px; }
+        .team-info { background: #f0f0f0; padding: 15px; border-left: 4px solid #e45a0a; margin: 10px 0; }
+        .label { font-weight: bold; color: #2f6a23; }
+        .footer { font-size: 12px; color: #999; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>⚽ Nuova Iscrizione Squadra</h2>
+        </div>
+        <div class="content">
+            <p>Una nuova squadra si è iscritta al torneo.</p>
+            
+            <div class="team-info">
+                <div class="label">Nome Squadra:</div>
+                <div>{$name}</div>
+            </div>
+            
+            <div class="team-info">
+                <div class="label">Giocatori:</div>
+                <div>• {$p1}</div>
+                <div>• {$p2}</div>
+                <div>• {$p3}</div>
+            </div>
+            
+            <div class="team-info">
+                <div class="label">Contatto:</div>
+                <div>{$phone}</div>
+            </div>
+            
+            <p style="color: #e45a0a; font-weight: bold;">⏳ In attesa di approvazione</p>
+            <p>Accedi al pannello amministrativo per approvare o rifiutare l'iscrizione.</p>
+            
+            <div class="footer">
+                <p>Questo è un messaggio automatico dal sistema di gestione del torneo.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+HTML;
+            sendEmail($managerEmail, $subject, $body);
+        }
 
         return ['message' => 'Registrazione inviata. In attesa approvazione admin.'];
     });
@@ -1867,14 +1982,33 @@ if ($action === 'admin_load_tournament_template' && $method === 'POST') {
 
 if ($action === 'admin_get_config' && $method === 'GET') {
     $config = readConfig();
+    
+    // Aggiungi i file di logo e background (con fallback ai default)
+    if (empty($config['display']['logoFile'])) {
+        $config['display']['logoFile'] = getLogoFile();
+    }
+    if (empty($config['display']['backgroundFile'])) {
+        $config['display']['backgroundFile'] = getBackgroundFile();
+    }
+    
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 
 if ($action === 'get_config' && $method === 'GET') {
     // Endpoint pubblico per ottenere la configurazione display (tema e logo)
     $config = readConfig();
+    $display = $config['display'] ?? [];
+    
+    // Aggiungi i file di logo e background (con fallback ai default)
+    if (empty($display['logoFile'])) {
+        $display['logoFile'] = getLogoFile();
+    }
+    if (empty($display['backgroundFile'])) {
+        $display['backgroundFile'] = getBackgroundFile();
+    }
+    
     $publicConfig = [
-        'display' => $config['display'] ?? []
+        'display' => $display
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
@@ -1985,6 +2119,16 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (count($phases) > 0) {
             $config['phases'] = $phases;
         }
+    }
+    
+    if (isset($body['contact']) && is_array($body['contact'])) {
+        $managerEmail = trim((string)($body['contact']['managerEmail'] ?? ''));
+        if ($managerEmail !== '') {
+            if (!filter_var($managerEmail, FILTER_VALIDATE_EMAIL)) {
+                jsonResponse(422, ['ok' => false, 'error' => 'Email del gestore non valida']);
+            }
+        }
+        $config['contact']['managerEmail'] = $managerEmail;
     }
     
     if (isset($body['display']) && is_array($body['display'])) {

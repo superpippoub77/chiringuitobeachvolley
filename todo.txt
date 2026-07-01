@@ -10,3 +10,5 @@ Definire in configurazione il numero di timeout massimo da poter chiedereper ogn
 Le partite che attualmente stanno giocnado che si vedono nella homepage devono essere con il pallino verde con scritto online palmpeggiante e c'è il refresh ina automatico della pagina ogni 30 secondi partita conclusa pallino rosso e ancora da giocare pallino grigio (questi due non lampeggianti) e deve vedersi bene anche usl cellulare ✅
 Impostare correttamente le favicon che si trovano sotto a images/favicon
 Mettere solo il pallino grigio, verden o rosso e non il testo altrimenti occupa pareccgio spazio e unificare giorno e orario in un unaica colonna ✅
+In home page Se il torneo è iniziato la home page punta subito a partite (se gironi è stato creato) altrimenti a squadre ✅
+In home page il count down non si vede perchè il testo è bianco fallo di colore nero ✅

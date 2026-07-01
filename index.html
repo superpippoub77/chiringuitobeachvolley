@@ -546,7 +546,7 @@
       padding: 8px;
       border-radius: 8px;
       font-weight: 800;
-      color: #fff;
+      color: var(--ink);
       font-size: 18px;
       line-height: 1;
     }
@@ -807,6 +807,20 @@
       const r = await api('get_public');
       state = r.data;
       renderAll();
+      
+      // Al primo caricamento, reindirizza automaticamente alla tab appropriata
+      if (firstLoad) {
+        firstLoad = false;
+        // Se il torneo è iniziato (gironi creati), vai alle partite
+        if (state.groups && state.groups.length > 0) {
+          const matchesTab = document.querySelector('button[onclick="showTab(\'matches\', this)"]');
+          if (matchesTab) showTab('matches', matchesTab);
+        } else {
+          // Altrimenti vai alle squadre
+          const teamsTab = document.querySelector('button[onclick="showTab(\'teams\', this)"]');
+          if (teamsTab) showTab('teams', teamsTab);
+        }
+      }
     }
 
     function updateCountdown() {

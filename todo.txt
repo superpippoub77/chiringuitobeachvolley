@@ -30,3 +30,5 @@ In caso di torneo esistente anche di una altr aversione deve fare la merge con q
 Considerando questo sviluppo quello principale dao la possibilità di scaricarsi il proramma completo e metterselo su di un server e dare la possibilità di schiacciare un pulsante Update o check update per scaricarsi dal sito ufficiale la nuova versione o gli aggiornamenti✅
 Mettimi la possibilità di depositare via ftp su un altro server il pacchetto per l'installazione, lìutente deve inserire i paramentri FTP o SFTP in base alla connessione✅
 Come mai se resetto da 0 mi maniente lo sfondo e il logo e e il font✅
+In sostanza quando faccio il reset completo deve cancellare tutto ache i default non devono esistere quindi inizia con "Crea un torneo" partendo dalla configurazione
+Aggiungi i pulsanti di creazine automatica delle pagine di regolamento in funzione della tipologia del torneo e i file fi cookie e policy in base la fine di configurazione

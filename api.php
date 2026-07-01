@@ -44,9 +44,9 @@ function writeJsonFile(string $file, array $data): void {
 function defaultConfig(): array {
     return [
         'tournament' => [
-            'name' => 'Chiringuito Beach Volley',
-            'maxTeams' => 16,
-            'numGroups' => 4,
+            'name' => '',
+            'maxTeams' => 0,
+            'numGroups' => 0,
             'numSets' => 2,
             'winScore' => 21,
             'maxScore' => 25,
@@ -55,47 +55,7 @@ function defaultConfig(): array {
             'maxTimeoutsPerSet' => 2
         ],
         'schedule' => [
-            'courts' => [
-                [
-                    'courtId' => '1',
-                    'courtName' => 'Campo 1',
-                    'availability' => [
-                        [
-                            'date' => date('Y-m-d'),
-                            'timeSlots' => [
-                                ['startTime' => '19:30', 'endTime' => '20:30'],
-                                ['startTime' => '20:30', 'endTime' => '21:30']
-                            ]
-                        ]
-                    ]
-                ],
-                [
-                    'courtId' => '2',
-                    'courtName' => 'Campo 2',
-                    'availability' => [
-                        [
-                            'date' => date('Y-m-d'),
-                            'timeSlots' => [
-                                ['startTime' => '19:30', 'endTime' => '20:30'],
-                                ['startTime' => '20:30', 'endTime' => '21:30']
-                            ]
-                        ]
-                    ]
-                ],
-                [
-                    'courtId' => '3',
-                    'courtName' => 'Campo 3',
-                    'availability' => [
-                        [
-                            'date' => date('Y-m-d'),
-                            'timeSlots' => [
-                                ['startTime' => '19:30', 'endTime' => '20:30'],
-                                ['startTime' => '20:30', 'endTime' => '21:30']
-                            ]
-                        ]
-                    ]
-                ]
-            ]
+            'courts' => []
         ],
         'phases' => [],
         'display' => [
@@ -1603,13 +1563,13 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
 
 if ($action === 'admin_reset_tournament' && $method === 'POST') {
     try {
-        // Ripristina configurazione ai valori di default
-        $defaultCfg = defaultConfig();
-        writeConfig($defaultCfg);
-        
-        // Ripristina stato ai valori iniziali
-        $initialData = initialState();
-        writeJsonFile(DATA_FILE, $initialData);
+        // Elimina completamente i file di configurazione e dati
+        if (file_exists(CONFIG_FILE)) {
+            @unlink(CONFIG_FILE);
+        }
+        if (file_exists(DATA_FILE)) {
+            @unlink(DATA_FILE);
+        }
         
         // Elimina i file di upload (logo, background)
         $uploadsDir = UPLOADS_DIR;
@@ -1622,7 +1582,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
             }
         }
         
-        jsonResponse(200, ['ok' => true, 'message' => 'Torneo azzerato completamente. Sistema ripristinato a stato iniziale.']);
+        jsonResponse(200, ['ok' => true, 'message' => 'Sistema completamente ripristinato. Pronto per una nuova configurazione.']);
     } catch (Exception $e) {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il reset: ' . $e->getMessage()]);
     }

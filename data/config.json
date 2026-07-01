@@ -1,8 +1,8 @@
 {
     "tournament": {
-        "name": "Chiringuito Beach Volley",
-        "maxTeams": 16,
-        "numGroups": 4,
+        "name": "",
+        "maxTeams": 0,
+        "numGroups": 0,
         "numSets": 2,
         "winScore": 21,
         "maxScore": 25,
@@ -11,65 +11,7 @@
         "maxTimeoutsPerSet": 2
     },
     "schedule": {
-        "courts": [
-            {
-                "courtId": "1",
-                "courtName": "Campo 1",
-                "availability": [
-                    {
-                        "date": "2026-07-01",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "courtId": "2",
-                "courtName": "Campo 2",
-                "availability": [
-                    {
-                        "date": "2026-07-01",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                "courtId": "3",
-                "courtName": "Campo 3",
-                "availability": [
-                    {
-                        "date": "2026-07-01",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "20:30"
-                            },
-                            {
-                                "startTime": "20:30",
-                                "endTime": "21:30"
-                            }
-                        ]
-                    }
-                ]
-            }
-        ]
+        "courts": []
     },
     "phases": [],
     "display": {

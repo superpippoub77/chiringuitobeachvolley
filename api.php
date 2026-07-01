@@ -1312,6 +1312,76 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
     }
 }
 
+if ($action === 'admin_save_custom_theme' && $method === 'POST') {
+    $body = bodyJson();
+    $themeName = trim((string)($body['name'] ?? 'Tema Personalizzato'));
+    $headingFont = trim((string)($body['headingFont'] ?? 'Poppins'));
+    $bodyFont = trim((string)($body['bodyFont'] ?? 'Roboto'));
+    $primaryColor = trim((string)($body['primaryColor'] ?? '#667eea'));
+    $secondaryColor = trim((string)($body['secondaryColor'] ?? '#764ba2'));
+    $headingColor = trim((string)($body['headingColor'] ?? '#000000'));
+
+    if (empty($themeName)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nome tema richiesto']);
+    }
+
+    $config = readConfig();
+    if (!isset($config['display'])) {
+        $config['display'] = [];
+    }
+    if (!isset($config['display']['customThemes'])) {
+        $config['display']['customThemes'] = [];
+    }
+
+    $customTheme = [
+        'id' => 'custom_' . time(),
+        'name' => $themeName,
+        'headingFont' => $headingFont,
+        'bodyFont' => $bodyFont,
+        'primaryColor' => $primaryColor,
+        'secondaryColor' => $secondaryColor,
+        'headingColor' => $headingColor,
+        'createdAt' => gmdate('c')
+    ];
+
+    $config['display']['customThemes'][] = $customTheme;
+    writeConfig($config);
+
+    jsonResponse(200, ['ok' => true, 'theme' => $customTheme]);
+}
+
+if ($action === 'admin_get_custom_themes' && $method === 'GET') {
+    $config = readConfig();
+    $customThemes = $config['display']['customThemes'] ?? [];
+    jsonResponse(200, ['ok' => true, 'customThemes' => $customThemes]);
+}
+
+if ($action === 'admin_delete_custom_theme' && $method === 'POST') {
+    $body = bodyJson();
+    $themeId = trim((string)($body['themeId'] ?? ''));
+
+    if (empty($themeId)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID tema richiesto']);
+    }
+
+    $config = readConfig();
+    if (!isset($config['display']['customThemes'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Tema non trovato']);
+    }
+
+    $config['display']['customThemes'] = array_filter(
+        $config['display']['customThemes'],
+        fn($t) => $t['id'] !== $themeId
+    );
+
+    if (isset($config['display']['theme']) && $config['display']['theme'] === $themeId) {
+        $config['display']['theme'] = 'chiringuito';
+    }
+
+    writeConfig($config);
+    jsonResponse(200, ['ok' => true, 'message' => 'Tema eliminato']);
+}
+
 if ($action === 'admin_validate_config' && $method === 'GET') {
     $config = readConfig();
     $errors = [];
@@ -1470,8 +1540,16 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     if (isset($body['display']) && is_array($body['display'])) {
         $theme = trim((string)($body['display']['theme'] ?? 'chiringuito'));
         $validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+        
+        // Consenti temi built-in o temi custom
         if (in_array($theme, $validThemes)) {
             $config['display']['theme'] = $theme;
+        } elseif (strpos($theme, 'custom_') === 0) {
+            // Verifica che il tema custom esista
+            $customThemes = $config['display']['customThemes'] ?? [];
+            if (array_filter($customThemes, fn($t) => $t['id'] === $theme)) {
+                $config['display']['theme'] = $theme;
+            }
         }
     }
     

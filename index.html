@@ -1112,8 +1112,16 @@
             if (data.config.display.theme) {
               const themeName = data.config.display.theme;
               const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+              
               if (validThemes.includes(themeName)) {
+                // Tema built-in
                 document.getElementById('themeLink').href = `theme-${themeName}.css`;
+              } else if (themeName.startsWith('custom_')) {
+                // Tema custom - genera CSS dinamico
+                const customTheme = (data.config.display.customThemes || []).find(t => t.id === themeName);
+                if (customTheme) {
+                  applyCustomThemeStyle(customTheme);
+                }
               }
             }
             
@@ -1140,6 +1148,41 @@
       } catch (err) {
         console.error('Errore caricamento tema:', err);
       }
+    }
+
+    function applyCustomThemeStyle(customTheme) {
+      // Importa i font da Google Fonts
+      const fontImport = `@import url('https://fonts.googleapis.com/css2?family=${customTheme.headingFont.replace(/ /g, '+')}&family=${customTheme.bodyFont.replace(/ /g, '+')}');`;
+      
+      // Genera CSS per il tema custom
+      const customCss = `
+        ${fontImport}
+        
+        :root {
+          --font-heading: '${customTheme.headingFont}', sans-serif;
+          --font-body: '${customTheme.bodyFont}', sans-serif;
+          --sand-1: ${customTheme.primaryColor};
+          --sand-2: ${customTheme.secondaryColor};
+          --sun: ${customTheme.primaryColor};
+          --leaf: ${customTheme.secondaryColor};
+          --ink: ${customTheme.headingColor};
+        }
+        
+        body {
+          font-family: '${customTheme.bodyFont}', sans-serif;
+          color: ${customTheme.headingColor};
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+          font-family: '${customTheme.headingFont}', sans-serif;
+          color: ${customTheme.headingColor};
+        }
+      `;
+      
+      // Inietta il CSS nel DOM
+      const style = document.createElement('style');
+      style.textContent = customCss;
+      document.head.appendChild(style);
     }
 
     // Carica il tema all'avvio

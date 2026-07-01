@@ -1,5 +1,9 @@
 /* Theme: Scuro - Dark mode */
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;600&display=swap');
+
 :root {
+  --font-heading: 'Space Mono', monospace;
+  --font-body: 'Inter', sans-serif;
   --sand-1: #1e1e1e;
   --sand-2: #2d2d2d;
   --sand-3: #3a3a3a;
@@ -18,4 +22,9 @@ body {
   background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
   background-attachment: fixed;
   color: var(--ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }

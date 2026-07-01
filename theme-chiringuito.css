@@ -1,5 +1,9 @@
 /* Theme: Chiringuito - Beach style */
+@import url('https://fonts.googleapis.com/css2?family=Original+Surfer&family=Segoe+UI:wght@400;600&display=swap');
+
 :root {
+  --font-heading: 'Original Surfer', cursive;
+  --font-body: 'Segoe UI', sans-serif;
   --sand-1: #f8edd8;
   --sand-2: #f1dfbc;
   --sand-3: #e7cf9e;
@@ -21,4 +25,10 @@ body {
     linear-gradient(160deg, var(--sand-1) 0%, var(--sand-2) 58%, var(--sand-3) 100%);
   background-attachment: fixed;
   background-image: url(bg.png);
+  font-family: var(--font-body);
+  color: var(--ink);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }

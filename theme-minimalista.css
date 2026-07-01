@@ -1,5 +1,9 @@
 /* Theme: Minimalista - Clean minimal style */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Lato:wght@400;500&display=swap');
+
 :root {
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Lato', sans-serif;
   --sand-1: #fafafa;
   --sand-2: #f5f5f5;
   --sand-3: #f0f0f0;
@@ -18,4 +22,9 @@ body {
   background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
   background-attachment: fixed;
   color: var(--ink);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }

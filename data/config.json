@@ -105,8 +105,40 @@
         }
     ],
     "display": {
-        "theme": "scuro",
+        "theme": "custom_1782911380",
         "logoFile": "data\/uploads\/tournament-logo.png",
-        "backgroundFile": "data\/uploads\/tournament-background.png"
+        "backgroundFile": "data\/uploads\/tournament-background.png",
+        "customThemes": [
+            {
+                "id": "custom_1782911312",
+                "name": "Tema Estivo",
+                "headingFont": "Raleway",
+                "bodyFont": "Open Sans",
+                "primaryColor": "#FF6B6B",
+                "secondaryColor": "#4ECDC4",
+                "headingColor": "#2C3E50",
+                "createdAt": "2026-07-01T13:08:32+00:00"
+            },
+            {
+                "id": "custom_1782911348",
+                "name": "Tema Notte",
+                "headingFont": "Space Mono",
+                "bodyFont": "Lato",
+                "primaryColor": "#1A1A2E",
+                "secondaryColor": "#16213E",
+                "headingColor": "#00D4FF",
+                "createdAt": "2026-07-01T13:09:08+00:00"
+            },
+            {
+                "id": "custom_1782911380",
+                "name": "Tema Tropicale",
+                "headingFont": "Raleway",
+                "bodyFont": "Roboto",
+                "primaryColor": "#FF6B35",
+                "secondaryColor": "#004E89",
+                "headingColor": "#FFFFFF",
+                "createdAt": "2026-07-01T13:09:40+00:00"
+            }
+        ]
     }
 }

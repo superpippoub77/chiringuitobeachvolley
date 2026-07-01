@@ -740,11 +740,66 @@
               <button class="btn btn-danger" onclick="removeBackground()" style="margin-left: 8px">🗑️ Rimuovi Sfondo</button>
             </div>
           </div>
+
+          <div class="card" style="background: #e8f5f0; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">✨ Tema Personalizzato</h4>
+            <p class="muted">Crea un tema con colori e font personalizzati.</p>
+            <div style="margin-top: 12px">
+              <div style="margin-bottom: 10px">
+                <label style="display: block; margin-bottom: 4px; font-weight: bold">Nome Tema</label>
+                <input id="customThemeName" type="text" placeholder="Es: Il mio tema" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: bold">Font Titoli</label>
+                  <select id="customThemeHeadingFont" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+                    <option value="Poppins">Poppins (Moderno)</option>
+                    <option value="Original Surfer">Original Surfer (Spiaggia)</option>
+                    <option value="Playfair Display">Playfair Display (Elegante)</option>
+                    <option value="Space Mono">Space Mono (Tech)</option>
+                    <option value="Raleway">Raleway (Moderno)</option>
+                    <option value="Montserrat">Montserrat (Bold)</option>
+                    <option value="Oswald">Oswald (Impattante)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: bold">Font Corpo</label>
+                  <select id="customThemeBodyFont" style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+                    <option value="Roboto">Roboto (Moderno)</option>
+                    <option value="Lato">Lato (Pulito)</option>
+                    <option value="Segoe UI">Segoe UI (Windows)</option>
+                    <option value="Inter">Inter (Minimalista)</option>
+                    <option value="Open Sans">Open Sans (Versatile)</option>
+                    <option value="Source Sans Pro">Source Sans Pro (Pro)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px">
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: bold">Colore Primario</label>
+                  <input id="customThemePrimaryColor" type="color" value="#667eea" style="width: 100%; height: 40px; border: none; border-radius: 4px; cursor: pointer">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: bold">Colore Secondario</label>
+                  <input id="customThemeSecondaryColor" type="color" value="#764ba2" style="width: 100%; height: 40px; border: none; border-radius: 4px; cursor: pointer">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 4px; font-weight: bold">Colore Titoli</label>
+                  <input id="customThemeHeadingColor" type="color" value="#000000" style="width: 100%; height: 40px; border: none; border-radius: 4px; cursor: pointer">
+                </div>
+              </div>
+              <div style="margin-top: 10px">
+                <button class="btn btn-primary" onclick="saveCustomTheme()">💾 Salva Tema Personalizzato</button>
+              </div>
+            </div>
+            <div id="customThemesList" style="margin-top: 12px"></div>
+          </div>
         `;
         
         // Carica i temi disponibili e crea UI
         try {
           renderThemeButtons();
+          loadCustomThemes();
           
           // Carica preview logo
           const logoPreview = document.getElementById('logoPreview');
@@ -854,6 +909,9 @@
       config.display.theme = themeId;
       // Re-render per mostrare visivamente il tema selezionato
       renderThemeButtons();
+      loadCustomThemes();
+      // Salva il tema selezionato
+      saveSettings().catch(e => console.error('Errore salvataggio tema:', e));
     }
 
     function renderThemeButtons() {
@@ -911,6 +969,87 @@
         await renderSettings();
         await showInfoDialog('Successo', 'Sfondo rimosso');
       }
+    }
+
+    async function loadCustomThemes() {
+      try {
+        const data = await callApi('admin_get_custom_themes', 'GET', null, true);
+        const customThemes = data.customThemes || [];
+        const currentTheme = config.display?.theme || 'chiringuito';
+        
+        let html = '';
+        if (customThemes.length > 0) {
+          html += '<div style="margin-top: 12px; border-top: 1px solid #ccc; padding-top: 12px"><h5 style="margin: 0 0 8px 0">Temi Personalizzati Salvati</h5>';
+          html += '<div style="display: grid; gap: 8px">';
+          customThemes.forEach(t => {
+            const isSelected = t.id === currentTheme;
+            html += `<div style="padding: 8px; border: 2px ${isSelected ? '#0ead69' : '#d0d0d0'}; border-radius: 6px; background: ${isSelected ? '#e8f8f0' : '#f9f9f9'}; display: flex; justify-content: space-between; align-items: center">
+              <div>
+                <div style="font-weight: bold; cursor: pointer" onclick="applyCustomTheme('${t.id}')">${t.name}</div>
+                <div style="font-size: 12px; color: #666; margin-top: 2px">🔤 ${t.headingFont} • 📄 ${t.bodyFont} • 🎨 ${t.primaryColor}</div>
+              </div>
+              <button class="btn btn-sm btn-danger" style="padding: 4px 8px" onclick="deleteCustomTheme('${t.id}')">Elimina</button>
+            </div>`;
+          });
+          html += '</div></div>';
+        } else {
+          html = '<div style="margin-top: 12px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; text-align: center">Nessun tema personalizzato salvato</div>';
+        }
+        
+        const container = document.getElementById('customThemesList');
+        if (container) container.innerHTML = html;
+      } catch (e) {
+        console.error('Errore caricamento temi custom:', e);
+      }
+    }
+
+    async function saveCustomTheme() {
+      try {
+        const name = document.getElementById('customThemeName')?.value.trim();
+        if (!name) {
+          await showInfoDialog('Errore', 'Inserisci il nome del tema');
+          return;
+        }
+
+        const payload = {
+          name: name,
+          headingFont: document.getElementById('customThemeHeadingFont')?.value || 'Poppins',
+          bodyFont: document.getElementById('customThemeBodyFont')?.value || 'Roboto',
+          primaryColor: document.getElementById('customThemePrimaryColor')?.value || '#667eea',
+          secondaryColor: document.getElementById('customThemeSecondaryColor')?.value || '#764ba2',
+          headingColor: document.getElementById('customThemeHeadingColor')?.value || '#000000'
+        };
+
+        const data = await callApi('admin_save_custom_theme', 'POST', payload, true);
+        if (data.ok) {
+          document.getElementById('customThemeName').value = '';
+          await showInfoDialog('Successo', 'Tema personalizzato salvato');
+          await loadCustomThemes();
+          await applyCustomTheme(data.theme.id);
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function deleteCustomTheme(themeId) {
+      const confirmed = await showConfirmDialog('Eliminazione Tema', 'Sei sicuro di voler eliminare questo tema personalizzato?');
+      if (!confirmed) return;
+
+      try {
+        await callApi('admin_delete_custom_theme', 'POST', { themeId }, true);
+        await showInfoDialog('Successo', 'Tema eliminato');
+        await loadCustomThemes();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function applyCustomTheme(themeId) {
+      if (!config.display) config.display = {};
+      config.display.theme = themeId;
+      await renderThemeButtons();
+      await loadCustomThemes();
     }
 
     async function saveSettings() {

@@ -730,6 +730,16 @@
       renderStandings();
       renderMatches();
       renderPlayoff();
+      
+      // Se è specificato un tab nell'URL, aprilo automaticamente
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) {
+        const tabButton = document.querySelector(`[data-page="${tabParam}"]`);
+        if (tabButton) {
+          showPage(tabParam, tabButton);
+        }
+      }
     }
 
     async function renderSettings() {
@@ -2327,8 +2337,7 @@
           {
             date: today,
             timeSlots: [
-              { startTime: '19:30', endTime: '20:30' },
-              { startTime: '20:30', endTime: '21:30' }
+              { startTime: '19:30', endTime: '20:30' }
             ]
           }
         ]

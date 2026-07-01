@@ -292,6 +292,133 @@
       color: #6b5d45;
     }
 
+    /* Bracket Playoff Styles */
+    .bracket {
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      padding: 20px 0;
+      justify-content: flex-start;
+    }
+
+    .bracket-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      min-width: 200px;
+    }
+
+    .bracket-match {
+      border: 2px solid var(--accent);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+      min-width: 180px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+    }
+
+    .match-team {
+      padding: 4px 0;
+      font-size: 12px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .match-team:last-child {
+      border-bottom: 0;
+    }
+
+    .match-team strong {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .match-score {
+      font-weight: bold;
+      color: var(--accent);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .bracket-title {
+      text-align: center;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    /* Standings Styles */
+    .standings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .standings-group {
+      background: #f9f3e6;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .standings-group h4 {
+      margin: 0 0 8px 0;
+      color: var(--accent);
+      font-size: 14px;
+    }
+
+    .standings-table {
+      width: 100%;
+      font-size: 11px;
+      border-collapse: collapse;
+    }
+
+    .standings-table th {
+      background: #efe5d2;
+      padding: 6px 4px;
+      text-align: right;
+      font-weight: bold;
+      color: #5a4f43;
+      border: 0;
+    }
+
+    .standings-table th:first-child {
+      text-align: left;
+    }
+
+    .standings-table td {
+      padding: 6px 4px;
+      border-bottom: 1px solid #e7d6b5;
+      text-align: right;
+    }
+
+    .standings-table td:first-child {
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .standings-table tr:hover {
+      background: #f3e8d8;
+    }
+
+    .standings-criteria {
+      font-size: 10px;
+      color: #6b5d45;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #d8c39f;
+      line-height: 1.4;
+    }
+
     @media (max-width: 900px) {
       .team {
         grid-template-columns: 1fr;
@@ -299,6 +426,20 @@
 
       .form-grid-modal {
         grid-template-columns: 1fr;
+      }
+
+      .bracket {
+        gap: 10px;
+      }
+
+      .bracket-column {
+        min-width: 160px;
+      }
+
+      .bracket-match {
+        min-width: 150px;
+        min-height: 70px;
+        font-size: 11px;
       }
     }
   </style>
@@ -330,6 +471,7 @@
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
         <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
+        <button class="tab" data-page="standings" onclick="showPage('standings', this)">Classifiche</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
@@ -367,6 +509,12 @@
         </div>
         <p class="muted" style="margin-top:10px">Se non hai abbastanza squadre approvate per raggiungere il massimo (16), saranno aggiunte automaticamente squadre fittizie.</p>
         <div id="groupsContainer" style="margin-top:10px"></div>
+      </div>
+
+      <div id="page-standings" class="card page hidden">
+        <h3>Classifiche gironi</h3>
+        <p class="muted">Posizionamento basato su: Punti vittoria > Differenza set > Differenza punti</p>
+        <div id="standingsContainer" style="margin-top:14px"></div>
       </div>
 
       <div id="page-matches" class="card page hidden">
@@ -459,6 +607,7 @@
       renderTeams();
       renderSchedule();
       renderGroups();
+      renderStandings();
       renderMatches();
       renderPlayoff();
     }
@@ -710,6 +859,55 @@
       } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
+    function renderStandings() {
+      const c = document.getElementById('standingsContainer');
+      const standings = state.standings || [];
+
+      if (standings.length === 0) {
+        c.innerHTML = '<p>Nessuna classifica disponibile.</p>';
+        return;
+      }
+
+      let html = '<div class="standings-grid">';
+      standings.forEach(group => {
+        html += `<div class="standings-group">
+          <h4>Girone ${group.group}</h4>
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th>Squadra</th>
+                <th>G</th>
+                <th>V</th>
+                <th>P</th>
+                <th>Pts</th>
+                <th>S.Diff</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        group.rows.forEach((row, idx) => {
+          html += `<tr>
+            <td>${escapeHtml(row.name)}</td>
+            <td>${row.played}</td>
+            <td>${row.won}</td>
+            <td>${row.lost}</td>
+            <td><strong>${row.points}</strong></td>
+            <td>${row.diff}</td>
+          </tr>`;
+        });
+        html += `</tbody>
+          </table>
+          <div class="standings-criteria">
+            <strong>Criterio:</strong><br/>
+            1️⃣ Punti vittoria<br/>
+            2️⃣ Differenza set<br/>
+            3️⃣ Differenza punti
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      c.innerHTML = html;
+    }
+
     function renderGroups() {
       const c = document.getElementById('groupsContainer');
       if (!state.groups.length) {
@@ -824,22 +1022,72 @@
     function renderPlayoff() {
       const c = document.getElementById('playoffContainer');
       const p = state.playoff || {};
-      const blocks = [];
-      const draw = (title, phase, arr) => {
-        if (!arr || !arr.length) return;
-        blocks.push(`<h4>${title}</h4><table><thead><tr><th>Match</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Salva</th></tr></thead><tbody>${arr.map(m => `<tr>
-          <td>${m.label}</td>
-          <td>${escapeHtml(m.team1Name)}</td>
-          <td><input id="p1-${m.id}" type="number" min="0" style="width:60px" value="${m.score1 ?? ''}"> - <input id="p2-${m.id}" type="number" min="0" style="width:60px" value="${m.score2 ?? ''}"></td>
-          <td>${escapeHtml(m.team2Name)}</td>
-          <td><button class="btn btn-primary" onclick="savePlayoff('${phase}','${m.id}')">OK</button></td>
-        </tr>`).join('')}</tbody></table>`);
-      };
-      draw('Quarti', 'quarterFinals', p.quarterFinals || []);
-      draw('Semifinali', 'semiFinals', p.semiFinals || []);
-      if (p.thirdPlace) draw('Finale 3 posto', 'thirdPlace', [p.thirdPlace]);
-      if (p.final) draw('Finale', 'final', [p.final]);
-      c.innerHTML = blocks.length ? blocks.join('') : '<p>Nessun playoff creato.</p>';
+
+      if (!p.quarterFinals || p.quarterFinals.length === 0) {
+        c.innerHTML = '<p>Nessun playoff creato.</p>';
+        return;
+      }
+
+      let html = '<div class="bracket">';
+
+      // Quarti di finale
+      html += '<div class="bracket-column">';
+      html += '<div class="bracket-title">QUARTI</div>';
+      (p.quarterFinals || []).forEach(m => {
+        html += renderBracketMatch(m, 'quarterFinals');
+      });
+      html += '</div>';
+
+      // Semifinali
+      if (p.semiFinals && p.semiFinals.length > 0) {
+        html += '<div class="bracket-column">';
+        html += '<div class="bracket-title">SEMIFINALI</div>';
+        p.semiFinals.forEach(m => {
+          html += renderBracketMatch(m, 'semiFinals');
+        });
+        html += '</div>';
+      }
+
+      // Finale 3° posto
+      if (p.thirdPlace) {
+        html += '<div class="bracket-column">';
+        html += '<div class="bracket-title">3° POSTO</div>';
+        html += renderBracketMatch(p.thirdPlace, 'thirdPlace');
+        html += '</div>';
+      }
+
+      // Finale
+      if (p.final) {
+        html += '<div class="bracket-column">';
+        html += '<div class="bracket-title">FINALE</div>';
+        html += renderBracketMatch(p.final, 'final');
+        html += '</div>';
+      }
+
+      html += '</div>';
+      c.innerHTML = html;
+    }
+
+    function renderBracketMatch(m, phase) {
+      const score1 = m.score1 !== null ? m.score1 : '';
+      const score2 = m.score2 !== null ? m.score2 : '';
+      return `
+        <div class="bracket-match">
+          <div class="match-team">
+            <strong>${escapeHtml(m.team1Name)}</strong>
+            <span class="match-score">${score1}</span>
+          </div>
+          <div class="match-team">
+            <strong>${escapeHtml(m.team2Name)}</strong>
+            <span class="match-score">${score2}</span>
+          </div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0e0e0; display: flex; gap: 4px">
+            <input id="p1-${m.id}" type="number" min="0" placeholder="-" style="width: 40px; padding: 4px; font-size: 11px" value="${score1}">
+            <input id="p2-${m.id}" type="number" min="0" placeholder="-" style="width: 40px; padding: 4px; font-size: 11px" value="${score2}">
+            <button class="btn btn-primary" style="flex: 1; padding: 4px; font-size: 10px" onclick="savePlayoff('${phase}','${m.id}')">OK</button>
+          </div>
+        </div>
+      `;
     }
 
     async function savePlayoff(phase, id) {

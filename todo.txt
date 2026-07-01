@@ -2,3 +2,8 @@ Tutte le partite dello stesso girone devono essere nello stesso giorno ✅
 Definire i giorni disponibili per il torneo ed eventualmente le fasce orarie ✅
 Dare la possibilità di fare un cambio girone per una squadra solo nella fase realizzazione gironi (pannello admin) ✅
 Validazione: il sistema deve verificare se è possibile generare il torneo in base ai giorni e time range, altrimenti mostrare errore ✅
+Visualizzare il playoff come bracket/albero (tabellone) ✅
+Mostrare le classifiche dei gironi con criterio di ordinamento (Punti > Differenza set > Differenza punti) ✅
+Preview nella classifica di chi andrà ad affrontare dai sedicesimi in avanti
+Per gli amministratori se clicco dal pannello di controllo su una partita mi apre il tabellone elettronico con firemento a quella partita dove posso aggiornare il punteggio cliccando in alto incremento ed in basso decrementa sia perr la squadra 1 che la scritdra due poi incrementa i set in autmantico e i timeout
+Definire in configurazione il numero di timeout massimo da poter chiedereper ogni set

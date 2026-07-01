@@ -4,7 +4,9 @@ Dare la possibilità di fare un cambio girone per una squadra solo nella fase re
 Validazione: il sistema deve verificare se è possibile generare il torneo in base ai giorni e time range, altrimenti mostrare errore ✅
 Visualizzare il playoff come bracket/albero (tabellone) ✅
 Mostrare le classifiche dei gironi con criterio di ordinamento (Punti > Differenza set > Differenza punti) ✅
-Preview nella classifica di chi andrà ad affrontare dai sedicesimi in avanti
+Preview nella classifica di chi andrà ad affrontare dai sedicesimi in avanti ✅
 Per gli amministratori se clicco dal pannello di controllo su una partita mi apre il tabellone elettronico con firemento a quella partita dove posso aggiornare il punteggio cliccando in alto incremento ed in basso decrementa sia perr la squadra 1 che la scritdra due poi incrementa i set in autmantico e i timeout ✅
 Definire in configurazione il numero di timeout massimo da poter chiedereper ogni set ✅
 Le partite che attualmente stanno giocnado che si vedono nella homepage devono essere con il pallino verde con scritto online palmpeggiante e c'è il refresh ina automatico della pagina ogni 30 secondi partita conclusa pallino rosso e ancora da giocare pallino grigio (questi due non lampeggianti) e deve vedersi bene anche usl cellulare ✅
+Impostare correttamente le favicon che si trovano sotto a images/favicon
+Mettere solo il pallino grigio, verden o rosso e non il testo altrimenti occupa pareccgio spazio e unificare giorno e orario in un unaica colonna ✅

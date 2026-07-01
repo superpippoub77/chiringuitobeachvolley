@@ -514,6 +514,9 @@
       <div id="page-standings" class="card page hidden">
         <h3>Classifiche gironi</h3>
         <p class="muted">Posizionamento basato su: Punti vittoria > Differenza set > Differenza punti</p>
+        <div class="row" style="margin-bottom: 14px">
+          <button class="btn btn-primary" onclick="showPlayoffPreview()">📊 Anteprima Playoff</button>
+        </div>
         <div id="standingsContainer" style="margin-top:14px"></div>
       </div>
 
@@ -911,6 +914,116 @@
       });
       html += '</div>';
       c.innerHTML = html;
+    }
+
+    function showPlayoffPreview() {
+      const standings = state.standings || [];
+      if (standings.length === 0) {
+        showInfoDialog('Attenzione', 'Nessuna classifica disponibile');
+        return;
+      }
+
+      // Calcola i qualificati ai quarti (1º classificati + 2º classificati)
+      const teamMap = {};
+      state.teams.forEach(t => { teamMap[t.id] = t.name; });
+
+      const firstPlaces = [];
+      const secondPlaces = [];
+
+      standings.forEach(group => {
+        if (group.rows[0]) {
+          firstPlaces.push({ name: group.rows[0].name, group: group.group, rank: '🥇' });
+        }
+        if (group.rows[1]) {
+          secondPlaces.push({ name: group.rows[1].name, group: group.group, rank: '🥈' });
+        }
+      });
+
+      // Ricavati (ultimi 8 dopo gli ultimi due per girone)
+      const rescued = [];
+      standings.forEach(group => {
+        if (group.rows[2]) {
+          rescued.push({ name: group.rows[2].name, group: group.group, rank: '3ª' });
+        }
+        if (group.rows[3]) {
+          rescued.push({ name: group.rows[3].name, group: group.group, rank: '4ª' });
+        }
+      });
+
+      let html = `
+        <div style="padding: 20px">
+          <h3>Anteprima Qualificazioni Playoff</h3>
+          
+          <h4 style="color: var(--accent); margin-top: 20px">🥇 Qualificati ai Quarti (1ª Classificati)</h4>
+          <table class="standings-table" style="width: 100%; margin-bottom: 20px">
+            <thead>
+              <tr>
+                <th style="width: 50px">Rank</th>
+                <th>Squadra</th>
+                <th style="width: 80px">Girone</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${firstPlaces.map((t, i) => `<tr>
+                <td style="font-weight: bold; color: var(--accent)">${i + 1}</td>
+                <td>${escapeHtml(t.name)}</td>
+                <td style="text-align: center; font-weight: bold">${t.group}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+
+          <h4 style="color: var(--accent-2); margin-top: 20px">🥈 Qualificati ai Quarti (2ª Classificati)</h4>
+          <table class="standings-table" style="width: 100%; margin-bottom: 20px">
+            <thead>
+              <tr>
+                <th style="width: 50px">Rank</th>
+                <th>Squadra</th>
+                <th style="width: 80px">Girone</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${secondPlaces.map((t, i) => `<tr>
+                <td style="font-weight: bold; color: var(--accent-2)">${i + 5}</td>
+                <td>${escapeHtml(t.name)}</td>
+                <td style="text-align: center; font-weight: bold">${t.group}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+
+          <h4 style="color: #888; margin-top: 20px">📋 Ripescaggio (Non Qualificati)</h4>
+          <table class="standings-table" style="width: 100%">
+            <thead>
+              <tr>
+                <th style="width: 50px">Pos</th>
+                <th>Squadra</th>
+                <th style="width: 80px">Girone</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rescued.map((t, i) => `<tr>
+                <td style="color: #888">${i + 9}</td>
+                <td>${escapeHtml(t.name)}</td>
+                <td style="text-align: center">${t.rank}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+
+          <p class="muted" style="margin-top: 20px">
+            <strong>Legenda:</strong><br/>
+            🥇 = Primo classificato del girone<br/>
+            🥈 = Secondo classificato del girone<br/>
+            Totale qualificati: ${firstPlaces.length + secondPlaces.length} squadre
+          </p>
+        </div>
+      `;
+
+      openModal({
+        title: 'Anteprima Qualificazioni Playoff',
+        bodyHtml: html,
+        buttons: [
+          { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true }
+        ]
+      });
     }
 
     function renderGroups() {

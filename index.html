@@ -407,6 +407,39 @@
       display: none !important;
     }
 
+    @keyframes blink {
+      0%, 49%, 100% { opacity: 1; }
+      50%, 99% { opacity: 0.3; }
+    }
+
+    .match-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .status-online .status-dot {
+      background: #22c55e;
+      animation: blink 1.2s infinite;
+    }
+
+    .status-concluded .status-dot {
+      background: #ef4444;
+    }
+
+    .status-pending .status-dot {
+      background: #9ca3af;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -884,12 +917,11 @@
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th>Stato</th><th>Giorno</th><th>Ora</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m => {
+      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m => {
         const status = getMatchStatus(m);
         return `<tr>
-          <td><span class="match-status ${status.class}"><span class="status-dot"></span>${status.label}</span></td>
-          <td>${m.day}</td>
-          <td>${esc(m.time)}</td>
+          <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
+          <td>G${m.day} ${esc(m.time)}</td>
           <td>${m.group}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>

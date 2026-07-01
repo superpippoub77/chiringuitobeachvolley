@@ -1611,6 +1611,17 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
         $initialData = initialState();
         writeJsonFile(DATA_FILE, $initialData);
         
+        // Elimina i file di upload (logo, background)
+        $uploadsDir = UPLOADS_DIR;
+        if (is_dir($uploadsDir)) {
+            $files = glob($uploadsDir . '/*');
+            foreach ($files as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+        }
+        
         jsonResponse(200, ['ok' => true, 'message' => 'Torneo azzerato completamente. Sistema ripristinato a stato iniziale.']);
     } catch (Exception $e) {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il reset: ' . $e->getMessage()]);

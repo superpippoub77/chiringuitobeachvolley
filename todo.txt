@@ -29,3 +29,4 @@ Cancellazione completa di tutto il torneo e comprese le configurazioni in modo t
 In caso di torneo esistente anche di una altr aversione deve fare la merge con quello che trova in fase di deploy come se fosse un update✅
 Considerando questo sviluppo quello principale dao la possibilità di scaricarsi il proramma completo e metterselo su di un server e dare la possibilità di schiacciare un pulsante Update o check update per scaricarsi dal sito ufficiale la nuova versione o gli aggiornamenti✅
 Mettimi la possibilità di depositare via ftp su un altro server il pacchetto per l'installazione, lìutente deve inserire i paramentri FTP o SFTP in base alla connessione✅
+Come mai se resetto da 0 mi maniente lo sfondo e il logo e e il font✅

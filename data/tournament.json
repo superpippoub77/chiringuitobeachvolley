@@ -1,6 +1,7 @@
 {
     "settings": {
-        "maxTeams": 16
+        "maxTeams": 16,
+        "tournamentName": "Chiringuito Beach Volley"
     },
     "teams": [],
     "groups": [],

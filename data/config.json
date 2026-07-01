@@ -10,6 +10,9 @@
         "setupTimeMinutes": 5,
         "maxTimeoutsPerSet": 2
     },
+    "display": {
+        "theme": "minimalista"
+    },
     "schedule": {
         "courts": [
             {

@@ -18,5 +18,6 @@ In configurazione bisogna inserire come si svolgerà il torneo: Quante fasi  e q
 Definire anche il numero di campi in configurazione con il correspndento time range, quinid i time range e le date sono definite per campo ✅
 Possibilità di inserire time ragne successivi per recupero gare  e quinid ho la possibilità di selezionare toto gare non ancora disputare e cambiare il time ragne con quelli alternativi
 Inserisci nel pannello di controllo il pulsante e la gestione dei back del sito fatto manualemnte così recupera tutto ✅
-Possibilità di inserire diversi template stili di cvisualizzazione del torneo e associarlo nel file di configurazione
+Possibilità di inserire diversi template stili di cvisualizzazione del torneo e associarlo nel file di configurazione ✅
 Inserire il logo del torneo facendo direttamente un upload dell'immaginie e prende da quella
+Non devono esserci delle fasi preconfigurate ma si parte da 0 e nella creazione del timerange dai deve proporre al massimo una primafascia non due

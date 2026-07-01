@@ -114,6 +114,9 @@ function defaultConfig(): array {
                 'type' => 'knockout',
                 'numTeams' => 2
             ]
+        ],
+        'display' => [
+            'theme' => 'chiringuito'
         ]
     ];
 }
@@ -1239,6 +1242,16 @@ if ($action === 'admin_get_config' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 
+if ($action === 'get_themes' && $method === 'GET') {
+    $themes = [
+        ['id' => 'chiringuito', 'name' => '🏖️ Chiringuito', 'description' => 'Tema spiaggia con colori caldi'],
+        ['id' => 'moderno', 'name' => '🎨 Moderno', 'description' => 'Tema moderno con colori vibranti'],
+        ['id' => 'scuro', 'name' => '🌙 Scuro', 'description' => 'Tema dark mode'],
+        ['id' => 'minimalista', 'name' => '✨ Minimalista', 'description' => 'Tema pulito e minimalista']
+    ];
+    jsonResponse(200, ['ok' => true, 'themes' => $themes]);
+}
+
 if ($action === 'admin_update_config' && $method === 'POST') {
     $body = bodyJson();
     $config = readConfig();
@@ -1313,6 +1326,14 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         
         if (count($phases) > 0) {
             $config['phases'] = $phases;
+        }
+    }
+    
+    if (isset($body['display']) && is_array($body['display'])) {
+        $theme = trim((string)($body['display']['theme'] ?? 'chiringuito'));
+        $validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+        if (in_array($theme, $validThemes)) {
+            $config['display']['theme'] = $theme;
         }
     }
     

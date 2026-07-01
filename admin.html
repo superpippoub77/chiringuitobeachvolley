@@ -692,7 +692,35 @@
             <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
             <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
           </div>
+
+          <div class="card" style="background: #f0e8f5; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🎨 Tema Visualizzazione</h4>
+            <p class="muted">Seleziona lo stile di visualizzazione del torneo nel sito pubblico.</p>
+            <div id="themeSelector" style="margin-top: 10px"></div>
+          </div>
         `;
+        
+        // Carica i temi disponibili
+        try {
+          const themesResp = await callApi('get_themes', 'GET', null);
+          const themes = themesResp.themes || [];
+          const currentTheme = config.display?.theme || 'chiringuito';
+          
+          let themeHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px">';
+          themes.forEach(t => {
+            const isSelected = t.id === currentTheme;
+            themeHtml += `<div style="padding: 8px; border: 2px ${isSelected ? '#2f6a23' : '#d8c39f'}; border-radius: 8px; cursor: pointer; background: ${isSelected ? '#d9f1d2' : '#fff'};" onclick="selectTheme('${t.id}')">
+              <div style="font-weight: bold; font-size: 14px">${t.name}</div>
+              <div style="font-size: 12px; color: #6b5d45; margin-top: 4px">${t.description}</div>
+            </div>`;
+          });
+          themeHtml += '</div>';
+          
+          const selector = document.getElementById('themeSelector');
+          if (selector) selector.innerHTML = themeHtml;
+        } catch (e) {
+          console.error('Errore caricamento temi:', e);
+        }
       } catch (e) {
         console.error('Errore caricamento config:', e);
       }
@@ -700,6 +728,11 @@
 
     function showScheduleConfig() {
       showPage('schedule', document.querySelector('[data-page="schedule"]'));
+    }
+
+    function selectTheme(themeId) {
+      if (!config.display) config.display = {};
+      config.display.theme = themeId;
     }
 
     async function saveSettings() {
@@ -714,6 +747,9 @@
             timePerSetMinutes: Math.max(20, Math.min(60, parseInt(document.getElementById('cfg-timePerSet').value) || 35)),
             setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5)),
             maxTimeoutsPerSet: Math.max(0, Math.min(5, parseInt(document.getElementById('cfg-maxTimeouts').value) || 2))
+          },
+          display: {
+            theme: config.display?.theme || 'chiringuito'
           }
         };
 

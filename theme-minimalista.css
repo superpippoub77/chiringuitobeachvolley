@@ -1,0 +1,21 @@
+/* Theme: Minimalista - Clean minimal style */
+:root {
+  --sand-1: #fafafa;
+  --sand-2: #f5f5f5;
+  --sand-3: #f0f0f0;
+  --sun: #000000;
+  --sun-2: #333333;
+  --leaf: #5c6ac4;
+  --leaf-2: #4c5aa9;
+  --ink: #000000;
+  --ink-soft: #666666;
+  --white: #ffffff;
+  --line: #e0e0e0;
+  --ok: #51cf66;
+}
+
+body {
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  background-attachment: fixed;
+  color: var(--ink);
+}

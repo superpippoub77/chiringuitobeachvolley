@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
   <link rel="icon" href="/favicon.ico" type="image/x-icon">
   <title>Chiringuito Beach Volley LUI&Lei 2026</title>
+  <link id="themeLink" rel="stylesheet" href="theme-chiringuito.css">
   <style>
     :root {
       --sand-1: #f8edd8;
@@ -1099,6 +1100,28 @@
         console.error('Errore refresh:', err);
       });
     }, 30000);
+
+    // Carica il tema dalla configurazione
+    async function loadTheme() {
+      try {
+        const response = await fetch('api.php?action=admin_get_config&method=GET');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.config && data.config.display && data.config.display.theme) {
+            const themeName = data.config.display.theme;
+            const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+            if (validThemes.includes(themeName)) {
+              document.getElementById('themeLink').href = `theme-${themeName}.css`;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Errore caricamento tema:', err);
+      }
+    }
+
+    // Carica il tema all'avvio
+    loadTheme();
   </script>
 </body>
 

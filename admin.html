@@ -3173,7 +3173,8 @@
         const btn = document.createElement('button');
         btn.textContent = b.text || 'Ok';
         btn.className = b.className || 'btn';
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation(); // Impedisci propagazione del click
           console.log('🖱️ Pulsante cliccato:', b.text);
           if (b.onClick) await b.onClick();
           if (b.closeOnClick) closeModal(false); // Passa false per permettere al callback di eseguirsi

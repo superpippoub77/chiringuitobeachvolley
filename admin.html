@@ -3154,6 +3154,7 @@
     }
 
     function openModal({ title, bodyHtml, buttons, onClose }) {
+      console.log('🔓 openModal APERTO:', title);
       const backdrop = document.getElementById('modalBackdrop');
       const modalTitle = document.getElementById('modalTitle');
       const modalBody = document.getElementById('modalBody');
@@ -3173,6 +3174,7 @@
         btn.textContent = b.text || 'Ok';
         btn.className = b.className || 'btn';
         btn.addEventListener('click', async () => {
+          console.log('🖱️ Pulsante cliccato:', b.text);
           if (b.onClick) await b.onClick();
           if (b.closeOnClick) closeModal(false); // Passa false per permettere al callback di eseguirsi
         });
@@ -3180,19 +3182,23 @@
       });
 
       backdrop.classList.remove('hidden');
+      console.log('✅ Modal visibile, backdrop rimosso dalla classe hidden');
     }
 
     function closeModal(skipOnClose = false) {
+      console.log('🔒 closeModal chiamato, skipOnClose:', skipOnClose);
       const backdrop = document.getElementById('modalBackdrop');
       backdrop.classList.add('hidden');
       if (!skipOnClose && modalOnClose) {
         const cb = modalOnClose;
         modalOnClose = null;
+        console.log('📞 Eseguendo modalOnClose callback');
         cb();
       }
       if (skipOnClose) {
         modalOnClose = null;
       }
+      console.log('✅ Modal chiuso');
     }
 
     function showConfirmDialog(title, message) {
@@ -3239,7 +3245,9 @@
     }
 
     document.getElementById('modalBackdrop').addEventListener('click', (e) => {
+      console.log('🖱️ Backdrop cliccato, target:', e.target.id);
       if (e.target.id === 'modalBackdrop') {
+        console.log('⚠️ Chiusura dialogo per click su backdrop');
         closeModal();
       }
     });

@@ -1,7 +1,7 @@
 {
     "settings": {
-        "maxTeams": 16,
-        "tournamentName": "Beach Volley 2026"
+        "maxTeams": 0,
+        "tournamentName": ""
     },
     "teams": [],
     "groups": [],

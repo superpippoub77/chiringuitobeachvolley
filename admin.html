@@ -767,32 +767,40 @@
             <div class="form-grid-modal">
               <div class="field">
                 <label>Nome torneo</label>
-                <input id="cfg-tournamentName" type="text" value="${escapeHtml(t.name || '')}">
+                <input id="cfg-tournamentName" type="text" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
               </div>
               <div class="field">
                 <label>Max squadre</label>
-                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || ''}">
+                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || ''}" placeholder="Es: 16, 32">
               </div>
               <div class="field">
                 <label>Numero gironi</label>
-                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}">
+                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}" placeholder="Es: 2, 4">
               </div>
               <div class="field">
                 <label>Set da vincere</label>
                 <select id="cfg-numSets">
+                  <option value="">-- Seleziona --</option>
                   <option value="1" ${t.numSets === 1 ? 'selected' : ''}>1 set (primo vince)</option>
                   <option value="2" ${t.numSets === 2 ? 'selected' : ''}>2 set (2-0 o 1-1)</option>
                 </select>
               </div>
               <div class="field">
                 <label>Punteggio per vincere set</label>
-                <input id="cfg-winScore" type="number" min="15" max="30" value="${t.winScore || ''}">
+                <input id="cfg-winScore" type="number" min="15" max="30" value="${t.winScore || ''}" placeholder="Es: 21">
               </div>
               <div class="field">
                 <label>Minuti per set (stima)</label>
-                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || ''}">
+                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || ''}" placeholder="Es: 35">
               </div>
               <div class="field">
+                <label>Minuti setup match</label>
+                <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || ''}" placeholder="Es: 5">
+              </div>
+              <div class="field">
+                <label>Timeout max per set</label>
+                <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || ''}" placeholder="Es: 2">
+              </div>
                 <label>Minuti setup match</label>
                 <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || ''}">
               </div>

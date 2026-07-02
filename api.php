@@ -176,7 +176,13 @@ function readConfig(): array {
     
     $existing = readJsonFile(CONFIG_FILE, $default);
     
-    // Se il config esiste, fai un merge intelligente per upgrade compatibility
+    // Se il config è veramente vuoto (tournament name vuoto), non fare merge - ritorna come-è
+    if (isset($existing['tournament']) && $existing['tournament']['name'] === '') {
+        // Torneo veramente vuoto, ritorna il config salvato come-è (senza merge con defaults)
+        return $existing;
+    }
+    
+    // Se il config esiste e non è vuoto, fai un merge intelligente per upgrade compatibility
     return mergeConfig($existing, $default);
 }
 
@@ -1678,18 +1684,18 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
 
 if ($action === 'admin_reset_tournament' && $method === 'POST') {
     try {
-        // Scrivi file di configurazione vuoti (con struttura valida)
+        // Scrivi file di configurazione vuoti (con struttura valida ma valori vuoti)
         $emptyConfig = [
             'tournament' => [
                 'name' => '',
-                'maxTeams' => 0,
-                'numGroups' => 0,
-                'numSets' => 2,
-                'winScore' => 21,
-                'maxScore' => 25,
-                'timePerSetMinutes' => 35,
-                'setupTimeMinutes' => 5,
-                'maxTimeoutsPerSet' => 2
+                'maxTeams' => '',
+                'numGroups' => '',
+                'numSets' => '',
+                'winScore' => '',
+                'maxScore' => '',
+                'timePerSetMinutes' => '',
+                'setupTimeMinutes' => '',
+                'maxTimeoutsPerSet' => ''
             ],
             'schedule' => [
                 'courts' => []
@@ -1707,7 +1713,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
         // Scrivi file di stato del torneo veramente vuoto
         $emptyState = [
             'settings' => [
-                'maxTeams' => 0,
+                'maxTeams' => '',
                 'tournamentName' => ''
             ],
             'teams' => [],

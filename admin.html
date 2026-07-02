@@ -2088,39 +2088,50 @@
     }
 
     async function resetTournament() {
+      // Protezione anti-doppio-click
+      if (resetTournament.isRunning) {
+        console.log('⚠️ Reset già in corso, ignorando nuovo click');
+        return;
+      }
+      resetTournament.isRunning = true;
+      
       console.log('🔴 resetTournament() CHIAMATA');
       
-      // Prima conferma: avviso generale
-      const confirmed = await showConfirmDialog(
-        '⛔ Cancellazione Completa',
-        '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo, sfondo e temi personalizzati\n- Cronologia autosave\n- File caricati\n\nNon sarà possibile recuperare i dati.\n\nContinuare?'
-      );
-      
-      console.log('✅ Prima conferma - Risultato:', confirmed);
-
-      if (!confirmed) {
-        console.log('❌ Utente ha annullato al primo dialogo');
-        await showInfoDialog('Operazione annullata', 'Cancellazione annullata.');
-        return;
-      }
-
-      // Seconda conferma: riconferma finale
-      const doubleConfirm = await showConfirmDialog(
-        'Conferma Finale',
-        'Sei VERAMENTE sicuro? Premi OK per confermare la cancellazione completa irreversibile.'
-      );
-      
-      console.log('✅ Seconda conferma - Risultato:', doubleConfirm);
-
-      if (!doubleConfirm) {
-        console.log('❌ Utente ha annullato al secondo dialogo');
-        return;
-      }
-
       try {
-        console.log('🚀 Inizio reset tournament...');
-        const resetResult = await callApi('admin_reset_tournament', 'POST', {}, true);
-        console.log('✅ Reset backend completato:', resetResult);
+        // Prima conferma: avviso generale
+        const confirmed = await showConfirmDialog(
+          '⛔ Cancellazione Completa',
+          '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo, sfondo e temi personalizzati\n- Cronologia autosave\n- File caricati\n\nNon sarà possibile recuperare i dati.\n\nContinuare?'
+        );
+        
+        console.log('✅ Prima conferma - Risultato:', confirmed);
+
+        if (!confirmed) {
+          console.log('❌ Utente ha annullato al primo dialogo');
+          await showInfoDialog('Operazione annullata', 'Cancellazione annullata.');
+          resetTournament.isRunning = false;
+          return;
+        }
+
+        // Seconda conferma: riconferma finale
+        console.log('📢 Mostrando secondo dialogo di conferma...');
+        const doubleConfirm = await showConfirmDialog(
+          'Conferma Finale',
+          'Sei VERAMENTE sicuro? Premi OK per confermare la cancellazione completa irreversibile.'
+        );
+        
+        console.log('✅ Seconda conferma - Risultato:', doubleConfirm);
+
+        if (!doubleConfirm) {
+          console.log('❌ Utente ha annullato al secondo dialogo');
+          resetTournament.isRunning = false;
+          return;
+        }
+
+        try {
+          console.log('🚀 Inizio reset tournament...');
+          const resetResult = await callApi('admin_reset_tournament', 'POST', {}, true);
+          console.log('✅ Reset backend completato:', resetResult);
       
         // Carica il config fresco
         console.log('📥 Caricamento config fresco...');
@@ -2184,6 +2195,9 @@
       } catch (e) {
         console.error('❌ ERRORE durante reset:', e);
         await showInfoDialog('Errore', 'Errore durante la cancellazione: ' + e.message);
+      } finally {
+        // Ripristina il flag
+        resetTournament.isRunning = false;
       }
     }
 

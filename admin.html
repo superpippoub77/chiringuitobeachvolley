@@ -683,7 +683,18 @@
     async function callApi(action, method = 'GET', body = null, auth = false) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (body) opts.body = JSON.stringify(body);
-      if (auth && token) opts.headers.Authorization = 'Bearer ' + token;
+      
+      // Se richiede autenticazione, aggiungi il token (leggi da localStorage se non presente in memoria)
+      if (auth) {
+        const currentToken = token || localStorage.getItem('adminToken') || '';
+        if (currentToken) {
+          opts.headers.Authorization = 'Bearer ' + currentToken;
+          if (!token) {
+            token = currentToken; // Aggiorna il token in memoria
+          }
+        }
+      }
+      
       const res = await fetch(`${API}?action=${action}`, opts);
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || 'Errore API');
@@ -2635,15 +2646,42 @@
     }
 
     (async function bootstrap() {
-      if (!token) return;
+      console.log('🚀 Bootstrap - Token in localStorage:', token ? '✅ Presente' : '❌ Vuoto');
+      
+      if (!token) {
+        console.log('❌ Nessun token - Mostrando login');
+        return;
+      }
+      
+      console.log('✅ Token trovato, tentativo di accesso...');
       document.getElementById('loginBox').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       document.getElementById('logoutBtn').classList.remove('hidden');
+      
       try {
+        console.log('📡 Caricamento dati dal server...');
         await refresh();
-      } catch {
-        localStorage.removeItem('adminToken');
-        location.reload();
+        console.log('✅ Sessione ripristinata con successo');
+      } catch (e) {
+        console.error('❌ Errore nel ripristino sessione:', e.message);
+        
+        // Se è un errore di autenticazione (401), il token è scaduto
+        if (e.message.includes('Non autorizzato') || e.message.includes('401')) {
+          console.log('🔐 Token non valido - Logout forzato');
+          localStorage.removeItem('adminToken');
+          location.reload();
+        } else {
+          // Se è un altro errore, riprova una volta
+          console.log('⚠️ Altro errore, tentativo di retry...');
+          try {
+            await refresh();
+            console.log('✅ Retry riuscito');
+          } catch (e2) {
+            console.error('❌ Retry fallito:', e2.message);
+            localStorage.removeItem('adminToken');
+            location.reload();
+          }
+        }
       }
     })();
   </script>

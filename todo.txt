@@ -39,3 +39,4 @@ Perchè quando aggiungo un campo di aggiunge 2 fasce orarie di default ne serve 
 I parametri del torneo devono essere vuoti se cancello tutto e non mi compare il pulsante "Inizia la configurazione" quando è cancellato tutto✅
 Come favicon mettimi il logo caricato✅
 Quando faccio cancella tutto e ripristina deve tornanmi alla prima voce di "Impostazioni" in modo autmantica e non inserire alcun valore di default (tutto vuoto) ✅
+Appna loggato se faccio il refresh o reload mi mi mantiene la sessione ✅

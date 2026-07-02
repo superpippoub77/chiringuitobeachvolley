@@ -2181,7 +2181,7 @@
 
     async function loadCurrentVersion() {
       try {
-        const versionResult = await callApi('get_version', 'GET', {}, false);
+        const versionResult = await callApi('get_version', 'GET', null, false);
         const versionText = `${versionResult.version} (${versionResult.releaseDate})`;
         const versionLabel = document.getElementById('currentVersionLabel');
         if (versionLabel) {

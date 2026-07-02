@@ -1678,13 +1678,53 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
 
 if ($action === 'admin_reset_tournament' && $method === 'POST') {
     try {
-        // Elimina completamente i file di configurazione e dati
-        if (file_exists(CONFIG_FILE)) {
-            @unlink(CONFIG_FILE);
-        }
-        if (file_exists(DATA_FILE)) {
-            @unlink(DATA_FILE);
-        }
+        // Scrivi file di configurazione vuoti (con struttura valida)
+        $emptyConfig = [
+            'tournament' => [
+                'name' => '',
+                'maxTeams' => 0,
+                'numGroups' => 0,
+                'numSets' => 2,
+                'winScore' => 21,
+                'maxScore' => 25,
+                'timePerSetMinutes' => 35,
+                'setupTimeMinutes' => 5,
+                'maxTimeoutsPerSet' => 2
+            ],
+            'schedule' => [
+                'courts' => []
+            ],
+            'phases' => [],
+            'contact' => [
+                'managerEmail' => ''
+            ],
+            'display' => [
+                'theme' => 'chiringuito'
+            ]
+        ];
+        writeJsonFile(CONFIG_FILE, $emptyConfig);
+        
+        // Scrivi file di stato del torneo veramente vuoto
+        $emptyState = [
+            'settings' => [
+                'maxTeams' => 0,
+                'tournamentName' => ''
+            ],
+            'teams' => [],
+            'groups' => [],
+            'groupMatches' => [],
+            'playoff' => [
+                'quarterFinals' => [],
+                'semiFinals' => [],
+                'thirdPlace' => null,
+                'final' => null
+            ],
+            'finalRanking' => [],
+            'meta' => [
+                'lastUpdated' => null
+            ]
+        ];
+        writeJsonFile(DATA_FILE, $emptyState);
         
         // Elimina i file di upload (logo, background)
         $uploadsDir = UPLOADS_DIR;

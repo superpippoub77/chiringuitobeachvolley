@@ -760,11 +760,11 @@
               </div>
               <div class="field">
                 <label>Max squadre</label>
-                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || 16}">
+                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || ''}">
               </div>
               <div class="field">
                 <label>Numero gironi</label>
-                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || 4}">
+                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}">
               </div>
               <div class="field">
                 <label>Set da vincere</label>
@@ -775,19 +775,19 @@
               </div>
               <div class="field">
                 <label>Punteggio per vincere set</label>
-                <input id="cfg-winScore" type="number" min="15" max="30" value="${t.winScore || 21}">
+                <input id="cfg-winScore" type="number" min="15" max="30" value="${t.winScore || ''}">
               </div>
               <div class="field">
                 <label>Minuti per set (stima)</label>
-                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || 35}">
+                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || ''}">
               </div>
               <div class="field">
                 <label>Minuti setup match</label>
-                <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || 5}">
+                <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || ''}">
               </div>
               <div class="field">
                 <label>Timeout max per set</label>
-                <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || 2}">
+                <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || ''}">
               </div>
             </div>
           </div>
@@ -1149,16 +1149,24 @@
 
     async function saveSettings() {
       try {
+        // Leggi i valori dei campi
+        const maxTeamsVal = parseInt(document.getElementById('cfg-maxTeams').value) || 0;
+        const numGroupsVal = parseInt(document.getElementById('cfg-numGroups').value) || 0;
+        const winScoreVal = parseInt(document.getElementById('cfg-winScore').value) || 0;
+        const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
+        const setupTimeVal = parseInt(document.getElementById('cfg-setupTime').value) || 0;
+        const maxTimeoutsVal = parseInt(document.getElementById('cfg-maxTimeouts').value) || 0;
+
         const payload = {
           tournament: {
             name: document.getElementById('cfg-tournamentName').value.trim(),
-            maxTeams: Math.max(4, parseInt(document.getElementById('cfg-maxTeams').value) || 16),
-            numGroups: Math.max(1, parseInt(document.getElementById('cfg-numGroups').value) || 4),
+            maxTeams: maxTeamsVal > 0 ? Math.max(4, maxTeamsVal) : 0,
+            numGroups: numGroupsVal > 0 ? Math.max(1, numGroupsVal) : 0,
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
-            winScore: Math.max(15, Math.min(30, parseInt(document.getElementById('cfg-winScore').value) || 21)),
-            timePerSetMinutes: Math.max(20, Math.min(60, parseInt(document.getElementById('cfg-timePerSet').value) || 35)),
-            setupTimeMinutes: Math.max(1, Math.min(15, parseInt(document.getElementById('cfg-setupTime').value) || 5)),
-            maxTimeoutsPerSet: Math.max(0, Math.min(5, parseInt(document.getElementById('cfg-maxTimeouts').value) || 2))
+            winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
+            timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
+            setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
+            maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0
           },
           contact: {
             managerEmail: document.getElementById('cfg-managerEmail').value.trim()
@@ -1863,26 +1871,27 @@
 
       try {
         await callApi('admin_reset_tournament', 'POST', {}, true);
-        await showInfoDialog('Successo', '✅ Torneo azzerato completamente. Sistema ripristinato a stato iniziale. La pagina verrà ricaricata.');
-        setTimeout(() => location.reload(), 1500);
-      } catch (e) {
-        await showInfoDialog('Errore', 'Errore durante la cancellazione: ' + e.message);
-      }
-    }
-
-    async function loadTournamentTemplate(templateId) {
-      try {
-        const r = await callApi('admin_load_tournament_template', 'POST', { templateId }, true);
-        config = r.config;
-        state = r.state;
-        await showInfoDialog('Successo', `✅ Template "${templateId}" caricato. Squadre fittizie aggiunte.`);
-        await refresh();
-      } catch (e) {
-        await showInfoDialog('Errore', e.message);
-      }
-    }
-
-    async function loadCurrentVersion() {
+      
+      // Carica il config fresco (defaultConfig vuoto)
+      const r = await callApi('admin_get_config', 'GET', null, true);
+      config = r.config;
+      state = {
+        teamsAll: [],
+        pendingCount: 0,
+        groups: [],
+        groupMatches: [],
+        playoff: {},
+        finalRanking: []
+      };
+      
+      // Naviga automaticamente al tab Impostazioni
+      const settingsTab = document.querySelector('[data-page="settings"]');
+      showPage('settings', settingsTab);
+      
+      // Renderizza le impostazioni vuote
+      await renderSettings();
+      
+      await showInfoDialog('Successo', '✅ Torneo azzerato completamente. Sistema ripristinato a stato iniziale.');
       try {
         const r = await callApi('get_version', 'GET', {}, false);
         const versionText = `${r.version} (${r.releaseDate})`;
@@ -1890,7 +1899,10 @@
       } catch (e) {
         document.getElementById('currentVersionLabel').textContent = 'Errore nel caricamento';
       }
+    } catch (e) {
+      await showInfoDialog('Errore', 'Errore durante la cancellazione: ' + e.message);
     }
+  }
 
     async function checkForUpdates() {
       try {

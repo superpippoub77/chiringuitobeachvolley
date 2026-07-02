@@ -2179,6 +2179,20 @@
       }
     }
 
+    async function loadCurrentVersion() {
+      try {
+        const versionResult = await callApi('get_version', 'GET', {}, false);
+        const versionText = `${versionResult.version} (${versionResult.releaseDate})`;
+        const versionLabel = document.getElementById('currentVersionLabel');
+        if (versionLabel) {
+          versionLabel.textContent = versionText;
+          console.log('✅ Version label aggiornata');
+        }
+      } catch (e) {
+        console.error('⚠️ Errore nel caricamento versione:', e);
+      }
+    }
+
     // Carica versione all'avvio
     loadCurrentVersion();
 

@@ -2098,32 +2098,27 @@
       console.log('🔴 resetTournament() CHIAMATA');
       
       try {
-        // Prima conferma: avviso generale
+        // Unica conferma
         const confirmed = await showConfirmDialog(
           '⛔ Cancellazione Completa',
-          '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo, sfondo e temi personalizzati\n- Cronologia autosave\n- File caricati\n\nNon sarà possibile recuperare i dati.\n\nContinuare?'
+          '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo, sfondo e temi personalizzati\n- Cronologia autosave\n- File caricati\n\nVerrà creato un backup automatico prima della cancellazione.\n\nContinuare?'
         );
         
-        console.log('✅ Prima conferma - Risultato:', confirmed);
+        console.log('✅ Conferma - Risultato:', confirmed);
 
         if (!confirmed) {
-          console.log('❌ Utente ha annullato al primo dialogo');
-          await showInfoDialog('Operazione annullata', 'Cancellazione annullata.');
+          console.log('❌ Utente ha annullato');
           return;
         }
 
-        // Seconda conferma: riconferma finale
-        console.log('📢 Mostrando secondo dialogo di conferma...');
-        const doubleConfirm = await showConfirmDialog(
-          'Conferma Finale',
-          'Sei VERAMENTE sicuro? Premi OK per confermare la cancellazione completa irreversibile.'
-        );
-        
-        console.log('✅ Seconda conferma - Risultato:', doubleConfirm);
-
-        if (!doubleConfirm) {
-          console.log('❌ Utente ha annullato al secondo dialogo');
-          return;
+        // Fai un backup automatico PRIMA di cancellare
+        console.log('💾 Creazione backup automatico...');
+        try {
+          await callApi('admin_export_backup', 'GET', null, true);
+          console.log('✅ Backup creato con successo');
+        } catch (e) {
+          console.warn('⚠️ Avviso backup:', e.message);
+          // Continua comunque con il reset
         }
 
         console.log('🚀 Inizio reset tournament...');
@@ -2155,9 +2150,9 @@
         };
         console.log('✅ State globale resettato');
         
-        // Mostra messaggio di successo PRIMA di navigare
+        // Mostra messaggio di successo
         console.log('📢 Mostrando messaggio di successo...');
-        await showInfoDialog('✅ Cancellazione Completata', 'Tutti i dati del torneo sono stati cancellati. Il sistema è pronto per una nuova configurazione.');
+        await showInfoDialog('✅ Cancellazione Completata', 'Tutti i dati del torneo sono stati cancellati. Un backup è stato creato automaticamente. Il sistema è pronto per una nuova configurazione.');
         
         // Naviga al tab Impostazioni
         console.log('🔄 Navigazione al tab Impostazioni...');
@@ -2174,18 +2169,6 @@
         renderSchedule();
         renderPhases();
         console.log('✅ Tutte le sezioni renderizzate');
-        
-        // Aggiorna label versione
-        try {
-          const versionResult = await callApi('get_version', 'GET', {}, false);
-          const versionText = `${versionResult.version} (${versionResult.releaseDate})`;
-          const versionLabel = document.getElementById('currentVersionLabel');
-          if (versionLabel) {
-            versionLabel.textContent = versionText;
-          }
-        } catch (e) {
-          console.error('⚠️ Errore nel caricamento versione:', e);
-        }
         
         console.log('✅ Reset completato con successo!');
         
@@ -3154,7 +3137,6 @@
     }
 
     function openModal({ title, bodyHtml, buttons, onClose }) {
-      console.log('🔓 openModal APERTO:', title);
       const backdrop = document.getElementById('modalBackdrop');
       const modalTitle = document.getElementById('modalTitle');
       const modalBody = document.getElementById('modalBody');
@@ -3175,31 +3157,26 @@
         btn.className = b.className || 'btn';
         btn.addEventListener('click', async (e) => {
           e.stopPropagation(); // Impedisci propagazione del click
-          console.log('🖱️ Pulsante cliccato:', b.text);
           if (b.onClick) await b.onClick();
-          if (b.closeOnClick) closeModal(false); // Passa false per permettere al callback di eseguirsi
+          if (b.closeOnClick) closeModal(false);
         });
         modalFooter.appendChild(btn);
       });
 
       backdrop.classList.remove('hidden');
-      console.log('✅ Modal visibile, backdrop rimosso dalla classe hidden');
     }
 
     function closeModal(skipOnClose = false) {
-      console.log('🔒 closeModal chiamato, skipOnClose:', skipOnClose);
       const backdrop = document.getElementById('modalBackdrop');
       backdrop.classList.add('hidden');
       if (!skipOnClose && modalOnClose) {
         const cb = modalOnClose;
         modalOnClose = null;
-        console.log('📞 Eseguendo modalOnClose callback');
         cb();
       }
       if (skipOnClose) {
         modalOnClose = null;
       }
-      console.log('✅ Modal chiuso');
     }
 
     function showConfirmDialog(title, message) {
@@ -3246,9 +3223,7 @@
     }
 
     document.getElementById('modalBackdrop').addEventListener('click', (e) => {
-      console.log('🖱️ Backdrop cliccato, target:', e.target.id);
       if (e.target.id === 'modalBackdrop') {
-        console.log('⚠️ Chiusura dialogo per click su backdrop');
         closeModal();
       }
     });

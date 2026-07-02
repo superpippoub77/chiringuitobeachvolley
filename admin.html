@@ -477,6 +477,7 @@
         <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
+        <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
       </div>
 
@@ -604,6 +605,47 @@
         </div>
       </div>
 
+      <div id="page-news" class="card page hidden">
+        <h3>📰 Notizie e Comunicati</h3>
+        <p class="muted">Crea e pubblica notizie che appariranno nella home page del torneo.</p>
+        
+        <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">✍️ Nuova Notizia</h4>
+          <div class="field">
+            <label>Titolo</label>
+            <input id="newsTitle" type="text" placeholder="Es: Risultati gironi fase 1" maxlength="100">
+          </div>
+          <div class="field">
+            <label>Contenuto</label>
+            <textarea id="newsContent" placeholder="Scrivi il contenuto della notizia..." rows="6" maxlength="2000"></textarea>
+          </div>
+          <div class="field">
+            <label>Immagine (opzionale)</label>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <input type="file" id="newsImageInput" accept="image/*" style="flex: 1; padding: 6px">
+              <button class="btn btn-primary" onclick="uploadNewsImage()" style="white-space: nowrap">⬆️ Carica</button>
+            </div>
+            <div id="imagePreviewContainer" style="margin-top: 8px"></div>
+          </div>
+          <div class="field">
+            <label>
+              <input type="checkbox" id="newsPublished"> 
+              Pubblica immediatamente
+            </label>
+            <small style="color: #666">Se non abilitato, la notizia rimarrà in bozza</small>
+          </div>
+          <div class="row" style="margin-top: 10px; gap: 8px">
+            <button class="btn btn-green" onclick="saveNews()">Salva Notizia</button>
+            <button class="btn btn-secondary" onclick="clearNewsForm()">Cancella</button>
+          </div>
+        </div>
+        
+        <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">📋 Notizie Pubblicate</h4>
+          <div id="newsList" style="margin-top: 12px"></div>
+        </div>
+      </div>
+
       <div id="page-tools" class="card page hidden">
         <h3>Strumenti rapidi</h3>
         <div class="row">
@@ -641,6 +683,7 @@
             <button class="btn btn-primary" onclick="document.getElementById('backupFileInput').click()">⬆️ Carica Backup</button>
             <input type="file" id="backupFileInput" accept=".json" style="display: none" onchange="importBackup(event)">
           </div>
+          <div id="backupStatus" style="margin-top: 12px; display: none; padding: 8px; border-radius: 6px"></div>
         </div>
 
         <div class="card" style="background: #e3f2fd; margin-top: 16px; padding: 12px">
@@ -772,6 +815,8 @@
         renderSponsors();
       } else if (page === 'payments') {
         renderPaymentAndNotes();
+      } else if (page === 'news') {
+        renderNews();
       }
     }
 
@@ -2813,6 +2858,244 @@
         renderNotes();
       } catch (e) {
         await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // ==================== NEWS MANAGEMENT ====================
+    let newsData = [];
+    let editingNewsId = null;
+    let currentNewsImageFile = '';
+
+    async function uploadNewsImage() {
+      const fileInput = document.getElementById('newsImageInput');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        await showInfoDialog('Attenzione', 'Seleziona un file immagine');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        await showInfoDialog('Errore', 'Il file deve essere un\\'immagine');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      try {
+        const response = await fetch('api.php?action=admin_upload_news_image', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+          currentNewsImageFile = data.imageFile;
+          
+          // Mostra preview
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const preview = document.getElementById('imagePreviewContainer');
+            preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block">`;
+          };
+          reader.readAsDataURL(file);
+          
+          fileInput.value = '';
+          await showInfoDialog('Successo', '✅ Immagine caricata');
+        } else {
+          await showInfoDialog('Errore', '❌ ' + (data.error || 'Errore upload'));
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+    }
+
+    async function renderNews() {
+      try {
+        const result = await callApi('admin_get_news', 'GET', null, true);
+        newsData = result.news || [];
+        
+        const container = document.getElementById('newsList');
+        if (!newsData || newsData.length === 0) {
+          container.innerHTML = '<p class="muted">Nessuna notizia. Creane una nuova.</p>';
+          return;
+        }
+        
+        let html = '<ul style="list-style: none; padding: 0">';
+        newsData.forEach((item, idx) => {
+          const status = item.published ? '📤 Pubblicato' : '📝 Bozza';
+          const statusColor = item.published ? '#4caf50' : '#ff9800';
+          const date = new Date(item.publishedAt || item.createdAt);
+          const dateStr = date.toLocaleDateString('it-IT');
+          const preview = item.content.substring(0, 100) + (item.content.length > 100 ? '...' : '');
+          const imageThumb = item.imageFile ? `<img src="${escapeHtml(item.imageFile)}" style="max-height: 80px; border-radius: 4px; margin-right: 12px">` : '';
+          
+          html += `<div style="padding: 12px; border-left: 4px solid ${statusColor}; background: #f5f5f5; margin-bottom: 10px; border-radius: 4px; display: flex; gap: 12px">
+            ${imageThumb}
+            <div style="flex: 1">
+              <h5 style="margin: 0 0 4px 0">${escapeHtml(item.title)}</h5>
+              <p style="margin: 4px 0; font-size: 13px; color: #666">${escapeHtml(preview)}</p>
+              <p style="margin: 4px 0; font-size: 12px; color: #999">${status} · ${dateStr}</p>
+            </div>
+            <div style="display: flex; gap: 6px; white-space: nowrap">
+              <button class="btn btn-sm btn-primary" onclick="editNews('${item.id}')">✏️ Modifica</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteNews('${item.id}')">🗑️ Elimina</button>
+            </div>
+          </div>`;
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+      } catch (e) {
+        document.getElementById('newsList').innerHTML = '<p style="color: #d32f2f">Errore caricamento: ' + e.message + '</p>';
+      }
+    }
+
+    function clearNewsForm() {
+      document.getElementById('newsTitle').value = '';
+      document.getElementById('newsContent').value = '';
+      document.getElementById('newsPublished').checked = false;
+      document.getElementById('newsImageInput').value = '';
+      document.getElementById('imagePreviewContainer').innerHTML = '';
+      currentNewsImageFile = '';
+      editingNewsId = null;
+    }
+
+    function editNews(newsId) {
+      const item = newsData.find(n => n.id === newsId);
+      if (!item) return;
+      
+      document.getElementById('newsTitle').value = item.title;
+      document.getElementById('newsContent').value = item.content;
+      document.getElementById('newsPublished').checked = item.published;
+      currentNewsImageFile = item.imageFile || '';
+      
+      // Mostra preview immagine se esiste
+      const preview = document.getElementById('imagePreviewContainer');
+      if (item.imageFile) {
+        preview.innerHTML = `<img src="${escapeHtml(item.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block">`;
+      } else {
+        preview.innerHTML = '';
+      }
+      
+      editingNewsId = newsId;
+      document.getElementById('newsTitle').focus();
+    }
+
+    async function saveNews() {
+      try {
+        const title = document.getElementById('newsTitle').value.trim();
+        const content = document.getElementById('newsContent').value.trim();
+        const published = document.getElementById('newsPublished').checked;
+        
+        if (!title || !content) {
+          await showInfoDialog('Errore', '❌ Titolo e contenuto sono obbligatori');
+          return;
+        }
+        
+        if (editingNewsId) {
+          // Update
+          const result = await callApi('admin_update_news', 'POST', {
+            id: editingNewsId,
+            title,
+            content,
+            imageFile: currentNewsImageFile,
+            published
+          }, true);
+          newsData = result.news;
+          await showInfoDialog('Successo', '✅ Notizia aggiornata');
+        } else {
+          // Create
+          const result = await callApi('admin_create_news', 'POST', {
+            title,
+            content,
+            imageFile: currentNewsImageFile,
+            published
+          }, true);
+          newsData.push(result.news);
+          await showInfoDialog('Successo', '✅ Notizia creata');
+        }
+        
+        clearNewsForm();
+        renderNews();
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+    }
+
+    async function deleteNews(newsId) {
+      if (!confirm('Sei sicuro di voler eliminare questa notizia?')) return;
+      
+      try {
+        const result = await callApi('admin_delete_news', 'POST', { id: newsId }, true);
+        newsData = result.news;
+        await showInfoDialog('Successo', '✅ Notizia eliminata');
+        renderNews();
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+    }
+
+    // ==================== BACKUP MANAGEMENT ====================
+
+    async function exportBackup() {
+      try {
+        const link = document.createElement('a');
+        link.href = 'api.php?action=admin_export_backup';
+        link.setAttribute('Authorization', 'Bearer ' + token);
+        link.download = 'backup_' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        const status = document.getElementById('backupStatus');
+        status.style.display = 'block';
+        status.style.background = '#c8e6c9';
+        status.style.color = '#2e7d32';
+        status.innerHTML = '✅ Backup scaricato con successo';
+        setTimeout(() => { status.style.display = 'none'; }, 3000);
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ Errore export: ' + e.message);
+      }
+    }
+
+    async function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const confirm_import = await showConfirmDialog('Conferma Ripristino', 
+        'Sei sicuro di voler ripristinare il backup? I dati attuali saranno sostituiti.');
+      
+      if (!confirm_import) return;
+      
+      const formData = new FormData();
+      formData.append('backup', file);
+      
+      try {
+        const response = await fetch('api.php?action=admin_import_backup', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        
+        const data = await response.json();
+        if (data.ok) {
+          const status = document.getElementById('backupStatus');
+          status.style.display = 'block';
+          status.style.background = '#c8e6c9';
+          status.style.color = '#2e7d32';
+          status.innerHTML = `✅ Backup ripristinato: ${data.itemsRestored.teams} squadre, ${data.itemsRestored.groups} gironi, ${data.itemsRestored.matches} partite`;
+          
+          setTimeout(() => {
+            document.getElementById('backupFileInput').value = '';
+            refresh();
+          }, 2000);
+        } else {
+          await showInfoDialog('Errore', '❌ ' + (data.error || 'Errore ripristino'));
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
       }
     }
 

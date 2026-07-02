@@ -5,36 +5,23 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Ambiente di deploy'
-        required: true
-        default: 'test'
-        type: choice
-        options:
-          - test
-          - production
 
 jobs:
-  deploy-test:
+  deploy-beachmaster:
     runs-on: ubuntu-latest
-    # Deploy automaticamente su test con i push, o manualmente se selezionato da workflow_dispatch
-    if: |
-      github.event_name == 'push' || 
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'test')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to test
+      - name: Deploy to BeachMaster
         uses: SamKirkland/FTP-Deploy-Action@v4.3.0
         with:
           server: ftp.filippomorano.com
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./
-          server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/test/
+          server-dir: /www.filippomorano.com/projects/beachmaster/
           exclude: |
             **/.git*/**
             **/.github/**
@@ -42,28 +29,4 @@ jobs:
             **/.vscode/**
             **/.DS_Store
             **/README.md
-
-  deploy-production:
-    runs-on: ubuntu-latest
-    # Deploy in production solo se manualmente richiesto tramite workflow_dispatch
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to production
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.0
-        with:
-          server: ftp.filippomorano.com
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: /www.filippomorano.com/projects/chiringuitobeachvolley/
-          exclude: |
-            **/.git*/**
-            **/.github/**
-            **/node_modules/**
-            **/.vscode/**
-            **/.DS_Store
-            **/README.md
+            **/test_*.sh

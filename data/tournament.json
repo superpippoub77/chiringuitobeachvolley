@@ -1,9 +1,234 @@
 {
     "settings": {
-        "maxTeams": 0,
-        "tournamentName": ""
+        "maxTeams": 12,
+        "tournamentName": "Chiringuito 2026 - Torneo Test Completo"
     },
-    "teams": [],
+    "teams": [
+        {
+            "id": "705983c718915672",
+            "name": "Sunset Duo",
+            "category": "Misto",
+            "players": [
+                "Giocatore 1",
+                "Giocatrice 1",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "415b9ed8df682fa2",
+            "name": "Sand Storm",
+            "category": "Misto",
+            "players": [
+                "Giocatore 2",
+                "Giocatrice 2",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "e0d6542ebec6d241",
+            "name": "Wave Riders",
+            "category": "Misto",
+            "players": [
+                "Giocatore 3",
+                "Giocatrice 3",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "341fff351f205dc5",
+            "name": "Beach Kings",
+            "category": "Misto",
+            "players": [
+                "Giocatore 4",
+                "Giocatrice 4",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "7cf51c435ed12c74",
+            "name": "Ace Smash",
+            "category": "Misto",
+            "players": [
+                "Giocatore 5",
+                "Giocatrice 5",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "354b695cbb6fddc0",
+            "name": "Spike Force",
+            "category": "Misto",
+            "players": [
+                "Giocatore 6",
+                "Giocatrice 6",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "ad773df70c948129",
+            "name": "Net Ninjas",
+            "category": "Misto",
+            "players": [
+                "Giocatore 7",
+                "Giocatrice 7",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "53d9f48ba59a9b66",
+            "name": "Block Party",
+            "category": "Misto",
+            "players": [
+                "Giocatore 8",
+                "Giocatrice 8",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "3037df678f4bc2e0",
+            "name": "Dig Deep",
+            "category": "Misto",
+            "players": [
+                "Giocatore 9",
+                "Giocatrice 9",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "431d7db0467d8678",
+            "name": "Serve Smash",
+            "category": "Misto",
+            "players": [
+                "Giocatore 10",
+                "Giocatrice 10",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "a2e9b9729892eb8a",
+            "name": "Jump Set Go",
+            "category": "Misto",
+            "players": [
+                "Giocatore 11",
+                "Giocatrice 11",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "ed735d34e5c78c14",
+            "name": "Power Volley",
+            "category": "Misto",
+            "players": [
+                "Giocatore 12",
+                "Giocatrice 12",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "dd29138ca459946f",
+            "name": "Sand Sharks",
+            "category": "Misto",
+            "players": [
+                "Giocatore 13",
+                "Giocatrice 13",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "db298797dbdef111",
+            "name": "Top Spin",
+            "category": "Misto",
+            "players": [
+                "Giocatore 14",
+                "Giocatrice 14",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "e5f908874aab4a0d",
+            "name": "Last Stand",
+            "category": "Misto",
+            "players": [
+                "Giocatore 15",
+                "Giocatrice 15",
+                ""
+            ],
+            "phone": "",
+            "paid": false,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        },
+        {
+            "id": "ea3fce833cf9cb00",
+            "name": "Blue Fire",
+            "category": "Misto",
+            "players": [
+                "Giocatore 16",
+                "Giocatrice 16",
+                ""
+            ],
+            "phone": "",
+            "paid": true,
+            "approved": true,
+            "createdAt": "2026-07-02T14:38:26+00:00"
+        }
+    ],
     "groups": [],
     "groupMatches": [],
     "playoff": {
@@ -12,9 +237,8 @@
         "thirdPlace": null,
         "final": null
     },
-    "standings": [],
     "finalRanking": [],
     "meta": {
-        "lastUpdated": null
+        "lastUpdated": "2026-07-02T14:38:26+00:00"
     }
 }

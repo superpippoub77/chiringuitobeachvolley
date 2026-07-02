@@ -776,6 +776,11 @@
       </div>
     </section>
 
+    <section id="newsSection" style="margin-top: 24px; display: none">
+      <h3 style="color: #2e5d1f; margin-top: 0">📰 Notizie e Comunicati</h3>
+      <div id="newsList" style="display: grid; gap: 12px"></div>
+    </section>
+
     <nav class="tabs">
       <button class="tab active" onclick="showTab('iscrizione', this)">Iscrizione</button>
       <button class="tab" onclick="showTab('teams', this)">Squadre</button>
@@ -1333,6 +1338,93 @@
 
     // Carica sponsor all'avvio
     loadSponsors();
+
+    // ==================== NEWS SECTION ====================
+    
+    async function loadNews() {
+      try {
+        const response = await fetch(`${API}?action=public_get_news`);
+        const data = await response.json();
+        
+        if (data.ok && data.news && data.news.length > 0) {
+          renderNews(data.news);
+        }
+      } catch (e) {
+        console.error('Errore caricamento notizie:', e);
+      }
+    }
+
+    function renderNews(news) {
+      const section = document.getElementById('newsSection');
+      const newsList = document.getElementById('newsList');
+      
+      if (!news || news.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      
+      section.style.display = 'block';
+      newsList.innerHTML = '';
+      
+      news.forEach(item => {
+        const date = new Date(item.publishedAt || item.createdAt);
+        const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        
+        const newsCard = document.createElement('div');
+        newsCard.style.cssText = `
+          background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
+          border: 1px solid #e7cf9e;
+          border-radius: 12px;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s, box-shadow 0.2s;
+          display: flex;
+          gap: 12px;
+        `;
+        
+        newsCard.onmouseover = () => {
+          newsCard.style.transform = 'translateY(-2px)';
+          newsCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+        };
+        newsCard.onmouseout = () => {
+          newsCard.style.transform = 'none';
+          newsCard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
+        };
+        
+        // Immagine
+        if (item.imageFile) {
+          const img = document.createElement('img');
+          img.src = item.imageFile;
+          img.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 8px; flex-shrink: 0';
+          newsCard.appendChild(img);
+        }
+        
+        const content_div = document.createElement('div');
+        content_div.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: space-between';
+        
+        const title = document.createElement('h4');
+        title.textContent = item.title;
+        title.style.cssText = 'margin: 0 0 8px 0; color: #2e5d1f; font-size: 18px';
+        
+        const date_el = document.createElement('div');
+        date_el.textContent = `${dateStr} • ${timeStr}`;
+        date_el.style.cssText = 'font-size: 12px; color: #999; margin-bottom: 10px';
+        
+        const text = document.createElement('p');
+        text.textContent = item.content;
+        text.style.cssText = 'margin: 0; color: #333; line-height: 1.5; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden';
+        
+        content_div.appendChild(title);
+        content_div.appendChild(date_el);
+        content_div.appendChild(text);
+        newsCard.appendChild(content_div);
+        newsList.appendChild(newsCard);
+      });
+    }
+
+    // Carica notizie all'avvio
+    loadNews();
   </script>
 </body>
 

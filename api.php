@@ -118,6 +118,7 @@ function defaultConfig(): array {
             'currency' => 'EUR'
         ],
         'notes' => [],
+        'news' => [],
         'autosave' => [
             'enabled' => false,
             'intervalSeconds' => 30,
@@ -194,6 +195,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // Preserva notes
     if (isset($existingConfig['notes'])) {
         $merged['notes'] = $existingConfig['notes'];
+    }
+    
+    // Preserva news
+    if (isset($existingConfig['news'])) {
+        $merged['news'] = $existingConfig['news'];
     }
     
     // Preserva autosave settings
@@ -1773,35 +1779,6 @@ if ($action === 'admin_export_backup' && $method === 'GET') {
     exit;
 }
 
-if ($action === 'admin_import_backup' && $method === 'POST') {
-    $raw = file_get_contents('php://input');
-    $backup = json_decode($raw, true);
-    
-    if (!is_array($backup)) {
-        jsonResponse(400, ['ok' => false, 'error' => 'File backup non valido']);
-    }
-    
-    if (!isset($backup['config']) || !isset($backup['state'])) {
-        jsonResponse(400, ['ok' => false, 'error' => 'Backup incompleto: mancano config o state']);
-    }
-    
-    try {
-        // Ripristina la configurazione
-        if (is_array($backup['config'])) {
-            writeConfig($backup['config']);
-        }
-        
-        // Ripristina lo stato del torneo
-        if (is_array($backup['state'])) {
-            writeJsonFile(DATA_FILE, $backup['state']);
-        }
-        
-        jsonResponse(200, ['ok' => true, 'message' => 'Backup ripristinato con successo']);
-    } catch (Exception $e) {
-        jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il ripristino: ' . $e->getMessage()]);
-    }
-}
-
 if ($action === 'admin_reset_tournament' && $method === 'POST') {
     requireAdmin();
     try {
@@ -1841,6 +1818,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'currency' => 'EUR'
             ],
             'notes' => [],
+            'news' => [],
             'autosave' => [
                 'enabled' => false,
                 'intervalSeconds' => 30,
@@ -3040,6 +3018,253 @@ if ($action === 'admin_get_payment_config' && $method === 'GET') {
     requireAdmin();
     $config = readConfig();
     jsonResponse(200, ['ok' => true, 'payment' => $config['payment'], 'notes' => $config['notes']]);
+}
+
+// ==================== NEWS MANAGEMENT ====================
+
+if ($action === 'admin_create_news' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (!isset($config['news'])) {
+        $config['news'] = [];
+    }
+    
+    $newsItem = [
+        'id' => bin2hex(random_bytes(8)),
+        'title' => trim((string)($body['title'] ?? '')),
+        'content' => trim((string)($body['content'] ?? '')),
+        'imageFile' => trim((string)($body['imageFile'] ?? '')),
+        'published' => (bool)($body['published'] ?? false),
+        'createdAt' => date('c'),
+        'updatedAt' => date('c'),
+        'publishedAt' => (bool)($body['published'] ?? false) ? date('c') : null
+    ];
+    
+    if (empty($newsItem['title']) || empty($newsItem['content'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Titolo e contenuto sono obbligatori']);
+        return;
+    }
+    
+    $config['news'][] = $newsItem;
+    writeConfig($config);
+    saveToHistory('Creazione nuova notizia: ' . $newsItem['title']);
+    
+    jsonResponse(200, ['ok' => true, 'news' => $newsItem]);
+}
+
+if ($action === 'admin_update_news' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+    $newsId = (string)($body['id'] ?? '');
+    
+    if (empty($newsId)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID notizia mancante']);
+        return;
+    }
+    
+    $found = false;
+    if (isset($config['news']) && is_array($config['news'])) {
+        foreach ($config['news'] as &$item) {
+            if ($item['id'] === $newsId) {
+                $oldPublished = $item['published'] ?? false;
+                $newPublished = (bool)($body['published'] ?? false);
+                
+                $item['title'] = trim((string)($body['title'] ?? $item['title']));
+                $item['content'] = trim((string)($body['content'] ?? $item['content']));
+                if (isset($body['imageFile'])) {
+                    $item['imageFile'] = trim((string)($body['imageFile']));
+                }
+                $item['published'] = $newPublished;
+                $item['updatedAt'] = date('c');
+                
+                // Imposta publishedAt solo quando si passa da non-pubblicato a pubblicato
+                if (!$oldPublished && $newPublished) {
+                    $item['publishedAt'] = date('c');
+                }
+                
+                $found = true;
+                break;
+            }
+        }
+    }
+    
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Notizia non trovata']);
+        return;
+    }
+    
+    writeConfig($config);
+    saveToHistory('Aggiornamento notizia');
+    jsonResponse(200, ['ok' => true, 'news' => $config['news']]);
+}
+
+if ($action === 'admin_delete_news' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+    $newsId = (string)($body['id'] ?? '');
+    
+    if (empty($newsId)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID notizia mancante']);
+        return;
+    }
+    
+    if (isset($config['news']) && is_array($config['news'])) {
+        $config['news'] = array_filter($config['news'], function($item) use ($newsId) {
+            return ($item['id'] ?? '') !== $newsId;
+        });
+    }
+    
+    writeConfig($config);
+    saveToHistory('Eliminazione notizia');
+    jsonResponse(200, ['ok' => true, 'news' => array_values($config['news'] ?? [])]);
+}
+
+if ($action === 'admin_get_news' && $method === 'GET') {
+    requireAdmin();
+    $config = readConfig();
+    jsonResponse(200, ['ok' => true, 'news' => $config['news'] ?? []]);
+}
+
+if ($action === 'public_get_news' && $method === 'GET') {
+    $config = readConfig();
+    $published = array_filter($config['news'] ?? [], function($item) {
+        return ($item['published'] ?? false) === true;
+    });
+    
+    // Ordina per data di pubblicazione (più recente prima)
+    usort($published, function($a, $b) {
+        $dateA = strtotime($a['publishedAt'] ?? $a['createdAt']);
+        $dateB = strtotime($b['publishedAt'] ?? $b['createdAt']);
+        return $dateB - $dateA;
+    });
+    
+    jsonResponse(200, ['ok' => true, 'news' => array_values($published)]);
+}
+
+if ($action === 'admin_upload_news_image' && $method === 'POST') {
+    requireAdmin();
+    
+    if (!isset($_FILES['image'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+    
+    $file = $_FILES['image'];
+    
+    // Validazione file
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+    
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa JPEG, PNG, GIF o WebP']);
+        return;
+    }
+    
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+        return;
+    }
+    
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+    
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $newFilename = 'news-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+    
+    jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
+}
+
+// ==================== BACKUP E RIPRISTINO ====================
+
+if ($action === 'admin_export_backup' && $method === 'GET') {
+    requireAdmin();
+    
+    try {
+        $config = readConfig();
+        $teams = readJsonFile(DATA_DIR . '/teams.json') ?? [];
+        $groups = readJsonFile(DATA_DIR . '/groups.json') ?? [];
+        $matches = readJsonFile(DATA_DIR . '/matches.json') ?? [];
+        $history = readJsonFile(DATA_DIR . '/history.json') ?? ['snapshots' => [], 'lastSaved' => null];
+        
+        $backup = [
+            'version' => '1.0',
+            'timestamp' => date('c'),
+            'config' => $config,
+            'teams' => $teams,
+            'groups' => $groups,
+            'matches' => $matches,
+            'history' => $history
+        ];
+        
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="backup_' . date('Ymd_His') . '.json"');
+        echo json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore export: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_import_backup' && $method === 'POST') {
+    requireAdmin();
+    
+    if (!isset($_FILES['backup'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file di backup caricato']);
+        return;
+    }
+    
+    $file = $_FILES['backup'];
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+    
+    try {
+        $content = file_get_contents($file['tmp_name']);
+        $backup = json_decode($content, true);
+        
+        if (!is_array($backup) || !isset($backup['config'])) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File di backup non valido']);
+            return;
+        }
+        
+        // Ripristina tutti i dati
+        writeJsonFile(CONFIG_FILE, $backup['config']);
+        writeJsonFile(DATA_DIR . '/teams.json', $backup['teams'] ?? []);
+        writeJsonFile(DATA_DIR . '/groups.json', $backup['groups'] ?? []);
+        writeJsonFile(DATA_DIR . '/matches.json', $backup['matches'] ?? []);
+        writeJsonFile(DATA_DIR . '/history.json', $backup['history'] ?? ['snapshots' => [], 'lastSaved' => null]);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Backup ripristinato con successo',
+            'timestamp' => $backup['timestamp'],
+            'itemsRestored' => [
+                'config' => 1,
+                'teams' => count($backup['teams'] ?? []),
+                'groups' => count($backup['groups'] ?? []),
+                'matches' => count($backup['matches'] ?? [])
+            ]
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore import: ' . $e->getMessage()]);
+    }
 }
 
 // ==================== AUTOSAVE E UNDO ====================

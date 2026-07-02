@@ -1994,22 +1994,24 @@
     async function resetTournament() {
       console.log('🔴 resetTournament() CHIAMATA');
       
+      // Prima conferma: avviso generale
       const confirmed = await showConfirmDialog(
         '⛔ Cancellazione Completa',
-        '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo e sfondo\n- Temi personalizzati\n\nNon sarà possibile recuperare i dati. Continuare?'
+        '🚨 ATTENZIONE! Questa operazione cancellerà COMPLETAMENTE:\n- Tutta la configurazione del torneo\n- Tutte le squadre\n- Tutti i gironi e le fasi\n- Tutte le partite e i risultati\n- Logo, sfondo e temi personalizzati\n- Cronologia autosave\n- File caricati\n\nNon sarà possibile recuperare i dati.\n\nContinuare?'
       );
       
       console.log('✅ Prima conferma - Risultato:', confirmed);
 
       if (!confirmed) {
         console.log('❌ Utente ha annullato al primo dialogo');
+        await showInfoDialog('Operazione annullata', 'Cancellazione annullata.');
         return;
       }
 
-      // Seconda conferma per evitare cancellazioni accidentali
+      // Seconda conferma: riconferma finale
       const doubleConfirm = await showConfirmDialog(
         'Conferma Finale',
-        'Sei VERAMENTE sicuro? Scrivi "SÌ" per confermare la cancellazione completa.'
+        'Sei VERAMENTE sicuro? Premi OK per confermare la cancellazione completa irreversibile.'
       );
       
       console.log('✅ Seconda conferma - Risultato:', doubleConfirm);
@@ -2022,51 +2024,60 @@
       try {
         console.log('🚀 Inizio reset tournament...');
         const resetResult = await callApi('admin_reset_tournament', 'POST', {}, true);
-        console.log('✅ Reset completato:', resetResult);
+        console.log('✅ Reset backend completato:', resetResult);
       
-        // Carica il config fresco (defaultConfig vuoto)
+        // Carica il config fresco
         console.log('📥 Caricamento config fresco...');
         const configResult = await callApi('admin_get_config', 'GET', null, true);
         config = configResult.config;
         console.log('✅ Config caricata dopo reset:', config);
         
+        // Resetta lo state globale completamente
         state = {
           teamsAll: [],
           pendingCount: 0,
           groups: [],
           groupMatches: [],
-          playoff: {},
-          finalRanking: []
+          playoff: {
+            quarterFinals: [],
+            semiFinals: [],
+            thirdPlace: null,
+            final: null
+          },
+          standings: [],
+          finalRanking: [],
+          matches: [],
+          schedule: {}
         };
-        console.log('✅ State resettato');
+        console.log('✅ State globale resettato');
         
-        // Mostra messaggio di successo
-        await showInfoDialog('Cancellazione completata', 'OK Cancellazione completata');
+        // Mostra messaggio di successo PRIMA di navigare
+        console.log('📢 Mostrando messaggio di successo...');
+        await showInfoDialog('✅ Cancellazione Completata', 'Tutti i dati del torneo sono stati cancellati. Il sistema è pronto per una nuova configurazione.');
         
-        // Naviga automaticamente al tab Impostazioni
+        // Naviga al tab Impostazioni
         console.log('🔄 Navigazione al tab Impostazioni...');
         const settingsTab = document.querySelector('[data-page="settings"]');
-        console.log('Found settings tab:', settingsTab);
         if (settingsTab) {
           showPage('settings', settingsTab);
-          console.log('✅ Navigazione completata');
-        } else {
-          console.error('❌ Settings tab NON trovato!');
+          console.log('✅ Navigazione a Impostazioni completata');
         }
         
         // Renderizza le impostazioni vuote
-        console.log('🎨 Rendering settings...');
+        console.log('🎨 Rendering impostazioni vuote...');
         await renderSettings();
-        console.log('✅ Settings renderizzate');
+        renderTeams();
+        renderSchedule();
+        renderPhases();
+        console.log('✅ Tutte le sezioni renderizzate');
         
-        // Ricarica la versione
+        // Aggiorna label versione
         try {
           const versionResult = await callApi('get_version', 'GET', {}, false);
           const versionText = `${versionResult.version} (${versionResult.releaseDate})`;
           const versionLabel = document.getElementById('currentVersionLabel');
           if (versionLabel) {
             versionLabel.textContent = versionText;
-            console.log('✅ Version label aggiornata');
           }
         } catch (e) {
           console.error('⚠️ Errore nel caricamento versione:', e);

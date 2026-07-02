@@ -1,17 +1,17 @@
 {
     "tournament": {
-        "name": "Beach Volley 2026",
-        "maxTeams": 16,
-        "maxPlayersPerTeam": 4,
-        "maxPlayersOnCourt": 1,
-        "maxSubstitutions": 12,
-        "numGroups": "",
-        "numSets": "",
-        "winScore": "",
-        "maxScore": "",
-        "timePerSetMinutes": "",
-        "setupTimeMinutes": "",
-        "maxTimeoutsPerSet": ""
+        "name": "",
+        "maxTeams": 0,
+        "maxPlayersPerTeam": 3,
+        "maxPlayersOnCourt": 2,
+        "maxSubstitutions": 0,
+        "numGroups": 0,
+        "numSets": 2,
+        "winScore": 21,
+        "maxScore": 25,
+        "timePerSetMinutes": 35,
+        "setupTimeMinutes": 5,
+        "maxTimeoutsPerSet": 2
     },
     "schedule": {
         "courts": []
@@ -21,12 +21,15 @@
         "managerEmail": ""
     },
     "display": {
-        "theme": "chiringuito"
+        "theme": "chiringuito",
+        "logoFile": "",
+        "backgroundFile": "",
+        "customThemes": []
     },
     "sponsors": [],
     "autosave": {
-        "enabled": true,
-        "intervalSeconds": 10,
-        "maxSteps": 5
+        "enabled": false,
+        "intervalSeconds": 30,
+        "maxSteps": 10
     }
 }

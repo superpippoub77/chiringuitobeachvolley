@@ -1784,19 +1784,23 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
 }
 
 if ($action === 'admin_reset_tournament' && $method === 'POST') {
+    requireAdmin();
     try {
-        // Scrivi file di configurazione vuoti (con struttura valida ma valori vuoti)
+        // Scrivi file di configurazione con defaults completi
         $emptyConfig = [
             'tournament' => [
                 'name' => '',
-                'maxTeams' => '',
-                'numGroups' => '',
-                'numSets' => '',
-                'winScore' => '',
-                'maxScore' => '',
-                'timePerSetMinutes' => '',
-                'setupTimeMinutes' => '',
-                'maxTimeoutsPerSet' => ''
+                'maxTeams' => 0,
+                'maxPlayersPerTeam' => 3,
+                'maxPlayersOnCourt' => 2,
+                'maxSubstitutions' => 0,
+                'numGroups' => 0,
+                'numSets' => 2,
+                'winScore' => 21,
+                'maxScore' => 25,
+                'timePerSetMinutes' => 35,
+                'setupTimeMinutes' => 5,
+                'maxTimeoutsPerSet' => 2
             ],
             'schedule' => [
                 'courts' => []
@@ -1806,16 +1810,24 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'managerEmail' => ''
             ],
             'display' => [
-                'theme' => 'chiringuito'
+                'theme' => 'chiringuito',
+                'logoFile' => '',
+                'backgroundFile' => '',
+                'customThemes' => []
             ],
-            'sponsors' => []
+            'sponsors' => [],
+            'autosave' => [
+                'enabled' => false,
+                'intervalSeconds' => 30,
+                'maxSteps' => 10
+            ]
         ];
         writeJsonFile(CONFIG_FILE, $emptyConfig);
         
-        // Scrivi file di stato del torneo veramente vuoto
+        // Scrivi file di stato del torneo completamente vuoto
         $emptyState = [
             'settings' => [
-                'maxTeams' => '',
+                'maxTeams' => 0,
                 'tournamentName' => ''
             ],
             'teams' => [],
@@ -1827,6 +1839,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'thirdPlace' => null,
                 'final' => null
             ],
+            'standings' => [],
             'finalRanking' => [],
             'meta' => [
                 'lastUpdated' => null
@@ -1834,7 +1847,14 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
         ];
         writeJsonFile(DATA_FILE, $emptyState);
         
-        // Elimina i file di upload (logo, background)
+        // Elimina cronologia autosave
+        if (file_exists(HISTORY_FILE)) {
+            @unlink(HISTORY_FILE);
+        }
+        // Ricrea history.json vuoto
+        writeJsonFile(HISTORY_FILE, ['snapshots' => [], 'lastSaved' => null]);
+        
+        // Elimina i file di upload (logo, background, sponsor logo, etc.)
         $uploadsDir = UPLOADS_DIR;
         if (is_dir($uploadsDir)) {
             $files = glob($uploadsDir . '/*');

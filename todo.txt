@@ -45,3 +45,4 @@ Nel torneo posso inseire anche degli sponsor che scorreranno come ticker in fond
 Inserire il salvataggio in automatico con un flag e la undo di n passi✅
 Inerire il numero di giocatori massimo per squadra e la form si faserà su questo parametro e segnare con un flag il capitano responsabile✅
 Inserire anche il massimo numero di giocatori in campo e inserire il numero massimo di sositutzioni (vuoto cossrisponde a quante se ne vuole)✅
+La cancellazioen completa non funziona non mi compare la finiestra tora ad impostazioni e la conferma dlla finestra od i dati sono stati cancellati in più on mi pulisce nulla rimangono delle suadre e dei dati sporchi come mai? elimina tutto è la 100 volta che ti dico cosa fare correggi tutt i punti. ✅

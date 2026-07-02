@@ -3174,7 +3174,7 @@
         btn.className = b.className || 'btn';
         btn.addEventListener('click', async () => {
           if (b.onClick) await b.onClick();
-          if (b.closeOnClick) closeModal(true);
+          if (b.closeOnClick) closeModal(false); // Passa false per permettere al callback di eseguirsi
         });
         modalFooter.appendChild(btn);
       });
@@ -3197,13 +3197,21 @@
 
     function showConfirmDialog(title, message) {
       return new Promise((resolve) => {
+        let resolved = false;
+        const safeResolve = (value) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(value);
+          }
+        };
+        
         openModal({
           title,
           bodyHtml: `<p>${escapeHtml(message)}</p>`,
-          onClose: () => resolve(false),
+          onClose: () => safeResolve(false),
           buttons: [
-            { text: 'Annulla', className: 'btn', closeOnClick: true, onClick: () => resolve(false) },
-            { text: 'Conferma', className: 'btn btn-danger', closeOnClick: true, onClick: () => resolve(true) }
+            { text: 'Annulla', className: 'btn', closeOnClick: true, onClick: () => safeResolve(false) },
+            { text: 'Conferma', className: 'btn btn-danger', closeOnClick: true, onClick: () => safeResolve(true) }
           ]
         });
       });
@@ -3211,12 +3219,20 @@
 
     function showInfoDialog(title, message) {
       return new Promise((resolve) => {
+        let resolved = false;
+        const safeResolve = (value) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(value);
+          }
+        };
+        
         openModal({
           title,
           bodyHtml: `<p>${escapeHtml(message)}</p>`,
-          onClose: () => resolve(true),
+          onClose: () => safeResolve(true),
           buttons: [
-            { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true, onClick: () => resolve(true) }
+            { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true, onClick: () => safeResolve(true) }
           ]
         });
       });

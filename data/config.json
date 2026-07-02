@@ -27,6 +27,28 @@
         "customThemes": []
     },
     "sponsors": [],
+    "payment": {
+        "enabled": true,
+        "costPerTeam": 50,
+        "currency": "EUR"
+    },
+    "notes": [
+        {
+            "id": "note1",
+            "description": "Squadra Elite",
+            "points": 10
+        },
+        {
+            "id": "note2",
+            "description": "Nuova Squadra",
+            "points": 0
+        },
+        {
+            "id": "note3",
+            "description": "Squadra Amatoriale",
+            "points": -5
+        }
+    ],
     "autosave": {
         "enabled": false,
         "intervalSeconds": 30,

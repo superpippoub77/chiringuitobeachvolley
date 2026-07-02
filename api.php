@@ -112,6 +112,12 @@ function defaultConfig(): array {
             'theme' => 'chiringuito'
         ],
         'sponsors' => [],
+        'payment' => [
+            'enabled' => false,
+            'costPerTeam' => 0,
+            'currency' => 'EUR'
+        ],
+        'notes' => [],
         'autosave' => [
             'enabled' => false,
             'intervalSeconds' => 30,
@@ -175,6 +181,19 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // Preserva sponsor list
     if (isset($existingConfig['sponsors'])) {
         $merged['sponsors'] = $existingConfig['sponsors'];
+    }
+    
+    // Preserva payment settings
+    if (isset($existingConfig['payment'])) {
+        $merged['payment'] = array_merge(
+            $defaultConfig['payment'] ?? [],
+            $existingConfig['payment']
+        );
+    }
+    
+    // Preserva notes
+    if (isset($existingConfig['notes'])) {
+        $merged['notes'] = $existingConfig['notes'];
     }
     
     // Preserva autosave settings
@@ -1816,6 +1835,12 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'customThemes' => []
             ],
             'sponsors' => [],
+            'payment' => [
+                'enabled' => false,
+                'costPerTeam' => 0,
+                'currency' => 'EUR'
+            ],
+            'notes' => [],
             'autosave' => [
                 'enabled' => false,
                 'intervalSeconds' => 30,
@@ -2950,9 +2975,62 @@ if ($action === 'admin_remove_sponsor' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'sponsors' => $config['sponsors']]);
 }
 
+// ==================== PAYMENT E NOTES ====================
+
+if ($action === 'admin_update_payment_config' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (isset($body['payment']) && is_array($body['payment'])) {
+        $payment = $body['payment'];
+        $config['payment']['enabled'] = (bool)($payment['enabled'] ?? false);
+        $config['payment']['costPerTeam'] = max(0, (float)($payment['costPerTeam'] ?? 0));
+        $config['payment']['currency'] = in_array($payment['currency'] ?? 'EUR', ['EUR', 'USD', 'GBP', 'CHF']) ? $payment['currency'] : 'EUR';
+    }
+    
+    writeConfig($config);
+    saveToHistory('Aggiornamento configurazione pagamenti');
+    
+    jsonResponse(200, ['ok' => true, 'payment' => $config['payment']]);
+}
+
+if ($action === 'admin_update_notes' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (isset($body['notes']) && is_array($body['notes'])) {
+        $notes = [];
+        foreach ($body['notes'] as $note) {
+            $noteData = [
+                'id' => trim((string)($note['id'] ?? bin2hex(random_bytes(4)))),
+                'description' => trim((string)($note['description'] ?? '')),
+                'points' => (int)($note['points'] ?? 0)
+            ];
+            if (!empty($noteData['description'])) {
+                $notes[] = $noteData;
+            }
+        }
+        $config['notes'] = $notes;
+    }
+    
+    writeConfig($config);
+    saveToHistory('Aggiornamento note torneo');
+    
+    jsonResponse(200, ['ok' => true, 'notes' => $config['notes']]);
+}
+
+if ($action === 'admin_get_payment_config' && $method === 'GET') {
+    requireAdmin();
+    $config = readConfig();
+    jsonResponse(200, ['ok' => true, 'payment' => $config['payment'], 'notes' => $config['notes']]);
+}
+
 // ==================== AUTOSAVE E UNDO ====================
 
 if ($action === 'admin_toggle_autosave' && $method === 'POST') {
+    requireAdmin();
     $body = bodyJson();
     $config = readConfig();
     

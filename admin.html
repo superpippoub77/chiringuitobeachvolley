@@ -476,6 +476,7 @@
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
+        <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
       </div>
 
@@ -552,6 +553,54 @@
         <div class="row" style="margin-top: 14px">
           <button class="btn btn-primary" onclick="addSponsor()">+ Aggiungi Sponsor</button>
           <button class="btn btn-green" onclick="saveSponsor()">Salva Sponsor</button>
+        </div>
+      </div>
+
+      <div id="page-payments" class="card page hidden">
+        <h3>💳 Pagamenti e Note del Torneo</h3>
+        <p class="muted">Configura i parametri di pagamento per le squadre e aggiungi note aggiuntive con punteggi.</p>
+        
+        <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">💰 Configurazione Pagamenti</h4>
+          <div class="field">
+            <label>
+              <input type="checkbox" id="paymentEnabled" onchange="updatePaymentUI()"> 
+              Abilita pagamenti
+            </label>
+            <small style="color: #666">Attiva questa opzione se il torneo ha una quota di partecipazione</small>
+          </div>
+          
+          <div id="paymentFieldsContainer" style="display: none; margin-top: 10px">
+            <div class="field">
+              <label>Quota per squadra ({{currency}})</label>
+              <input id="costPerTeam" type="number" min="0" step="0.01" value="0" placeholder="Es: 50.00">
+            </div>
+            <div class="field">
+              <label>Valuta</label>
+              <select id="paymentCurrency" style="width: 100%; padding: 6px">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="CHF">CHF (CHF)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-green" onclick="savePaymentConfig()">Salva Configurazione Pagamenti</button>
+          </div>
+        </div>
+        
+        <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">📝 Note Aggiuntive del Torneo</h4>
+          <p class="muted">Aggiungi note che i partecipanti possono selezionare durante l'iscrizione. Ogni nota ha un punteggio associato.</p>
+          
+          <div id="notesContainer" style="margin-top: 12px"></div>
+          
+          <div class="row" style="margin-top: 10px">
+            <button class="btn btn-primary" onclick="addNote()">+ Aggiungi Nota</button>
+            <button class="btn btn-green" onclick="saveNotes()">Salva Note</button>
+          </div>
         </div>
       </div>
 
@@ -721,6 +770,8 @@
       // Carica i dati specifici della pagina
       if (page === 'sponsors') {
         renderSponsors();
+      } else if (page === 'payments') {
+        renderPaymentAndNotes();
       }
     }
 
@@ -2643,6 +2694,125 @@
         }
       } catch (e) {
         console.error('⚠️ Errore nel caricamento versione:', e);
+      }
+    }
+
+    // ==================== PAYMENT E NOTES ====================
+    
+    let paymentConfig = { enabled: false, costPerTeam: 0, currency: 'EUR' };
+    let notes = [];
+    
+    async function renderPaymentAndNotes() {
+      try {
+        const result = await callApi('admin_get_payment_config', 'GET', null, true);
+        paymentConfig = result.payment;
+        notes = result.notes || [];
+        
+        // Update UI
+        document.getElementById('paymentEnabled').checked = paymentConfig.enabled;
+        document.getElementById('costPerTeam').value = paymentConfig.costPerTeam;
+        document.getElementById('paymentCurrency').value = paymentConfig.currency;
+        
+        updatePaymentUI();
+        renderNotes();
+      } catch (e) {
+        console.error('Errore caricamento pagamenti:', e);
+      }
+    }
+    
+    function updatePaymentUI() {
+      const enabled = document.getElementById('paymentEnabled').checked;
+      const container = document.getElementById('paymentFieldsContainer');
+      container.style.display = enabled ? 'block' : 'none';
+    }
+    
+    function renderNotes() {
+      const container = document.getElementById('notesContainer');
+      
+      if (notes.length === 0) {
+        container.innerHTML = '<p class="muted">Nessuna nota aggiunta. Clicca "Aggiungi Nota" per iniziare.</p>';
+        return;
+      }
+      
+      let html = '<div style="display: flex; flex-direction: column; gap: 10px">';
+      notes.forEach((note, idx) => {
+        html += `
+          <div class="card" style="background: #fafafa; padding: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #4caf50">
+            <div style="flex: 1">
+              <input type="text" value="${escapeHtml(note.description)}" data-note-idx="${idx}" data-field="description" class="note-input" 
+                     placeholder="Descrizione nota" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 6px">
+              <input type="number" value="${note.points}" data-note-idx="${idx}" data-field="points" class="note-input" 
+                     placeholder="Punteggio" style="width: 60px; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+            </div>
+            <button class="btn btn-danger" onclick="removeNote(${idx})" style="margin-left: 10px">🗑️</button>
+          </div>
+        `;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+    
+    function addNote() {
+      notes.push({
+        id: bin2hex(8),
+        description: 'Nuova nota',
+        points: 0
+      });
+      renderNotes();
+    }
+    
+    function removeNote(idx) {
+      notes.splice(idx, 1);
+      renderNotes();
+    }
+    
+    async function savePaymentConfig() {
+      try {
+        const enabled = document.getElementById('paymentEnabled').checked;
+        const costPerTeam = parseFloat(document.getElementById('costPerTeam').value) || 0;
+        const currency = document.getElementById('paymentCurrency').value;
+        
+        const result = await callApi('admin_update_payment_config', 'POST', {
+          payment: { enabled, costPerTeam, currency }
+        }, true);
+        
+        paymentConfig = result.payment;
+        await showInfoDialog('Successo', '✅ Configurazione pagamenti salvata');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+    
+    async function saveNotes() {
+      try {
+        // Raccogli i dati dai campi
+        const inputs = document.querySelectorAll('.note-input');
+        const updatedNotes = [];
+        
+        inputs.forEach(input => {
+          const idx = parseInt(input.dataset.noteIdx);
+          const field = input.dataset.field;
+          
+          if (!updatedNotes[idx]) {
+            updatedNotes[idx] = { ...notes[idx] };
+          }
+          
+          if (field === 'description') {
+            updatedNotes[idx].description = input.value.trim();
+          } else if (field === 'points') {
+            updatedNotes[idx].points = parseInt(input.value) || 0;
+          }
+        });
+        
+        const finalNotes = updatedNotes.filter(n => n && n.description);
+        
+        const result = await callApi('admin_update_notes', 'POST', { notes: finalNotes }, true);
+        notes = result.notes;
+        
+        await showInfoDialog('Successo', '✅ Note salvate con successo');
+        renderNotes();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
       }
     }
 

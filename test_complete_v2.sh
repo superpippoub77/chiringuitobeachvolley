@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script di test completo del sistema Chiringuito Beach Volley - Versione 2
+# Script di test completo del sistema BeachMaster Beach Volley - Versione 2
 # Testa: Torneo, Sponsor, Notizie, Campi, Squadre, Giocatori, Note
 
 BASE_URL="http://localhost:3000"
@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║   FASE DI TEST COMPLETA - CHIRINGUITO BEACH VOLLEY        ║${NC}"
+echo -e "${YELLOW}║   FASE DI TEST COMPLETA - BEACHMASTER BEACH VOLLEY        ║${NC}"
 echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}\n"
 
 # Test counter

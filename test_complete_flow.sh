@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script di test completo del sistema Chiringuito Beach Volley
+# Script di test completo del sistema BeachMaster Beach Volley
 # Testa: Torneo, Sponsor, Notizie, Campi, Squadre, Giocatori, Note
 
 set -e
@@ -14,7 +14,7 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${YELLOW}=== FASE DI TEST COMPLETA CHIRINGUITO BEACH VOLLEY ===${NC}\n"
+echo -e "${YELLOW}=== FASE DI TEST COMPLETA BEACHMASTER BEACH VOLLEY ===${NC}\n"
 
 # 1. RESET COMPLETO
 echo -e "${YELLOW}1. Resetting tournament...${NC}"

@@ -32,7 +32,7 @@ print_header() {
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 }
 
-print_header "FASE DI TEST COMPLETA CHIRINGUITO BEACH VOLLEY"
+print_header "FASE DI TEST COMPLETA BEACHMASTER BEACH VOLLEY"
 
 # LOGIN
 print_header "1. AUTENTICAZIONE"

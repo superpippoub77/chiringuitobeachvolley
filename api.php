@@ -324,7 +324,7 @@ function initialState(): array {
     return [
         'settings' => [
             'maxTeams' => $config['tournament']['maxTeams'] ?? 16,
-            'tournamentName' => $config['tournament']['name'] ?? 'Torneo Beach Volley Chiringuito'
+            'tournamentName' => $config['tournament']['name'] ?? 'Torneo Beach Volley BeachMaster'
         ],
         'teams' => [],
         'groups' => [],
@@ -1774,7 +1774,7 @@ if ($action === 'admin_export_backup' && $method === 'GET') {
     ];
     
     header('Content-Type: application/json; charset=utf-8');
-    header('Content-Disposition: attachment; filename="chiringuito-backup-' . date('Y-m-d-His') . '.json"');
+    header('Content-Disposition: attachment; filename="beachmaster-backup-' . date('Y-m-d-His') . '.json"');
     echo json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     exit;
 }

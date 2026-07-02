@@ -1,4 +1,4 @@
-# Guida Deposito e Distribuzione - Chiringuito Beach Volley
+# Guida Deposito e Distribuzione - BeachMaster Beach Volley
 
 ## Sistema FTP/SFTP per Deposito Pacchetto
 

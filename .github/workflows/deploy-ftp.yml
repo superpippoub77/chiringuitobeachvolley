@@ -1,4 +1,4 @@
-name: Deploy chiringuitobeachvolley to Aruba via FTP
+name: Deploy beachmaster to Aruba via FTP
 
 on:
   push:

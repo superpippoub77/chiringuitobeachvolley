@@ -53,4 +53,4 @@ Possibilità di inserire una immagine nelle notizie e rivedi il sistema di backu
 Controlla la fase di test partendo dalla creazione di un torneo, con varie tipologie, l'inserimento di sponsor, di notizie, di un campo degli orari in diversi giorni quindi su fasce, di un certo numero di giocatori di un cerio numero di giorni, di un numero max di sostiutioni e numero max di giocatori in campo, di inseimrneot note al torneo (simula più casisteche), anche con l'assenza di una squadra, ecc ✅
 Fammi la deploy sulla cartella beachmaster non più test ✅
 Il nome del progetto è beachmaster cambialo al poso di chiringuito...✅
-Nella sezione di backup devo aver a disposizone di tuti i backup creati sul server per una eventuale ripristino o cancellazione
+Nella sezione di backup devo aver a disposizone di tuti i backup creati sul server per una eventuale ripristino o cancellazione✅

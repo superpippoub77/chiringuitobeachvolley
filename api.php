@@ -2492,6 +2492,7 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
         $maxTimeouts = $tournament['maxTimeoutsPerSet'] ?? 2;
         $timePerSet = $tournament['timePerSetMinutes'] ?? 35;
         $phases = $config['phases'] ?? [];
+        $notes = $config['notes'] ?? [];
         
         $phasesText = '';
         if (!empty($phases)) {
@@ -2502,6 +2503,18 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
                 $phasesText .= "<li><strong>$phaseName</strong> ($phaseType)</li>";
             }
             $phasesText .= '</ul>';
+        }
+        
+        $notesText = '';
+        if (!empty($notes)) {
+            $notesText = '<div class="section"><h2>7. Note del Torneo</h2><ul>';
+            foreach ($notes as $note) {
+                $desc = htmlspecialchars($note['description'] ?? '', ENT_QUOTES, 'UTF-8');
+                $points = (int)($note['points'] ?? 0);
+                $pointsDisplay = $points >= 0 ? "+$points" : "$points";
+                $notesText .= "<li><strong>$desc:</strong> $pointsDisplay punti</li>";
+            }
+            $notesText .= '</ul></div>';
         }
         
         $html = <<<HTML
@@ -2586,6 +2599,8 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
         <h2>6. Modifiche al Regolamento</h2>
         <p>Lo staff organizzativo si riserva il diritto di modificare il regolamento prima dell'inizio della competizione con comunicazione ufficiale a tutti i partecipanti.</p>
     </div>
+    
+    $notesText
     
     <div class="generated">
         <p>📄 Regolamento generato automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>

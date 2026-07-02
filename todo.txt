@@ -47,3 +47,4 @@ Inerire il numero di giocatori massimo per squadra e la form si faserà su quest
 Inserire anche il massimo numero di giocatori in campo e inserire il numero massimo di sositutzioni (vuoto cossrisponde a quante se ne vuole)✅
 La cancellazioen completa non funziona non mi compare la finiestra tora ad impostazioni e la conferma dlla finestra od i dati sono stati cancellati in più on mi pulisce nulla rimangono delle suadre e dei dati sporchi come mai? elimina tutto è la 100 volta che ti dico cosa fare correggi tutt i punti. ✅
 Configurare i parametri per i pagamenti e fissare la quota di costo per ogni partecipante e mettere le note aggiuntive nella creazione del torneo le note sono una somma di punti che uno man mano può aggiungere od eliminare ✅
+Le note sono da mettere nel file di configurazione e ne posso mettere n e posso cancellarne, queste saranno pubblicate nel sito e servono anche nella generazione del regolamento ✅

@@ -54,4 +54,4 @@ Controlla la fase di test partendo dalla creazione di un torneo, con varie tipol
 Fammi la deploy sulla cartella beachmaster non più test ✅
 Il nome del progetto è beachmaster cambialo al poso di chiringuito...✅
 Nella sezione di backup devo aver a disposizone di tuti i backup creati sul server per una eventuale ripristino o cancellazione✅
-Se clicco su un template non mi aggiorna in tempo reale la visualizzazione in base al template scelto
+Se clicco su un template non mi aggiorna in tempo reale la visualizzazione in base al template scelto✅

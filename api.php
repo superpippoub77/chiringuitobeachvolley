@@ -42,6 +42,15 @@ function writeJsonFile(string $file, array $data): void {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
+function formatBytes(int $bytes, int $precision = 2): string {
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    $bytes /= (1 << (10 * $pow));
+    return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
 function getLogoFile(): string {
     // Se esiste un file di upload personalizzato, restituiscilo
     $uploadsDir = UPLOADS_DIR;
@@ -3197,10 +3206,10 @@ if ($action === 'admin_export_backup' && $method === 'GET') {
     
     try {
         $config = readConfig();
-        $teams = readJsonFile(DATA_DIR . '/teams.json') ?? [];
-        $groups = readJsonFile(DATA_DIR . '/groups.json') ?? [];
-        $matches = readJsonFile(DATA_DIR . '/matches.json') ?? [];
-        $history = readJsonFile(DATA_DIR . '/history.json') ?? ['snapshots' => [], 'lastSaved' => null];
+        $teams = readJsonFile(__DIR__ . '/data/teams.json') ?? [];
+        $groups = readJsonFile(__DIR__ . '/data/groups.json') ?? [];
+        $matches = readJsonFile(__DIR__ . '/data/matches.json') ?? [];
+        $history = readJsonFile(__DIR__ . '/data/history.json') ?? ['snapshots' => [], 'lastSaved' => null];
         
         $backup = [
             'version' => '1.0',
@@ -3246,10 +3255,10 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
         
         // Ripristina tutti i dati
         writeJsonFile(CONFIG_FILE, $backup['config']);
-        writeJsonFile(DATA_DIR . '/teams.json', $backup['teams'] ?? []);
-        writeJsonFile(DATA_DIR . '/groups.json', $backup['groups'] ?? []);
-        writeJsonFile(DATA_DIR . '/matches.json', $backup['matches'] ?? []);
-        writeJsonFile(DATA_DIR . '/history.json', $backup['history'] ?? ['snapshots' => [], 'lastSaved' => null]);
+        writeJsonFile(__DIR__ . '/data/teams.json', $backup['teams'] ?? []);
+        writeJsonFile(__DIR__ . '/data/groups.json', $backup['groups'] ?? []);
+        writeJsonFile(__DIR__ . '/data/matches.json', $backup['matches'] ?? []);
+        writeJsonFile(__DIR__ . '/data/history.json', $backup['history'] ?? ['snapshots' => [], 'lastSaved' => null]);
         
         jsonResponse(200, [
             'ok' => true,
@@ -3264,6 +3273,174 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
         ]);
     } catch (Exception $e) {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore import: ' . $e->getMessage()]);
+    }
+}
+
+// ==================== BACKUP SERVER MANAGEMENT ====================
+
+if ($action === 'admin_save_backup_server' && $method === 'POST') {
+    requireAdmin();
+    
+    try {
+        // Crea cartella backups se non esiste
+        $backupsDir = __DIR__ . '/data/backups';
+        if (!is_dir($backupsDir)) {
+            mkdir($backupsDir, 0755, true);
+        }
+        
+        $config = readConfig();
+        $state = readJsonFile(DATA_FILE, initialState());
+        
+        $backup = [
+            'version' => '1.0',
+            'timestamp' => date('c'),
+            'config' => $config,
+            'teams' => $state['teams'] ?? [],
+            'groups' => $state['groups'] ?? [],
+            'groupMatches' => $state['groupMatches'] ?? [],
+            'playoff' => $state['playoff'] ?? [],
+            'standings' => $state['standings'] ?? [],
+            'finalRanking' => $state['finalRanking'] ?? []
+        ];
+        
+        $filename = 'backup-' . date('Y-m-d_His') . '.json';
+        $filepath = $backupsDir . '/' . $filename;
+        
+        file_put_contents($filepath, json_encode($backup, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Backup salvato sul server',
+            'filename' => $filename,
+            'timestamp' => date('c')
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio backup: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_list_backups' && $method === 'GET') {
+    requireAdmin();
+    
+    try {
+        $backupsDir = __DIR__ . '/data/backups';
+        $backups = [];
+        
+        if (is_dir($backupsDir)) {
+            $files = glob($backupsDir . '/backup-*.json');
+            rsort($files); // Ordina dal più recente al più vecchio
+            
+            foreach ($files as $file) {
+                $filename = basename($file);
+                $size = filesize($file);
+                $modified = filemtime($file);
+                
+                // Leggi il timestamp dal file
+                $content = json_decode(file_get_contents($file), true);
+                $timestamp = $content['timestamp'] ?? date('c', $modified);
+                
+                $backups[] = [
+                    'filename' => $filename,
+                    'timestamp' => $timestamp,
+                    'size' => $size,
+                    'sizeHuman' => formatBytes($size),
+                    'modified' => $modified,
+                    'modifiedHuman' => date('d/m/Y H:i:s', $modified)
+                ];
+            }
+        }
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'backups' => $backups,
+            'count' => count($backups)
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore lettura backup: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_delete_backup' && $method === 'POST') {
+    requireAdmin();
+    
+    try {
+        $body = bodyJson();
+        $filename = (string)($body['filename'] ?? '');
+        
+        if (!$filename || strpos($filename, '..') !== false || strpos($filename, '/') !== false) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Nome file non valido']);
+            return;
+        }
+        
+        $backupPath = __DIR__ . '/data/backups/' . $filename;
+        
+        if (!file_exists($backupPath)) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Backup non trovato']);
+            return;
+        }
+        
+        unlink($backupPath);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Backup eliminato',
+            'filename' => $filename
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore eliminazione backup: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_restore_backup' && $method === 'POST') {
+    requireAdmin();
+    
+    try {
+        $body = bodyJson();
+        $filename = (string)($body['filename'] ?? '');
+        
+        if (!$filename || strpos($filename, '..') !== false || strpos($filename, '/') !== false) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Nome file non valido']);
+            return;
+        }
+        
+        $backupPath = __DIR__ . '/data/backups/' . $filename;
+        
+        if (!file_exists($backupPath)) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Backup non trovato']);
+            return;
+        }
+        
+        $content = file_get_contents($backupPath);
+        $backup = json_decode($content, true);
+        
+        if (!is_array($backup) || !isset($backup['config'])) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File di backup non valido']);
+            return;
+        }
+        
+        // Ripristina tutti i dati
+        writeJsonFile(CONFIG_FILE, $backup['config']);
+        writeJsonFile(DATA_FILE, [
+            'teams' => $backup['teams'] ?? [],
+            'groups' => $backup['groups'] ?? [],
+            'groupMatches' => $backup['groupMatches'] ?? [],
+            'playoff' => $backup['playoff'] ?? [],
+            'standings' => $backup['standings'] ?? [],
+            'finalRanking' => $backup['finalRanking'] ?? [],
+            'meta' => ['lastUpdated' => date('c')]
+        ]);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Backup ripristinato con successo',
+            'timestamp' => $backup['timestamp'],
+            'itemsRestored' => [
+                'teams' => count($backup['teams'] ?? []),
+                'groups' => count($backup['groups'] ?? [])
+            ]
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore ripristino backup: ' . $e->getMessage()]);
     }
 }
 

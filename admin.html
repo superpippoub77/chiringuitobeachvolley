@@ -680,10 +680,19 @@
           <p class="muted">Esporta l'intero stato del torneo (config, squadre, gironi, partite) e ripristinalo in seguito.</p>
           <div class="row" style="margin-top: 10px">
             <button class="btn btn-green" onclick="exportBackup()">⬇️ Scarica Backup</button>
+            <button class="btn btn-primary" onclick="saveBackupToServer()">💾 Salva Backup sul Server</button>
             <button class="btn btn-primary" onclick="document.getElementById('backupFileInput').click()">⬆️ Carica Backup</button>
             <input type="file" id="backupFileInput" accept=".json" style="display: none" onchange="importBackup(event)">
           </div>
           <div id="backupStatus" style="margin-top: 12px; display: none; padding: 8px; border-radius: 6px"></div>
+
+          <div style="margin-top: 16px">
+            <h5>📋 Backup sul Server</h5>
+            <div id="backupsList" style="margin-top: 10px; display: none">
+              <!-- Listato dinamicamente -->
+            </div>
+            <button class="btn btn-primary" onclick="loadBackupsList()">🔄 Ricarica Lista Backup</button>
+          </div>
         </div>
 
         <div class="card" style="background: #e3f2fd; margin-top: 16px; padding: 12px">
@@ -1162,6 +1171,9 @@
       } catch (e) {
         console.error('Errore caricamento config:', e);
       }
+      
+      // Carica la lista dei backup dal server
+      loadBackupsList().catch(e => console.error('Errore caricamento backup list:', e));
     }
 
     function showScheduleConfig() {
@@ -2021,7 +2033,88 @@
       }
     }
 
-    async function generateRegolamento() {
+    async function saveBackupToServer() {
+      try {
+        const res = await callApi('admin_save_backup_server', 'POST', {}, true);
+        await showInfoDialog('Successo', '✅ Backup salvato sul server:\n' + res.filename);
+        await loadBackupsList();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore salvataggio backup: ' + e.message);
+      }
+    }
+
+    async function loadBackupsList() {
+      try {
+        const res = await callApi('admin_list_backups', 'GET', null, true);
+        const container = document.getElementById('backupsList');
+        
+        if (res.backups.length === 0) {
+          container.innerHTML = '<p class="muted">Nessun backup disponibile sul server.</p>';
+          container.style.display = 'block';
+          return;
+        }
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 8px">';
+        res.backups.forEach(backup => {
+          html += `
+            <div class="card" style="background: #f5f5f5; padding: 10px; display: flex; justify-content: space-between; align-items: center">
+              <div style="flex: 1">
+                <strong>${backup.filename}</strong><br>
+                <small style="color: #666">
+                  📅 ${backup.modifiedHuman} | 📦 ${backup.sizeHuman}
+                </small>
+              </div>
+              <div style="display: flex; gap: 6px">
+                <button class="btn btn-primary" onclick="restoreBackupFromServer('${backup.filename}')" style="padding: 6px 10px; font-size: 12px">
+                  🔄 Ripristina
+                </button>
+                <button class="btn btn-danger" onclick="deleteBackupFromServer('${backup.filename}')" style="padding: 6px 10px; font-size: 12px">
+                  🗑️ Elimina
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        container.style.display = 'block';
+      } catch (e) {
+        document.getElementById('backupsList').innerHTML = '<p class="muted" style="color: red">Errore caricamento backup: ' + e.message + '</p>';
+        document.getElementById('backupsList').style.display = 'block';
+      }
+    }
+
+    async function restoreBackupFromServer(filename) {
+      const confirmed = await showConfirmDialog(
+        'Conferma ripristino',
+        '⚠️ Questa operazione sovrascriverà tutti i dati attuali.\n\nFile: ' + filename + '\n\nContinuare?'
+      );
+      if (!confirmed) return;
+
+      try {
+        await callApi('admin_restore_backup', 'POST', { filename }, true);
+        await showInfoDialog('Successo', '✅ Backup ripristinato con successo. La pagina verrà ricaricata.');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore ripristino: ' + e.message);
+      }
+    }
+
+    async function deleteBackupFromServer(filename) {
+      const confirmed = await showConfirmDialog(
+        'Conferma eliminazione',
+        '🗑️ Eliminare definitivamente questo backup?\n\n' + filename
+      );
+      if (!confirmed) return;
+
+      try {
+        await callApi('admin_delete_backup', 'POST', { filename }, true);
+        await showInfoDialog('Successo', '✅ Backup eliminato');
+        await loadBackupsList();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore eliminazione: ' + e.message);
+      }
+    }
       const statusEl = document.getElementById('docGenerationStatusContainer');
       const msgEl = document.getElementById('docGenerationStatusMessage');
       

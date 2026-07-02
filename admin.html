@@ -2109,7 +2109,6 @@
         if (!confirmed) {
           console.log('❌ Utente ha annullato al primo dialogo');
           await showInfoDialog('Operazione annullata', 'Cancellazione annullata.');
-          resetTournament.isRunning = false;
           return;
         }
 
@@ -2124,15 +2123,13 @@
 
         if (!doubleConfirm) {
           console.log('❌ Utente ha annullato al secondo dialogo');
-          resetTournament.isRunning = false;
           return;
         }
 
-        try {
-          console.log('🚀 Inizio reset tournament...');
-          const resetResult = await callApi('admin_reset_tournament', 'POST', {}, true);
-          console.log('✅ Reset backend completato:', resetResult);
-      
+        console.log('🚀 Inizio reset tournament...');
+        const resetResult = await callApi('admin_reset_tournament', 'POST', {}, true);
+        console.log('✅ Reset backend completato:', resetResult);
+    
         // Carica il config fresco
         console.log('📥 Caricamento config fresco...');
         const configResult = await callApi('admin_get_config', 'GET', null, true);

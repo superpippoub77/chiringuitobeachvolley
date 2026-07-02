@@ -475,6 +475,7 @@
         <button class="tab" data-page="standings" onclick="showPage('standings', this)">Classifiche</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
+        <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
       </div>
 
@@ -542,6 +543,16 @@
           <button class="btn btn-primary" onclick="createPlayoff()">Crea playoff</button>
         </div>
         <div id="playoffContainer" style="margin-top:10px"></div>
+      </div>
+
+      <div id="page-sponsors" class="card page hidden">
+        <h3>Gestione Sponsor</h3>
+        <p class="muted">Aggiungi sponsor che appariranno come ticker scorrevole nella homepage del torneo. Ogni sponsor può avere un logo opzionale e un numero di ripetizioni per indicare l'importanza.</p>
+        <div id="sponsorsContainer" style="margin-top: 14px"></div>
+        <div class="row" style="margin-top: 14px">
+          <button class="btn btn-primary" onclick="addSponsor()">+ Aggiungi Sponsor</button>
+          <button class="btn btn-green" onclick="saveSponsor()">Salva Sponsor</button>
+        </div>
       </div>
 
       <div id="page-tools" class="card page hidden">
@@ -706,6 +717,11 @@
       document.querySelector('#page-' + page).classList.remove('hidden');
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
+      
+      // Carica i dati specifici della pagina
+      if (page === 'sponsors') {
+        renderSponsors();
+      }
     }
 
     async function login() {
@@ -774,6 +790,10 @@
                 <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || ''}" placeholder="Es: 16, 32">
               </div>
               <div class="field">
+                <label>Max giocatori per squadra</label>
+                <input id="cfg-maxPlayersPerTeam" type="number" min="1" max="12" value="${t.maxPlayersPerTeam || 3}" placeholder="Es: 3">
+              </div>
+              <div class="field">
                 <label>Numero gironi</label>
                 <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}" placeholder="Es: 2, 4">
               </div>
@@ -801,13 +821,15 @@
                 <label>Timeout max per set</label>
                 <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || ''}" placeholder="Es: 2">
               </div>
-                <label>Minuti setup match</label>
-                <input id="cfg-setupTime" type="number" min="1" max="15" value="${t.setupTimeMinutes || ''}">
+              <div class="field">
+                <label>Giocatori in campo per team</label>
+                <input id="cfg-maxPlayersOnCourt" type="number" min="1" max="6" value="${t.maxPlayersOnCourt || 2}" placeholder="Es: 2, 3">
               </div>
               <div class="field">
-                <label>Timeout max per set</label>
-                <input id="cfg-maxTimeouts" type="number" min="0" max="5" value="${t.maxTimeoutsPerSet || ''}">
+                <label>Max sostituzioni per partita</label>
+                <input id="cfg-maxSubstitutions" type="number" min="0" value="${t.maxSubstitutions || ''}" placeholder="Es: 6 (vuoto = illimitato)">
               </div>
+            </div>
             </div>
           </div>
 
@@ -907,6 +929,38 @@
               </div>
             </div>
             <div id="customThemesList" style="margin-top: 12px"></div>
+          </div>
+
+          <div class="card" style="background: #e8f8f5; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">💾 Salvataggio Automatico e Cronologia</h4>
+            <p class="muted">Abilita il salvataggio automatico per creare snapshot della configurazione e dei dati. Puoi annullare fino a n passi precedenti.</p>
+            
+            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
+              <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-weight: bold">
+                <input type="checkbox" id="cfg-autosaveEnabled" ${config.autosave?.enabled ? 'checked' : ''} onchange="updateAutosaveSettings()">
+                <span>Abilita Salvataggio Automatico</span>
+              </label>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; opacity: ${config.autosave?.enabled ? '1' : '0.5'}; pointer-events: ${config.autosave?.enabled ? 'auto' : 'none'}">
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Intervallo (secondi)</label>
+                  <input type="number" id="cfg-autosaveInterval" min="5" max="300" value="${config.autosave?.intervalSeconds || 30}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <small style="color: #666">Ogni quanti secondi salvare uno snapshot</small>
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Passi da mantenere</label>
+                  <input type="number" id="cfg-autosaveMaxSteps" min="1" max="100" value="${config.autosave?.maxSteps || 10}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <small style="color: #666">Numero massimo di undo disponibili</small>
+                </div>
+              </div>
+              
+              <div class="row" style="margin-top: 12px; gap: 8px">
+                <button class="btn btn-primary" onclick="updateAutosaveSettings()">💾 Salva Impostazioni Autosave</button>
+                <button class="btn btn-info" onclick="showHistoryPanel()">📋 Visualizza Cronologia</button>
+              </div>
+              
+              <div id="autosaveStatus" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none"></div>
+            </div>
           </div>
         `;
         
@@ -1170,6 +1224,9 @@
       try {
         // Leggi i valori dei campi
         const maxTeamsVal = parseInt(document.getElementById('cfg-maxTeams').value) || 0;
+        const maxPlayersPerTeamVal = parseInt(document.getElementById('cfg-maxPlayersPerTeam').value) || 3;
+        const maxPlayersOnCourtVal = parseInt(document.getElementById('cfg-maxPlayersOnCourt').value) || 2;
+        const maxSubstitutionsVal = parseInt(document.getElementById('cfg-maxSubstitutions').value) || 0;
         const numGroupsVal = parseInt(document.getElementById('cfg-numGroups').value) || 0;
         const winScoreVal = parseInt(document.getElementById('cfg-winScore').value) || 0;
         const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
@@ -1180,6 +1237,9 @@
           tournament: {
             name: document.getElementById('cfg-tournamentName').value.trim(),
             maxTeams: maxTeamsVal > 0 ? Math.max(4, maxTeamsVal) : 0,
+            maxPlayersPerTeam: Math.max(1, Math.min(12, maxPlayersPerTeamVal)),
+            maxPlayersOnCourt: Math.max(1, Math.min(6, maxPlayersOnCourtVal)),
+            maxSubstitutions: Math.max(0, maxSubstitutionsVal),
             numGroups: numGroupsVal > 0 ? Math.max(1, numGroupsVal) : 0,
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
@@ -1205,13 +1265,30 @@
     }
 
     function teamRow(team) {
-      const p = (team.players || []).filter(Boolean).join(' | ') || 'Giocatori non inseriti';
+      // Formatta giocatori: supporta sia vecchio formato string che nuovo {name, isCaptain}
+      let playersHtml = '';
+      if (Array.isArray(team.players) && team.players.length > 0) {
+        playersHtml = team.players.map(p => {
+          let name = '';
+          let isCaptain = false;
+          if (typeof p === 'string') {
+            name = p;
+          } else if (p && p.name) {
+            name = p.name;
+            isCaptain = p.isCaptain || false;
+          }
+          if (!name) return '';
+          return isCaptain ? `<strong>${escapeHtml(name)} 👨‍💼</strong>` : escapeHtml(name);
+        }).filter(Boolean).join(' | ');
+      }
+      const playersText = playersHtml || '<em style="color:#999">Giocatori non inseriti</em>';
+
       const canDelete = !isTournamentStarted();
       const isDummy = team.dummy === true;
       return `<div class="team">
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
-          <small>${escapeHtml(p)}</small>
+          <small>${playersText}</small>
         </div>
         <div class="chips">
           ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
@@ -1268,7 +1345,19 @@
       const started = isTournamentStarted();
       const isDummy = team.dummy === true;
 
-      const p = team.players || ['', '', ''];
+      // Normalizza giocatori: compatibilità con vecchio formato string
+      let players = [];
+      if (Array.isArray(team.players)) {
+        players = team.players.map(p => {
+          if (typeof p === 'string') {
+            return { name: p, isCaptain: false };
+          }
+          return p;
+        });
+      }
+
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+      const canAddPlayers = players.length < maxPlayers;
       const buttons = [
         { text: 'Annulla', className: 'btn', closeOnClick: true }
       ];
@@ -1300,14 +1389,23 @@
         className: 'btn btn-primary',
         onClick: async () => {
           try {
+            // Raccogli giocatori dal form
+            const playersData = [];
+            for (let i = 0; i < maxPlayers; i++) {
+              const nameInput = document.getElementById(`mPlayer${i}Name`);
+              const captainCheckbox = document.getElementById(`mPlayer${i}Captain`);
+              if (nameInput && nameInput.value.trim()) {
+                playersData.push({
+                  name: nameInput.value.trim(),
+                  isCaptain: captainCheckbox ? captainCheckbox.checked : false
+                });
+              }
+            }
+
             const payload = {
               id: teamId,
               name: document.getElementById('mTeamName').value.trim(),
-              players: [
-                document.getElementById('mPlayer1').value.trim(),
-                document.getElementById('mPlayer2').value.trim(),
-                document.getElementById('mPlayer3').value.trim()
-              ],
+              players: playersData,
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
               paid: document.getElementById('mPaid').checked
@@ -1321,6 +1419,38 @@
         }
       });
 
+      // Crea form dinamico per giocatori
+      let playersHtml = `<div style="border: 1px solid #ddd; padding: 12px; border-radius: 4px; margin-top: 10px; background: #f9f9f9">
+        <h4 style="margin: 0 0 12px 0">Giocatori (Max ${maxPlayers})</h4>`;
+
+      for (let i = 0; i < maxPlayers; i++) {
+        const player = players[i] || { name: '', isCaptain: false };
+        playersHtml += `
+          <div style="display: grid; grid-template-columns: 1fr 100px; gap: 8px; margin-bottom: 10px; align-items: end">
+            <input 
+              id="mPlayer${i}Name" 
+              type="text" 
+              placeholder="Nome giocatore ${i + 1}"
+              value="${escapeHtml(player.name || '')}"
+              style="padding: 6px; border: 1px solid #ccc; border-radius: 4px"
+            >
+            <label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal">
+              <input 
+                id="mPlayer${i}Captain" 
+                type="checkbox" 
+                ${player.isCaptain ? 'checked' : ''}
+                style="cursor: pointer"
+              >
+              👨‍💼 Capitano
+            </label>
+          </div>
+        `;
+      }
+
+      playersHtml += `
+        <small style="color: #666; display: block; margin-top: 8px">Segna il giocatore come capitano responsabile della squadra</small>
+      </div>`;
+
       openModal({
         title: 'Modifica squadra',
         bodyHtml: `
@@ -1329,19 +1459,8 @@
               <label>Nome squadra</label>
               <input id="mTeamName" type="text" value="${escapeHtml(team.name)}">
             </div>
-            <div class="field">
-              <label>Giocatore 1</label>
-              <input id="mPlayer1" type="text" value="${escapeHtml(p[0] || '')}">
-            </div>
-            <div class="field">
-              <label>Giocatore 2</label>
-              <input id="mPlayer2" type="text" value="${escapeHtml(p[1] || '')}">
-            </div>
-            <div class="field full">
-              <label>Giocatore 3</label>
-              <input id="mPlayer3" type="text" value="${escapeHtml(p[2] || '')}">
-            </div>
-            <div class="field full">
+            ${playersHtml}
+            <div class="field full" style="margin-top: 12px">
               <label>Telefono</label>
               <input id="mPhone" type="text" value="${escapeHtml(team.phone || '')}">
             </div>
@@ -1921,6 +2040,9 @@
         };
         console.log('✅ State resettato');
         
+        // Mostra messaggio di successo
+        await showInfoDialog('Cancellazione completata', 'OK Cancellazione completata');
+        
         // Naviga automaticamente al tab Impostazioni
         console.log('🔄 Navigazione al tab Impostazioni...');
         const settingsTab = document.querySelector('[data-page="settings"]');
@@ -1950,13 +2072,325 @@
           console.error('⚠️ Errore nel caricamento versione:', e);
         }
         
-        await showInfoDialog('Successo', '✅ Torneo azzerato completamente. Sistema ripristinato a stato iniziale.');
         console.log('✅ Reset completato con successo!');
         
       } catch (e) {
         console.error('❌ ERRORE durante reset:', e);
         await showInfoDialog('Errore', 'Errore durante la cancellazione: ' + e.message);
       }
+    }
+
+    // ==================== SPONSOR MANAGEMENT ====================
+    
+    let sponsors = [];
+    
+    // ==================== AUTOSAVE & UNDO ====================
+    
+    let autosaveInterval = null;
+    let lastAutosaveTime = null;
+
+    async function updateAutosaveSettings() {
+      try {
+        const enabled = document.getElementById('cfg-autosaveEnabled')?.checked || false;
+        const intervalSeconds = parseInt(document.getElementById('cfg-autosaveInterval')?.value || 30);
+        const maxSteps = parseInt(document.getElementById('cfg-autosaveMaxSteps')?.value || 10);
+        
+        const result = await callApi('admin_toggle_autosave', 'POST', {
+          enabled,
+          intervalSeconds,
+          maxSteps
+        }, true);
+        
+        if (result.ok) {
+          await showInfoDialog('Successo', '✅ Impostazioni autosave salvate');
+          config.autosave = result.autosave;
+          
+          // Avvia o ferma l'interval di autosave
+          if (enabled) {
+            startAutosaveInterval();
+          } else {
+            stopAutosaveInterval();
+          }
+        }
+      } catch (e) {
+        console.error('Errore:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function showHistoryPanel() {
+      try {
+        const history = await callApi('admin_get_history', 'GET', null, true);
+        
+        if (!history.snapshots || history.snapshots.length === 0) {
+          await showInfoDialog('Cronologia', 'Nessuno snapshot salvato. Abilita autosave per iniziare a registrare la cronologia.');
+          return;
+        }
+        
+        let html = `
+          <div style="max-height: 400px; overflow-y: auto">
+            <p style="margin-bottom: 12px; color: #666">
+              <strong>Ultimi snapshot:</strong> (${history.totalSnapshots})
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+        `;
+        
+        history.snapshots.forEach((snapshot, idx) => {
+          const canRestore = snapshot.canRestore;
+          html += `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center">
+              <div>
+                <strong>${snapshot.description}</strong>
+                <div style="color: #666; font-size: 12px">${snapshot.timestamp}</div>
+              </div>
+              ${canRestore ? `<button class="btn btn-info" onclick="undoToStep(${idx})">Ripristina</button>` : '<span style="color: #999; font-size: 12px">Versione attuale</span>'}
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+          </div>
+        `;
+        
+        openModal({
+          title: '📋 Cronologia Salvataggi',
+          bodyHtml: html,
+          buttons: [
+            { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true }
+          ]
+        });
+      } catch (e) {
+        console.error('Errore cronologia:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function undoToStep(stepIndex) {
+      const confirmed = await showConfirmDialog('Ripristina Snapshot', `Ripristinare a ${stepIndex} passo/i indietro?`);
+      if (!confirmed) return;
+      
+      try {
+        const result = await callApi('admin_undo_step', 'POST', {
+          steps: stepIndex
+        }, true);
+        
+        if (result.ok) {
+          // Ricarica config e state
+          config = result.config;
+          
+          await showInfoDialog('Successo', '✅ ' + result.message);
+          await renderSettings();
+          await refresh();
+        }
+      } catch (e) {
+        console.error('Errore undo:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function startAutosaveInterval() {
+      if (autosaveInterval) {
+        clearInterval(autosaveInterval);
+      }
+      
+      const intervalSeconds = config.autosave?.intervalSeconds || 30;
+      
+      autosaveInterval = setInterval(async () => {
+        try {
+          // Salva uno snapshot - nota: non chiamiamo nulla, il backend salva automaticamente
+          // quando rileva che autosave è enabled
+          console.log('💾 Auto-save snapshot...');
+          lastAutosaveTime = new Date();
+          
+          const statusDiv = document.getElementById('autosaveStatus');
+          if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.textContent = `✅ Ultimo salvataggio: ${lastAutosaveTime.toLocaleTimeString('it-IT')}`;
+            setTimeout(() => {
+              statusDiv.style.display = 'none';
+            }, 3000);
+          }
+        } catch (e) {
+          console.error('Errore autosave:', e);
+        }
+      }, intervalSeconds * 1000);
+      
+      console.log(`✅ Autosave interval avviato (ogni ${intervalSeconds}s)`);
+    }
+
+    function stopAutosaveInterval() {
+      if (autosaveInterval) {
+        clearInterval(autosaveInterval);
+        autosaveInterval = null;
+        console.log('⏸️ Autosave interval fermato');
+      }
+    }
+
+    async function renderSponsors() {
+      const container = document.getElementById('sponsorsContainer');
+      const result = await callApi('admin_get_config', 'GET', null, true);
+      sponsors = result.config.sponsors || [];
+      
+      if (sponsors.length === 0) {
+        container.innerHTML = '<p class="muted">Nessun sponsor aggiunto. Clicca "Aggiungi Sponsor" per iniziare.</p>';
+        return;
+      }
+      
+      let html = '<div style="display: flex; flex-direction: column; gap: 12px">';
+      
+      sponsors.forEach((sponsor, idx) => {
+        const logoPreview = sponsor.logoFile 
+          ? `<img src="${sponsor.logoFile}" style="max-width: 100px; max-height: 100px; margin: 8px 0; border-radius: 6px; object-fit: contain">`
+          : '<p style="color: #999; margin: 8px 0">Nessun logo caricato</p>';
+        
+        html += `
+          <div class="card" style="background: #f5f5f5; padding: 12px; border-left: 4px solid #ff9800">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px">
+              <div style="flex: 1">
+                <label style="display: block; font-weight: bold; margin-bottom: 6px">Nome Sponsor</label>
+                <input type="text" value="${escapeHtml(sponsor.name)}" data-sponsor-idx="${idx}" data-field="name" class="sponsor-input" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px" placeholder="Nome sponsor">
+              </div>
+              <button class="btn btn-danger" onclick="removeSponsor(${idx})" style="margin-left: 10px; margin-top: 26px">🗑️</button>
+            </div>
+            
+            <div style="display: flex; gap: 12px">
+              <div style="flex: 1">
+                <label style="display: block; font-weight: bold; margin-bottom: 6px">Ripetizioni (1-10)</label>
+                <input type="number" min="1" max="10" value="${sponsor.repetitions}" data-sponsor-idx="${idx}" data-field="repetitions" class="sponsor-input" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+              </div>
+              <div style="flex: 1">
+                <label style="display: block; font-weight: bold; margin-bottom: 6px">Logo</label>
+                <div style="display: flex; gap: 6px">
+                  <input type="file" accept="image/*" id="logo-${sponsor.id}" style="display: none" onchange="uploadSponsorLogo(event, '${sponsor.id}')">
+                  <button class="btn btn-primary" onclick="document.getElementById('logo-${sponsor.id}').click()" style="flex: 1">📤 Upload</button>
+                  <button class="btn btn-danger" onclick="removeSponsorLogo('${sponsor.id}')" style="flex: 1" ${sponsor.logoFile ? '' : 'disabled'}>❌</button>
+                </div>
+              </div>
+            </div>
+            
+            <div style="margin-top: 10px; text-align: center">
+              ${logoPreview}
+            </div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function addSponsor() {
+      sponsors.push({
+        id: bin2hex(8),
+        name: 'Nuovo Sponsor',
+        repetitions: 1,
+        logoFile: null
+      });
+      renderSponsors();
+    }
+
+    async function saveSponsor() {
+      try {
+        // Raccogli i dati dai campi
+        const inputs = document.querySelectorAll('.sponsor-input');
+        const updatedSponsors = [];
+        
+        inputs.forEach(input => {
+          const idx = parseInt(input.dataset.sponsorIdx);
+          const field = input.dataset.field;
+          
+          if (!updatedSponsors[idx]) {
+            updatedSponsors[idx] = { ...sponsors[idx] };
+          }
+          
+          if (field === 'name') {
+            updatedSponsors[idx].name = input.value.trim() || 'Sponsor';
+          } else if (field === 'repetitions') {
+            updatedSponsors[idx].repetitions = Math.max(1, Math.min(10, parseInt(input.value) || 1));
+          }
+        });
+        
+        // Rimuovi undefined
+        const finalSponsors = updatedSponsors.filter(s => s);
+        
+        const result = await callApi('admin_update_sponsors', 'POST', { sponsors: finalSponsors }, true);
+        sponsors = result.sponsors;
+        
+        await showInfoDialog('Successo', '✅ Sponsor salvati con successo');
+        await renderSponsors();
+      } catch (e) {
+        console.error('❌ Errore nel salvataggio sponsor:', e);
+        await showInfoDialog('Errore', 'Errore nel salvataggio: ' + e.message);
+      }
+    }
+
+    async function removeSponsor(idx) {
+      const confirmed = await showConfirmDialog('Rimuovi Sponsor', 'Sei sicuro di voler rimuovere questo sponsor?');
+      if (!confirmed) return;
+      
+      try {
+        const sponsor = sponsors[idx];
+        const result = await callApi('admin_remove_sponsor', 'POST', { sponsorId: sponsor.id }, true);
+        sponsors = result.sponsors;
+        await renderSponsors();
+      } catch (e) {
+        console.error('❌ Errore nella rimozione sponsor:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function uploadSponsorLogo(event, sponsorId) {
+      try {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const formData = new FormData();
+        formData.append('logoFile', file);
+        formData.append('sponsorId', sponsorId);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'api.php?action=admin_upload_sponsor_logo', true);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('adminToken'));
+        
+        xhr.onload = async () => {
+          if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            if (result.ok) {
+              sponsors = result.sponsors;
+              await showInfoDialog('Successo', '✅ Logo caricato con successo');
+              await renderSponsors();
+            }
+          } else {
+            const error = JSON.parse(xhr.responseText);
+            await showInfoDialog('Errore', 'Errore: ' + error.error);
+          }
+        };
+        
+        xhr.send(formData);
+      } catch (e) {
+        console.error('❌ Errore upload logo:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function removeSponsorLogo(sponsorId) {
+      try {
+        const confirmed = await showConfirmDialog('Rimuovi Logo', 'Rimuovere il logo di questo sponsor?');
+        if (!confirmed) return;
+        
+        const idx = sponsors.findIndex(s => s.id === sponsorId);
+        if (idx >= 0) {
+          sponsors[idx].logoFile = null;
+          await saveSponsor();
+        }
+      } catch (e) {
+        console.error('❌ Errore nella rimozione logo:', e);
+      }
+    }
+
+    function bin2hex(length) {
+      return Math.random().toString(16).substr(2, length);
     }
 
     async function checkForUpdates() {

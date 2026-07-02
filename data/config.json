@@ -1,7 +1,10 @@
 {
     "tournament": {
-        "name": "",
-        "maxTeams": "",
+        "name": "Beach Volley 2026",
+        "maxTeams": 16,
+        "maxPlayersPerTeam": 4,
+        "maxPlayersOnCourt": 1,
+        "maxSubstitutions": 12,
         "numGroups": "",
         "numSets": "",
         "winScore": "",
@@ -19,5 +22,11 @@
     },
     "display": {
         "theme": "chiringuito"
+    },
+    "sponsors": [],
+    "autosave": {
+        "enabled": true,
+        "intervalSeconds": 10,
+        "maxSteps": 5
     }
 }

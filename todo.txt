@@ -40,3 +40,8 @@ I parametri del torneo devono essere vuoti se cancello tutto e non mi compare il
 Come favicon mettimi il logo caricato✅
 Quando faccio cancella tutto e ripristina deve tornanmi alla prima voce di "Impostazioni" in modo autmantica e non inserire alcun valore di default (tutto vuoto) ✅
 Appna loggato se faccio il refresh o reload mi mi mantiene la sessione ✅
+Quando cancella tutto fai compaire un messaggio di ok cancellazione completata e quando premo ok mi riporta alle impostazioni✅
+Nel torneo posso inseire anche degli sponsor che scorreranno come ticker in fondo alla pagina per ogni sponsor posso mettere il nome il logo (non obbligatorio) e il numero di ripetizioni (importanza del mail sposnor rispotto ad altri)✅✅
+Inserire il salvataggio in automatico con un flag e la undo di n passi✅
+Inerire il numero di giocatori massimo per squadra e la form si faserà su questo parametro e segnare con un flag il capitano responsabile✅
+Inserire anche il massimo numero di giocatori in campo e inserire il numero massimo di sositutzioni (vuoto cossrisponde a quante se ne vuole)✅

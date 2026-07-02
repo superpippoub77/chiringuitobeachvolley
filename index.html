@@ -670,6 +670,55 @@
         padding: 6px;
       }
     }
+
+    /* SPONSOR TICKER */
+    .sponsor-ticker-wrapper {
+      width: 100%;
+      overflow: hidden;
+      padding: 8px 0;
+    }
+
+    .sponsor-ticker-track {
+      display: flex;
+      gap: 40px;
+      animation: ticker 20s linear infinite;
+      padding: 0 20px;
+      white-space: nowrap;
+      align-items: center;
+    }
+
+    .sponsor-ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+      font-weight: bold;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .sponsor-logo {
+      max-width: 80px;
+      max-height: 50px;
+      object-fit: contain;
+    }
+
+    @keyframes ticker {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    .sponsor-ticker-track:hover {
+      animation-play-state: paused;
+    }
   </style>
 </head>
 
@@ -790,6 +839,15 @@
       <div id="modalBody" class="modal-body"></div>
       <div class="modal-footer">
         <button id="modalOk" class="btn-modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPONSOR TICKER -->
+  <div id="sponsorTickerContainer" style="background: linear-gradient(90deg, #f8edd8 0%, #f1dfbc 100%); border-top: 3px solid #ff7f32; padding: 12px 0; overflow: hidden; display: none">
+    <div class="sponsor-ticker-wrapper">
+      <div class="sponsor-ticker-track" id="sponsorTickerTrack">
+        <!-- Sponsor items loaded dynamically -->
       </div>
     </div>
   </div>
@@ -1214,6 +1272,67 @@
 
     // Carica il tema all'avvio
     loadTheme();
+
+    // ==================== SPONSOR TICKER ====================
+    
+    async function loadSponsors() {
+      try {
+        const response = await fetch(`${API}?action=get_sponsors`);
+        const data = await response.json();
+        
+        if (data.ok && data.sponsors && data.sponsors.length > 0) {
+          renderSponsorTicker(data.sponsors);
+        }
+      } catch (e) {
+        console.error('Errore caricamento sponsor:', e);
+      }
+    }
+
+    function renderSponsorTicker(sponsors) {
+      const container = document.getElementById('sponsorTickerContainer');
+      const track = document.getElementById('sponsorTickerTrack');
+      
+      if (!sponsors || sponsors.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      // Crea array duplicato di sponsor per effetto loop infinito
+      const sponsorItems = [];
+      sponsors.forEach(sponsor => {
+        const repetitions = sponsor.repetitions || 1;
+        for (let i = 0; i < repetitions; i++) {
+          sponsorItems.push(sponsor);
+        }
+      });
+      
+      // Raddoppia gli sponsor per creare effetto seamless
+      const allSponsors = [...sponsorItems, ...sponsorItems];
+      
+      let html = '';
+      allSponsors.forEach(sponsor => {
+        const logoHtml = sponsor.logoFile 
+          ? `<img src="${sponsor.logoFile}" alt="${sponsor.name}" class="sponsor-logo">`
+          : '';
+        
+        html += `
+          <div class="sponsor-ticker-item">
+            ${logoHtml}
+            <span>${sponsor.name}</span>
+          </div>
+        `;
+      });
+      
+      track.innerHTML = html;
+      container.style.display = 'block';
+      
+      // Calcola la durata dell'animazione in base al numero di sponsor
+      const duration = allSponsors.length * 3; // 3 secondi per sponsor
+      track.style.animationDuration = `${duration}s`;
+    }
+
+    // Carica sponsor all'avvio
+    loadSponsors();
   </script>
 </body>
 

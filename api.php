@@ -8,6 +8,7 @@ const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
 const VERSION_FILE = __DIR__ . '/data/version.json';
 const RELEASES_FILE = __DIR__ . '/data/releases.json';
+const HISTORY_FILE = __DIR__ . '/data/history.json';
 const UPLOADS_DIR = __DIR__ . '/data/uploads';
 const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
@@ -89,6 +90,9 @@ function defaultConfig(): array {
         'tournament' => [
             'name' => '',
             'maxTeams' => 0,
+            'maxPlayersPerTeam' => 3,
+            'maxPlayersOnCourt' => 2,
+            'maxSubstitutions' => 0,
             'numGroups' => 0,
             'numSets' => 2,
             'winScore' => 21,
@@ -106,6 +110,12 @@ function defaultConfig(): array {
         ],
         'display' => [
             'theme' => 'chiringuito'
+        ],
+        'sponsors' => [],
+        'autosave' => [
+            'enabled' => false,
+            'intervalSeconds' => 30,
+            'maxSteps' => 10
         ]
     ];
 }
@@ -162,6 +172,19 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
         );
     }
     
+    // Preserva sponsor list
+    if (isset($existingConfig['sponsors'])) {
+        $merged['sponsors'] = $existingConfig['sponsors'];
+    }
+    
+    // Preserva autosave settings
+    if (isset($existingConfig['autosave'])) {
+        $merged['autosave'] = array_merge(
+            $defaultConfig['autosave'] ?? [],
+            $existingConfig['autosave']
+        );
+    }
+    
     return $merged;
 }
 
@@ -188,6 +211,46 @@ function readConfig(): array {
 
 function writeConfig(array $config): void {
     writeJsonFile(CONFIG_FILE, $config);
+}
+
+function saveToHistory(string $description = 'Modifica'): void {
+    $config = readConfig();
+    
+    // Controlla se autosave è disabilitato
+    if (!($config['autosave']['enabled'] ?? false)) {
+        return;
+    }
+    
+    $history = readJsonFile(HISTORY_FILE, [
+        'snapshots' => [],
+        'lastSaved' => null
+    ]);
+    
+    $maxSteps = max(1, min(100, (int)($config['autosave']['maxSteps'] ?? 10)));
+    
+    // Crea snapshot
+    $snapshot = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'description' => $description,
+        'config' => $config,
+        'state' => readJsonFile(DATA_FILE, initialState())
+    ];
+    
+    // Aggiungi snapshot (max maxSteps items)
+    array_unshift($history['snapshots'], $snapshot);
+    if (count($history['snapshots']) > $maxSteps) {
+        array_pop($history['snapshots']);
+    }
+    
+    $history['lastSaved'] = date('Y-m-d H:i:s');
+    writeJsonFile(HISTORY_FILE, $history);
+}
+
+function getHistory(): array {
+    return readJsonFile(HISTORY_FILE, [
+        'snapshots' => [],
+        'lastSaved' => null
+    ]);
 }
 
 function withStateTransaction(callable $callback): array {
@@ -1119,11 +1182,24 @@ if ($action === 'register_team' && $method === 'POST') {
         }
 
         $teamId = uid();
+        // Crea giocatori nel nuovo formato: {name, isCaptain}
+        // Primo giocatore è capitano per default
+        $players = [];
+        if (!empty($p1)) {
+            $players[] = ['name' => $p1, 'isCaptain' => true];
+        }
+        if (!empty($p2)) {
+            $players[] = ['name' => $p2, 'isCaptain' => false];
+        }
+        if (!empty($p3)) {
+            $players[] = ['name' => $p3, 'isCaptain' => false];
+        }
+
         $state['teams'][] = [
             'id' => $teamId,
             'name' => $name,
             'category' => $category,
-            'players' => [$p1, $p2, $p3],
+            'players' => $players,
             'phone' => $phone,
             'paid' => false,
             'approved' => false,
@@ -1244,7 +1320,32 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                 $team['approved'] = (bool)$body['approved'];
             }
             if (isset($body['players']) && is_array($body['players'])) {
-                $team['players'] = array_values(array_pad(array_slice($body['players'], 0, 3), 3, ''));
+                // Normalizza giocatori: supporta sia string che {name, isCaptain}
+                $config = readConfig();
+                $maxPlayers = $config['tournament']['maxPlayersPerTeam'] ?? 3;
+                $normalizedPlayers = [];
+                foreach (array_slice($body['players'], 0, $maxPlayers) as $player) {
+                    if (is_array($player) && isset($player['name'])) {
+                        // Formato {name, isCaptain}
+                        $name = trim((string)$player['name']);
+                        if ($name !== '') {
+                            $normalizedPlayers[] = [
+                                'name' => $name,
+                                'isCaptain' => (bool)($player['isCaptain'] ?? false)
+                            ];
+                        }
+                    } elseif (is_string($player)) {
+                        // Compatibilità con vecchio formato string
+                        $name = trim($player);
+                        if ($name !== '') {
+                            $normalizedPlayers[] = [
+                                'name' => $name,
+                                'isCaptain' => false
+                            ];
+                        }
+                    }
+                }
+                $team['players'] = $normalizedPlayers;
             }
             if (isset($body['phone'])) {
                 $team['phone'] = trim((string)$body['phone']);
@@ -1706,7 +1807,8 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
             ],
             'display' => [
                 'theme' => 'chiringuito'
-            ]
+            ],
+            'sponsors' => []
         ];
         writeJsonFile(CONFIG_FILE, $emptyConfig);
         
@@ -2125,6 +2227,26 @@ if ($action === 'check_update' && $method === 'GET') {
     ]);
 }
 
+if ($action === 'get_sponsors' && $method === 'GET') {
+    // Endpoint pubblico per ottenere la lista di sponsor da mostrare nel ticker
+    $config = readConfig();
+    $sponsors = $config['sponsors'] ?? [];
+    
+    // Costruisci array di sponsor con path logo
+    $sponsorList = [];
+    foreach ($sponsors as $sponsor) {
+        $sponsorData = [
+            'id' => $sponsor['id'] ?? bin2hex(random_bytes(4)),
+            'name' => $sponsor['name'] ?? 'Sponsor',
+            'repetitions' => (int)($sponsor['repetitions'] ?? 1),
+            'logoFile' => $sponsor['logoFile'] ?? null
+        ];
+        $sponsorList[] = $sponsorData;
+    }
+    
+    jsonResponse(200, ['ok' => true, 'sponsors' => $sponsorList]);
+}
+
 if ($action === 'admin_update_config' && $method === 'POST') {
     $body = bodyJson();
     $config = readConfig();
@@ -2133,6 +2255,9 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         $t = $body['tournament'];
         if (isset($t['name'])) $config['tournament']['name'] = trim((string)$t['name']);
         if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(4, min(100, (int)$t['maxTeams']));
+        if (isset($t['maxPlayersPerTeam'])) $config['tournament']['maxPlayersPerTeam'] = max(1, min(12, (int)$t['maxPlayersPerTeam']));
+        if (isset($t['maxPlayersOnCourt'])) $config['tournament']['maxPlayersOnCourt'] = max(1, min(6, (int)$t['maxPlayersOnCourt']));
+        if (isset($t['maxSubstitutions'])) $config['tournament']['maxSubstitutions'] = ((int)$t['maxSubstitutions'] < 0 ? 0 : (int)$t['maxSubstitutions']);
         if (isset($t['numGroups'])) $config['tournament']['numGroups'] = max(1, min(8, (int)$t['numGroups']));
         if (isset($t['numSets'])) $config['tournament']['numSets'] = ((int)$t['numSets'] === 1 ? 1 : 2);
         if (isset($t['winScore'])) $config['tournament']['winScore'] = max(15, min(30, (int)$t['winScore']));
@@ -2236,6 +2361,9 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
     writeJsonFile(DATA_FILE, $state);
     
+    // Salva snapshot nella history se autosave è abilitato
+    saveToHistory('Aggiornamento configurazione');
+    
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 
@@ -2274,6 +2402,10 @@ if ($action === 'admin_update_schedule' && $method === 'POST') {
     }
     
     writeConfig($config);
+    
+    // Salva snapshot nella history
+    saveToHistory('Aggiornamento schedule e campi');
+    
     jsonResponse(200, ['ok' => true]);
 }
 
@@ -2668,6 +2800,227 @@ HTML;
     } catch (Exception $e) {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore generazione cookie policy: ' . $e->getMessage()]);
     }
+}
+
+// ==================== SPONSOR MANAGEMENT ====================
+
+if ($action === 'admin_update_sponsors' && $method === 'POST') {
+    $body = bodyJson();
+    $config = readConfig();
+    
+    if (isset($body['sponsors']) && is_array($body['sponsors'])) {
+        $sponsors = [];
+        foreach ($body['sponsors'] as $sponsor) {
+            $sponsorData = [
+                'id' => trim((string)($sponsor['id'] ?? bin2hex(random_bytes(4)))),
+                'name' => trim((string)($sponsor['name'] ?? 'Sponsor')),
+                'repetitions' => max(1, min(10, (int)($sponsor['repetitions'] ?? 1))),
+                'logoFile' => $sponsor['logoFile'] ?? null
+            ];
+            if (!empty($sponsorData['name'])) {
+                $sponsors[] = $sponsorData;
+            }
+        }
+        $config['sponsors'] = $sponsors;
+    }
+    
+    writeConfig($config);
+    
+    // Salva snapshot nella history
+    saveToHistory('Aggiornamento sponsor');
+    
+    jsonResponse(200, ['ok' => true, 'sponsors' => $config['sponsors']]);
+}
+
+if ($action === 'admin_upload_sponsor_logo' && $method === 'POST') {
+    if (!isset($_FILES['logoFile'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+    }
+    
+    $file = $_FILES['logoFile'];
+    $sponsorId = $_POST['sponsorId'] ?? null;
+    
+    if (!$sponsorId) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID sponsor mancante']);
+    }
+    
+    // Validazione file
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    if (!in_array($mimeType, $allowedMimes)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Tipo file non supportato']);
+    }
+    
+    if ($file['size'] > 5 * 1024 * 1024) {
+        jsonResponse(422, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+    }
+    
+    // Salva il file
+    $ext = match($mimeType) {
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        default => 'jpg'
+    };
+    
+    $filename = "sponsor-logo-$sponsorId.$ext";
+    $filepath = __DIR__ . "/data/uploads/$filename";
+    
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel caricamento del file']);
+    }
+    
+    // Aggiorna config con il path
+    $config = readConfig();
+    foreach ($config['sponsors'] as &$sponsor) {
+        if ($sponsor['id'] === $sponsorId) {
+            // Cancella il vecchio logo se esiste
+            if (!empty($sponsor['logoFile']) && file_exists(__DIR__ . '/data/uploads/' . basename($sponsor['logoFile']))) {
+                @unlink(__DIR__ . '/data/uploads/' . basename($sponsor['logoFile']));
+            }
+            $sponsor['logoFile'] = "data/uploads/$filename";
+            break;
+        }
+    }
+    writeConfig($config);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'logoFile' => "data/uploads/$filename",
+        'sponsors' => $config['sponsors']
+    ]);
+}
+
+if ($action === 'admin_remove_sponsor' && $method === 'POST') {
+    $body = bodyJson();
+    $sponsorId = $body['sponsorId'] ?? null;
+    
+    if (!$sponsorId) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID sponsor mancante']);
+    }
+    
+    $config = readConfig();
+    
+    // Trova e rimuovi sponsor
+    $found = false;
+    foreach ($config['sponsors'] as $idx => $sponsor) {
+        if ($sponsor['id'] === $sponsorId) {
+            // Cancella il logo se esiste
+            if (!empty($sponsor['logoFile']) && file_exists(__DIR__ . '/data/uploads/' . basename($sponsor['logoFile']))) {
+                @unlink(__DIR__ . '/data/uploads/' . basename($sponsor['logoFile']));
+            }
+            unset($config['sponsors'][$idx]);
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Sponsor non trovato']);
+    }
+    
+    // Reindicizza array
+    $config['sponsors'] = array_values($config['sponsors']);
+    writeConfig($config);
+    
+    jsonResponse(200, ['ok' => true, 'sponsors' => $config['sponsors']]);
+}
+
+// ==================== AUTOSAVE E UNDO ====================
+
+if ($action === 'admin_toggle_autosave' && $method === 'POST') {
+    $body = bodyJson();
+    $config = readConfig();
+    
+    $enabled = (bool)($body['enabled'] ?? false);
+    $intervalSeconds = max(5, min(300, (int)($body['intervalSeconds'] ?? 30)));
+    $maxSteps = max(1, min(100, (int)($body['maxSteps'] ?? 10)));
+    
+    $config['autosave'] = [
+        'enabled' => $enabled,
+        'intervalSeconds' => $intervalSeconds,
+        'maxSteps' => $maxSteps
+    ];
+    
+    writeConfig($config);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'autosave' => $config['autosave'],
+        'message' => $enabled ? 'Autosave abilitato' : 'Autosave disabilitato'
+    ]);
+}
+
+if ($action === 'admin_get_history' && $method === 'GET') {
+    $history = getHistory();
+    
+    // Formatta la cronologia per il frontend
+    $formatted = [];
+    foreach ($history['snapshots'] as $idx => $snapshot) {
+        $formatted[] = [
+            'index' => $idx,
+            'timestamp' => $snapshot['timestamp'],
+            'description' => $snapshot['description'],
+            'canRestore' => $idx > 0 // Non ripristinare lo snapshot corrente (idx 0)
+        ];
+    }
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'lastSaved' => $history['lastSaved'],
+        'snapshots' => $formatted,
+        'totalSnapshots' => count($formatted)
+    ]);
+}
+
+if ($action === 'admin_undo_step' && $method === 'POST') {
+    $body = bodyJson();
+    $steps = max(1, min(100, (int)($body['steps'] ?? 1)));
+    
+    $history = getHistory();
+    
+    if (empty($history['snapshots']) || count($history['snapshots']) <= $steps) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Non ci sono abbastanza passi da annullare']);
+    }
+    
+    // Prendi lo snapshot al passo richiesto
+    $targetSnapshot = $history['snapshots'][$steps];
+    
+    // Ripristina config e state
+    writeJsonFile(CONFIG_FILE, $targetSnapshot['config']);
+    writeJsonFile(DATA_FILE, $targetSnapshot['state']);
+    
+    // Salva questa azione nella history per nuovi step futuri
+    $newHistory = [
+        'snapshots' => [],
+        'lastSaved' => date('Y-m-d H:i:s')
+    ];
+    
+    // Mantieni solo gli snapshot dopo quello ripristinato (es: se undo 1 step, mantieni tutto from index 2+)
+    for ($i = $steps; $i < count($history['snapshots']); $i++) {
+        $newHistory['snapshots'][] = $history['snapshots'][$i];
+    }
+    
+    // Aggiungi uno snapshot del ripristino
+    $newHistory['snapshots'][] = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'description' => "Undo di $steps passo/i - Ripristinato: " . $targetSnapshot['description'],
+        'config' => $targetSnapshot['config'],
+        'state' => $targetSnapshot['state']
+    ];
+    
+    writeJsonFile(HISTORY_FILE, $newHistory);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => "Annullato $steps passo/i",
+        'config' => $targetSnapshot['config'],
+        'state' => $targetSnapshot['state']
+    ]);
 }
 
 jsonResponse(404, ['ok' => false, 'error' => 'Endpoint non trovato']);

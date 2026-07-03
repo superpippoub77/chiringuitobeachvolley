@@ -512,6 +512,33 @@
       <div id="page-phases" class="card page hidden">
         <h3>Configurazione Fasi Torneo</h3>
         <p class="muted">Definisci la struttura del torneo: numero di fasi, tipo (gironi o eliminazione diretta), e parametri specifici per ogni fase.</p>
+        
+        <!-- Guida Workflow -->
+        <div style="background: #ecf5ff; border-left: 4px solid #0078d4; border-radius: 4px; padding: 12px; margin-bottom: 16px">
+          <h4 style="margin-top: 0; color: #003b6f; display: flex; align-items: center; gap: 8px">
+            <span>💡 Come Funziona il Workflow</span>
+          </h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
+            <strong>Fase con Gironi:</strong> Le squadre vengono divise in gironi. Da ogni girone avanzano N squadre (es. le prime 2), 
+            il resto può fare un mini girone di ripescaggio (se abilitato).
+          </p>
+          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
+            <strong>Fase Eliminazione Diretta:</strong> Le squadre giocano in un torneo ad eliminazione (es. 16 → 8 semifinali → 4 semifinali → 2 finale). 
+            Avanzano solo i vincitori.
+          </p>
+          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
+            <strong>Collegamento Fasi:</strong> Le squadre che passano dalla fase precedente entrano in questa. Ripescaggio dalla fase precedente possono 
+            entrare in una fase di ripescaggio separata.
+          </p>
+          <div style="background: white; border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px">
+            <strong>Esempio:</strong> 16 squadre → Fase 1 (4 gironi, top 1) → 4 squadre qualificate → Fase 2 (Semifinali 2v2) → Finale
+          </div>
+        </div>
+
+        <div class="row" style="margin-bottom: 14px">
+          <button class="btn btn-info" onclick="simulateTournament()" style="display: inline-block">🎬 Simula Torneo</button>
+        </div>
+
         <div id="phasesContainer" style="margin-top:10px"></div>
         <div class="row" style="margin-top:14px">
           <button class="btn btn-primary" onclick="addPhase()">+ Aggiungi fase</button>
@@ -2306,36 +2333,24 @@
         return;
       }
 
-      // Crea mappa squadra -> girone per accesso rapido
-      const teamToGroup = {};
-      state.groups.forEach(g => {
-        g.teams.forEach(t => {
-          teamToGroup[t.id] = g.name;
-        });
-      });
+      // HTML per modifica gironi con drag and drop
+      let html = '<p class="muted">🖱️ Trascina le squadre tra i gironi. Le partite verranno rigenerate automaticamente.</p>';
+      html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
-      // Raccoglie tutte le squadre in un'unica lista
-      const allTeams = [];
-      state.groups.forEach(g => {
-        g.teams.forEach(t => {
-          allTeams.push({ ...t, currentGroup: g.name });
-        });
-      });
-
-      // HTML per modifica gironi
-      let html = '<p class="muted">Clicca sul girone di una squadra per spostarla. Le partite verranno rigenerate automaticamente.</p>';
-      html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">';
-
-      allTeams.forEach(team => {
+      state.groups.forEach(group => {
         html += `
-          <div style="border: 1px solid #d8c39f; border-radius: 8px; padding: 10px; background: #f9f3e6">
-            <strong>${escapeHtml(team.name)}</strong>
-            <div style="margin-top: 8px; display: flex; gap: 6px; align-items: center">
-              <label style="font-size: 12px; color: #6b5d45">Girone:</label>
-              <select id="group-${team.id}" style="flex: 1; padding: 6px; border-radius: 4px; border: 1px solid #d8c39f">
-                ${state.groups.map(g => `<option value="${g.name}" ${g.name === team.currentGroup ? 'selected' : ''}>${g.name}</option>`).join('')}
-              </select>
-              <button class="btn btn-primary" style="padding: 6px 10px; font-size: 12px" onclick="updateTeamGroup('${team.id}', '${team.name}')">Sposta</button>
+          <div class="group-drop-zone" data-group="${group.name}" style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0; min-height: 300px; transition: all 0.3s ease">
+            <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px">
+              <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
+              Girone ${group.name}
+            </h4>
+            <div class="group-teams-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 250px; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 4px">
+              ${group.teams.map(team => `
+                <div class="draggable-team" draggable="true" data-team-id="${team.id}" data-team-name="${escapeHtml(team.name)}" data-current-group="${group.name}" style="background: white; border: 1px solid #d8c39f; border-radius: 6px; padding: 10px; cursor: move; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05)">
+                  <strong style="display: block; color: #6b5d45">${escapeHtml(team.name)}</strong>
+                  <small style="color: #999">👥 ${(team.players || []).filter(Boolean).length} giocatori</small>
+                </div>
+              `).join('')}
             </div>
           </div>
         `;
@@ -2343,6 +2358,77 @@
 
       html += '</div>';
       c.innerHTML = html;
+
+      // Aggiungi event listener per drag and drop
+      attachDragDropListeners();
+    }
+
+    function attachDragDropListeners() {
+      const teams = document.querySelectorAll('.draggable-team');
+      const dropZones = document.querySelectorAll('.group-drop-zone');
+
+      teams.forEach(team => {
+        team.addEventListener('dragstart', function(e) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('teamId', this.dataset.teamId);
+          e.dataTransfer.setData('teamName', this.dataset.teamName);
+          e.dataTransfer.setData('fromGroup', this.dataset.currentGroup);
+          this.style.opacity = '0.5';
+          this.style.transform = 'scale(0.95)';
+        });
+
+        team.addEventListener('dragend', function(e) {
+          this.style.opacity = '1';
+          this.style.transform = 'scale(1)';
+          dropZones.forEach(zone => {
+            zone.style.background = '#faf5f0';
+            zone.style.borderColor = '#8b7355';
+          });
+        });
+      });
+
+      dropZones.forEach(zone => {
+        zone.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          this.style.background = '#f0e6d6';
+          this.style.borderColor = '#d8c39f';
+          this.style.boxShadow = '0 0 10px rgba(216, 195, 159, 0.3)';
+        });
+
+        zone.addEventListener('dragleave', function(e) {
+          if (e.target === this) {
+            this.style.background = '#faf5f0';
+            this.style.borderColor = '#8b7355';
+            this.style.boxShadow = 'none';
+          }
+        });
+
+        zone.addEventListener('drop', async function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.style.background = '#faf5f0';
+          this.style.borderColor = '#8b7355';
+          this.style.boxShadow = 'none';
+
+          const teamId = e.dataTransfer.getData('teamId');
+          const teamName = e.dataTransfer.getData('teamName');
+          const fromGroup = e.dataTransfer.getData('fromGroup');
+          const toGroup = this.dataset.group;
+
+          if (fromGroup === toGroup) {
+            return;
+          }
+
+          try {
+            await callApi('admin_move_team_group', 'POST', { teamId, newGroup: toGroup }, true);
+            await refresh();
+            await showInfoDialog('✅ Successo', `${teamName} spostata nel girone ${toGroup}`);
+          } catch (e) {
+            await showInfoDialog('❌ Errore', e.message);
+          }
+        });
+      });
     }
 
     async function updateTeamGroup(teamId, teamName) {
@@ -4092,6 +4178,157 @@
       }
     }
 
+    function simulateTournament() {
+      const phases = config.phases || [];
+      if (phases.length === 0) {
+        showInfoDialog('Attenzione', 'Configura almeno una fase per simulare il torneo');
+        return;
+      }
+
+      let teamsInPlay = 16; // Squadre iniziali (configurabile)
+      let simulationHtml = '<div style="display: flex; gap: 16px; overflow-x: auto; padding: 12px 0">';
+      
+      phases.forEach((phase, idx) => {
+        let phaseData = {
+          name: phase.name || `Fase ${idx + 1}`,
+          type: phase.type,
+          teamsIn: teamsInPlay,
+          teamsAdvance: 0,
+          teamsRepescage: 0,
+          teamsEliminated: 0
+        };
+
+        if (phase.type === 'groups') {
+          const numGroups = phase.numGroups || 4;
+          const teamsPerGroup = phase.teamsAdvance || 2;
+          phaseData.teamsAdvance = numGroups * teamsPerGroup;
+          phaseData.teamsRepescage = phase.hasRepescage ? Math.max(0, 12 - phaseData.teamsAdvance) : 0;
+          phaseData.teamsEliminated = teamsInPlay - phaseData.teamsAdvance;
+        } else {
+          const numTeams = phase.numTeams || 4;
+          phaseData.teamsAdvance = Math.ceil(numTeams / 2);
+          phaseData.teamsEliminated = numTeams - phaseData.teamsAdvance;
+          phaseData.teamsRepescage = 0;
+        }
+
+        // Visualizzazione fase
+        simulationHtml += `
+          <div style="flex-shrink: 0; background: white; border: 2px solid #0078d4; border-radius: 8px; padding: 14px; min-width: 240px; box-shadow: 0 2px 8px rgba(0,120,212,0.15)">
+            <div style="font-weight: bold; color: #0078d4; margin-bottom: 12px; font-size: 14px">
+              🏆 ${escapeHtml(phaseData.name)}
+            </div>
+            <div style="background: #ecf5ff; border-radius: 4px; padding: 8px; margin-bottom: 8px; font-size: 12px">
+              <div style="margin-bottom: 4px"><span style="color: #0078d4">📥 Squadre in ingresso:</span> <strong>${phaseData.teamsIn}</strong></div>
+              <div style="border-top: 1px solid #b3d9ff; padding-top: 6px; margin-top: 6px">
+                <div style="color: #107c10; margin-bottom: 3px">✅ Qualificate: <strong>${phaseData.teamsAdvance}</strong></div>
+                ${phaseData.teamsRepescage > 0 ? `<div style="color: #ffb900; margin-bottom: 3px">🔄 Ripescaggio: <strong>${phaseData.teamsRepescage}</strong></div>` : ''}
+                ${phaseData.teamsEliminated > 0 ? `<div style="color: #d13438">❌ Eliminate: <strong>${phaseData.teamsEliminated}</strong></div>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Aggiungi freccia verso prossima fase
+        if (idx < phases.length - 1) {
+          simulationHtml += '<div style="flex-shrink: 0; display: flex; align-items: center; padding: 0 8px"><div style="font-size: 24px; color: #d8c39f">→</div></div>';
+        }
+
+        // Aggiorna squadre per la prossima fase
+        teamsInPlay = phaseData.teamsAdvance + phaseData.teamsRepescage;
+      });
+
+      simulationHtml += '</div>';
+
+      // Aggiungi nota finale
+      let finalNote = `
+        <div style="background: #f0f0f0; border-radius: 4px; padding: 12px; margin-top: 12px; font-size: 12px; color: #333">
+          <strong>📌 Nota Simulazione:</strong> Questa è una simulazione basata su <strong>16 squadre iniziali</strong>. 
+          I numeri effettivi dipenderanno dalle squadre reali iscritte.
+        </div>
+      `;
+
+      // Mostra modale
+      openModal({
+        title: '🎬 Simulazione Torneo',
+        bodyHtml: simulationHtml + finalNote,
+        buttons: [
+          { text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true }
+        ]
+      });
+    }
+
+    function calculatePhaseFlows() {
+      const phases = config.phases || [];
+      const flows = [];
+      
+      phases.forEach((phase, idx) => {
+        const flow = {
+          phaseNumber: idx + 1,
+          name: phase.name || `Fase ${idx + 1}`,
+          type: phase.type,
+          teamsIn: 0,
+          teamsAdvance: 0,
+          teamsRepescage: 0,
+          teamsEliminated: 0
+        };
+
+        if (phase.type === 'groups') {
+          const numGroups = phase.numGroups || 4;
+          const teamsPerGroup = phase.teamsAdvance || 2;
+          flow.teamsAdvance = numGroups * teamsPerGroup;
+          flow.teamsRepescage = phase.hasRepescage ? (12 - flow.teamsAdvance) : 0;
+          flow.teamsEliminated = 0;
+        } else {
+          flow.teamsAdvance = Math.ceil((phase.numTeams || 4) / 2);
+          flow.teamsEliminated = (phase.numTeams || 4) - flow.teamsAdvance;
+          flow.teamsRepescage = 0;
+        }
+
+        flows.push(flow);
+      });
+
+      // Calcola i team in ingresso
+      if (flows.length > 0) {
+        flows[0].teamsIn = 16; // Assunto: torneo inizia con 16 squadre (o configurabile)
+        for (let i = 1; i < flows.length; i++) {
+          flows[i].teamsIn = flows[i - 1].teamsAdvance + flows[i - 1].teamsRepescage;
+        }
+      }
+
+      return flows;
+    }
+
+    function renderPhaseWorkflow() {
+      const flows = calculatePhaseFlows();
+      if (flows.length === 0) return '';
+
+      let html = '<div style="background: #f9f3e6; border-radius: 8px; padding: 12px; margin-bottom: 16px">';
+      html += '<h4 style="margin-top: 0; color: #6b5d45">📊 Workflow Torneo</h4>';
+      html += '<div style="display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 8px 0">';
+
+      flows.forEach((flow, idx) => {
+        const nextFlow = flows[idx + 1];
+        html += `
+          <div style="flex-shrink: 0; background: white; border: 2px solid #d8c39f; border-radius: 6px; padding: 10px; min-width: 200px">
+            <div style="font-weight: bold; color: #6b5d45; margin-bottom: 8px">🏆 ${flow.name}</div>
+            <div style="font-size: 12px; color: #666">
+              <div><span style="color: #0078d4">📥 In:</span> ${flow.teamsIn}</div>
+              <div><span style="color: #107c10">✅ Qualificate:</span> ${flow.teamsAdvance}</div>
+              ${flow.teamsRepescage > 0 ? `<div><span style="color: #ffb900">🔄 Ripescaggio:</span> ${flow.teamsRepescage}</div>` : ''}
+              ${flow.teamsEliminated > 0 ? `<div><span style="color: #d13438">❌ Eliminate:</span> ${flow.teamsEliminated}</div>` : ''}
+            </div>
+          </div>
+        `;
+
+        if (idx < flows.length - 1) {
+          html += '<div style="flex-shrink: 0; font-size: 20px; color: #d8c39f">→</div>';
+        }
+      });
+
+      html += '</div></div>';
+      return html;
+    }
+
     function renderPhases() {
       const c = document.getElementById('phasesContainer');
       const phases = config.phases || [];
@@ -4101,7 +4338,8 @@
         return;
       }
 
-      let html = '<div class="phases-list">';
+      let html = renderPhaseWorkflow();
+      html += '<div class="phases-list">';
       phases.forEach((phase, idx) => {
         html += `<div class="card" style="background: #f5f5f5; margin-bottom: 12px; padding: 12px">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">

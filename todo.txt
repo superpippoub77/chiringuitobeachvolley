@@ -68,3 +68,6 @@ I parametri di PHPMail devono essere configurati da pannello di controllo ✅ [R
 Evitare che dati sensibili posano essere recuperati dai file json eventualmente crittografare? con parola cifrata scelta in configurazione?✅
 Quando si configura un nuovo torneo mi piacerebbe partire con un Wizard che inserisce i dati di configurazione blocco per blocco a stepper, con la possibilità di muoversi avanti ed indietro e man mano salvare, cosa dici?✅
 Fammi anche la verioen theme più squadrata come metro da aggiungere nella scelta del tema✅
+Quando ho creato la una fase con gironi e squadre dammi la possibilità con drag and drop di spostare eventualmente una o più squadre dove voglio✅
+Come posso intrurre in una fase e definiere quante squadre passano e quante fanno un mini girone di ripescaggio e lo step successivo cosa fare...una specie di workflow del torneo di come deve andare, gestiscei bene le fasi che inserisco✅
+Man mano che costruisco le fasi mettimi un pusalnte simula✅

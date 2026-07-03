@@ -62,3 +62,4 @@ Nella landing page il box Nome Torneo (opzionale) non è fomrattato come le altr
 Nel pannello di controllo del programma principale beachmaster devo aver la possibilità di cancellare i tornei o disabilitarli✅
 E' possibile che solo per beachbaster che la pagina landing.html sia la home e se voglio andare sulla index.html devo scriverlo nella url✅
 Come mai anche se il sito non ha un torneo viene proposta la index con chiriguito torneo lui&Lei, countdown, ecc.✅
+Il sistema di invio mail non funziona (controlla che parta con mailto), non funziona ne in fase di iscrizione di generazione torneo di recupero per codice , da nessuna parte, per ogni azioni restituisci un popup o qualcosa con scritto cosa ha fatto altrimenti non si capisce✅

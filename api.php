@@ -77,10 +77,12 @@ function getBackgroundFile(): string {
     return 'images/default/bg.png';
 }
 
-function sendEmail(string $to, string $subject, string $body, string $from = ''): bool {
+function sendEmail(string $to, string $subject, string $body, string $from = ''): array {
     // Validazione email
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        return false;
+        $logMessage = date('Y-m-d H:i:s') . " - FAILED: Email destinatario non valida: $to\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => false, 'error' => 'Email destinatario non valida', 'to' => $to];
     }
     
     $headers = "MIME-Version: 1.0\r\n";
@@ -88,10 +90,23 @@ function sendEmail(string $to, string $subject, string $body, string $from = '')
     
     if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
         $headers .= "From: $from\r\n";
+    } else {
+        $headers .= "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'beachmaster.local') . "\r\n";
     }
     
-    // Invia email
-    return @mail($to, $subject, $body, $headers);
+    // Invia email - usa mail() nativa PHP
+    $result = @mail($to, $subject, $body, $headers);
+    
+    // Log del risultato
+    if ($result) {
+        $logMessage = date('Y-m-d H:i:s') . " - SUCCESS: Email inviata a $to (Subject: $subject)\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to];
+    } else {
+        $logMessage = date('Y-m-d H:i:s') . " - FAILED: mail() ritornò false per $to (Subject: $subject)\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => false, 'error' => 'Impossibile inviare email - verifica la configurazione del server', 'to' => $to];
+    }
 }
 
 function defaultConfig(): array {
@@ -1224,7 +1239,9 @@ if ($action === 'register_team' && $method === 'POST') {
     $config = readConfig();
     $managerEmail = $config['contact']['managerEmail'] ?? '';
 
-    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail) {
+    $emailResult = null;
+
+    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -1261,6 +1278,8 @@ if ($action === 'register_team' && $method === 'POST') {
         ];
 
         // Invia email al gestore se configurato
+        $emailResult = ['success' => false, 'message' => 'Email del gestore non configurata'];
+        
         if (!empty($managerEmail)) {
             $subject = '📋 Nuova iscrizione squadra al torneo';
             $body = <<<HTML
@@ -1313,13 +1332,29 @@ if ($action === 'register_team' && $method === 'POST') {
 </body>
 </html>
 HTML;
-            sendEmail($managerEmail, $subject, $body);
+            $emailResult = sendEmail($managerEmail, $subject, $body);
         }
 
-        return ['message' => 'Registrazione inviata. In attesa approvazione admin.'];
+        return ['message' => 'Squadra registrata con successo'];
     });
 
-    jsonResponse(200, ['ok' => true, 'message' => 'Registrazione inviata. In attesa approvazione admin.']);
+    $response = [
+        'ok' => true,
+        'message' => '✅ Squadra registrata con successo'
+    ];
+    
+    // Aggiungi dettagli email se presente
+    if ($emailResult) {
+        if ($emailResult['success']) {
+            $response['emailStatus'] = 'success';
+            $response['emailMessage'] = '📧 Conferma inviata al gestore';
+        } else {
+            $response['emailStatus'] = 'warning';
+            $response['emailMessage'] = '⚠️ Squadra registrata, ma email al gestore non disponibile';
+        }
+    }
+
+    jsonResponse(200, $response);
 }
 
 if ($action === 'admin_login' && $method === 'POST') {
@@ -3675,6 +3710,37 @@ function copyDirectory(string $src, string $dst): bool {
     return true;
 }
 
+// TEST EMAIL - verifica se il sistema di email è funzionante
+if ($action === 'test_email' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $testEmail = trim((string)($body['testEmail'] ?? ''));
+        
+        if (!filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Email non valida']);
+        }
+        
+        $subject = '🧪 Test Email - BeachMaster System';
+        $htmlBody = "<html><body style='font-family: Arial, sans-serif; background: #f3ead8; padding: 20px'><div style='background: white; border-radius: 8px; padding: 30px; max-width: 500px; margin: 0 auto'><h2 style='color: #201c14; text-align: center'>✅ Email Test Successful</h2><p style='color: #6a5737; line-height: 1.6'>Questo è un email di test dal sistema BeachMaster.</p><p style='color: #6a5737; line-height: 1.6'><strong>⏰ Timestamp:</strong> " . date('Y-m-d H:i:s') . "</p><p style='color: #6a5737; line-height: 1.6'>Se ricevi questo messaggio, il sistema di email è configurato correttamente.</p><hr style='border: none; border-top: 1px solid #d9bf8c; margin: 20px 0'><p style='color: #6a5737; font-size: 12px; text-align: center'>BeachMaster • Gestione Tornei di Beach Volley</p></div></body></html>";
+        
+        $emailResult = sendEmail($testEmail, $subject, $htmlBody);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'success' => $emailResult['success'],
+            'message' => $emailResult['success'] ? '✅ Email inviata con successo - controlla la casella di posta' : '❌ Impossibile inviare email',
+            'to' => $testEmail,
+            'details' => $emailResult
+        ]);
+    } catch (Throwable $e) {
+        error_log('test_email error: ' . $e->getMessage());
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore test email: ' . $e->getMessage()
+        ]);
+    }
+}
+
 // Crea torneo MULTI-TENANT
 if ($action === 'create_tournament' && $method === 'POST') {
     $body = bodyJson();
@@ -3850,17 +3916,25 @@ if ($action === 'request_control_panel_access' && $method === 'POST') {
         ];
         writeTournamentsRegistry($registry);
         
-        // Invia email con il codice (in modalità test, restituisci il codice nella risposta)
+        // Invia email con il codice
         $subject = 'Codice di Accesso - Pannello di Controllo BeachMaster';
         $htmlBody = "<html><body style='font-family: Arial, sans-serif; background: #f3ead8; padding: 20px'><div style='background: white; border-radius: 8px; padding: 30px; max-width: 500px; margin: 0 auto'><h2 style='color: #201c14; text-align: center'>🔐 Codice di Accesso</h2><p style='color: #6a5737; line-height: 1.6'>Ciao,</p><p style='color: #6a5737; line-height: 1.6'>Hai richiesto l'accesso al pannello di controllo di BeachMaster. Usa il codice seguente per accedere:</p><div style='background: #f0f0f0; border: 2px solid #ea5b0c; border-radius: 6px; padding: 15px; text-align: center; margin: 20px 0'><h1 style='color: #ea5b0c; margin: 0; font-size: 2.5rem; letter-spacing: 2px'>$secretCode</h1></div><p style='color: #6a5737; line-height: 1.6'><strong>⏰ Questo codice scade in 1 ora.</strong></p><p style='color: #6a5737; line-height: 1.6'>Se non hai richiesto questo codice, ignora questo messaggio.</p><hr style='border: none; border-top: 1px solid #d9bf8c; margin: 20px 0'><p style='color: #6a5737; font-size: 12px; text-align: center'>BeachMaster • Gestione Tornei di Beach Volley</p></div></body></html>";
         
-        $emailSent = sendEmail($managerEmail, $subject, $htmlBody);
+        $emailResult = sendEmail($managerEmail, $subject, $htmlBody);
         
-        // Per ora, restituisci sempre successo per debug
-        jsonResponse(200, [
-            'ok' => true,
-            'message' => 'Codice inviato via email'
-        ]);
+        // Restituisci feedback con dettagli email
+        $response = ['ok' => true];
+        
+        if ($emailResult['success']) {
+            $response['message'] = '✅ Codice inviato via email';
+            $response['emailStatus'] = 'success';
+        } else {
+            $response['message'] = '✅ Codice generato (verifica email in entrata)';
+            $response['emailStatus'] = 'warning';
+            $response['emailError'] = $emailResult['error'] ?? 'Email non disponibile';
+        }
+        
+        jsonResponse(200, $response);
     } catch (Throwable $e) {
         error_log('request_control_panel_access error: ' . $e->getMessage());
         jsonResponse(500, [

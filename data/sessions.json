@@ -39,6 +39,12 @@
         "c861e8e8ee49b723efe7d5c3a0459270e3343abd",
         "d8e9b5876acb7cc3eca76caf7789efe2f7c690eb",
         "03c2e945b1ab1963198b4e34933d8d811d0c9c88",
-        "db298ce603cdbb0852ff3000641a8a1a4c645488"
+        "db298ce603cdbb0852ff3000641a8a1a4c645488",
+        {
+            "token": "9faa60aed888b6647ca92bae7faf275d9c593441",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-03 10:42:32"
+        }
     ]
 }

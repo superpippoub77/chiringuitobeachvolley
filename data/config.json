@@ -1,7 +1,7 @@
 {
     "tournament": {
-        "name": "",
-        "maxTeams": 0,
+        "name": "Test Tournament",
+        "maxTeams": 16,
         "maxPlayersPerTeam": 3,
         "maxPlayersOnCourt": 2,
         "maxSubstitutions": 0,
@@ -18,7 +18,7 @@
     },
     "phases": [],
     "contact": {
-        "managerEmail": ""
+        "managerEmail": "admin@test.com"
     },
     "display": {
         "theme": "chiringuito"

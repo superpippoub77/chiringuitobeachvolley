@@ -624,10 +624,18 @@
         showLoading('cpLoadingIndicator', false);
         document.getElementById('cpInitialButton').style.display = 'none';
         document.getElementById('cpCodeSection').style.display = 'block';
-        showError('✅ Codice inviato via email! Controlla la tua casella di posta.');
+        
+        // Mostra feedback email dalla risposta API
+        let feedbackMessage = '✅ Codice generato!';
+        if (data.emailStatus === 'success') {
+          feedbackMessage = '✅ Codice inviato via email! Controlla la tua casella di posta.';
+        } else if (data.emailStatus === 'warning') {
+          feedbackMessage = '⚠️ Codice generato, ma l\'email potrebbe non funzionare. Verifica con l\'amministratore.';
+        }
+        showError(feedbackMessage);
         
       } catch (e) {
-        showError(e.message);
+        showError('❌ ' + e.message);
       } finally {
         showLoading('cpLoadingIndicator', false);
       }

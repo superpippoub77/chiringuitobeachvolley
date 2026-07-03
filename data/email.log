@@ -1,0 +1,3 @@
+2026-07-03 10:42:02 - FAILED: mail() ritornò false per test@example.com (Subject: 🧪 Test Email - BeachMaster System)
+2026-07-03 10:42:52 - FAILED: mail() ritornò false per admin@test.com (Subject: 📋 Nuova iscrizione squadra al torneo)
+2026-07-03 10:42:56 - FAILED: mail() ritornò false per manager@example.com (Subject: Codice di Accesso - Pannello di Controllo BeachMaster)

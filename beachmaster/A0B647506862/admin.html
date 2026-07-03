@@ -1056,6 +1056,9 @@
               <label>Email del gestore (riceve notifiche iscrizioni)</label>
               <input id="cfg-managerEmail" type="email" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
               <small style="color: #666; display: block; margin-top: 4px">Riceverai una mail ogni volta che una squadra si iscrive</small>
+              <button class="btn" style="width: 100%; margin-top: 8px; background: #2196F3; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer" onclick="testEmailSend()">
+                🧪 Testa Email
+              </button>
             </div>
           </div>
 
@@ -1498,6 +1501,33 @@
         await renderSettings();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function testEmailSend() {
+      const managerEmail = document.getElementById('cfg-managerEmail').value.trim();
+      
+      if (!managerEmail) {
+        await showInfoDialog('Email non configurata', 'Inserisci un\'email prima di testare il sistema.');
+        return;
+      }
+      
+      try {
+        const result = await callApi('test_email', 'POST', { testEmail: managerEmail }, false);
+        
+        if (result.success) {
+          await showInfoDialog(
+            '✅ Test Email Riuscito',
+            `Email inviata con successo a:\n${managerEmail}\n\nVerifica la tua casella di posta (includi lo spam).\n\nDettagli:\n${result.details?.message || 'Email inviata'}`
+          );
+        } else {
+          await showInfoDialog(
+            '❌ Errore di Invio',
+            `Impossibile inviare email a ${managerEmail}\n\nErrore: ${result.details?.error || 'Errore sconosciuto'}\n\nVerifica la configurazione del server email.`
+          );
+        }
+      } catch (e) {
+        await showInfoDialog('❌ Errore Test Email', e.message || 'Errore sconosciuto nel test');
       }
     }
 

@@ -1104,7 +1104,13 @@
         console.log('Registrazione squadra...', { name, player1, player2, player3, phone });
         const r = await api('register_team', 'POST', { name, player1, player2, player3, phone, category: 'Misto' });
         console.log('Risposta API:', r);
-        await showInfoDialog('Iscrizione inviata', (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.');
+        
+        let message = (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.';
+        if (r && r.emailMessage) {
+          message += '\n\n' + r.emailMessage;
+        }
+        
+        await showInfoDialog('✅ Iscrizione inviata', message);
         document.getElementById('fName').value = '';
         document.getElementById('fP1').value = '';
         document.getElementById('fP2').value = '';
@@ -1119,7 +1125,7 @@
         }
       } catch (e) {
         console.error('Errore registrazione:', e);
-        await showInfoDialog('Errore', e && e.message ? e.message : 'Errore sconosciuto');
+        await showInfoDialog('❌ Errore', e && e.message ? e.message : 'Errore sconosciuto');
       }
     }
 

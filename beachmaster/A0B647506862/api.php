@@ -77,10 +77,12 @@ function getBackgroundFile(): string {
     return 'images/default/bg.png';
 }
 
-function sendEmail(string $to, string $subject, string $body, string $from = ''): bool {
+function sendEmail(string $to, string $subject, string $body, string $from = ''): array {
     // Validazione email
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        return false;
+        $logMessage = date('Y-m-d H:i:s') . " - FAILED: Email destinatario non valida: $to\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => false, 'error' => 'Email destinatario non valida', 'to' => $to];
     }
     
     $headers = "MIME-Version: 1.0\r\n";
@@ -88,10 +90,23 @@ function sendEmail(string $to, string $subject, string $body, string $from = '')
     
     if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
         $headers .= "From: $from\r\n";
+    } else {
+        $headers .= "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'beachmaster.local') . "\r\n";
     }
     
-    // Invia email
-    return @mail($to, $subject, $body, $headers);
+    // Invia email - usa mail() nativa PHP
+    $result = @mail($to, $subject, $body, $headers);
+    
+    // Log del risultato
+    if ($result) {
+        $logMessage = date('Y-m-d H:i:s') . " - SUCCESS: Email inviata a $to (Subject: $subject)\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to];
+    } else {
+        $logMessage = date('Y-m-d H:i:s') . " - FAILED: mail() ritornò false per $to (Subject: $subject)\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return ['success' => false, 'error' => 'Impossibile inviare email - verifica la configurazione del server', 'to' => $to];
+    }
 }
 
 function defaultConfig(): array {
@@ -1215,7 +1230,9 @@ if ($action === 'register_team' && $method === 'POST') {
     $config = readConfig();
     $managerEmail = $config['contact']['managerEmail'] ?? '';
 
-    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail) {
+    $emailResult = null;
+
+    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -1252,6 +1269,8 @@ if ($action === 'register_team' && $method === 'POST') {
         ];
 
         // Invia email al gestore se configurato
+        $emailResult = ['success' => false, 'message' => 'Email del gestore non configurata'];
+        
         if (!empty($managerEmail)) {
             $subject = '📋 Nuova iscrizione squadra al torneo';
             $body = <<<HTML
@@ -1304,13 +1323,29 @@ if ($action === 'register_team' && $method === 'POST') {
 </body>
 </html>
 HTML;
-            sendEmail($managerEmail, $subject, $body);
+            $emailResult = sendEmail($managerEmail, $subject, $body);
         }
 
-        return ['message' => 'Registrazione inviata. In attesa approvazione admin.'];
+        return ['message' => 'Squadra registrata con successo'];
     });
 
-    jsonResponse(200, ['ok' => true, 'message' => 'Registrazione inviata. In attesa approvazione admin.']);
+    $response = [
+        'ok' => true,
+        'message' => '✅ Squadra registrata con successo'
+    ];
+    
+    // Aggiungi dettagli email se presente
+    if ($emailResult) {
+        if ($emailResult['success']) {
+            $response['emailStatus'] = 'success';
+            $response['emailMessage'] = '📧 Conferma inviata al gestore';
+        } else {
+            $response['emailStatus'] = 'warning';
+            $response['emailMessage'] = '⚠️ Squadra registrata, ma email al gestore non disponibile';
+        }
+    }
+
+    jsonResponse(200, $response);
 }
 
 if ($action === 'admin_login' && $method === 'POST') {

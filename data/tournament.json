@@ -1,5 +1,33 @@
 {
-    "teams": [],
+    "settings": {
+        "maxTeams": 16,
+        "tournamentName": "Test Tournament"
+    },
+    "teams": [
+        {
+            "id": "44a61ec3fe82b2c5",
+            "name": "Test Team",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Mario",
+                    "isCaptain": true
+                },
+                {
+                    "name": "Luigi",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Peach",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": false,
+            "approved": false,
+            "createdAt": "2026-07-03T10:42:52+00:00"
+        }
+    ],
     "groups": [],
     "groupMatches": [],
     "playoff": {
@@ -8,9 +36,8 @@
         "thirdPlace": null,
         "final": null
     },
-    "standings": [],
     "finalRanking": [],
     "meta": {
-        "lastUpdated": "2026-07-02T15:28:43+00:00"
+        "lastUpdated": "2026-07-03T10:42:52+00:00"
     }
 }

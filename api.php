@@ -108,10 +108,12 @@ function sendEmailViaPHPMailer(string $to, string $subject, string $body, string
     try {
         require_once __DIR__ . '/vendor/autoload.php';
         
-        $emailConfig = include __DIR__ . '/config/email-config.php';
+        // Leggi la configurazione email da config.json
+        $config = readConfig();
+        $emailConfig = $config['email'] ?? [];
         
         // Se email è disabilitata, non inviare
-        if (!$emailConfig['enabled']) {
+        if (!($emailConfig['enabled'] ?? false)) {
             $logMessage = date('Y-m-d H:i:s') . " - SKIPPED: Email disabilitata nella configurazione\n";
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
             return ['success' => false, 'error' => 'Email non configurata nel pannello admin', 'to' => $to, 'queue' => true];
@@ -119,27 +121,31 @@ function sendEmailViaPHPMailer(string $to, string $subject, string $body, string
         
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         
-        // Imposta il servizio SMTP
-        $service = $emailConfig['service'];
-        $smtpConfig = $emailConfig[$service] ?? $emailConfig['custom'];
+        // Imposta i parametri SMTP direttamente da config
+        $host = trim((string)($emailConfig['host'] ?? ''));
+        $port = (int)($emailConfig['port'] ?? 587);
+        $username = trim((string)($emailConfig['username'] ?? ''));
+        $password = trim((string)($emailConfig['password'] ?? ''));
         
-        $mail->isSMTP();
-        $mail->Host = $smtpConfig['host'];
-        $mail->SMTPAuth = $smtpConfig['auth'];
-        $mail->Username = $smtpConfig['username'];
-        $mail->Password = $smtpConfig['password'];
-        $mail->SMTPSecure = $smtpConfig['secure'] ?: \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = $smtpConfig['port'];
-        $mail->Timeout = $emailConfig['timeout'];
-        
-        // Imposta debug se abilitato
-        if ($emailConfig['debug']) {
-            $mail->SMTPDebug = 2;
+        if (empty($host) || empty($username) || empty($password)) {
+            $logMessage = date('Y-m-d H:i:s') . " - FAILED: Parametri SMTP incompleti in config.json\n";
+            @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+            return ['success' => false, 'error' => 'Configurazione SMTP incompleta', 'to' => $to, 'queue' => true];
         }
         
+        $mail->isSMTP();
+        $mail->Host = $host;
+        $mail->SMTPAuth = (bool)($emailConfig['auth'] ?? true);
+        $mail->Username = $username;
+        $mail->Password = $password;
+        $secure = trim((string)($emailConfig['secure'] ?? 'tls'));
+        $mail->SMTPSecure = ($secure === 'ssl') ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = $port;
+        $mail->Timeout = (int)($emailConfig['timeout'] ?? 10);
+        
         // Mittente
-        $senderEmail = $emailConfig['from']['email'];
-        $senderName = $emailConfig['from']['name'];
+        $senderEmail = trim((string)($emailConfig['fromEmail'] ?? 'noreply@beachmaster.local'));
+        $senderName = trim((string)($emailConfig['fromName'] ?? 'BeachMaster'));
         $mail->setFrom($senderEmail, $senderName);
         
         if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
@@ -266,6 +272,19 @@ function defaultConfig(): array {
             'enabled' => false,
             'intervalSeconds' => 30,
             'maxSteps' => 10
+        ],
+        'email' => [
+            'enabled' => false,
+            'service' => 'gmail',
+            'host' => '',
+            'port' => 587,
+            'secure' => 'tls',
+            'auth' => true,
+            'username' => '',
+            'password' => '',
+            'fromEmail' => 'noreply@beachmaster.local',
+            'fromName' => 'BeachMaster',
+            'timeout' => 10
         ]
     ];
 }
@@ -350,6 +369,14 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
         $merged['autosave'] = array_merge(
             $defaultConfig['autosave'] ?? [],
             $existingConfig['autosave']
+        );
+    }
+    
+    // Preserva email settings
+    if (isset($existingConfig['email'])) {
+        $merged['email'] = array_merge(
+            $defaultConfig['email'] ?? [],
+            $existingConfig['email']
         );
     }
     
@@ -2601,6 +2628,22 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         }
     }
     
+    // Gestione configurazione email
+    if (isset($body['email']) && is_array($body['email'])) {
+        $emailCfg = $body['email'];
+        $config['email']['enabled'] = (bool)($emailCfg['enabled'] ?? false);
+        $config['email']['service'] = trim((string)($emailCfg['service'] ?? 'gmail'));
+        $config['email']['host'] = trim((string)($emailCfg['host'] ?? ''));
+        $config['email']['port'] = (int)($emailCfg['port'] ?? 587);
+        $config['email']['secure'] = in_array($emailCfg['secure'] ?? 'tls', ['tls', 'ssl']) ? $emailCfg['secure'] : 'tls';
+        $config['email']['auth'] = (bool)($emailCfg['auth'] ?? true);
+        $config['email']['username'] = trim((string)($emailCfg['username'] ?? ''));
+        $config['email']['password'] = trim((string)($emailCfg['password'] ?? ''));
+        $config['email']['fromEmail'] = trim((string)($emailCfg['fromEmail'] ?? 'noreply@beachmaster.local'));
+        $config['email']['fromName'] = trim((string)($emailCfg['fromName'] ?? 'BeachMaster'));
+        $config['email']['timeout'] = (int)($emailCfg['timeout'] ?? 10);
+    }
+    
     writeConfig($config);
     
     // Aggiorna anche lo state con le nuove impostazioni da config
@@ -2679,6 +2722,81 @@ if ($action === 'admin_reschedule_matches' && $method === 'POST') {
     });
     
     jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_update_email_config' && $method === 'POST') {
+    validSession();
+    
+    $body = bodyJson();
+    $config = readConfig();
+    
+    // Valida host
+    if (empty($body['host'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Host SMTP è obbligatorio']);
+    }
+    
+    // Valida email mittente
+    if (!filter_var($body['fromEmail'], FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Email mittente non valida']);
+    }
+    
+    // Valida port
+    $port = (int)($body['port'] ?? 587);
+    if ($port < 1 || $port > 65535) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Porta SMTP non valida']);
+    }
+    
+    // Valida secure
+    $secure = $body['secure'] ?? 'tls';
+    if (!in_array($secure, ['tls', 'ssl'])) {
+        $secure = 'tls';
+    }
+    
+    // Aggiorna configurazione email
+    $config['email'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'service' => trim((string)($body['service'] ?? 'gmail')),
+        'host' => trim((string)($body['host'] ?? '')),
+        'port' => $port,
+        'secure' => $secure,
+        'auth' => (bool)($body['auth'] ?? true),
+        'username' => trim((string)($body['username'] ?? '')),
+        'password' => trim((string)($body['password'] ?? '')),
+        'fromEmail' => trim((string)($body['fromEmail'] ?? 'noreply@beachmaster.local')),
+        'fromName' => trim((string)($body['fromName'] ?? 'BeachMaster')),
+        'timeout' => (int)($body['timeout'] ?? 10)
+    ];
+    
+    writeConfig($config);
+    
+    // Salva snapshot nella history
+    saveToHistory('Aggiornamento configurazione email');
+    
+    jsonResponse(200, ['ok' => true, 'message' => 'Configurazione email salvata con successo']);
+}
+
+if ($action === 'admin_test_email_config' && $method === 'POST') {
+    validSession();
+    
+    $body = bodyJson();
+    $testEmail = trim((string)($body['testEmail'] ?? ''));
+    
+    // Valida email
+    if (!filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Email di test non valida']);
+    }
+    
+    // Invia email di test
+    $subject = '[BeachMaster] Test Email Configuration';
+    $body = '<h2>Email Configuration Test</h2><p>Se ricevi questo messaggio, la configurazione email è corretta!</p><p>Timestamp: ' . date('Y-m-d H:i:s') . '</p>';
+    
+    $result = sendEmail($testEmail, $subject, $body);
+    
+    if ($result['success']) {
+        jsonResponse(200, ['ok' => true, 'message' => 'Email di test inviata con successo!']);
+    } else {
+        jsonResponse(422, ['ok' => false, 'error' => 'Errore durante l\'invio: ' . ($result['error'] ?? 'Errore sconosciuto'), 'details' => $result]);
+    }
 }
 
 if ($action === 'admin_generate_regolamento' && $method === 'POST') {

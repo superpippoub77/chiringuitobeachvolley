@@ -1062,6 +1062,65 @@
             </div>
           </div>
 
+          <div class="card" style="background: #e8ecf1; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">📧 Configurazione Email SMTP</h4>
+            <p class="muted">Configura i parametri SMTP per inviare email. Se non configurata, le email verranno salvate in coda.</p>
+            
+            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
+              <div style="margin-bottom: 12px">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold">
+                  <input type="checkbox" id="emailEnabled" ${config.email?.enabled ? 'checked' : ''}>
+                  <span>Abilita invio email via SMTP</span>
+                </label>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; opacity: ${config.email?.enabled ? '1' : '0.5'}; pointer-events: ${config.email?.enabled ? 'auto' : 'none'}">
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Host SMTP</label>
+                  <input type="text" id="emailHost" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Porta</label>
+                  <input type="number" id="emailPort" value="${config.email?.port || 587}" min="1" max="65535" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Username</label>
+                  <input type="text" id="emailUsername" value="${config.email?.username || ''}" placeholder="your-email@gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Password</label>
+                  <input type="password" id="emailPassword" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
+                  <input type="email" id="emailFromEmail" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Nome Mittente</label>
+                  <input type="text" id="emailFromName" value="${config.email?.fromName || 'BeachMaster'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Secure (TLS/SSL)</label>
+                  <select id="emailSecure" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                    <option value="tls" ${config.email?.secure === 'tls' ? 'selected' : ''}>TLS (587)</option>
+                    <option value="ssl" ${config.email?.secure === 'ssl' ? 'selected' : ''}>SSL (465)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Timeout (secondi)</label>
+                  <input type="number" id="emailTimeout" value="${config.email?.timeout || 10}" min="5" max="60" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                </div>
+              </div>
+              
+              <div class="row" style="margin-top: 12px; gap: 8px">
+                <button class="btn btn-primary" onclick="saveEmailConfig()" style="flex: 1">💾 Salva Configurazione Email</button>
+                <button class="btn btn-info" onclick="testEmailConfiguration()" style="flex: 1">🧪 Testa Configurazione</button>
+              </div>
+              
+              <div id="emailConfigStatus" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none"></div>
+            </div>
+          </div>
+
           <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
             <h4 style="margin-top: 0">Schedule Giorni</h4>
             <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
@@ -1528,6 +1587,133 @@
         }
       } catch (e) {
         await showInfoDialog('❌ Errore Test Email', e.message || 'Errore sconosciuto nel test');
+      }
+    }
+
+    async function saveEmailConfig() {
+      try {
+        const enabled = document.getElementById('emailEnabled').checked;
+        const host = document.getElementById('emailHost').value.trim();
+        const port = parseInt(document.getElementById('emailPort').value) || 587;
+        const username = document.getElementById('emailUsername').value.trim();
+        const password = document.getElementById('emailPassword').value;
+        const fromEmail = document.getElementById('emailFromEmail').value.trim();
+        const fromName = document.getElementById('emailFromName').value.trim();
+        const secure = document.getElementById('emailSecure').value;
+        const timeout = parseInt(document.getElementById('emailTimeout').value) || 10;
+        
+        // Validazione base
+        if (enabled) {
+          if (!host) {
+            await showInfoDialog('❌ Errore', 'Host SMTP è obbligatorio');
+            return;
+          }
+          if (!username) {
+            await showInfoDialog('❌ Errore', 'Username è obbligatorio');
+            return;
+          }
+          if (!password) {
+            await showInfoDialog('❌ Errore', 'Password è obbligatoria');
+            return;
+          }
+          if (!fromEmail.includes('@')) {
+            await showInfoDialog('❌ Errore', 'Email mittente non valida');
+            return;
+          }
+        }
+        
+        const payload = {
+          email: {
+            enabled,
+            service: 'custom',
+            host,
+            port,
+            secure,
+            auth: true,
+            username,
+            password,
+            fromEmail,
+            fromName,
+            timeout
+          }
+        };
+        
+        // Salva via admin_update_config
+        const result = await callApi('admin_update_config', 'POST', payload, true);
+        
+        const statusDiv = document.getElementById('emailConfigStatus');
+        if (result.ok) {
+          statusDiv.style.display = 'block';
+          statusDiv.style.background = '#c8e6c9';
+          statusDiv.style.color = '#2e7d32';
+          statusDiv.textContent = '✅ Configurazione email salvata con successo!';
+          setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+        } else {
+          statusDiv.style.display = 'block';
+          statusDiv.style.background = '#ffcdd2';
+          statusDiv.style.color = '#c62828';
+          statusDiv.textContent = '❌ Errore nel salvataggio: ' + (result.error || 'Errore sconosciuto');
+          setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+        }
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Errore nel salvataggio della configurazione email: ' + e.message);
+      }
+    }
+
+    async function testEmailConfiguration() {
+      try {
+        const emailConfig = {
+          enabled: document.getElementById('emailEnabled').checked,
+          host: document.getElementById('emailHost').value.trim(),
+          port: parseInt(document.getElementById('emailPort').value) || 587,
+          username: document.getElementById('emailUsername').value.trim(),
+          password: document.getElementById('emailPassword').value,
+          fromEmail: document.getElementById('emailFromEmail').value.trim(),
+          fromName: document.getElementById('emailFromName').value.trim(),
+          secure: document.getElementById('emailSecure').value,
+          timeout: parseInt(document.getElementById('emailTimeout').value) || 10
+        };
+        
+        if (!emailConfig.enabled) {
+          await showInfoDialog('ℹ️ Info', 'Email non abilitata. Abilita prima di testare.');
+          return;
+        }
+        
+        // Validazione base
+        if (!emailConfig.host || !emailConfig.username || !emailConfig.password) {
+          await showInfoDialog('❌ Errore', 'Completa tutti i campi obbligatori prima di testare');
+          return;
+        }
+        
+        // Prima salva la configurazione
+        const updateResult = await callApi('admin_update_config', 'POST', { email: emailConfig }, true);
+        if (!updateResult.ok) {
+          await showInfoDialog('❌ Errore', 'Impossibile salvare la configurazione');
+          return;
+        }
+        
+        // Poi testa con un'email di prova
+        const testEmail = document.getElementById('cfg-managerEmail').value.trim();
+        if (!testEmail) {
+          await showInfoDialog('❌ Errore', 'Inserisci un\'email del gestore prima di testare');
+          return;
+        }
+        
+        const testResult = await callApi('admin_test_email_config', 'POST', { testEmail }, true);
+        
+        if (testResult.ok) {
+          await showInfoDialog(
+            '✅ Configurazione Email Corretta!',
+            `Email di test inviata con successo a:\n${testEmail}\n\nVerifica la tua casella di posta (includi lo spam).`
+          );
+        } else {
+          await showInfoDialog(
+            '❌ Errore Configurazione',
+            `Errore durante il test della configurazione email:\n\n${testResult.error || 'Errore sconosciuto'}\n\nVerifica i parametri SMTP e riprovare.`
+          );
+        }
+      } catch (e) {
+        await showInfoDialog('❌ Errore Test', 'Errore durante il test: ' + e.message);
       }
     }
 

@@ -64,3 +64,5 @@ E' possibile che solo per beachbaster che la pagina landing.html sia la home e s
 Come mai anche se il sito non ha un torneo viene proposta la index con chiriguito torneo lui&Lei, countdown, ecc.✅
 Il sistema di invio mail non funziona (controlla che parta con mailto), non funziona ne in fase di iscrizione di generazione torneo di recupero per codice , da nessuna parte, per ogni azioni restituisci un popup o qualcosa con scritto cosa ha fatto altrimenti non si capisce✅
 Il sistema mi dice mail inviata ma non è vero ho controllato la posta di gmail ma non arriva nulla cerca di evitare il bug ✅ [RISOLTO: Implementato PHPMailer con SMTP, fallback con coda email, feedback onesto]
+I parametri di PHPMail devono essere configurati da pannello di controllo ✅ [RISOLTO: Aggiunto tab Configurazione Email SMTP con campi Host, Port, Username, Password, FromEmail, FromName, Secure, Timeout]
+Evitare che dati sensibili posano essere recuperati dai file json

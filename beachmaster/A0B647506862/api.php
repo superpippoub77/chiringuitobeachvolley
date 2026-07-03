@@ -12,6 +12,8 @@ const HISTORY_FILE = __DIR__ . '/data/history.json';
 const UPLOADS_DIR = __DIR__ . '/data/uploads';
 const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
+const ENCRYPTION_SALT_FILE = __DIR__ . '/data/.encryption.salt';
+const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 
 function jsonResponse(int $code, array $payload): void {
     http_response_code($code);
@@ -49,6 +51,132 @@ function formatBytes(int $bytes, int $precision = 2): string {
     $pow = min($pow, count($units) - 1);
     $bytes /= (1 << (10 * $pow));
     return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
+/**
+ * Genera o recupera il salt per la derivazione della chiave di crittografia
+ */
+function getEncryptionSalt(): string {
+    if (file_exists(ENCRYPTION_SALT_FILE)) {
+        return file_get_contents(ENCRYPTION_SALT_FILE);
+    }
+    
+    // Genera nuovo salt
+    $salt = base64_encode(random_bytes(32));
+    @mkdir(dirname(ENCRYPTION_SALT_FILE), 0777, true);
+    file_put_contents(ENCRYPTION_SALT_FILE, $salt);
+    chmod(ENCRYPTION_SALT_FILE, 0600); // Permessi stretti
+    
+    return $salt;
+}
+
+/**
+ * Deriva la chiave di crittografia da password master usando PBKDF2
+ */
+function getEncryptionKey(string $password): string {
+    $salt = getEncryptionSalt();
+    // PBKDF2: 100,000 iterazioni, 32 bytes (256 bits)
+    return hash_pbkdf2('sha256', $password, $salt, 100000, 32, true);
+}
+
+/**
+ * Crittografa un campo usando AES-256-CBC
+ */
+function encryptField(string $value, string $key): string {
+    $iv = openssl_random_pseudo_bytes(16);
+    $encrypted = openssl_encrypt($value, ENCRYPTION_ALGORITHM, $key, OPENSSL_RAW_DATA, $iv);
+    
+    if ($encrypted === false) {
+        return ''; // Fallback se crittografia fallisce
+    }
+    
+    // Formato: enc:base64(iv + encrypted)
+    return 'enc:' . base64_encode($iv . $encrypted);
+}
+
+/**
+ * Decrittografa un campo
+ */
+function decryptField(string $encrypted, string $key): string {
+    if (strpos($encrypted, 'enc:') !== 0) {
+        return $encrypted; // Non crittografato
+    }
+    
+    try {
+        $data = base64_decode(substr($encrypted, 4));
+        $iv = substr($data, 0, 16);
+        $ciphertext = substr($data, 16);
+        $decrypted = openssl_decrypt($ciphertext, ENCRYPTION_ALGORITHM, $key, OPENSSL_RAW_DATA, $iv);
+        
+        return $decrypted !== false ? $decrypted : '';
+    } catch (Exception $e) {
+        return '';
+    }
+}
+
+/**
+ * Crittografa i campi sensibili di config
+ */
+function encryptSensitiveFields(array $config, string $key): array {
+    // Campi sensibili da crittografare
+    $sensitiveFields = [
+        'email.password',
+        'email.username'
+    ];
+    
+    foreach ($sensitiveFields as $path) {
+        $parts = explode('.', $path);
+        $current = &$config;
+        
+        // Navigare fino al penultimo livello
+        foreach (array_slice($parts, 0, -1) as $part) {
+            if (!isset($current[$part]) || !is_array($current[$part])) {
+                $current[$part] = [];
+            }
+            $current = &$current[$part];
+        }
+        
+        $lastPart = end($parts);
+        if (isset($current[$lastPart]) && !empty($current[$lastPart])) {
+            // Crittografa solo se non già crittografato
+            if (strpos($current[$lastPart], 'enc:') !== 0) {
+                $current[$lastPart] = encryptField($current[$lastPart], $key);
+            }
+        }
+    }
+    
+    return $config;
+}
+
+/**
+ * Decrittografa i campi sensibili di config
+ */
+function decryptSensitiveFields(array $config, string $key): array {
+    // Campi sensibili da decrittografare
+    $sensitiveFields = [
+        'email.password',
+        'email.username'
+    ];
+    
+    foreach ($sensitiveFields as $path) {
+        $parts = explode('.', $path);
+        $current = &$config;
+        
+        // Navigare fino al penultimo livello
+        foreach (array_slice($parts, 0, -1) as $part) {
+            if (!isset($current[$part])) {
+                continue 2; // Skip se il percorso non esiste
+            }
+            $current = &$current[$part];
+        }
+        
+        $lastPart = end($parts);
+        if (isset($current[$lastPart])) {
+            $current[$lastPart] = decryptField($current[$lastPart], $key);
+        }
+    }
+    
+    return $config;
 }
 
 function getLogoFile(): string {
@@ -290,6 +418,10 @@ function defaultConfig(): array {
             'fromEmail' => 'noreply@beachmaster.local',
             'fromName' => 'BeachMaster',
             'timeout' => 10
+        ],
+        'security' => [
+            'encryptionEnabled' => false,
+            'encryptionPassword' => ''
         ]
     ];
 }
@@ -385,6 +517,14 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
         );
     }
     
+    // Preserva security settings
+    if (isset($existingConfig['security'])) {
+        $merged['security'] = array_merge(
+            $defaultConfig['security'] ?? [],
+            $existingConfig['security']
+        );
+    }
+    
     return $merged;
 }
 
@@ -399,6 +539,17 @@ function readConfig(): array {
     
     $existing = readJsonFile(CONFIG_FILE, $default);
     
+    // Decrittografa se encryption è abilitata
+    if (isset($existing['security']['encryptionEnabled']) && $existing['security']['encryptionEnabled'] && isset($existing['security']['encryptionPassword'])) {
+        try {
+            $key = getEncryptionKey($existing['security']['encryptionPassword']);
+            $existing = decryptSensitiveFields($existing, $key);
+        } catch (Exception $e) {
+            // Se decriptazione fallisce, continua senza decriptare
+            @error_log('Decryption error: ' . $e->getMessage());
+        }
+    }
+    
     // Se il config è veramente vuoto (tournament name vuoto), non fare merge - ritorna come-è
     if (isset($existing['tournament']) && $existing['tournament']['name'] === '') {
         // Torneo veramente vuoto, ritorna il config salvato come-è (senza merge con defaults)
@@ -410,6 +561,17 @@ function readConfig(): array {
 }
 
 function writeConfig(array $config): void {
+    // Crittografa se encryption è abilitata
+    if (isset($config['security']['encryptionEnabled']) && $config['security']['encryptionEnabled'] && isset($config['security']['encryptionPassword'])) {
+        try {
+            $key = getEncryptionKey($config['security']['encryptionPassword']);
+            $config = encryptSensitiveFields($config, $key);
+        } catch (Exception $e) {
+            // Se crittografia fallisce, salva comunque (senza crittografia)
+            @error_log('Encryption error: ' . $e->getMessage());
+        }
+    }
+    
     writeJsonFile(CONFIG_FILE, $config);
 }
 
@@ -2783,6 +2945,57 @@ if ($action === 'admin_test_email_config' && $method === 'POST') {
     } else {
         jsonResponse(422, ['ok' => false, 'error' => 'Errore durante l\'invio: ' . ($result['error'] ?? 'Errore sconosciuto'), 'details' => $result]);
     }
+}
+
+if ($action === 'admin_set_encryption_password' && $method === 'POST') {
+    requireAdmin();
+    
+    $body = bodyJson();
+    $enabled = (bool)($body['enabled'] ?? false);
+    $password = trim((string)($body['password'] ?? ''));
+    
+    // Validazione
+    if ($enabled && empty($password)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Password di crittografia è obbligatoria']);
+    }
+    
+    if ($enabled && strlen($password) < 8) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Password di crittografia deve essere almeno 8 caratteri']);
+    }
+    
+    $config = readConfig();
+    
+    // Aggiorna settings di crittografia
+    $config['security']['encryptionEnabled'] = $enabled;
+    if ($enabled) {
+        $config['security']['encryptionPassword'] = $password;
+    } else {
+        // Se disabilita crittografia, decrittografa i dati salvati
+        if (isset($config['email']['password']) && strpos($config['email']['password'], 'enc:') === 0) {
+            try {
+                $oldKey = getEncryptionKey($config['security']['encryptionPassword']);
+                $config['email']['password'] = decryptField($config['email']['password'], $oldKey);
+            } catch (Exception $e) {
+                // Ignora errori di decrittografia
+            }
+        }
+        if (isset($config['email']['username']) && strpos($config['email']['username'], 'enc:') === 0) {
+            try {
+                $oldKey = getEncryptionKey($config['security']['encryptionPassword']);
+                $config['email']['username'] = decryptField($config['email']['username'], $oldKey);
+            } catch (Exception $e) {
+                // Ignora errori di decrittografia
+            }
+        }
+    }
+    
+    writeConfig($config);
+    
+    // Salva snapshot nella history
+    saveToHistory('Aggiornamento impostazioni crittografia');
+    
+    $message = $enabled ? 'Crittografia abilitata con successo' : 'Crittografia disabilitata';
+    jsonResponse(200, ['ok' => true, 'message' => $message]);
 }
 
 if ($action === 'admin_generate_regolamento' && $method === 'POST') {

@@ -35,5 +35,22 @@
         "enabled": false,
         "intervalSeconds": 30,
         "maxSteps": 10
+    },
+    "email": {
+        "enabled": false,
+        "service": "gmail",
+        "host": "",
+        "port": 587,
+        "secure": "tls",
+        "auth": true,
+        "username": "",
+        "password": "",
+        "fromEmail": "noreply@beachmaster.local",
+        "fromName": "BeachMaster",
+        "timeout": 10
+    },
+    "security": {
+        "encryptionEnabled": false,
+        "encryptionPassword": "TestPassword123"
     }
 }

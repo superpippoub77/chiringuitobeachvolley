@@ -85,6 +85,100 @@ function sendEmail(string $to, string $subject, string $body, string $from = '')
         return ['success' => false, 'error' => 'Email destinatario non valida', 'to' => $to];
     }
     
+    // Prova prima con PHPMailer (se disponibile)
+    $result = sendEmailViaPHPMailer($to, $subject, $body, $from);
+    if ($result !== null) {
+        return $result;
+    }
+    
+    // Fallback: usa mail() nativa ma salva in coda se fallisce
+    return sendEmailFallback($to, $subject, $body, $from);
+}
+
+/**
+ * Invia email via PHPMailer (SMTP affidabile)
+ * Ritorna null se PHPMailer non è disponibile
+ */
+function sendEmailViaPHPMailer(string $to, string $subject, string $body, string $from = ''): ?array {
+    // Controlla se PHPMailer è disponibile
+    if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+        return null;
+    }
+    
+    try {
+        require_once __DIR__ . '/vendor/autoload.php';
+        
+        $emailConfig = include __DIR__ . '/config/email-config.php';
+        
+        // Se email è disabilitata, non inviare
+        if (!$emailConfig['enabled']) {
+            $logMessage = date('Y-m-d H:i:s') . " - SKIPPED: Email disabilitata nella configurazione\n";
+            @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+            return ['success' => false, 'error' => 'Email non configurata nel pannello admin', 'to' => $to, 'queue' => true];
+        }
+        
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // Imposta il servizio SMTP
+        $service = $emailConfig['service'];
+        $smtpConfig = $emailConfig[$service] ?? $emailConfig['custom'];
+        
+        $mail->isSMTP();
+        $mail->Host = $smtpConfig['host'];
+        $mail->SMTPAuth = $smtpConfig['auth'];
+        $mail->Username = $smtpConfig['username'];
+        $mail->Password = $smtpConfig['password'];
+        $mail->SMTPSecure = $smtpConfig['secure'] ?: \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = $smtpConfig['port'];
+        $mail->Timeout = $emailConfig['timeout'];
+        
+        // Imposta debug se abilitato
+        if ($emailConfig['debug']) {
+            $mail->SMTPDebug = 2;
+        }
+        
+        // Mittente
+        $senderEmail = $emailConfig['from']['email'];
+        $senderName = $emailConfig['from']['name'];
+        $mail->setFrom($senderEmail, $senderName);
+        
+        if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
+            $mail->addReplyTo($from);
+        }
+        
+        // Destinatario
+        $mail->addAddress($to);
+        
+        // Contenuto
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body = $body;
+        $mail->AltBody = strip_tags($body);
+        
+        // Invia
+        if ($mail->send()) {
+            $logMessage = date('Y-m-d H:i:s') . " - SUCCESS (PHPMailer): Email inviata a $to (Subject: $subject)\n";
+            @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+            return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to, 'method' => 'PHPMailer'];
+        } else {
+            $logMessage = date('Y-m-d H:i:s') . " - FAILED (PHPMailer): " . $mail->ErrorInfo . "\n";
+            @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+            // Salva nella coda
+            saveEmailToQueue($to, $subject, $body, $from);
+            return ['success' => false, 'error' => 'Email in coda - verifica tra poco', 'to' => $to, 'queue' => true];
+        }
+        
+    } catch (\Exception $e) {
+        $logMessage = date('Y-m-d H:i:s') . " - EXCEPTION (PHPMailer): " . $e->getMessage() . "\n";
+        @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+        return null; // Prova fallback
+    }
+}
+
+/**
+ * Fallback: usa mail() nativa PHP
+ */
+function sendEmailFallback(string $to, string $subject, string $body, string $from = ''): array {
     $headers = "MIME-Version: 1.0\r\n";
     $headers .= "Content-type: text/html; charset=UTF-8\r\n";
     
@@ -99,14 +193,39 @@ function sendEmail(string $to, string $subject, string $body, string $from = '')
     
     // Log del risultato
     if ($result) {
-        $logMessage = date('Y-m-d H:i:s') . " - SUCCESS: Email inviata a $to (Subject: $subject)\n";
+        $logMessage = date('Y-m-d H:i:s') . " - SUCCESS (mail()): Email inviata a $to (Subject: $subject)\n";
         @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-        return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to];
+        return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to, 'method' => 'mail()'];
     } else {
-        $logMessage = date('Y-m-d H:i:s') . " - FAILED: mail() ritornò false per $to (Subject: $subject)\n";
+        // mail() ha fallito - salva nella coda
+        saveEmailToQueue($to, $subject, $body, $from);
+        $logMessage = date('Y-m-d H:i:s') . " - QUEUED (mail() failed): Email messa in coda per $to (Subject: $subject)\n";
         @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-        return ['success' => false, 'error' => 'Impossibile inviare email - verifica la configurazione del server', 'to' => $to];
+        return ['success' => false, 'error' => 'Email in coda - verifica tra poco', 'to' => $to, 'queue' => true];
     }
+}
+
+/**
+ * Salva email nella coda per invio successivo
+ */
+function saveEmailToQueue(string $to, string $subject, string $body, string $from = ''): void {
+    $queueDir = __DIR__ . '/data/email-queue';
+    if (!is_dir($queueDir)) {
+        mkdir($queueDir, 0777, true);
+    }
+    
+    $queueFile = $queueDir . '/' . time() . '-' . md5($to . $subject) . '.json';
+    $queueData = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'to' => $to,
+        'subject' => $subject,
+        'body' => $body,
+        'from' => $from,
+        'attempts' => 0,
+        'status' => 'pending'
+    ];
+    
+    file_put_contents($queueFile, json_encode($queueData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
 function defaultConfig(): array {

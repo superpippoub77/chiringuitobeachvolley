@@ -1,0 +1,27 @@
+# Local configuration (not tracked by git)
+config/email-config.php
+config/email-config.local.php
+
+# Dependencies
+vendor/
+composer.lock
+
+# Email queue
+data/email-queue/
+data/email.log
+
+# Uploads
+data/uploads/
+data/updates/
+data/backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

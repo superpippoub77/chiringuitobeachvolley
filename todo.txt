@@ -63,3 +63,4 @@ Nel pannello di controllo del programma principale beachmaster devo aver la poss
 E' possibile che solo per beachbaster che la pagina landing.html sia la home e se voglio andare sulla index.html devo scriverlo nella url✅
 Come mai anche se il sito non ha un torneo viene proposta la index con chiriguito torneo lui&Lei, countdown, ecc.✅
 Il sistema di invio mail non funziona (controlla che parta con mailto), non funziona ne in fase di iscrizione di generazione torneo di recupero per codice , da nessuna parte, per ogni azioni restituisci un popup o qualcosa con scritto cosa ha fatto altrimenti non si capisce✅
+Il sistema mi dice mail inviata ma non è vero ho controllato la posta di gmail ma non arriva nulla cerca di evitare il bug ✅ [RISOLTO: Implementato PHPMailer con SMTP, fallback con coda email, feedback onesto]

@@ -454,7 +454,7 @@
       </div>
     </div>
     <div class="link-row">
-      Vista pubblica: <a href="index.html" target="_blank">apri pagina torneo</a>
+      Vista pubblica: <a href="scoreboard.html" target="_blank">apri pagina torneo</a>
     </div>
 
     <div id="loginBox" class="card">
@@ -482,6 +482,7 @@
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
+        <button class="tab" data-page="multitenant-admin" onclick="showPage('multitenant-admin', this)" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white">⚙️ Multi-Tenant Admin</button>
       </div>
 
       <div id="page-settings" class="card page">
@@ -771,6 +772,24 @@
           <div class="row" style="margin-top: 10px">
             <button type="button" class="btn btn-danger" onclick="resetTournament()" style="background: #d32f2f; cursor: pointer;">🗑️ Cancella Tutto e Ripristina</button>
           </div>
+        </div>
+      </div>
+
+      <div id="page-multitenant-admin" class="card page hidden">
+        <h3>⚙️ Pannello Amministrazione Multi-Tenant</h3>
+        <p class="muted">Gestisci i tornei creati nel sistema multi-tenant. Inserisci la password di amministratore per accedere.</p>
+        
+        <div id="multitenantLoginForm" style="margin-top: 14px">
+          <div style="background: white; padding: 16px; border-radius: 8px; max-width: 300px">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold">Password Amministratore:</label>
+            <input type="password" id="multitenantAdminPassword" placeholder="Inserisci password admin" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 6px; margin-bottom: 12px">
+            <button class="btn btn-green" onclick="authenticateMultitenantAdmin()">🔓 Accedi</button>
+          </div>
+        </div>
+        
+        <div id="multitenantAdminPanel" style="display: none; margin-top: 20px">
+          <p class="muted">Carico lista tornei...</p>
+          <div id="multitenantTournamentsList" style="margin-top: 16px"></div>
         </div>
       </div>
     </div>
@@ -2402,6 +2421,204 @@
       } finally {
         // Ripristina il flag
         resetTournament.isRunning = false;
+      }
+    }
+
+    // ==================== MULTI-TENANT ADMIN ====================
+
+    const MULTITENANT_ADMIN_PASSWORD = 'admin123'; // Password master
+
+    async function authenticateMultitenantAdmin() {
+      const password = document.getElementById('multitenantAdminPassword').value;
+      
+      if (password !== MULTITENANT_ADMIN_PASSWORD) {
+        alert('❌ Password non corretta');
+        return;
+      }
+      
+      document.getElementById('multitenantLoginForm').style.display = 'none';
+      document.getElementById('multitenantAdminPanel').style.display = 'block';
+      
+      await loadMultitenantTournaments();
+    }
+
+    async function loadMultitenantTournaments() {
+      try {
+        const container = document.getElementById('multitenantTournamentsList');
+        container.innerHTML = '<p style="text-align: center; color: #999">⏳ Caricamento...</p>';
+        
+        // Richiedi al backend la lista di tutti i tornei
+        const response = await fetch(`${API}?action=multitenant_get_all_tournaments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        
+        if (!data.ok) {
+          container.innerHTML = '<p style="color: red">❌ ' + (data.error || 'Errore nel caricamento') + '</p>';
+          return;
+        }
+        
+        const tournaments = data.tournaments || [];
+        
+        if (tournaments.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #6a5737">Nessun torneo creato nel sistema multi-tenant</p>';
+          return;
+        }
+        
+        container.innerHTML = '';
+        
+        tournaments.forEach(tournament => {
+          const item = document.createElement('div');
+          item.style.cssText = `
+            background: ${tournament.disabled ? '#f5e6e6' : '#f9f9f9'};
+            border: 1px solid ${tournament.disabled ? '#d9a3a3' : '#d9bf8c'};
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+          `;
+          
+          const titleDiv = document.createElement('div');
+          titleDiv.style.cssText = 'font-weight: bold; color: #201c14; margin-bottom: 4px; font-size: 1rem';
+          titleDiv.textContent = tournament.name || 'Torneo Senza Nome';
+          if (tournament.disabled) {
+            titleDiv.textContent += ' [DISABILITATO]';
+          }
+          
+          const codeDiv = document.createElement('div');
+          codeDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 4px';
+          codeDiv.textContent = '🔑 Codice: ' + tournament.code;
+          
+          const emailDiv = document.createElement('div');
+          emailDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 4px';
+          emailDiv.textContent = '📧 Email: ' + tournament.email;
+          
+          const dateDiv = document.createElement('div');
+          dateDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 12px';
+          dateDiv.textContent = '📅 Creato: ' + new Date(tournament.createdAt).toLocaleDateString('it-IT');
+          
+          const buttonsDiv = document.createElement('div');
+          buttonsDiv.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #d9bf8c';
+          
+          // Pulsante Accedi
+          const accessBtn = document.createElement('button');
+          accessBtn.textContent = '🔓 Accedi';
+          accessBtn.className = 'btn btn-green';
+          accessBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem';
+          accessBtn.onclick = () => {
+            window.location.href = tournament.path + '/admin.html?code=' + tournament.code;
+          };
+          
+          // Pulsante Disabilita/Abilita
+          const toggleBtn = document.createElement('button');
+          toggleBtn.textContent = tournament.disabled ? '✅ Abilita' : '❌ Disabilita';
+          toggleBtn.className = 'btn ' + (tournament.disabled ? 'btn-green' : 'btn-primary');
+          toggleBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem';
+          toggleBtn.onclick = () => {
+            tournament.disabled ? enableMultitenantTournament(tournament.code) : disableMultitenantTournament(tournament.code);
+          };
+          
+          // Pulsante Cancella
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '🗑️ Cancella';
+          deleteBtn.className = 'btn btn-danger';
+          deleteBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem; background: #d32f2f';
+          deleteBtn.onclick = () => {
+            if (confirm('⚠️ Sei sicuro? Questa azione cancellerà definitivamente il torneo e tutti i suoi dati.')) {
+              deleteMultitenantTournament(tournament.code);
+            }
+          };
+          
+          buttonsDiv.appendChild(accessBtn);
+          buttonsDiv.appendChild(toggleBtn);
+          buttonsDiv.appendChild(deleteBtn);
+          
+          item.appendChild(titleDiv);
+          item.appendChild(codeDiv);
+          item.appendChild(emailDiv);
+          item.appendChild(dateDiv);
+          item.appendChild(buttonsDiv);
+          container.appendChild(item);
+        });
+        
+      } catch (e) {
+        const container = document.getElementById('multitenantTournamentsList');
+        container.innerHTML = '<p style="color: red">❌ Errore: ' + e.message + '</p>';
+      }
+    }
+
+    async function disableMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=disable_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo disabilitato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+      }
+    }
+
+    async function enableMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=enable_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo abilitato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+      }
+    }
+
+    async function deleteMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=delete_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo cancellato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
       }
     }
 

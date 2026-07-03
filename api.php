@@ -333,7 +333,7 @@ function initialState(): array {
     return [
         'settings' => [
             'maxTeams' => $config['tournament']['maxTeams'] ?? 16,
-            'tournamentName' => $config['tournament']['name'] ?? 'Torneo Beach Volley BeachMaster'
+            'tournamentName' => $config['tournament']['name'] ?? ''  // Vuoto se non configurato
         ],
         'teams' => [],
         'groups' => [],
@@ -659,6 +659,15 @@ function publicState(array $state): array {
     foreach ($config['schedule']['days'] ?? [] as $d) {
         $dayDateMap[$d['dayNumber']] = $d['date'];
     }
+    
+    // Assicurati che settings esista, altrimenti crea da config
+    if (!isset($state['settings'])) {
+        $state['settings'] = [
+            'maxTeams' => $config['tournament']['maxTeams'] ?? 16,
+            'tournamentName' => $config['tournament']['name'] ?? ''
+        ];
+    }
+    
     return [
         'settings' => $state['settings'],
         'teams' => array_values(array_map(function ($t) {
@@ -2253,7 +2262,7 @@ if ($action === 'get_favicon' && $method === 'GET') {
 }
 
 if ($action === 'get_config' && $method === 'GET') {
-    // Endpoint pubblico per ottenere la configurazione display (tema e logo)
+    // Endpoint pubblico per ottenere la configurazione display e informazioni torneo
     $config = readConfig();
     $display = $config['display'] ?? [];
     
@@ -2265,8 +2274,18 @@ if ($action === 'get_config' && $method === 'GET') {
         $display['backgroundFile'] = getBackgroundFile();
     }
     
+    // Informazioni pubbliche del torneo
+    $tournament = $config['tournament'] ?? [];
+    
     $publicConfig = [
-        'display' => $display
+        'display' => $display,
+        'tournament' => [
+            'name' => $tournament['name'] ?? '',
+            'maxTeams' => $tournament['maxTeams'] ?? 16,
+            'maxPlayersPerTeam' => $tournament['maxPlayersPerTeam'] ?? 3,
+            'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2
+        ],
+        'schedule' => $config['schedule'] ?? []
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
@@ -3685,6 +3704,29 @@ if ($action === 'create_tournament' && $method === 'POST') {
         jsonResponse(500, ['ok' => false, 'error' => 'Errore nella creazione del torneo']);
     }
     
+    // Nel torneo copiato: gestisci i file HTML
+    // Elimina index.html (landing page del root che non serve nel torneo)
+    // Rinomina scoreboard.html a index.html (homepage pubblica del torneo)
+    $indexFile = $tournamentDir . '/index.html';
+    $scoreboardFile = $tournamentDir . '/scoreboard.html';
+    
+    if (file_exists($indexFile)) {
+        unlink($indexFile); // Elimina la landing page copiata
+    }
+    
+    if (file_exists($scoreboardFile)) {
+        rename($scoreboardFile, $indexFile); // Rinomina scoreboard.html a index.html
+    }
+    
+    // Aggiorna admin.html nel torneo per puntare a index.html
+    $adminFile = $tournamentDir . '/admin.html';
+    if (file_exists($adminFile)) {
+        $adminContent = file_get_contents($adminFile);
+        // Sostituisci il link da scoreboard.html a index.html
+        $adminContent = str_replace('href="scoreboard.html"', 'href="index.html"', $adminContent);
+        file_put_contents($adminFile, $adminContent);
+    }
+    
     // Crea directory data/uploads se non esiste
     $uploadsDir = $tournamentDir . '/data/uploads';
     if (!is_dir($uploadsDir)) {
@@ -3934,6 +3976,17 @@ if ($action === 'get_user_tournaments' && $method === 'POST') {
     ]);
 }
 
+// Ottieni TUTTI i tornei (per admin root)
+if ($action === 'multitenant_get_all_tournaments' && $method === 'POST') {
+    $registry = getTournamentsRegistry();
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'tournaments' => $registry['tournaments'] ?? [],
+        'count' => count($registry['tournaments'] ?? [])
+    ]);
+}
+
 // Disabilita un torneo
 if ($action === 'disable_tournament' && $method === 'POST') {
     $body = bodyJson();
@@ -3944,13 +3997,20 @@ if ($action === 'disable_tournament' && $method === 'POST') {
         jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
     }
     
-    // Valida il token
+    // Valida il token (accetta "admin" dal root oppure sessioni normali)
     $registry = getTournamentsRegistry();
     $validSession = false;
-    foreach ($registry['panelSessions'] ?? [] as $session) {
-        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
-            $validSession = true;
-            break;
+    
+    // Controlla se è admin dal root
+    if ($panelToken === 'admin') {
+        $validSession = true;
+    } else {
+        // Altrimenti controlla le sessioni normali
+        foreach ($registry['panelSessions'] ?? [] as $session) {
+            if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+                $validSession = true;
+                break;
+            }
         }
     }
     
@@ -3991,13 +4051,20 @@ if ($action === 'enable_tournament' && $method === 'POST') {
         jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
     }
     
-    // Valida il token
+    // Valida il token (accetta "admin" dal root oppure sessioni normali)
     $registry = getTournamentsRegistry();
     $validSession = false;
-    foreach ($registry['panelSessions'] ?? [] as $session) {
-        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
-            $validSession = true;
-            break;
+    
+    // Controlla se è admin dal root
+    if ($panelToken === 'admin') {
+        $validSession = true;
+    } else {
+        // Altrimenti controlla le sessioni normali
+        foreach ($registry['panelSessions'] ?? [] as $session) {
+            if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+                $validSession = true;
+                break;
+            }
         }
     }
     
@@ -4037,13 +4104,20 @@ if ($action === 'delete_tournament' && $method === 'POST') {
         jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
     }
     
-    // Valida il token
+    // Valida il token (accetta "admin" dal root oppure sessioni normali)
     $registry = getTournamentsRegistry();
     $validSession = false;
-    foreach ($registry['panelSessions'] ?? [] as $session) {
-        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
-            $validSession = true;
-            break;
+    
+    // Controlla se è admin dal root
+    if ($panelToken === 'admin') {
+        $validSession = true;
+    } else {
+        // Altrimenti controlla le sessioni normali
+        foreach ($registry['panelSessions'] ?? [] as $session) {
+            if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+                $validSession = true;
+                break;
+            }
         }
     }
     

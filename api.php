@@ -2776,7 +2776,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     
     if (isset($body['display']) && is_array($body['display'])) {
         $theme = trim((string)($body['display']['theme'] ?? 'chiringuito'));
-        $validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+        $validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista', 'metro'];
         
         // Consenti temi built-in o temi custom
         if (in_array($theme, $validThemes)) {

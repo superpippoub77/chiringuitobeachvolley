@@ -67,3 +67,4 @@ Il sistema mi dice mail inviata ma non è vero ho controllato la posta di gmail 
 I parametri di PHPMail devono essere configurati da pannello di controllo ✅ [RISOLTO: Aggiunto tab Configurazione Email SMTP con campi Host, Port, Username, Password, FromEmail, FromName, Secure, Timeout]
 Evitare che dati sensibili posano essere recuperati dai file json eventualmente crittografare? con parola cifrata scelta in configurazione?✅
 Quando si configura un nuovo torneo mi piacerebbe partire con un Wizard che inserisce i dati di configurazione blocco per blocco a stepper, con la possibilità di muoversi avanti ed indietro e man mano salvare, cosa dici?✅
+Fammi anche la verioen theme più squadrata come metro da aggiungere nella scelta del tema✅

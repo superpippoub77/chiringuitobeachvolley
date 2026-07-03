@@ -1,0 +1,9 @@
+{
+  "latestVersion": "1.1.0",
+  "latestReleaseDate": "2026-07-15",
+  "downloadUrl": "https://github.com/superpippoub77/chiringuitobeachvolley/releases/download/v1.1.0/chiringuitobeachvolley-1.1.0.zip",
+  "releaseNotes": "Versione 1.1.0: Miglioramenti UI, fix bug, supporto time range multipli per recupero gare",
+  "minPhpVersion": "8.0.0",
+  "breaking": false,
+  "migrations": []
+}

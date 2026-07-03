@@ -1,0 +1,18 @@
+{
+    "tournaments": [
+        {
+            "code": "B536C5B6C89E",
+            "email": "test@example.com",
+            "name": "Test Tournament",
+            "path": "beachmaster\/B536C5B6C89E",
+            "createdAt": "2026-07-03 07:19:41"
+        },
+        {
+            "code": "A0B647506862",
+            "email": "mario@rossi.it",
+            "name": "Mario Beach Volley",
+            "path": "beachmaster\/A0B647506862",
+            "createdAt": "2026-07-03 07:20:29"
+        }
+    ]
+}

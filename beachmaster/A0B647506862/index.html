@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
+  <link rel="icon" href="api.php?action=get_favicon" type="image/png">
+  <title>BeachMaster Beach Volley LUI&Lei 2026</title>
+  <link id="themeLink" rel="stylesheet" href="theme-beachmaster.css">
+  <style>
+    :root {
+      --sand-1: #f8edd8;
+      --sand-2: #f1dfbc;
+      --sand-3: #e7cf9e;
+      --sun: #ea5b0c;
+      --sun-2: #ff7f32;
+      --leaf: #2e5d1f;
+      --leaf-2: #3b7428;
+      --ink: #201c14;
+      --ink-soft: #6a5737;
+      --white: #fffdfa;
+      --line: #d9bf8c;
+      --ok: #2e5d1f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Original Surfer", sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255, 230, 170, 0.8) 0%, rgba(255, 230, 170, 0) 35%),
+        radial-gradient(circle at 85% 0%, rgba(255, 176, 116, 0.6) 0%, rgba(255, 176, 116, 0) 40%),
+        linear-gradient(160deg, var(--sand-1) 0%, var(--sand-2) 58%, var(--sand-3) 100%);
+      background-attachment: fixed;
+      background-image: url(bg.png);
+      min-height: 100vh;
+      background-repeat: no-repeat;
+      background-size: cover;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .hero {
+      position: relative;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.12);
+      background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%, #efc37f 100%);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(234, 91, 12, 0.08) 1px, transparent 1px);
+      background-size: 16px 16px;
+      pointer-events: none;
+    }
+
+    .hero-top {
+      position: relative;
+      z-index: 1;
+      padding: 20px 20px 10px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--leaf);
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.4px;
+      box-shadow: 0 4px 10px rgba(46, 93, 31, 0.25);
+    }
+
+    .hero-title {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 4px 16px 8px;
+    }
+
+    .hero-title h1 {
+      margin: 0;
+      font-size: clamp(34px, 8.5vw, 72px);
+      line-height: 0.95;
+      color: var(--sun);
+      text-transform: uppercase;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.6);
+      letter-spacing: 1px;
+    }
+
+    .hero-sub {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-top: 6px;
+      color: var(--leaf);
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      font-size: 14px;
+      padding-bottom: 14px;
+    }
+
+    .hero-strip {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+      border-top: 2px solid rgba(255, 255, 255, 0.5);
+      background: linear-gradient(90deg, #274f1a 0%, #326325 40%, #2a561d 100%);
+      color: #fff;
+    }
+
+    .hero-cell {
+      padding: 10px 12px;
+      text-align: center;
+      border-right: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    .hero-cell:last-child {
+      border-right: 0;
+    }
+
+    .hero-links {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+
+    .hero-links a {
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .hero-title img {
+      width: 100%;
+      max-width: 900px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .stat {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .stat .n {
+      color: var(--sun);
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stat .l {
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-top: 14px;
+      padding-bottom: 2px;
+    }
+
+    .tab {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 13px;
+      background: #e8d2ab;
+      color: #584627;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .tab:hover {
+      transform: translateY(-1px);
+    }
+
+    .tab.active {
+      background: linear-gradient(140deg, var(--sun) 0%, var(--sun-2) 100%);
+      color: #fff;
+      box-shadow: 0 6px 14px rgba(234, 91, 12, 0.35);
+    }
+
+    .page {
+      display: none;
+      margin-top: 12px;
+      background: var(--white);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      padding: 14px;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      color: var(--sun);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-size: 19px;
+    }
+
+    h4 {
+      margin: 8px 0;
+      color: var(--leaf);
+      font-size: 16px;
+      letter-spacing: 0.3px;
+    }
+
+    .note {
+      margin-bottom: 10px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 9px;
+    }
+
+    input,
+    button {
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--sun);
+      box-shadow: 0 0 0 3px rgba(234, 91, 12, 0.14);
+    }
+
+    .btn {
+      border: 0;
+      background: linear-gradient(135deg, var(--sun) 0%, var(--sun-2) 100%);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 12px rgba(234, 91, 12, 0.3);
+    }
+
+    .btn:hover {
+      filter: brightness(1.05);
+    }
+
+    .team-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px dashed #e6d0a4;
+      padding: 10px 0;
+    }
+
+    .team-row:last-child {
+      border-bottom: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      background: rgba(46, 93, 31, 0.12);
+      color: var(--leaf);
+      border: 1px solid rgba(46, 93, 31, 0.2);
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .group-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+    }
+
+    .group {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      overflow: hidden;
+      background: #fffefb;
+    }
+
+    .group-head {
+      margin: 0;
+      padding: 8px 10px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--sun) 0%, var(--sun-2) 100%);
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .group ul {
+      margin: 0;
+      padding: 8px 20px 10px;
+    }
+
+    .group li {
+      margin: 5px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #eadbb9;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #efdfbd;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f8edd6;
+      color: #5f4a28;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    tr:nth-child(even) td {
+      background: #fff9ef;
+    }
+
+    .empty {
+      color: var(--ink-soft);
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    .rank-1 {
+      color: #a36c00;
+      font-weight: 800;
+    }
+
+    .rank-2 {
+      color: #747474;
+      font-weight: 800;
+    }
+
+    .rank-3 {
+      color: #8a4d00;
+      font-weight: 800;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @keyframes blink {
+      0%, 49%, 100% { opacity: 1; }
+      50%, 99% { opacity: 0.3; }
+    }
+
+    .match-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .status-online .status-dot {
+      background: #22c55e;
+      animation: blink 1.2s infinite;
+    }
+
+    .status-concluded .status-dot {
+      background: #ef4444;
+    }
+
+    .status-pending .status-dot {
+      background: #9ca3af;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.42);
+      z-index: 3000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+    }
+
+    .modal {
+      width: min(520px, 100%);
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      background: #f8edd6;
+      border-bottom: 1px solid #ebd9b6;
+    }
+
+    .modal-head h4 {
+      margin: 0;
+      color: #5f4a28;
+      font-size: 17px;
+    }
+
+    .modal-close {
+      border: 0;
+      background: transparent;
+      font-size: 22px;
+      line-height: 1;
+      color: #7b6540;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 14px;
+      color: var(--ink);
+      line-height: 1.45;
+    }
+
+    .modal-footer {
+      padding: 12px 14px;
+      border-top: 1px solid #ebd9b6;
+      display: flex;
+      justify-content: flex-end;
+      background: #fff8ea;
+    }
+
+    .btn-modal {
+      border: 0;
+      border-radius: 10px;
+      padding: 9px 13px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--sun) 0%, var(--sun-2) 100%);
+      color: #fff;
+    }
+
+    .form-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .form-check input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .form-check a {
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .form-check a:hover {
+      text-decoration: underline;
+    }
+
+    .countdown {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .countdown-item {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px;
+      border-radius: 8px;
+      font-weight: 800;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .countdown-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      display: block;
+      opacity: 0.9;
+    }
+
+    .closed-notice {
+      background: #ffe0d7;
+      border-left: 4px solid #8d1800;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 10px;
+      color: #5f2211;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    footer a {
+      color: var(--leaf);
+      text-decoration: none;
+      margin: 0 8px;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Match Status Indicators */
+    .match-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Online - Green blinking */
+    .status-online .status-dot {
+      background: #22c55e;
+      animation: blink 1.2s infinite;
+    }
+
+    /* Concluded - Red static */
+    .status-concluded .status-dot {
+      background: #ef4444;
+    }
+
+    /* Not started - Gray static */
+    .status-pending .status-dot {
+      background: #9ca3af;
+    }
+
+    @keyframes blink {
+      0%, 49%, 100% {
+        opacity: 1;
+      }
+      50%, 99% {
+        opacity: 0.3;
+      }
+    }
+
+    @media (max-width: 920px) {
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-cell {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .hero-cell:last-child {
+        border-bottom: 0;
+      }
+
+      .countdown {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .match-status {
+        font-size: 10px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 6px;
+      }
+    }
+
+    /* SPONSOR TICKER */
+    .sponsor-ticker-wrapper {
+      width: 100%;
+      overflow: hidden;
+      padding: 8px 0;
+    }
+
+    .sponsor-ticker-track {
+      display: flex;
+      gap: 40px;
+      animation: ticker 20s linear infinite;
+      padding: 0 20px;
+      white-space: nowrap;
+      align-items: center;
+    }
+
+    .sponsor-ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+      font-weight: bold;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .sponsor-logo {
+      max-width: 80px;
+      max-height: 50px;
+      object-fit: contain;
+    }
+
+    @keyframes ticker {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    .sponsor-ticker-track:hover {
+      animation-play-state: paused;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="badge">CHIRINGUITO BEACH VOLLEY | LUI&Lei 2026</div>
+      </div>
+      <div class="hero-title">
+        <!-- <h1>Chiringuito Beach Volley<br>LUI&Lei 2026</h1> -->
+        <img id="mainLogo" src="logo.png" alt="Logo" style="max-width: 200px; max-height: 200px;">
+      </div>
+      <div class="hero-sub">Solo categoria mista | Iscrizione soggetta ad approvazione amministratore</div>
+      <div class="hero-strip">
+        <div class="hero-cell">Inizio torneo 14 luglio ore 19:30</div>
+        <div class="hero-cell">Max 16 squadre</div>
+        <div class="hero-cell">2 contro 2 (max 3 giocatori iscritti)</div>
+      </div>
+      <div class="countdown" id="countdownContainer">
+        <div class="countdown-item"><span id="countDays">0</span><span class="countdown-label">giorni</span></div>
+        <div class="countdown-item"><span id="countHours">0</span><span class="countdown-label">ore</span></div>
+        <div class="countdown-item"><span id="countMinutes">0</span><span class="countdown-label">minuti</span></div>
+        <div class="countdown-item"><span id="countSeconds">0</span><span class="countdown-label">secondi</span></div>
+      </div>
+    </section>
+
+    <div id="notConfiguredNotice" class="hidden" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 12px; padding: 24px; text-align: center; margin-top: 16px">
+      <h2 style="color: #e65100; margin: 0 0 12px 0">🎯 Crea il tuo torneo</h2>
+      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px">Nessun torneo è stato configurato. Accedi al panel di amministrazione per iniziare.</p>
+      <a href="admin.html?tab=settings" target="_blank" style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s">
+        🚀 Inizia la configurazione
+      </a>
+    </div>
+
+    <div id="mainContent" style="display: none">
+
+    <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
+        href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
+      <div class="stat">
+        <div class="n" id="statTeams">0</div>
+        <div class="l">Squadre confermate</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statPending">0</div>
+        <div class="l">In attesa</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statGroups">0</div>
+        <div class="l">Gironi</div>
+      </div>
+      <div class="stat">
+        <div class="n" id="statMatches">0</div>
+        <div class="l">Partite</div>
+      </div>
+    </section>
+
+    <section id="newsSection" style="margin-top: 24px; display: none">
+      <h3 style="color: #2e5d1f; margin-top: 0">📰 Notizie e Comunicati</h3>
+      <div id="newsList" style="display: grid; gap: 12px"></div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" onclick="showTab('iscrizione', this)">Iscrizione</button>
+      <button class="tab" onclick="showTab('teams', this)">Squadre</button>
+      <button class="tab" onclick="showTab('groups', this)">Gironi</button>
+      <button class="tab" onclick="showTab('matches', this)">Calendario</button>
+      <button class="tab" onclick="showTab('standings', this)">Classifiche</button>
+      <button class="tab" onclick="showTab('playoff', this)">Fase finale</button>
+      <button class="tab" onclick="showTab('ranking', this)">Ranking finale</button>
+    </nav>
+
+    <section class="page active" id="page-iscrizione">
+      <h3>Registrazione squadra</h3>
+      <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
+        conferma.</div>
+      <div id="closedNotice" class="closed-notice hidden">Le iscrizioni sono chiuse - Torneo al completo (16 squadre)
+      </div>
+      <div class="form-grid" id="registrationForm">
+        <input id="fName" placeholder="Nome squadra">
+        <input id="fP1" placeholder="Giocatore 1">
+        <input id="fP2" placeholder="Giocatore 2">
+        <input id="fP3" placeholder="Giocatore 3 (opzionale)">
+        <input id="fPhone" placeholder="Telefono">
+      </div>
+      <div class="form-check">
+        <input type="checkbox" id="fPrivacy">
+        <label for="fPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" id="fCookies">
+        <label for="fCookies">Accetto l'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label>
+      </div>
+      <div style="margin-top:10px;">
+        <button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button>
+      </div>
+    </section>
+
+    <section class="page" id="page-teams"></section>
+    <section class="page" id="page-groups"></section>
+    <section class="page" id="page-matches"></section>
+    <section class="page" id="page-standings"></section>
+    <section class="page" id="page-playoff"></section>
+    <section class="page" id="page-ranking"></section>
+
+    <footer>
+      <a href="policy.html" target="_blank">Privacy Policy</a>
+      <a href="policy.html#cookies" target="_blank">Cookie Policy</a>
+      <a href="policy.html#terms" target="_blank">Termini e Condizioni</a>
+      <br>
+      <div style="margin-top: 10px;">© 2026 Chiringuito Beach Volley LUI&Lei 2026 - Tutti i diritti riservati</div>
+    </footer>
+
+    </div> <!-- Fine mainContent -->
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <h4 id="modalTitle">Messaggio</h4>
+        <button id="modalClose" class="modal-close" aria-label="Chiudi">×</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="modalOk" class="btn-modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPONSOR TICKER -->
+  <div id="sponsorTickerContainer" style="background: linear-gradient(90deg, #f8edd8 0%, #f1dfbc 100%); border-top: 3px solid #ff7f32; padding: 12px 0; overflow: hidden; display: none">
+    <div class="sponsor-ticker-wrapper">
+      <div class="sponsor-ticker-track" id="sponsorTickerTrack">
+        <!-- Sponsor items loaded dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'api.php';
+    let state = null;
+
+    async function api(action, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`${API}?action=${action}`, opts);
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || 'Errore');
+      return json;
+    }
+
+    function showTab(name, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    async function loadState() {
+      const r = await api('get_public');
+      state = r.data;
+      
+      // Controlla se il torneo è configurato verificando il nome del torneo
+      const isTournamentConfigured = state && state.settings && state.settings.tournamentName && state.settings.tournamentName.trim() !== '';
+      const noticeEl = document.getElementById('notConfiguredNotice');
+      const mainContentEl = document.getElementById('mainContent');
+      
+      if (!isTournamentConfigured) {
+        // Torneo non configurato - mostra il messaggio
+        if (noticeEl) noticeEl.classList.remove('hidden');
+        if (mainContentEl) mainContentEl.style.display = 'none';
+        return;
+      }
+      
+      // Torneo configurato - mostra il contenuto principale
+      if (noticeEl) noticeEl.classList.add('hidden');
+      if (mainContentEl) mainContentEl.style.display = 'block';
+      
+      renderAll();
+      
+      // Al primo caricamento, reindirizza automaticamente alla tab appropriata
+      if (firstLoad) {
+        firstLoad = false;
+        // Se il torneo è iniziato (gironi creati), vai alle partite
+        if (state.groups && state.groups.length > 0) {
+          const matchesTab = document.querySelector('button[onclick="showTab(\'matches\', this)"]');
+          if (matchesTab) showTab('matches', matchesTab);
+        } else {
+          // Altrimenti vai alle squadre
+          const teamsTab = document.querySelector('button[onclick="showTab(\'teams\', this)"]');
+          if (teamsTab) showTab('teams', teamsTab);
+        }
+      }
+    }
+
+    function updateCountdown() {
+      // Data del torneo: 14 luglio 2026 alle 19:30
+      const tournamentDate = new Date('2026-07-14T19:30:00').getTime();
+      const now = new Date().getTime();
+      const diff = tournamentDate - now;
+
+      if (diff <= 0) {
+        document.getElementById('countDays').textContent = '0';
+        document.getElementById('countHours').textContent = '0';
+        document.getElementById('countMinutes').textContent = '0';
+        document.getElementById('countSeconds').textContent = '0';
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      document.getElementById('countDays').textContent = days;
+      document.getElementById('countHours').textContent = hours;
+      document.getElementById('countMinutes').textContent = minutes;
+      document.getElementById('countSeconds').textContent = seconds;
+    }
+
+    function renderAll() {
+      document.getElementById('statTeams').textContent = state.teams.length;
+      document.getElementById('statPending').textContent = state.pendingCount;
+      document.getElementById('statGroups').textContent = state.groups.length;
+      document.getElementById('statMatches').textContent = state.groupMatches.length;
+
+      // Controlla se le iscrizioni sono chiuse
+      const maxTeams = 16;
+      const totalTeams = state.teams.length + state.pendingCount;
+      const isClosed = totalTeams >= maxTeams;
+
+      const form = document.getElementById('registrationForm');
+      const submitBtn = document.getElementById('submitBtn');
+      const closedNotice = document.getElementById('closedNotice');
+
+      if (isClosed) {
+        form.style.opacity = '0.5';
+        form.style.pointerEvents = 'none';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        closedNotice.classList.remove('hidden');
+        const inputs = form.querySelectorAll('input');
+        inputs.forEach(inp => inp.disabled = true);
+      } else {
+        form.style.opacity = '1';
+        form.style.pointerEvents = 'auto';
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        closedNotice.classList.add('hidden');
+        const inputs = form.querySelectorAll('input');
+        inputs.forEach(inp => inp.disabled = false);
+      }
+
+      renderTeams();
+      renderGroups();
+      renderMatches();
+      renderStandings();
+      renderPlayoff();
+      renderRanking();
+    }
+
+    function renderTeams() {
+      const c = document.getElementById('page-teams');
+      if (!state.teams.length) {
+        c.innerHTML = '<h3>Squadre confermate</h3><div class="empty">Nessuna squadra confermata.</div>';
+        return;
+      }
+      c.innerHTML = '<h3>Squadre confermate</h3>' + state.teams.map(t =>
+        `<div class="team-row"><div><strong>${esc(t.name)}</strong><div>${esc((t.players || []).filter(Boolean).join(' | '))}</div></div><div><span class="tag">Misto</span></div></div>`
+      ).join('');
+    }
+
+    function renderGroups() {
+      const c = document.getElementById('page-groups');
+      if (!state.groups.length) {
+        c.innerHTML = '<h3>Gironi</h3><div class="empty">Gironi non ancora pubblicati.</div>';
+        return;
+      }
+      c.innerHTML = '<h3>Gironi</h3><div class="group-grid">' + state.groups.map(g =>
+        `<div class="group"><h4 class="group-head">Girone ${g.name}</h4><ul>${g.teams.map(t => `<li>${esc(t.name)}</li>`).join('')}</ul></div>`
+      ).join('') + '</div>';
+    }
+
+    function renderMatches() {
+      const c = document.getElementById('page-matches');
+      if (!state.groupMatches.length) {
+        c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
+        return;
+      }
+
+      function getMatchStatus(m) {
+        // If both scores are null/undefined: not started (gray)
+        if ((m.score1 === null || m.score1 === undefined) && (m.score2 === null || m.score2 === undefined)) {
+          return { status: 'pending', label: 'Da giocare', class: 'status-pending' };
+        }
+        // If both scores are set: concluded (red)
+        if (m.score1 !== null && m.score1 !== undefined && m.score2 !== null && m.score2 !== undefined) {
+          return { status: 'concluded', label: 'Conclusa', class: 'status-concluded' };
+        }
+        // If only one or partially filled: online (green blinking)
+        return { status: 'online', label: 'Online', class: 'status-online' };
+      }
+
+      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m => {
+        const status = getMatchStatus(m);
+        return `<tr>
+          <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
+          <td>${formatDateIta(m.dayDate)} ${esc(m.time)}</td>
+          <td>${m.group}</td>
+          <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
+          <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+    }
+
+    function renderStandings() {
+      const c = document.getElementById('page-standings');
+      if (!state.standings.length) {
+        c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
+        return;
+      }
+      c.innerHTML = '<h3>Classifiche gironi</h3>' + state.standings.map(s =>
+        `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) =>
+          `<tr><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td>${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
+        ).join('')}</tbody></table>`
+      ).join('');
+    }
+
+    function playoffTable(title, arr) {
+      if (!arr || !arr.length) return '';
+      return `<h4>${title}</h4><table><thead><tr><th>Match</th><th>Squadra 1</th><th>Squadra 2</th><th>Risultato</th></tr></thead><tbody>${arr.map(m =>
+        `<tr><td>${m.label}</td><td>${esc(m.team1Name)}</td><td>${esc(m.team2Name)}</td><td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td></tr>`
+      ).join('')}</tbody></table>`;
+    }
+
+    function renderPlayoff() {
+      const c = document.getElementById('page-playoff');
+      const p = state.playoff || {};
+      const html =
+        playoffTable('Quarti', p.quarterFinals || []) +
+        playoffTable('Semifinali', p.semiFinals || []) +
+        playoffTable('Finale 3 posto', p.thirdPlace ? [p.thirdPlace] : []) +
+        playoffTable('Finale', p.final ? [p.final] : []);
+      c.innerHTML = '<h3>Fase finale</h3>' + (html || '<div class="empty">Fase finale non ancora generata.</div>');
+    }
+
+    function renderRanking() {
+      const c = document.getElementById('page-ranking');
+      if (!state.finalRanking.length) {
+        c.innerHTML = '<h3>Ranking finale</h3><div class="empty">Ranking finale non disponibile.</div>';
+        return;
+      }
+      c.innerHTML = `<h3>Classifica finale</h3><table><thead><tr><th>Posizione</th><th>Squadra</th></tr></thead><tbody>${state.finalRanking.map(r =>
+        `<tr><td class="${r.position === 1 ? 'rank-1' : r.position === 2 ? 'rank-2' : r.position === 3 ? 'rank-3' : ''}">${r.position}</td><td>${esc(r.name)}</td></tr>`
+      ).join('')}</tbody></table>`;
+    }
+
+    async function registerTeam() {
+      const name = document.getElementById('fName').value.trim();
+      const player1 = document.getElementById('fP1').value.trim();
+      const player2 = document.getElementById('fP2').value.trim();
+      const player3 = document.getElementById('fP3').value.trim();
+      const phone = document.getElementById('fPhone').value.trim();
+      const privacyOk = document.getElementById('fPrivacy').checked;
+      const cookiesOk = document.getElementById('fCookies').checked;
+
+      if (!name || !player1 || !player2) {
+        await showInfoDialog('Dati mancanti', 'Compila nome squadra e i primi due giocatori');
+        return;
+      }
+
+      if (!privacyOk) {
+        await showInfoDialog('Privacy richiesta', 'Devi accettare l\'informativa privacy');
+        return;
+      }
+
+      if (!cookiesOk) {
+        await showInfoDialog('Cookie richiesti', 'Devi accettare l\'utilizzo dei cookie');
+        return;
+      }
+
+      try {
+        console.log('Registrazione squadra...', { name, player1, player2, player3, phone });
+        const r = await api('register_team', 'POST', { name, player1, player2, player3, phone, category: 'Misto' });
+        console.log('Risposta API:', r);
+        await showInfoDialog('Iscrizione inviata', (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.');
+        document.getElementById('fName').value = '';
+        document.getElementById('fP1').value = '';
+        document.getElementById('fP2').value = '';
+        document.getElementById('fP3').value = '';
+        document.getElementById('fPhone').value = '';
+        document.getElementById('fPrivacy').checked = false;
+        document.getElementById('fCookies').checked = false;
+        try {
+          await loadState();
+        } catch (err) {
+          console.error('Errore nel caricamento dello stato:', err);
+        }
+      } catch (e) {
+        console.error('Errore registrazione:', e);
+        await showInfoDialog('Errore', e && e.message ? e.message : 'Errore sconosciuto');
+      }
+    }
+
+    function showInfoDialog(title, message) {
+      return new Promise((resolve) => {
+        const backdrop = document.getElementById('modalBackdrop');
+        const titleNode = document.getElementById('modalTitle');
+        const bodyNode = document.getElementById('modalBody');
+        const okBtn = document.getElementById('modalOk');
+        const closeBtn = document.getElementById('modalClose');
+
+        if (!backdrop || !titleNode || !bodyNode || !okBtn || !closeBtn) {
+          console.error('Elementi modali non trovati', { backdrop, titleNode, bodyNode, okBtn, closeBtn });
+          resolve(true);
+          return;
+        }
+
+        titleNode.textContent = title;
+        bodyNode.textContent = message;
+        backdrop.classList.remove('hidden');
+
+        const close = () => {
+          backdrop.classList.add('hidden');
+          okBtn.removeEventListener('click', onOk);
+          closeBtn.removeEventListener('click', onClose);
+          backdrop.removeEventListener('click', onBackdrop);
+          resolve(true);
+        };
+
+        const onOk = () => close();
+        const onClose = () => close();
+        const onBackdrop = (e) => {
+          if (e.target === backdrop) close();
+        };
+
+        okBtn.addEventListener('click', onOk);
+        closeBtn.addEventListener('click', onClose);
+        backdrop.addEventListener('click', onBackdrop);
+      });
+    }
+
+    function esc(s) {
+      return String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatDateIta(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    loadState().catch(err => {
+      console.error('Errore caricamento:', err);
+    });
+
+    // Aggiorna il countdown ogni secondo
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // Auto-refresh pagina ogni 30 secondi
+    setInterval(() => {
+      loadState().catch(err => {
+        console.error('Errore refresh:', err);
+      });
+    }, 30000);
+
+    // Carica il tema dalla configurazione
+    async function loadTheme() {
+      try {
+        const response = await fetch('api.php?action=get_config&method=GET');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.config && data.config.display) {
+            // Carica tema
+            if (data.config.display.theme) {
+              const themeName = data.config.display.theme;
+              const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
+              
+              if (validThemes.includes(themeName)) {
+                // Tema built-in
+                document.getElementById('themeLink').href = `theme-${themeName}.css`;
+              } else if (themeName.startsWith('custom_')) {
+                // Tema custom - genera CSS dinamico
+                const customTheme = (data.config.display.customThemes || []).find(t => t.id === themeName);
+                if (customTheme) {
+                  applyCustomThemeStyle(customTheme);
+                }
+              }
+            }
+            
+            // Carica logo
+            if (data.config.display.logoFile) {
+              const mainLogo = document.getElementById('mainLogo');
+              if (mainLogo) {
+                mainLogo.src = data.config.display.logoFile;
+                mainLogo.onerror = () => {
+                  mainLogo.src = 'logo.png'; // Fallback a logo di default se non trovato
+                };
+              }
+            }
+            
+            // Carica sfondo
+            if (data.config.display.backgroundFile) {
+              document.body.style.backgroundImage = `url('${data.config.display.backgroundFile}')`;
+              document.body.style.backgroundSize = 'cover';
+              document.body.style.backgroundPosition = 'center';
+              document.body.style.backgroundAttachment = 'fixed';
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Errore caricamento tema:', err);
+      }
+    }
+
+    function applyCustomThemeStyle(customTheme) {
+      // Importa i font da Google Fonts
+      const fontImport = `@import url('https://fonts.googleapis.com/css2?family=${customTheme.headingFont.replace(/ /g, '+')}&family=${customTheme.bodyFont.replace(/ /g, '+')}');`;
+      
+      // Genera CSS per il tema custom
+      const customCss = `
+        ${fontImport}
+        
+        :root {
+          --font-heading: '${customTheme.headingFont}', sans-serif;
+          --font-body: '${customTheme.bodyFont}', sans-serif;
+          --sand-1: ${customTheme.primaryColor};
+          --sand-2: ${customTheme.secondaryColor};
+          --sun: ${customTheme.primaryColor};
+          --leaf: ${customTheme.secondaryColor};
+          --ink: ${customTheme.headingColor};
+        }
+        
+        body {
+          font-family: '${customTheme.bodyFont}', sans-serif;
+          color: ${customTheme.headingColor};
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+          font-family: '${customTheme.headingFont}', sans-serif;
+          color: ${customTheme.headingColor};
+        }
+      `;
+      
+      // Inietta il CSS nel DOM
+      const style = document.createElement('style');
+      style.textContent = customCss;
+      document.head.appendChild(style);
+    }
+
+    // Carica il tema all'avvio
+    loadTheme();
+
+    // ==================== SPONSOR TICKER ====================
+    
+    async function loadSponsors() {
+      try {
+        const response = await fetch(`${API}?action=get_sponsors`);
+        const data = await response.json();
+        
+        if (data.ok && data.sponsors && data.sponsors.length > 0) {
+          renderSponsorTicker(data.sponsors);
+        }
+      } catch (e) {
+        console.error('Errore caricamento sponsor:', e);
+      }
+    }
+
+    function renderSponsorTicker(sponsors) {
+      const container = document.getElementById('sponsorTickerContainer');
+      const track = document.getElementById('sponsorTickerTrack');
+      
+      if (!sponsors || sponsors.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      // Crea array duplicato di sponsor per effetto loop infinito
+      const sponsorItems = [];
+      sponsors.forEach(sponsor => {
+        const repetitions = sponsor.repetitions || 1;
+        for (let i = 0; i < repetitions; i++) {
+          sponsorItems.push(sponsor);
+        }
+      });
+      
+      // Raddoppia gli sponsor per creare effetto seamless
+      const allSponsors = [...sponsorItems, ...sponsorItems];
+      
+      let html = '';
+      allSponsors.forEach(sponsor => {
+        const logoHtml = sponsor.logoFile 
+          ? `<img src="${sponsor.logoFile}" alt="${sponsor.name}" class="sponsor-logo">`
+          : '';
+        
+        html += `
+          <div class="sponsor-ticker-item">
+            ${logoHtml}
+            <span>${sponsor.name}</span>
+          </div>
+        `;
+      });
+      
+      track.innerHTML = html;
+      container.style.display = 'block';
+      
+      // Calcola la durata dell'animazione in base al numero di sponsor
+      const duration = allSponsors.length * 3; // 3 secondi per sponsor
+      track.style.animationDuration = `${duration}s`;
+    }
+
+    // Carica sponsor all'avvio
+    loadSponsors();
+
+    // ==================== NEWS SECTION ====================
+    
+    async function loadNews() {
+      try {
+        const response = await fetch(`${API}?action=public_get_news`);
+        const data = await response.json();
+        
+        if (data.ok && data.news && data.news.length > 0) {
+          renderNews(data.news);
+        }
+      } catch (e) {
+        console.error('Errore caricamento notizie:', e);
+      }
+    }
+
+    function renderNews(news) {
+      const section = document.getElementById('newsSection');
+      const newsList = document.getElementById('newsList');
+      
+      if (!news || news.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      
+      section.style.display = 'block';
+      newsList.innerHTML = '';
+      
+      news.forEach(item => {
+        const date = new Date(item.publishedAt || item.createdAt);
+        const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+        
+        const newsCard = document.createElement('div');
+        newsCard.style.cssText = `
+          background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
+          border: 1px solid #e7cf9e;
+          border-radius: 12px;
+          padding: 16px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s, box-shadow 0.2s;
+          display: flex;
+          gap: 12px;
+        `;
+        
+        newsCard.onmouseover = () => {
+          newsCard.style.transform = 'translateY(-2px)';
+          newsCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+        };
+        newsCard.onmouseout = () => {
+          newsCard.style.transform = 'none';
+          newsCard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
+        };
+        
+        // Immagine
+        if (item.imageFile) {
+          const img = document.createElement('img');
+          img.src = item.imageFile;
+          img.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 8px; flex-shrink: 0';
+          newsCard.appendChild(img);
+        }
+        
+        const content_div = document.createElement('div');
+        content_div.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: space-between';
+        
+        const title = document.createElement('h4');
+        title.textContent = item.title;
+        title.style.cssText = 'margin: 0 0 8px 0; color: #2e5d1f; font-size: 18px';
+        
+        const date_el = document.createElement('div');
+        date_el.textContent = `${dateStr} • ${timeStr}`;
+        date_el.style.cssText = 'font-size: 12px; color: #999; margin-bottom: 10px';
+        
+        const text = document.createElement('p');
+        text.textContent = item.content;
+        text.style.cssText = 'margin: 0; color: #333; line-height: 1.5; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden';
+        
+        content_div.appendChild(title);
+        content_div.appendChild(date_el);
+        content_div.appendChild(text);
+        newsCard.appendChild(content_div);
+        newsList.appendChild(newsCard);
+      });
+    }
+
+    // Carica notizie all'avvio
+    loadNews();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeachMaster - Crea il Tuo Torneo di Beach Volley</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f8edd8 0%, #f1dfbc 50%, #e7cf9e 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .hero h1 {
+      font-family: 'Original Surfer', cursive;
+      font-size: 3.5rem;
+      color: #201c14;
+      text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
+      margin-bottom: 10px;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: #6a5737;
+      line-height: 1.6;
+    }
+
+    .card {
+      background: #fffdf8;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      border: 3px solid #d9bf8c;
+    }
+
+    h2 {
+      font-family: 'Original Surfer', cursive;
+      font-size: 2rem;
+      color: #201c14;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #201c14;
+      margin-bottom: 8px;
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #d9bf8c;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: 'Segoe UI', sans-serif;
+      transition: all 0.3s ease;
+    }
+
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #ea5b0c;
+      box-shadow: 0 0 8px rgba(234, 91, 12, 0.3);
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
+    button {
+      padding: 14px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .btn-create {
+      background: linear-gradient(135deg, #ea5b0c 0%, #ff7f32 100%);
+      color: white;
+      grid-column: 1 / 2;
+    }
+
+    .btn-create:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(234, 91, 12, 0.4);
+    }
+
+    .btn-create:active {
+      transform: translateY(0);
+    }
+
+    .btn-login {
+      background: linear-gradient(135deg, #2e5d1f 0%, #3b7428 100%);
+      color: white;
+      grid-column: 2 / 3;
+    }
+
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(46, 93, 31, 0.4);
+    }
+
+    .btn-login:active {
+      transform: translateY(0);
+    }
+
+    .info-box {
+      background: #d9f1d2;
+      border-left: 4px solid #2e5d1f;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      color: #2e5d1f;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .error-box {
+      background: #ffe8e8;
+      border-left: 4px solid #b11f00;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      color: #b11f00;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      display: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      color: #6a5737;
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 3px solid #d9bf8c;
+      border-radius: 50%;
+      border-top-color: #ea5b0c;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .existing-tournaments {
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 2px solid #d9bf8c;
+      text-align: center;
+    }
+
+    .existing-tournaments h3 {
+      font-size: 1rem;
+      color: #6a5737;
+      margin-bottom: 12px;
+    }
+
+    .tournament-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tournament-item {
+      background: #f0f0f0;
+      padding: 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #201c14;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      border: 1px solid #d9bf8c;
+    }
+
+    .tournament-item:hover {
+      background: #e7cf9e;
+      transform: translateX(4px);
+    }
+
+    @media (max-width: 600px) {
+      .hero h1 {
+        font-size: 2.5rem;
+      }
+
+      .card {
+        padding: 24px;
+      }
+
+      .button-group {
+        grid-template-columns: 1fr;
+      }
+
+      .btn-login {
+        grid-column: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>🏖️ BeachMaster</h1>
+      <p>Gestisci il tuo torneo di beach volley in pochi click</p>
+    </div>
+
+    <div class="card">
+      <h2>Crea il Tuo Torneo</h2>
+
+      <div class="info-box">
+        📧 Inserisci l'email di riferimento e una password. Riceverai un codice univoco per accedere al pannello di controllo.
+      </div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <form id="createTournamentForm" onsubmit="handleCreateTournament(event)">
+        <div class="form-group">
+          <label for="managerEmail">Email Organizzatore *</label>
+          <input 
+            type="email" 
+            id="managerEmail" 
+            name="email" 
+            placeholder="es: admin@torneo.it"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="managerPassword">Password *</label>
+          <input 
+            type="password" 
+            id="managerPassword" 
+            name="password" 
+            placeholder="Minimo 8 caratteri"
+            minlength="8"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="tournamentName">Nome Torneo (opzionale)</label>
+          <input 
+            type="text" 
+            id="tournamentName" 
+            name="tournamentName" 
+            placeholder="Es: BeachMaster 2026"
+          >
+        </div>
+
+        <div class="loading" id="loadingIndicator">
+          <span class="spinner"></span>
+          Creazione in corso...
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn-create">🎉 Crea Torneo</button>
+          <button type="button" class="btn-login" onclick="showLoginForm()">🔐 Accedi</button>
+        </div>
+      </form>
+
+      <!-- Sezione Login -->
+      <form id="loginForm" style="display: none" onsubmit="handleLogin(event)">
+        <h3 style="font-family: 'Original Surfer', cursive; color: #201c14; margin-bottom: 20px">Accedi al Tuo Torneo</h3>
+
+        <div class="form-group">
+          <label for="tournamentCode">Codice Torneo *</label>
+          <input 
+            type="text" 
+            id="tournamentCode" 
+            name="tournamentCode" 
+            placeholder="Es: A1B2C3D4E5F6"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="loginEmail">Email *</label>
+          <input 
+            type="email" 
+            id="loginEmail" 
+            name="email" 
+            placeholder="es: admin@torneo.it"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="loginPassword">Password *</label>
+          <input 
+            type="password" 
+            id="loginPassword" 
+            name="password" 
+            placeholder="La tua password"
+            required
+          >
+        </div>
+
+        <div class="loading" id="loginLoadingIndicator">
+          <span class="spinner"></span>
+          Accesso in corso...
+        </div>
+
+        <div class="button-group">
+          <button type="submit" class="btn-login">✅ Accedi</button>
+          <button type="button" class="btn-create" onclick="showCreateForm()">← Indietro</button>
+        </div>
+      </form>
+
+      <div class="existing-tournaments" id="tournamentsSection" style="display: none">
+        <h3>I Tuoi Tornei</h3>
+        <div class="tournament-list" id="tournamentList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'api.php';
+
+    function showCreateForm() {
+      document.getElementById('createTournamentForm').style.display = 'block';
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'none';
+      document.getElementById('tournamentsSection').style.display = 'none';
+    }
+
+    function showLoginForm() {
+      document.getElementById('createTournamentForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('errorBox').style.display = 'none';
+      document.getElementById('tournamentsSection').style.display = 'none';
+    }
+
+    async function handleCreateTournament(e) {
+      e.preventDefault();
+      const email = document.getElementById('managerEmail').value.trim();
+      const password = document.getElementById('managerPassword').value.trim();
+      const tournamentName = document.getElementById('tournamentName').value.trim();
+
+      if (password.length < 8) {
+        showError('La password deve avere almeno 8 caratteri');
+        return;
+      }
+
+      try {
+        showLoading('loadingIndicator', true);
+        const response = await fetch(`${API}?action=create_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            managerEmail: email,
+            managerPassword: password,
+            tournamentName: tournamentName || 'Nuovo Torneo'
+          })
+        });
+
+        const data = await response.json();
+        
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Errore nella creazione del torneo');
+        }
+
+        // Successo - redirect al nuovo torneo
+        const tournamentCode = data.tournamentCode;
+        showSuccessDialog(
+          'Torneo Creato! ✅',
+          `Il tuo codice torneo è: <strong>${tournamentCode}</strong><br><br>Verrai reindirizzato al pannello di controllo...`,
+          () => {
+            window.location.href = `beachmaster/${tournamentCode}/admin.html`;
+          }
+        );
+
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        showLoading('loadingIndicator', false);
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const tournamentCode = document.getElementById('tournamentCode').value.trim();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+
+      try {
+        showLoading('loginLoadingIndicator', true);
+        const response = await fetch(`${API}?action=tournament_login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode,
+            managerEmail: email,
+            managerPassword: password
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || 'Credenziali non valide');
+        }
+
+        // Successo - redirect
+        window.location.href = `beachmaster/${tournamentCode}/admin.html?token=${data.token}`;
+
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        showLoading('loginLoadingIndicator', false);
+      }
+    }
+
+    function showError(message) {
+      const box = document.getElementById('errorBox');
+      box.textContent = '❌ ' + message;
+      box.style.display = 'block';
+      setTimeout(() => { box.style.display = 'none'; }, 5000);
+    }
+
+    function showLoading(elementId, show) {
+      document.getElementById(elementId).style.display = show ? 'block' : 'none';
+    }
+
+    function showSuccessDialog(title, message, onClose) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      `;
+
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 400px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        text-align: center;
+      `;
+
+      const titleEl = document.createElement('h3');
+      titleEl.style.cssText = 'font-family: "Original Surfer", cursive; font-size: 1.5rem; color: #201c14; margin-bottom: 12px';
+      titleEl.textContent = title;
+
+      const msgEl = document.createElement('p');
+      msgEl.style.cssText = 'color: #6a5737; margin-bottom: 20px; line-height: 1.6';
+      msgEl.innerHTML = message;
+
+      const btn = document.createElement('button');
+      btn.style.cssText = `
+        background: linear-gradient(135deg, #ea5b0c 0%, #ff7f32 100%);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+      `;
+      btn.textContent = '✅ OK';
+      btn.onclick = () => {
+        document.body.removeChild(overlay);
+        onClose?.();
+      };
+
+      dialog.appendChild(titleEl);
+      dialog.appendChild(msgEl);
+      dialog.appendChild(btn);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    }
+  </script>
+</body>
+
+</html>

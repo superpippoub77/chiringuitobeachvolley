@@ -1,0 +1,11 @@
+{
+    "tournaments": [
+        {
+            "code": "B536C5B6C89E",
+            "email": "test@example.com",
+            "name": "Test Tournament",
+            "path": "beachmaster\/B536C5B6C89E",
+            "createdAt": "2026-07-03 07:19:41"
+        }
+    ]
+}

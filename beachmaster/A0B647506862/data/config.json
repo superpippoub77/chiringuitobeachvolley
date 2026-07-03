@@ -1,0 +1,248 @@
+{
+    "tournament": {
+        "name": "BeachMaster 2026 - Torneo Test Completo",
+        "maxTeams": 12,
+        "maxPlayersPerTeam": 12,
+        "maxPlayersOnCourt": 6,
+        "maxSubstitutions": 5,
+        "numGroups": 3,
+        "numSets": 2,
+        "winScore": 25,
+        "maxScore": 25,
+        "timePerSetMinutes": 30,
+        "setupTimeMinutes": 5,
+        "maxTimeoutsPerSet": 2
+    },
+    "schedule": {
+        "courts": [
+            {
+                "courtId": "campo1",
+                "courtName": "Campo 1 - Centrale",
+                "availability": [
+                    {
+                        "date": "2026-07-25",
+                        "timeSlots": [
+                            {
+                                "startTime": "08:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "12:15"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "16:00"
+                            },
+                            {
+                                "startTime": "16:15",
+                                "endTime": "18:15"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-26",
+                        "timeSlots": [
+                            {
+                                "startTime": "08:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "12:15"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "16:00"
+                            },
+                            {
+                                "startTime": "16:15",
+                                "endTime": "18:15"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-27",
+                        "timeSlots": [
+                            {
+                                "startTime": "08:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "12:15"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "16:00"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "courtId": "campo2",
+                "courtName": "Campo 2 - Laterale",
+                "availability": [
+                    {
+                        "date": "2026-07-25",
+                        "timeSlots": [
+                            {
+                                "startTime": "08:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "12:15"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "16:00"
+                            },
+                            {
+                                "startTime": "16:15",
+                                "endTime": "18:15"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-26",
+                        "timeSlots": [
+                            {
+                                "startTime": "08:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "12:15"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "16:00"
+                            },
+                            {
+                                "startTime": "16:15",
+                                "endTime": "18:15"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "phases": [],
+    "contact": {
+        "managerEmail": "manager@chiringuito.test"
+    },
+    "display": {
+        "theme": "chiringuito",
+        "customThemes": [],
+        "logoFile": "",
+        "backgroundFile": ""
+    },
+    "sponsors": [
+        {
+            "id": "s1",
+            "name": "Acqua Fresca Paradiso",
+            "repetitions": 5,
+            "logoFile": null
+        },
+        {
+            "id": "s2",
+            "name": "Gelato Dolce Vita",
+            "repetitions": 3,
+            "logoFile": null
+        },
+        {
+            "id": "s3",
+            "name": "Ombrelloni Sole",
+            "repetitions": 2,
+            "logoFile": null
+        },
+        {
+            "id": "s4",
+            "name": "Bar Spiaggia",
+            "repetitions": 2,
+            "logoFile": null
+        }
+    ],
+    "payment": {
+        "enabled": true,
+        "costPerTeam": 150,
+        "currency": "EUR"
+    },
+    "notes": [
+        {
+            "id": "elite_team",
+            "description": "Squadra Elite - Favorita",
+            "points": 10
+        },
+        {
+            "id": "host_team",
+            "description": "Squadra Ospite - Casa",
+            "points": 5
+        },
+        {
+            "id": "first_time",
+            "description": "Prima partecipazione - Debuttante",
+            "points": 3
+        },
+        {
+            "id": "returning",
+            "description": "Squadra che ritorna",
+            "points": 0
+        },
+        {
+            "id": "penalty",
+            "description": "Multa disciplinare",
+            "points": -5
+        }
+    ],
+    "news": [
+        {
+            "id": "e15cb3c9c5f97853",
+            "title": "🏐 Iscrizioni Aperte per Chiringuito 2026!",
+            "content": "È iniziato il periodo di iscrizioni per il grande torneo di beach volley. Squadre, registratevi subito! Quota di partecipazione: 150 EUR. Posti limitati a 12 squadre.",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-02T14:38:27+00:00",
+            "updatedAt": "2026-07-02T14:38:27+00:00",
+            "publishedAt": "2026-07-02T14:38:27+00:00"
+        },
+        {
+            "id": "4d02160fe6a530e3",
+            "title": "📅 IMPORTANTE: Cambio data Final Four",
+            "content": "La final four è stata spostata da lunedì 28 luglio a martedì 29 luglio a causa di migliori condizioni meteo e disponibilità campi.",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-02T14:38:27+00:00",
+            "updatedAt": "2026-07-02T14:38:27+00:00",
+            "publishedAt": "2026-07-02T14:38:27+00:00"
+        },
+        {
+            "id": "01d92e7977e04e9a",
+            "title": "📋 Regolamento Preliminare",
+            "content": "Il regolamento sarà pubblicato tra pochi giorni. Verificare periodicamente per gli aggiornamenti.",
+            "imageFile": "",
+            "published": false,
+            "createdAt": "2026-07-02T14:38:27+00:00",
+            "updatedAt": "2026-07-02T14:38:27+00:00",
+            "publishedAt": null
+        },
+        {
+            "id": "d492d48946c47c6c",
+            "title": "🌤️ Previsioni Meteo Favorevoli",
+            "content": "Le previsioni meteo per i giorni del torneo sono eccellenti: sole, vento moderato, temperatura 28-30°C.",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-02T14:38:27+00:00",
+            "updatedAt": "2026-07-02T14:38:27+00:00",
+            "publishedAt": "2026-07-02T14:38:27+00:00"
+        }
+    ],
+    "autosave": {
+        "enabled": false,
+        "intervalSeconds": 30,
+        "maxSteps": 10
+    }
+}

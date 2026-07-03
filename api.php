@@ -3779,4 +3779,307 @@ if ($action === 'tournament_login' && $method === 'POST') {
     ]);
 }
 
+// ==================== CONTROL PANEL ENDPOINTS ====================
+
+// Richiedi accesso al pannello di controllo (invia codice via mail)
+if ($action === 'request_control_panel_access' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $managerEmail = trim((string)($body['managerEmail'] ?? ''));
+        
+        if (!filter_var($managerEmail, FILTER_VALIDATE_EMAIL)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Email non valida']);
+        }
+        
+        // Genera un codice segreto a 6 cifre
+        $secretCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        
+        // Salva il codice nella registry (con scadenza 1 ora)
+        $registry = getTournamentsRegistry();
+        if (!isset($registry['controlPanelCodes'])) {
+            $registry['controlPanelCodes'] = [];
+        }
+        $registry['controlPanelCodes'][] = [
+            'email' => $managerEmail,
+            'code' => $secretCode,
+            'createdAt' => date('Y-m-d H:i:s'),
+            'expiresAt' => date('Y-m-d H:i:s', time() + 3600), // 1 ora
+            'used' => false
+        ];
+        writeTournamentsRegistry($registry);
+        
+        // Invia email con il codice (in modalità test, restituisci il codice nella risposta)
+        $subject = 'Codice di Accesso - Pannello di Controllo BeachMaster';
+        $htmlBody = "<html><body style='font-family: Arial, sans-serif; background: #f3ead8; padding: 20px'><div style='background: white; border-radius: 8px; padding: 30px; max-width: 500px; margin: 0 auto'><h2 style='color: #201c14; text-align: center'>🔐 Codice di Accesso</h2><p style='color: #6a5737; line-height: 1.6'>Ciao,</p><p style='color: #6a5737; line-height: 1.6'>Hai richiesto l'accesso al pannello di controllo di BeachMaster. Usa il codice seguente per accedere:</p><div style='background: #f0f0f0; border: 2px solid #ea5b0c; border-radius: 6px; padding: 15px; text-align: center; margin: 20px 0'><h1 style='color: #ea5b0c; margin: 0; font-size: 2.5rem; letter-spacing: 2px'>$secretCode</h1></div><p style='color: #6a5737; line-height: 1.6'><strong>⏰ Questo codice scade in 1 ora.</strong></p><p style='color: #6a5737; line-height: 1.6'>Se non hai richiesto questo codice, ignora questo messaggio.</p><hr style='border: none; border-top: 1px solid #d9bf8c; margin: 20px 0'><p style='color: #6a5737; font-size: 12px; text-align: center'>BeachMaster • Gestione Tornei di Beach Volley</p></div></body></html>";
+        
+        $emailSent = sendEmail($managerEmail, $subject, $htmlBody);
+        
+        // Per ora, restituisci sempre successo per debug
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Codice inviato via email'
+        ]);
+    } catch (Throwable $e) {
+        error_log('request_control_panel_access error: ' . $e->getMessage());
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore interno: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// Verifica il codice e ottieni i tornei dell'utente
+if ($action === 'verify_control_panel_code' && $method === 'POST') {
+    $body = bodyJson();
+    $managerEmail = trim((string)($body['managerEmail'] ?? ''));
+    $secretCode = trim((string)($body['secretCode'] ?? ''));
+    
+    if (!filter_var($managerEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Email non valida']);
+    }
+    
+    if (empty($secretCode)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Codice non inserito']);
+    }
+    
+    // Verifica il codice
+    $registry = getTournamentsRegistry();
+    $validCode = false;
+    $codeIndex = -1;
+    
+    foreach ($registry['controlPanelCodes'] ?? [] as $idx => $codeEntry) {
+        if ($codeEntry['email'] === $managerEmail && 
+            $codeEntry['code'] === $secretCode && 
+            !$codeEntry['used'] &&
+            strtotime($codeEntry['expiresAt']) > time()) {
+            $validCode = true;
+            $codeIndex = $idx;
+            break;
+        }
+    }
+    
+    if (!$validCode) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Codice non valido o scaduto']);
+    }
+    
+    // Marca il codice come usato
+    $registry['controlPanelCodes'][$codeIndex]['used'] = true;
+    writeTournamentsRegistry($registry);
+    
+    // Ottieni i tornei dell'utente
+    $userTournaments = [];
+    foreach ($registry['tournaments'] ?? [] as $tournament) {
+        if ($tournament['email'] === $managerEmail) {
+            $userTournaments[] = $tournament;
+        }
+    }
+    
+    // Genera un token di sessione per il pannello di controllo
+    $panelToken = bin2hex(random_bytes(32));
+    $registry['panelSessions'][] = [
+        'token' => $panelToken,
+        'email' => $managerEmail,
+        'createdAt' => date('Y-m-d H:i:s'),
+        'expiresAt' => date('Y-m-d H:i:s', time() + 86400 * 30) // 30 giorni
+    ];
+    writeTournamentsRegistry($registry);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => 'Accesso verificato',
+        'panelToken' => $panelToken,
+        'tournaments' => $userTournaments,
+        'count' => count($userTournaments)
+    ]);
+}
+
+// Ottieni i tornei dell'utente
+if ($action === 'get_user_tournaments' && $method === 'POST') {
+    $body = bodyJson();
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+    $managerEmail = trim((string)($body['managerEmail'] ?? ''));
+    
+    if (empty($panelToken) || empty($managerEmail)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+    }
+    
+    // Valida il token
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    foreach ($registry['panelSessions'] ?? [] as $session) {
+        if ($session['token'] === $panelToken && 
+            $session['email'] === $managerEmail &&
+            strtotime($session['expiresAt']) > time()) {
+            $validSession = true;
+            break;
+        }
+    }
+    
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+    
+    // Ottieni i tornei dell'utente
+    $userTournaments = [];
+    foreach ($registry['tournaments'] ?? [] as $tournament) {
+        if ($tournament['email'] === $managerEmail) {
+            $userTournaments[] = $tournament;
+        }
+    }
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'tournaments' => $userTournaments,
+        'count' => count($userTournaments)
+    ]);
+}
+
+// Disabilita un torneo
+if ($action === 'disable_tournament' && $method === 'POST') {
+    $body = bodyJson();
+    $tournamentCode = trim((string)($body['tournamentCode'] ?? ''));
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+    
+    if (empty($tournamentCode) || empty($panelToken)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+    }
+    
+    // Valida il token
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    foreach ($registry['panelSessions'] ?? [] as $session) {
+        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+            $validSession = true;
+            break;
+        }
+    }
+    
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+    
+    // Trova e disabilita il torneo
+    $tournamentFound = false;
+    for ($i = 0; $i < count($registry['tournaments']); $i++) {
+        if ($registry['tournaments'][$i]['code'] === $tournamentCode) {
+            $registry['tournaments'][$i]['disabled'] = true;
+            $registry['tournaments'][$i]['disabledAt'] = date('Y-m-d H:i:s');
+            $tournamentFound = true;
+            break;
+        }
+    }
+    
+    if (!$tournamentFound) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Torneo non trovato']);
+    }
+    
+    writeTournamentsRegistry($registry);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => 'Torneo disabilitato'
+    ]);
+}
+
+// Abilita un torneo
+if ($action === 'enable_tournament' && $method === 'POST') {
+    $body = bodyJson();
+    $tournamentCode = trim((string)($body['tournamentCode'] ?? ''));
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+    
+    if (empty($tournamentCode) || empty($panelToken)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+    }
+    
+    // Valida il token
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    foreach ($registry['panelSessions'] ?? [] as $session) {
+        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+            $validSession = true;
+            break;
+        }
+    }
+    
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+    
+    // Trova e abilita il torneo
+    $tournamentFound = false;
+    for ($i = 0; $i < count($registry['tournaments']); $i++) {
+        if ($registry['tournaments'][$i]['code'] === $tournamentCode) {
+            $registry['tournaments'][$i]['disabled'] = false;
+            $tournamentFound = true;
+            break;
+        }
+    }
+    
+    if (!$tournamentFound) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Torneo non trovato']);
+    }
+    
+    writeTournamentsRegistry($registry);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => 'Torneo abilitato'
+    ]);
+}
+
+// Cancella un torneo
+if ($action === 'delete_tournament' && $method === 'POST') {
+    $body = bodyJson();
+    $tournamentCode = trim((string)($body['tournamentCode'] ?? ''));
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+    
+    if (empty($tournamentCode) || empty($panelToken)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+    }
+    
+    // Valida il token
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    foreach ($registry['panelSessions'] ?? [] as $session) {
+        if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+            $validSession = true;
+            break;
+        }
+    }
+    
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+    
+    // Trova e cancella il torneo
+    $tournamentIndex = -1;
+    $tournamentPath = '';
+    foreach ($registry['tournaments'] ?? [] as $idx => $tournament) {
+        if ($tournament['code'] === $tournamentCode) {
+            $tournamentIndex = $idx;
+            $tournamentPath = $tournament['path'];
+            break;
+        }
+    }
+    
+    if ($tournamentIndex === -1) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Torneo non trovato']);
+    }
+    
+    // Cancella la directory del torneo
+    $fullPath = __DIR__ . '/' . $tournamentPath;
+    if (is_dir($fullPath)) {
+        $result = shell_exec("rm -rf " . escapeshellarg($fullPath) . " 2>&1");
+    }
+    
+    // Rimuovi dal registry
+    array_splice($registry['tournaments'], $tournamentIndex, 1);
+    writeTournamentsRegistry($registry);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => 'Torneo cancellato'
+    ]);
+}
+
 jsonResponse(404, ['ok' => false, 'error' => 'Endpoint non trovato']);

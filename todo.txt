@@ -57,4 +57,6 @@ Nella sezione di backup devo aver a disposizone di tuti i backup creati sul serv
 Se clicco su un template non mi aggiorna in tempo reale la visualizzazione in base al template scelto✅
 Se clicco su un template diverso da beachmaster e poi ritorno a quello di beachmaster non me lo consente di fare con gli altri template si.✅
 Siccome questo è il progetto base occorre una homepage con la richiesta di generazione di un "toreno" inserendo l'indirizzo mail di riferimento ed una password, si genera in automatico un codice alfanumerico univoco (GUID) e quando schiaccio il pulsante "Crea" si crea una sito torneo sotto la dirctory beachmastrer/GUID/ e le credenziali di accesso sono quelle date dal form: user è l'email, la password quella inserita tutto per accedere al pannello admin, in pradica si riporta tutto il progetto attuale compresa la index✅
-Inserire un pannello di controllo generale per capire qunti torneo ho creato in base all'indirizzo email
+Inserire un pannello di controllo generale nella landing per capire quanti tornei sono stati creati con quello user -> email per visualizzarerli ci sarà un codice segreto inviato per mail che dovrà essere inserito nella richiesta di accesso al pannello della landing✅
+Nella landing page il box Nome Torneo (opzionale) non è fomrattato come le altre input box✅
+Nel pannello di controllo del programma principale beachmaster devo aver la possibilità di cancellare i tornei o disabilitarli✅

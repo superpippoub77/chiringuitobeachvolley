@@ -3743,6 +3743,8 @@ HTML;
 // ==================== SPONSOR MANAGEMENT ====================
 
 if ($action === 'admin_update_sponsors' && $method === 'POST') {
+    if (!validSession()) jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    
     $body = bodyJson();
     $config = readConfig();
     
@@ -3767,7 +3769,7 @@ if ($action === 'admin_update_sponsors' && $method === 'POST') {
     // Salva snapshot nella history
     saveToHistory('Aggiornamento sponsor');
     
-    jsonResponse(200, ['ok' => true, 'sponsors' => $config['sponsors']]);
+    jsonResponse(200, ['ok' => true, 'config' => ['sponsors' => $config['sponsors']], 'sponsors' => $config['sponsors']]);
 }
 
 if ($action === 'admin_upload_sponsor_logo' && $method === 'POST') {

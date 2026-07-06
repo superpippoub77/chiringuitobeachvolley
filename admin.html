@@ -3804,8 +3804,10 @@
     }
 
     function addSponsor() {
+      // Genera ID random in JavaScript
+      const id = Math.random().toString(36).substring(2, 10);
       sponsors.push({
-        id: bin2hex(8),
+        id: id,
         name: 'Nuovo Sponsor',
         repetitions: 1,
         logoFile: null
@@ -3815,18 +3817,21 @@
 
     async function saveSponsor() {
       try {
-        // Raccogli i dati dai campi
+        // Raccogli i dati dai campi input
         const inputs = document.querySelectorAll('.sponsor-input');
-        const updatedSponsors = [];
+        const updatedSponsors = {};
         
+        // Raccogli i dati per indice
         inputs.forEach(input => {
           const idx = parseInt(input.dataset.sponsorIdx);
           const field = input.dataset.field;
           
+          // Crea una copia dello sponsor se non esiste
           if (!updatedSponsors[idx]) {
             updatedSponsors[idx] = { ...sponsors[idx] };
           }
           
+          // Aggiorna il campo
           if (field === 'name') {
             updatedSponsors[idx].name = input.value.trim() || 'Sponsor';
           } else if (field === 'repetitions') {
@@ -3834,11 +3839,20 @@
           }
         });
         
-        // Rimuovi undefined
-        const finalSponsors = updatedSponsors.filter(s => s);
+        // Converti in array ordinato rimuovendo i buchi
+        const finalSponsors = Object.keys(updatedSponsors)
+          .sort((a, b) => parseInt(a) - parseInt(b))
+          .map(key => updatedSponsors[key])
+          .filter(s => s && s.name); // Filtra solo sponsor con nome
+        
+        // Se nessuno sponsor, usa il vecchio array
+        if (finalSponsors.length === 0 && sponsors.length > 0) {
+          await showInfoDialog('Errore', 'Almeno uno sponsor deve avere un nome');
+          return;
+        }
         
         const result = await callApi('admin_update_sponsors', 'POST', { sponsors: finalSponsors }, true);
-        sponsors = result.sponsors;
+        sponsors = result.config?.sponsors || result.sponsors || [];
         
         await showInfoDialog('Successo', '✅ Sponsor salvati con successo');
         await renderSponsors();

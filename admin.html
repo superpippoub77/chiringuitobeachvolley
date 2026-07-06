@@ -5244,7 +5244,8 @@
 
       // Calcola il numero reale di squadre approvate
       const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
-      const teamsToSimulate = approvedCount > 0 ? approvedCount : 16; // Fallback a 16 se nessuna squadra approvata
+      const maxTeams = config.tournament?.maxTeams || 16;
+      const teamsToSimulate = approvedCount > 0 ? approvedCount : maxTeams;
       
       let teamsInPlay = teamsToSimulate;
       let simulationHtml = '<div style="display: flex; gap: 16px; overflow-x: auto; padding: 12px 0">';
@@ -5322,6 +5323,11 @@
       const phases = config.phases || [];
       const flows = [];
       
+      // Calcola il numero reale di squadre in gioco
+      const maxTeams = config.tournament?.maxTeams || 16; // Default 16 se non configurato
+      const approvedTeams = (state.teams || []).filter(t => t.approved).length;
+      const totalTeams = approvedTeams > 0 ? approvedTeams : maxTeams;
+      
       phases.forEach((phase, idx) => {
         const flow = {
           phaseNumber: idx + 1,
@@ -5337,7 +5343,7 @@
           const numGroups = phase.numGroups || 4;
           const teamsPerGroup = phase.teamsAdvance || 2;
           flow.teamsAdvance = numGroups * teamsPerGroup;
-          flow.teamsRepescage = phase.hasRepescage ? (12 - flow.teamsAdvance) : 0;
+          flow.teamsRepescage = phase.hasRepescage ? Math.max(0, totalTeams - flow.teamsAdvance) : 0;
           flow.teamsEliminated = 0;
         } else {
           flow.teamsAdvance = Math.ceil((phase.numTeams || 4) / 2);
@@ -5349,7 +5355,7 @@
       });
 
       if (flows.length > 0) {
-        flows[0].teamsIn = 16;
+        flows[0].teamsIn = totalTeams; // Usa il numero reale di squadre, non 16
         for (let i = 1; i < flows.length; i++) {
           flows[i].teamsIn = flows[i - 1].teamsAdvance + flows[i - 1].teamsRepescage;
         }

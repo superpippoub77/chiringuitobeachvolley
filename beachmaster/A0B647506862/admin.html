@@ -1023,6 +1023,11 @@
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
       
+      // Salva la tab nell'URL
+      const url = new URL(window.location);
+      url.searchParams.set('tab', page);
+      window.history.replaceState({}, '', url);
+      
       // Carica i dati specifici della pagina
       if (page === 'sponsors') {
         renderSponsors();
@@ -1090,6 +1095,12 @@
         const tabButton = document.querySelector(`[data-page="${tabParam}"]`);
         if (tabButton) {
           showPage(tabParam, tabButton);
+        }
+      } else {
+        // Se non c'è un tab nell'URL, apri il primo tab (settings)
+        const defaultTabButton = document.querySelector('[data-page="settings"]');
+        if (defaultTabButton) {
+          showPage('settings', defaultTabButton);
         }
       }
     }

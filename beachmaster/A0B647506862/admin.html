@@ -4560,10 +4560,19 @@
             'Content-Type': 'application/json'
           }
         });
+        
+        // Se il backend ritorna errore, mostra il messaggio di errore
+        if (!response.ok) {
+          const text = await response.text();
+          console.error('Backend error:', response.status, text);
+          await showInfoDialog('Errore Backend', `Status: ${response.status}\n\n${text}`);
+          return;
+        }
+        
         const result = await response.json();
         
         if (!result.ok) {
-          await showInfoDialog('Errore', 'Debug failed: ' + (result.error || 'Unknown error'));
+          await showInfoDialog('Errore', `Debug failed: ${result.error}\n\nFile: ${result.file}\nLine: ${result.line}`);
           return;
         }
 

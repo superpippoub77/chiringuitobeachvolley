@@ -2136,12 +2136,34 @@ if ($action === 'admin_seed_demo' && $method === 'POST') {
 }
 
 if ($action === 'admin_reset' && $method === 'POST') {
+    // Reset PARZIALE: cancella gironi, playoff, partite ma CONSERVA squadre e config
     withStateTransaction(function (&$state) {
-        $state = initialState();
+        // Crea nuovo state ma preserva squadre e altre info
+        $newState = [
+            'settings' => [
+                'maxTeams' => $state['settings']['maxTeams'] ?? 16,
+                'tournamentName' => $state['settings']['tournamentName'] ?? ''
+            ],
+            'teams' => $state['teams'] ?? [],  // ✅ CONSERVA squadre
+            'groups' => [],                      // ❌ Cancella gironi
+            'groupMatches' => [],                // ❌ Cancella partite
+            'playoff' => [                       // ❌ Cancella playoff
+                'quarterFinals' => [],
+                'semiFinals' => [],
+                'thirdPlace' => null,
+                'final' => null
+            ],
+            'standings' => [],                   // ❌ Cancella classifiche
+            'finalRanking' => [],                // ❌ Cancella ranking
+            'meta' => [
+                'lastUpdated' => null
+            ]
+        ];
+        $state = $newState;
         return ['ok' => true];
     });
 
-    jsonResponse(200, ['ok' => true]);
+    jsonResponse(200, ['ok' => true, 'message' => 'Gironi, playoff e partite cancellate. Squadre conservate.']);
 }
 
 if ($action === 'admin_upload_logo' && $method === 'POST') {
@@ -4758,7 +4780,7 @@ if ($action === 'delete_tournament' && $method === 'POST') {
 if ($action === 'debug_schedule' && $method === 'GET') {
     try {
         $config = readConfig();
-        $state = readState();
+        $state = readJsonFile(DATA_FILE, initialState());
         
         $courts = $config['schedule']['courts'] ?? [];
         

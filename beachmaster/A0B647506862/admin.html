@@ -2716,11 +2716,15 @@
     }
 
     async function resetAll() {
-      const proceed = await showConfirmDialog('Conferma reset', 'Reset completo torneo? Questa operazione cancella gironi, partite e classifica.');
+      const proceed = await showConfirmDialog(
+        'Azzera Gironi e Partite',
+        '🔄 Questa operazione cancella:\n- ❌ Gironi e gruppi\n- ❌ Partite e risultati\n- ❌ Playoff\n- ❌ Classifiche finali\n\n✅ Ma CONSERVA:\n- ✅ Tutte le squadre\n- ✅ Configurazione campi\n- ✅ Configurazione fasi\n- ✅ Configurazione torneo\n\nPuoi riconfigurare i gironi da zero senza perdere squadre e impostazioni.'
+      );
       if (!proceed) return;
       try {
         await callApi('admin_reset', 'POST', {}, true);
         await refresh();
+        await showInfoDialog('✅ Reset Completato', 'Gironi, playoff e partite eliminati. Squadre e configurazioni conservate!');
       } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 

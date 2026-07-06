@@ -85,3 +85,5 @@ Reset torneo mi cancella dalla generazione dei gironi fino alla fine, lasciando 
 Nell'approvare e nel pagare aggiungi un pulsante con approva tutte e uno con approva tutti i pagamenti e aggiungimi un flag (non obligatorio) consegna del kit✅
 Se clicco su una voce del menù e faccio i refresh deve rimanere su quella non tornare ad "impostazionie"✅
 Per ogni torneo matti una scheda kit (non obbligatorio) di cosa cosegneremo all'iscritto✅
+Ogni singola ezione di Impostazioni riesci a strutturarla in modalità tab e compatibile con mobile? ✅✅
+Per ogni giocatore dai la possiilità di caricare l'immagine

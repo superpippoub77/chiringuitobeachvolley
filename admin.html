@@ -419,6 +419,53 @@
       line-height: 1.4;
     }
 
+    /* Settings Sub-Tabs CSS */
+    .settings-subtabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .settings-subtab-btn {
+      border: 0;
+      background: #e8dcc4;
+      color: #5c4d2f;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .settings-subtab-btn:hover {
+      background: #d8c9b3;
+    }
+
+    .settings-subtab-btn.active {
+      background: var(--accent-2);
+      color: #fff;
+    }
+
+    .settings-tab-content {
+      display: none;
+    }
+
+    .settings-tab-content.active {
+      display: block;
+      animation: fadeIn 0.2s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     @media (max-width: 900px) {
       .team {
         grid-template-columns: 1fr;
@@ -440,6 +487,27 @@
         min-width: 150px;
         min-height: 70px;
         font-size: 11px;
+      }
+
+      /* Settings Sub-Tabs Mobile */
+      .settings-subtabs {
+        gap: 4px;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .settings-subtab-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+        min-width: fit-content;
+      }
+
+      .form-grid-modal {
+        grid-template-columns: 1fr !important;
+      }
+
+      .row {
+        flex-direction: column;
       }
     }
   </style>
@@ -1140,9 +1208,19 @@
         const s = config.schedule || { days: [] };
 
         c.innerHTML = `
-          <div class="card" style="background: #f9f3e6; padding: 12px">
-            <h4 style="margin-top: 0">Parametri Torneo</h4>
-            <div class="form-grid-modal">
+          <div class="settings-subtabs" id="settingsSubtabs">
+            <button class="settings-subtab-btn active" onclick="showSettingsTab('tournament', this)">📋 Torneo</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('communications', this)">📧 Comunicazioni</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('calendar', this)">📅 Calendario</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('display', this)">🎨 Visualizzazione</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('advanced', this)">📦 Avanzate</button>
+          </div>
+
+          <!-- TAB 1: TORNEO -->
+          <div class="settings-tab-content active" id="settings-tournament">
+            <div class="card" style="background: #f9f3e6; padding: 12px">
+              <h4 style="margin-top: 0">📋 Parametri Torneo</h4>
+              <div class="form-grid-modal">
               <div class="field">
                 <label>Nome torneo</label>
                 <input id="cfg-tournamentName" type="text" maxlength="100" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
@@ -1196,8 +1274,10 @@
             </div>
           </div>
 
-          <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
-            <h4 style="margin-top: 0">📧 Contatti e Notifiche</h4>
+          <!-- TAB 2: COMUNICAZIONI -->
+          <div class="settings-tab-content" id="settings-communications">
+            <div class="card" style="background: #fff3e0; padding: 12px">
+              <h4 style="margin-top: 0">📧 Contatti e Notifiche</h4>
             <p class="muted">Configura i contatti per ricevere notifiche sulle iscrizioni.</p>
             <div class="field">
               <label>Email del gestore (riceve notifiche iscrizioni)</label>
@@ -1267,18 +1347,24 @@
               <div id="emailConfigStatus" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none"></div>
             </div>
           </div>
-
-          <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
-            <h4 style="margin-top: 0">Schedule Giorni</h4>
-            <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
-            <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
           </div>
 
-          <div class="card" style="background: #f0e8f5; padding: 12px; margin-top: 12px">
-            <h4 style="margin-top: 0">🎨 Tema Visualizzazione</h4>
-            <p class="muted">Seleziona lo stile di visualizzazione del torneo nel sito pubblico.</p>
-            <div id="themeSelector" style="margin-top: 10px"></div>
+          <!-- TAB 3: CALENDARIO -->
+          <div class="settings-tab-content" id="settings-calendar">
+            <div class="card" style="background: #e8f5e9; padding: 12px">
+              <h4 style="margin-top: 0">📅 Schedule Giorni</h4>
+              <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
+              <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
+            </div>
           </div>
+
+          <!-- TAB 4: VISUALIZZAZIONE -->
+          <div class="settings-tab-content" id="settings-display">
+            <div class="card" style="background: #f0e8f5; padding: 12px">
+              <h4 style="margin-top: 0">🎨 Tema Visualizzazione</h4>
+              <p class="muted">Seleziona lo stile di visualizzazione del torneo nel sito pubblico.</p>
+              <div id="themeSelector" style="margin-top: 10px"></div>
+            </div>
 
           <div class="card" style="background: #e8f0f5; padding: 12px; margin-top: 12px">
             <h4 style="margin-top: 0">🏆 Logo Torneo</h4>
@@ -1355,14 +1441,17 @@
             </div>
             <div id="customThemesList" style="margin-top: 12px"></div>
           </div>
+          </div>
 
-          <div class="card" style="background: #f0e8f8; padding: 12px; margin-top: 12px">
-            <h4 style="margin-top: 0">📦 Configurazione Kit Torneo</h4>
-            <p class="muted">Descrivi cosa consegnerai ai partecipanti iscritti (opzionale).</p>
-            
-            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
-              <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-weight: bold">
-                <input type="checkbox" id="cfg-kitEnabled" ${config.kit?.enabled ? 'checked' : ''} onchange="toggleKitConfig()">
+          <!-- TAB 5: AVANZATE -->
+          <div class="settings-tab-content" id="settings-advanced">
+            <div class="card" style="background: #f0e8f8; padding: 12px">
+              <h4 style="margin-top: 0">📦 Configurazione Kit Torneo</h4>
+              <p class="muted">Descrivi cosa consegnerai ai partecipanti iscritti (opzionale).</p>
+              
+              <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
+                <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-weight: bold">
+                  <input type="checkbox" id="cfg-kitEnabled" ${config.kit?.enabled ? 'checked' : ''} onchange="toggleKitConfig()">
                 <span>Abilita Configurazione Kit</span>
               </label>
               
@@ -1457,6 +1546,7 @@
                 </small>
               </div>
             </div>
+          </div>
           </div>
         `;
         
@@ -1611,6 +1701,30 @@
       
       // Carica la lista dei backup dal server
       loadBackupsList().catch(e => console.error('Errore caricamento backup list:', e));
+    }
+
+    function showSettingsTab(tabName, button) {
+      // Hide all tab contents
+      document.querySelectorAll('.settings-tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Remove active class from all buttons
+      document.querySelectorAll('.settings-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Show selected tab
+      const tabId = 'settings-' + tabName;
+      const tabElement = document.getElementById(tabId);
+      if (tabElement) {
+        tabElement.classList.add('active');
+      }
+      
+      // Mark button as active
+      if (button) {
+        button.classList.add('active');
+      }
     }
 
     function showScheduleConfig() {

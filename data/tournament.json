@@ -23,9 +23,81 @@
                 }
             ],
             "phone": "+39123456789",
-            "paid": false,
-            "approved": false,
+            "paid": true,
+            "approved": true,
             "createdAt": "2026-07-03T10:42:52+00:00"
+        },
+        {
+            "id": "37671005187ba61f",
+            "name": "Test Team 2",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 1",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 2",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 3",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T12:53:16+00:00"
+        },
+        {
+            "id": "4e02fbebde4bf7a8",
+            "name": "Test Team 3",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 4",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 5",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 6",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T12:53:16+00:00"
+        },
+        {
+            "id": "1c2fd003a6feac2e",
+            "name": "Test Team 4",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 7",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 8",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 9",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T12:53:16+00:00"
         }
     ],
     "groups": [],

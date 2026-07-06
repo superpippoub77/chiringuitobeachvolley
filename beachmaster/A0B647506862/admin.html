@@ -1341,11 +1341,11 @@
             
             <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
               <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-weight: bold">
-                <input type="checkbox" id="cfg-kitEnabled" ${config.kit?.enabled ? 'checked' : ''}>
+                <input type="checkbox" id="cfg-kitEnabled" ${config.kit?.enabled ? 'checked' : ''} onchange="toggleKitConfig()">
                 <span>Abilita Configurazione Kit</span>
               </label>
               
-              <div style="opacity: ${config.kit?.enabled ? '1' : '0.5'}; pointer-events: ${config.kit?.enabled ? 'auto' : 'none'}">
+              <div id="kitConfigContent" style="opacity: ${config.kit?.enabled ? '1' : '0.5'}; pointer-events: ${config.kit?.enabled ? 'auto' : 'none'}; transition: opacity 0.3s">
                 <div style="margin-bottom: 12px">
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Descrizione Kit</label>
                   <textarea id="cfg-kitDescription" placeholder="Es: Maglietta da Beach Volley, Bandana, Bottiglia d'acqua riutilizzabile" style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical; line-height: 1.4">${escapeHtml(config.kit?.description || '')}</textarea>
@@ -1679,6 +1679,16 @@
         delete config.display.backgroundFile;
         await renderSettings();
         await showInfoDialog('Successo', 'Sfondo rimosso');
+      }
+    }
+
+    function toggleKitConfig() {
+      const checkbox = document.getElementById('cfg-kitEnabled');
+      const content = document.getElementById('kitConfigContent');
+      if (checkbox && content) {
+        const isEnabled = checkbox.checked;
+        content.style.opacity = isEnabled ? '1' : '0.5';
+        content.style.pointerEvents = isEnabled ? 'auto' : 'none';
       }
     }
 

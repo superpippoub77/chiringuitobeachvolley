@@ -1962,44 +1962,26 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
     withStateTransaction(function (&$state) {
         $approved = approvedTeams($state);
         $total = count($state['teams'] ?? []);
+        $maxTeams = (int)$state['settings']['maxTeams'];
         
-        // Debug: Log all teams status
-        error_log('DEBUG admin_generate_groups: Total teams=' . $total . ', Approved=' . count($approved));
+        // DEBUG: Log all teams status
+        error_log('DEBUG admin_generate_groups: Total teams=' . $total . ', Approved=' . count($approved) . ', MaxTeams=' . $maxTeams);
         foreach (array_slice($state['teams'] ?? [], 0, 5) as $t) {
             error_log('  Team: ' . $t['name'] . ' | approved=' . ($t['approved'] ? 'true' : 'false') . ' | dummy=' . ($t['dummy'] ? 'true' : 'false'));
         }
         
-        if (count($approved) < 4) {
-            $message = 'Servono almeno 4 squadre approvate, ne hai ' . count($approved) . ' di ' . $total . ' totali.';
-            jsonResponse(422, [
-                'ok' => false,
-                'error' => $message,
-                'details' => [
-                    'total_teams' => $total,
-                    'approved_count' => count($approved),
-                    'needed' => 4,
-                    'missing' => max(0, 4 - count($approved)),
-                    'debug_message' => 'Controlla che le squadre abbiano il flag approved=true',
-                    'teams_sample' => array_map(fn($t) => [
-                        'name' => $t['name'],
-                        'approved' => $t['approved'] ?? false,
-                        'paid' => $t['paid'] ?? false,
-                        'dummy' => $t['dummy'] ?? false
-                    ], array_slice($state['teams'] ?? [], 0, 5))
-                ]
-            ]);
-        }
-
-        $maxTeams = (int)$state['settings']['maxTeams'];
-        $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
-
-        // Aggiungere squadre fittive se non si raggiunge il massimo
-        while (count($approved) < $maxTeams) {
+        // Aggiungi squadre fittive SE NON RAGGIUNGE IL MINIMO DI 4
+        $minTeams = 4;
+        while (count($approved) < $minTeams && count($approved) < $maxTeams) {
             $dummyTeam = [
                 'id' => uid(),
                 'name' => generateDummyTeamName(count($approved)),
                 'category' => 'Misto',
-                'players' => ['Bot 1', 'Bot 2', 'Bot 3'],
+                'players' => [
+                    ['name' => 'Bot 1', 'isCaptain' => false],
+                    ['name' => 'Bot 2', 'isCaptain' => false],
+                    ['name' => 'Bot 3', 'isCaptain' => false]
+                ],
                 'phone' => '',
                 'paid' => true,
                 'approved' => true,
@@ -2008,7 +1990,24 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
             ];
             $state['teams'][] = $dummyTeam;
             $approved[] = $dummyTeam;
+            error_log('DEBUG: Aggiunta squadra fittizia ' . $dummyTeam['name'] . ', ora approved=' . count($approved));
         }
+        
+        // ORA fai il check (dopo aver aggiunto le dummy)
+        if (count($approved) < $minTeams) {
+            jsonResponse(422, [
+                'ok' => false,
+                'error' => 'Errore: non è stato possibile raggiungere ' . $minTeams . ' squadre. Approved=' . count($approved),
+                'details' => [
+                    'total_teams' => count($state['teams']),
+                    'approved_count' => count($approved),
+                    'needed' => $minTeams
+                ]
+            ]);
+        }
+
+        // Limita al massimo
+        $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
 
         $groupCount = min(4, max(1, (int)ceil(count($approved) / 4)));
         $groups = [];

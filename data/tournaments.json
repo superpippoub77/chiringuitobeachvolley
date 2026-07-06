@@ -43,6 +43,13 @@
             "name": "New Test Tournament",
             "path": "beachmaster\/C965074EBE23",
             "createdAt": "2026-07-06 21:31:29"
+        },
+        {
+            "code": "5EB6402FA047",
+            "email": "testfinal@example.com",
+            "name": "Final Test Tournament",
+            "path": "beachmaster\/5EB6402FA047",
+            "createdAt": "2026-07-06 21:37:54"
         }
     ],
     "controlPanelCodes": [

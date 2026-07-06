@@ -4582,6 +4582,13 @@ if ($action === 'create_tournament' && $method === 'POST') {
     }
     error_log("📌 create_tournament: copyDirectory completed");
     
+    // Pulisci: rimuovi la cartella beachmaster se è stata copiata per errore
+    $beachmasterInTournament = $tournamentDir . '/beachmaster';
+    if (is_dir($beachmasterInTournament)) {
+        error_log("⚠️  ALERT: Trovata cartella beachmaster nel torneo! Rimuovo...");
+        shell_exec("rm -rf " . escapeshellarg($beachmasterInTournament) . " 2>/dev/null");
+    }
+    
     // Nel torneo copiato: gestisci i file HTML
     // Elimina index.html (landing page del root che non serve nel torneo)
     // Rinomina scoreboard.html a index.html (homepage pubblica del torneo)

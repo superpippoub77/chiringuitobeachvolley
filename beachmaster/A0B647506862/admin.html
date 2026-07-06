@@ -528,11 +528,11 @@
     <div id="loginBox" class="card">
       <h3>Login amministratore</h3>
       <div id="loginEmailField" style="display: none; margin-bottom: 10px">
-        <input id="adminEmail" type="email" placeholder="Email" maxlength="255" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
+        <input id="adminEmail" type="email" placeholder="Email" maxlength="255" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
       </div>
       <div class="row">
-        <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter') login()">
-        <button class="btn btn-primary" onclick="login()">Accedi</button>
+        <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
+        <button class="btn btn-primary" onclick="typeof login === 'function' && login()">Accedi</button>
       </div>
     </div>
 

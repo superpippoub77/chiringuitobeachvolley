@@ -1,7 +1,7 @@
 <?php
 /**
- * Script di seed per popolare dati di test - TENANT
- * Esegui: php beachmaster/A0B647506862/seed-data.php
+ * Script di seed per popolare dati di test
+ * Esegui: php seed-data.php
  */
 
 $dataFile = __DIR__ . '/data/tournament.json';

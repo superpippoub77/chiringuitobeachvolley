@@ -860,6 +860,8 @@
   <script>
     const API = 'api.php';
     let state = null;
+    let config = null;
+    let tournamentStartDate = new Date('2026-07-14T19:30:00'); // Default fallback
 
     async function api(action, method = 'GET', body = null) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -877,25 +879,92 @@
       btn.classList.add('active');
     }
 
+    function getFirstScheduleDate() {
+      // Leggi la prima data disponibile dallo schedule
+      if (!config || !config.schedule || !config.schedule.courts) {
+        return null;
+      }
+      
+      for (let court of config.schedule.courts) {
+        if (court.availability && court.availability.length > 0) {
+          const firstDay = court.availability[0];
+          if (firstDay.date && firstDay.timeSlots && firstDay.timeSlots.length > 0) {
+            const firstTime = firstDay.timeSlots[0].startTime || '19:30';
+            return new Date(firstDay.date + 'T' + firstTime);
+          }
+        }
+      }
+      
+      return null;
+    }
+
+    function updateHeroSection() {
+      if (!config) return;
+      
+      // Aggiorna badge con tournament name
+      const badgeEl = document.querySelector('.badge');
+      if (badgeEl && config.tournament && config.tournament.name) {
+        badgeEl.textContent = config.tournament.name.toUpperCase();
+      }
+      
+      // Aggiorna info hero cells
+      const cells = document.querySelectorAll('.hero-cell');
+      if (cells.length >= 3) {
+        const maxTeams = config.tournament?.maxTeams || 16;
+        const playersPerTeam = config.tournament?.maxPlayersPerTeam || 3;
+        const playersOnCourt = config.tournament?.maxPlayersOnCourt || 2;
+        
+        // Calcola data inizio da schedule se disponibile
+        const firstDate = getFirstScheduleDate();
+        let dateStr = '';
+        if (firstDate) {
+          const options = { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+          dateStr = firstDate.toLocaleDateString('it-IT', options);
+          tournamentStartDate = firstDate;
+        }
+        
+        cells[0].textContent = dateStr || 'Data da definire';
+        cells[1].textContent = `Max ${maxTeams} squadre`;
+        cells[2].textContent = `${playersOnCourt} contro ${playersOnCourt} (max ${playersPerTeam} giocatori)`;
+      }
+    }
+
     async function loadState() {
       const r = await api('get_public');
       state = r.data;
+      
+      // Carica la configurazione
+      try {
+        const configData = await api('get_config');
+        config = configData.config;
+      } catch (e) {
+        console.warn('Errore caricamento config:', e);
+      }
       
       // Controlla se il torneo è configurato verificando il nome del torneo
       const isTournamentConfigured = state && state.settings && state.settings.tournamentName && state.settings.tournamentName.trim() !== '';
       const noticeEl = document.getElementById('notConfiguredNotice');
       const mainContentEl = document.getElementById('mainContent');
+      const heroEl = document.querySelector('.hero');
+      const countdownEl = document.getElementById('countdownContainer');
       
       if (!isTournamentConfigured) {
-        // Torneo non configurato - mostra il messaggio
+        // Torneo non configurato - mostra il messaggio, nascondi il resto
         if (noticeEl) noticeEl.classList.remove('hidden');
         if (mainContentEl) mainContentEl.style.display = 'none';
+        if (heroEl) heroEl.style.display = 'none';
+        if (countdownEl) countdownEl.style.display = 'none';
         return;
       }
       
       // Torneo configurato - mostra il contenuto principale
       if (noticeEl) noticeEl.classList.add('hidden');
       if (mainContentEl) mainContentEl.style.display = 'block';
+      if (heroEl) heroEl.style.display = 'block';
+      if (countdownEl) countdownEl.style.display = 'grid';
+      
+      // Aggiorna hero section con dati dal config
+      updateHeroSection();
       
       renderAll();
       
@@ -915,10 +984,10 @@
     }
 
     function updateCountdown() {
-      // Data del torneo: 14 luglio 2026 alle 19:30
-      const tournamentDate = new Date('2026-07-14T19:30:00').getTime();
+      // Usa la data di inizio del torneo (da config o fallback)
+      const tournamentDateMs = tournamentStartDate.getTime();
       const now = new Date().getTime();
-      const diff = tournamentDate - now;
+      const diff = tournamentDateMs - now;
 
       if (diff <= 0) {
         document.getElementById('countDays').textContent = '0';
@@ -1104,13 +1173,7 @@
         console.log('Registrazione squadra...', { name, player1, player2, player3, phone });
         const r = await api('register_team', 'POST', { name, player1, player2, player3, phone, category: 'Misto' });
         console.log('Risposta API:', r);
-        
-        let message = (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.';
-        if (r && r.emailMessage) {
-          message += '\n\n' + r.emailMessage;
-        }
-        
-        await showInfoDialog('✅ Iscrizione inviata', message);
+        await showInfoDialog('Iscrizione inviata', (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.');
         document.getElementById('fName').value = '';
         document.getElementById('fP1').value = '';
         document.getElementById('fP2').value = '';
@@ -1125,7 +1188,7 @@
         }
       } catch (e) {
         console.error('Errore registrazione:', e);
-        await showInfoDialog('❌ Errore', e && e.message ? e.message : 'Errore sconosciuto');
+        await showInfoDialog('Errore', e && e.message ? e.message : 'Errore sconosciuto');
       }
     }
 

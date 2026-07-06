@@ -4476,33 +4476,39 @@ function copyDirectory(string $src, string $dst): bool {
     if (!is_dir($src)) return false;
     if (!is_dir($dst)) mkdir($dst, 0755, true);
     
-    // Usa rsync se disponibile, altrimenti cp
-    if (shell_exec('which rsync 2>/dev/null')) {
-        $cmd = "rsync -a --exclude='.git' --exclude='node_modules' --exclude='beachmaster' " .
-               escapeshellarg($src) . "/ " . escapeshellarg($dst) . "/ 2>&1";
-    } else {
-        // Fallback su PHP per copia manuale
-        $dir = opendir($src);
-        if (!$dir) return false;
+    // Usa PHP puro per la copia (più affidabile)
+    $dir = @opendir($src);
+    if (!$dir) return false;
+    
+    $count = 0;
+    while (($file = readdir($dir)) !== false) {
+        // Esclusioni
+        if ($file === '.' || $file === '..' || $file === '.git' || $file === 'node_modules' || $file === 'beachmaster') {
+            continue;
+        }
         
-        while (($file = readdir($dir)) !== false) {
-            if ($file === '.' || $file === '..' || $file === '.git' || $file === 'node_modules' || $file === 'beachmaster') continue;
-            
-            $srcPath = $src . '/' . $file;
-            $dstPath = $dst . '/' . $file;
-            
+        $srcPath = $src . '/' . $file;
+        $dstPath = $dst . '/' . $file;
+        
+        try {
             if (is_dir($srcPath)) {
-                if (!is_dir($dstPath)) mkdir($dstPath, 0755, true);
+                if (!is_dir($dstPath)) {
+                    mkdir($dstPath, 0755, true);
+                }
                 copyDirectory($srcPath, $dstPath);
             } else {
                 copy($srcPath, $dstPath);
+                $count++;
             }
+        } catch (Throwable $e) {
+            error_log("copyDirectory error copying $srcPath: " . $e->getMessage());
+            // Continua con gli altri file
+            continue;
         }
-        closedir($dir);
-        return true;
     }
+    closedir($dir);
     
-    shell_exec($cmd);
+    error_log("✅ copyDirectory: copied $count files from $src to $dst");
     return true;
 }
 
@@ -4539,16 +4545,21 @@ if ($action === 'test_email' && $method === 'POST') {
 
 // Crea torneo MULTI-TENANT
 if ($action === 'create_tournament' && $method === 'POST') {
+    error_log('📌 create_tournament: START');
     $body = bodyJson();
     $managerEmail = trim((string)($body['managerEmail'] ?? ''));
     $managerPassword = trim((string)($body['managerPassword'] ?? ''));
     $tournamentName = trim((string)($body['tournamentName'] ?? 'Nuovo Torneo'));
     
+    error_log("📌 create_tournament: email=$managerEmail, name=$tournamentName");
+    
     if (!filter_var($managerEmail, FILTER_VALIDATE_EMAIL)) {
+        error_log("📌 create_tournament: invalid email");
         jsonResponse(422, ['ok' => false, 'error' => 'Email non valida']);
     }
     
     if (strlen($managerPassword) < 8) {
+        error_log("📌 create_tournament: password too short");
         jsonResponse(422, ['ok' => false, 'error' => 'Password deve avere almeno 8 caratteri']);
     }
     
@@ -4556,15 +4567,20 @@ if ($action === 'create_tournament' && $method === 'POST') {
     $beachmasterDir = __DIR__ . '/beachmaster';
     $tournamentDir = $beachmasterDir . '/' . $tournamentCode;
     
+    error_log("📌 create_tournament: tournamentCode=$tournamentCode, dir=$tournamentDir");
+    
     // Crea la directory beachmaster se non esiste
     if (!is_dir($beachmasterDir)) {
         mkdir($beachmasterDir, 0755, true);
     }
     
     // Copia il progetto nella nuova directory
+    error_log("📌 create_tournament: starting copyDirectory...");
     if (!copyDirectory(__DIR__, $tournamentDir)) {
+        error_log("📌 create_tournament: copyDirectory FAILED");
         jsonResponse(500, ['ok' => false, 'error' => 'Errore nella creazione del torneo']);
     }
+    error_log("📌 create_tournament: copyDirectory completed");
     
     // Nel torneo copiato: gestisci i file HTML
     // Elimina index.html (landing page del root che non serve nel torneo)
@@ -4620,6 +4636,8 @@ if ($action === 'create_tournament' && $method === 'POST') {
     
     // Genera un token temporaneo per il primo accesso
     $token = bin2hex(random_bytes(32));
+    
+    error_log("📌 create_tournament: SUCCESS - code=$tournamentCode");
     
     jsonResponse(201, [
         'ok' => true,

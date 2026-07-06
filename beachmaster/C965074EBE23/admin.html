@@ -551,6 +551,7 @@
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
+        <button class="tab" data-page="multitenant-admin" onclick="showPage('multitenant-admin', this)" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white">⚙️ Multi-Tenant Admin</button>
       </div>
 
       <div id="page-settings" class="card page">
@@ -577,11 +578,13 @@
           </div>
           <small style="color: #1565c0; display: block; margin-top: 8px" id="testTeamsStatus"></small>
         </div>
-        <div style="background: #f3e5f5; border-left: 4px solid #7b1fa2; border-radius: 4px; padding: 12px; margin-bottom: 12px">
-          <h4 style="margin-top: 0; color: #4a148c; display: flex; align-items: center; gap: 8px">
+        <div style="border: 2px solid #4caf50; border-radius: 8px; padding: 12px; margin-top: 16px; background: #f1f8f4">
+          <h4 style="margin-top: 0; color: #2e7d32; display: flex; align-items: center; gap: 8px">
             <span>✅ Azioni Bulk</span>
           </h4>
-          <p style="margin: 8px 0; font-size: 13px; color: #4a148c">Approva o registra pagamenti per multiple squadre in una volta:</p>
+          <p style="margin: 8px 0; font-size: 13px; color: #2e7d32">
+            Operazioni di approvazione e pagamento in massa per tutte le squadre.
+          </p>
           <div class="row" style="margin-top: 10px; gap: 8px">
             <button class="btn btn-primary" onclick="approveAllTeams()" style="flex: 1; max-width: 300px">✅ Approva Tutte</button>
             <button class="btn btn-primary" onclick="payAllTeams()" style="flex: 1; max-width: 300px">💳 Approva Tutti i Pagamenti</button>
@@ -663,8 +666,6 @@
           <button class="btn btn-primary" onclick="addPhase()" id="addPhaseBtn">+ Aggiungi fase</button>
           <button class="btn btn-green" onclick="savePhases()" id="savePhasesBtn">Salva fasi</button>
         </div>
-      </div>
-
       </div>
 
       <div id="page-floweditor" class="card page hidden">
@@ -939,11 +940,11 @@
           </div>
           
           <div style="background: white; padding: 12px; border-radius: 6px">
-            <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" maxlength="255" style="width: 100%; margin-bottom: 8px; padding: 6px">
             <input type="number" id="ftpPort" placeholder="Porta" value="21" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="text" id="ftpUsername" placeholder="Username" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="password" id="ftpPassword" placeholder="Password" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpUsername" placeholder="Username" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="password" id="ftpPassword" placeholder="Password" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" maxlength="255" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
             
             <div class="row" style="margin-top: 10px">
               <button class="btn btn-primary" onclick="testFtpConnection()">🔌 Testa Connessione</button>
@@ -975,6 +976,24 @@
           <div class="row" style="margin-top: 10px">
             <button type="button" class="btn btn-danger" onclick="resetTournament()" style="background: #d32f2f; cursor: pointer;">🗑️ Cancella Tutto e Ripristina</button>
           </div>
+        </div>
+      </div>
+
+      <div id="page-multitenant-admin" class="card page hidden">
+        <h3>⚙️ Pannello Amministrazione Multi-Tenant</h3>
+        <p class="muted">Gestisci i tornei creati nel sistema multi-tenant. Inserisci la password di amministratore per accedere.</p>
+        
+        <div id="multitenantLoginForm" style="margin-top: 14px">
+          <div style="background: white; padding: 16px; border-radius: 8px; max-width: 300px">
+            <label style="display: block; margin-bottom: 8px; font-weight: bold">Password Amministratore:</label>
+            <input type="password" id="multitenantAdminPassword" placeholder="Inserisci password admin" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 6px; margin-bottom: 12px">
+            <button class="btn btn-green" onclick="authenticateMultitenantAdmin()">🔓 Accedi</button>
+          </div>
+        </div>
+        
+        <div id="multitenantAdminPanel" style="display: none; margin-top: 20px">
+          <p class="muted">Carico lista tornei...</p>
+          <div id="multitenantTournamentsList" style="margin-top: 16px"></div>
         </div>
       </div>
     </div>
@@ -1258,7 +1277,7 @@
               <div class="form-grid-modal">
               <div class="field">
                 <label>Nome torneo</label>
-                <input id="cfg-tournamentName" type="text" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
+                <input id="cfg-tournamentName" type="text" maxlength="100" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
               </div>
               <div class="field">
                 <label>Max squadre</label>
@@ -1313,10 +1332,10 @@
           <div class="settings-tab-content" id="settings-communications">
             <div class="card" style="background: #fff3e0; padding: 12px">
               <h4 style="margin-top: 0">📧 Contatti e Notifiche</h4>
-              <p class="muted">Configura i contatti per ricevere notifiche sulle iscrizioni.</p>
-              <div class="field">
-                <label>Email del gestore (riceve notifiche iscrizioni)</label>
-              <input id="cfg-managerEmail" type="email" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
+            <p class="muted">Configura i contatti per ricevere notifiche sulle iscrizioni.</p>
+            <div class="field">
+              <label>Email del gestore (riceve notifiche iscrizioni)</label>
+              <input id="cfg-managerEmail" type="email" maxlength="255" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
               <small style="color: #666; display: block; margin-top: 4px">Riceverai una mail ogni volta che una squadra si iscrive</small>
               <button class="btn" style="width: 100%; margin-top: 8px; background: #2196F3; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer" onclick="testEmailSend()">
                 🧪 Testa Email
@@ -1339,7 +1358,7 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; opacity: ${config.email?.enabled ? '1' : '0.5'}; pointer-events: ${config.email?.enabled ? 'auto' : 'none'}">
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Host SMTP</label>
-                  <input type="text" id="emailHost" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailHost" maxlength="255" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Porta</label>
@@ -1347,15 +1366,15 @@
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Username</label>
-                  <input type="text" id="emailUsername" value="${config.email?.username || ''}" placeholder="your-email@gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailUsername" maxlength="255" value="${config.email?.username || ''}" placeholder="your-email@gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Password</label>
-                  <input type="password" id="emailPassword" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="password" id="emailPassword" maxlength="100" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
-                  <input type="email" id="emailFromEmail" maxlength="255" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="email" id="emailFromEmail" maxlength="255\" value=\"${config.email?.fromEmail || 'noreply@beachmaster.local'}\" style=\"width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px\">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Nome Mittente</label>
@@ -2591,6 +2610,7 @@
             <input 
               id="mPlayer${i}Name" 
               type="text" 
+              maxlength="50"
               placeholder="Nome giocatore ${i + 1}"
               value="${escapeHtml(player.name || '')}"
               style="padding: 6px; border: 1px solid #ccc; border-radius: 4px"
@@ -2618,10 +2638,10 @@
           <div class="form-grid-modal">
             <div class="field full">
               <label>Nome squadra</label>
-              <input id="mTeamName" type="text" value="${escapeHtml(team.name)}">
+              <input id="mTeamName" type="text" maxlength="50" value="${escapeHtml(team.name)}">
             </div>
             ${playersHtml}
-            <div class="field full" style="margin-top: 12px">
+            <div class="field full">
               <label>Telefono</label>
               <input id="mPhone" type="text" maxlength="20" value="${escapeHtml(team.phone || '')}">
             </div>
@@ -3393,6 +3413,204 @@
       } finally {
         // Ripristina il flag
         resetTournament.isRunning = false;
+      }
+    }
+
+    // ==================== MULTI-TENANT ADMIN ====================
+
+    const MULTITENANT_ADMIN_PASSWORD = 'admin123'; // Password master
+
+    async function authenticateMultitenantAdmin() {
+      const password = document.getElementById('multitenantAdminPassword').value;
+      
+      if (password !== MULTITENANT_ADMIN_PASSWORD) {
+        alert('❌ Password non corretta');
+        return;
+      }
+      
+      document.getElementById('multitenantLoginForm').style.display = 'none';
+      document.getElementById('multitenantAdminPanel').style.display = 'block';
+      
+      await loadMultitenantTournaments();
+    }
+
+    async function loadMultitenantTournaments() {
+      try {
+        const container = document.getElementById('multitenantTournamentsList');
+        container.innerHTML = '<p style="text-align: center; color: #999">⏳ Caricamento...</p>';
+        
+        // Richiedi al backend la lista di tutti i tornei
+        const response = await fetch(`${API}?action=multitenant_get_all_tournaments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        
+        if (!data.ok) {
+          container.innerHTML = '<p style="color: red">❌ ' + (data.error || 'Errore nel caricamento') + '</p>';
+          return;
+        }
+        
+        const tournaments = data.tournaments || [];
+        
+        if (tournaments.length === 0) {
+          container.innerHTML = '<p style="text-align: center; color: #6a5737">Nessun torneo creato nel sistema multi-tenant</p>';
+          return;
+        }
+        
+        container.innerHTML = '';
+        
+        tournaments.forEach(tournament => {
+          const item = document.createElement('div');
+          item.style.cssText = `
+            background: ${tournament.disabled ? '#f5e6e6' : '#f9f9f9'};
+            border: 1px solid ${tournament.disabled ? '#d9a3a3' : '#d9bf8c'};
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+          `;
+          
+          const titleDiv = document.createElement('div');
+          titleDiv.style.cssText = 'font-weight: bold; color: #201c14; margin-bottom: 4px; font-size: 1rem';
+          titleDiv.textContent = tournament.name || 'Torneo Senza Nome';
+          if (tournament.disabled) {
+            titleDiv.textContent += ' [DISABILITATO]';
+          }
+          
+          const codeDiv = document.createElement('div');
+          codeDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 4px';
+          codeDiv.textContent = '🔑 Codice: ' + tournament.code;
+          
+          const emailDiv = document.createElement('div');
+          emailDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 4px';
+          emailDiv.textContent = '📧 Email: ' + tournament.email;
+          
+          const dateDiv = document.createElement('div');
+          dateDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 12px';
+          dateDiv.textContent = '📅 Creato: ' + new Date(tournament.createdAt).toLocaleDateString('it-IT');
+          
+          const buttonsDiv = document.createElement('div');
+          buttonsDiv.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #d9bf8c';
+          
+          // Pulsante Accedi
+          const accessBtn = document.createElement('button');
+          accessBtn.textContent = '🔓 Accedi';
+          accessBtn.className = 'btn btn-green';
+          accessBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem';
+          accessBtn.onclick = () => {
+            window.location.href = tournament.path + '/admin.html?code=' + tournament.code;
+          };
+          
+          // Pulsante Disabilita/Abilita
+          const toggleBtn = document.createElement('button');
+          toggleBtn.textContent = tournament.disabled ? '✅ Abilita' : '❌ Disabilita';
+          toggleBtn.className = 'btn ' + (tournament.disabled ? 'btn-green' : 'btn-primary');
+          toggleBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem';
+          toggleBtn.onclick = () => {
+            tournament.disabled ? enableMultitenantTournament(tournament.code) : disableMultitenantTournament(tournament.code);
+          };
+          
+          // Pulsante Cancella
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '🗑️ Cancella';
+          deleteBtn.className = 'btn btn-danger';
+          deleteBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem; background: #d32f2f';
+          deleteBtn.onclick = () => {
+            if (confirm('⚠️ Sei sicuro? Questa azione cancellerà definitivamente il torneo e tutti i suoi dati.')) {
+              deleteMultitenantTournament(tournament.code);
+            }
+          };
+          
+          buttonsDiv.appendChild(accessBtn);
+          buttonsDiv.appendChild(toggleBtn);
+          buttonsDiv.appendChild(deleteBtn);
+          
+          item.appendChild(titleDiv);
+          item.appendChild(codeDiv);
+          item.appendChild(emailDiv);
+          item.appendChild(dateDiv);
+          item.appendChild(buttonsDiv);
+          container.appendChild(item);
+        });
+        
+      } catch (e) {
+        const container = document.getElementById('multitenantTournamentsList');
+        container.innerHTML = '<p style="color: red">❌ Errore: ' + e.message + '</p>';
+      }
+    }
+
+    async function disableMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=disable_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo disabilitato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+      }
+    }
+
+    async function enableMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=enable_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo abilitato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+      }
+    }
+
+    async function deleteMultitenantTournament(tournamentCode) {
+      try {
+        const response = await fetch(`${API}?action=delete_tournament`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCode: tournamentCode,
+            panelToken: 'admin'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.ok) {
+          alert('✅ Torneo cancellato');
+          await loadMultitenantTournaments();
+        } else {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+        }
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
       }
     }
 
@@ -5130,9 +5348,8 @@
         flows.push(flow);
       });
 
-      // Calcola i team in ingresso
       if (flows.length > 0) {
-        flows[0].teamsIn = 16; // Assunto: torneo inizia con 16 squadre (o configurabile)
+        flows[0].teamsIn = 16;
         for (let i = 1; i < flows.length; i++) {
           flows[i].teamsIn = flows[i - 1].teamsAdvance + flows[i - 1].teamsRepescage;
         }
@@ -5150,7 +5367,6 @@
       html += '<div style="display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 8px 0">';
 
       flows.forEach((flow, idx) => {
-        const nextFlow = flows[idx + 1];
         html += `
           <div style="flex-shrink: 0; background: white; border: 2px solid #d8c39f; border-radius: 6px; padding: 10px; min-width: 200px">
             <div style="font-weight: bold; color: #6b5d45; margin-bottom: 8px">🏆 ${flow.name}</div>
@@ -5170,6 +5386,62 @@
 
       html += '</div></div>';
       return html;
+    }
+
+    function updatePhasePreview(phaseIdx) {
+      const previewEl = document.getElementById(`phase-preview-${phaseIdx}`);
+      if (!previewEl) return;
+
+      const phaseType = document.getElementById(`phase-type-${phaseIdx}`).value;
+      let previewHtml = '';
+
+      if (phaseType === 'groups') {
+        const numGroups = parseInt(document.getElementById(`phase-numGroups-${phaseIdx}`).value) || 4;
+        const teamsAdvance = parseInt(document.getElementById(`phase-teamsAdvance-${phaseIdx}`).value) || 2;
+        const hasRepescage = document.getElementById(`phase-repescage-${phaseIdx}`).checked;
+        
+        const teamsQualified = numGroups * teamsAdvance;
+        const teamsRepescage = Math.max(0, 12 - teamsQualified);
+        
+        previewHtml = `
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            <div style="background: #ecf5ff; padding: 8px; border-radius: 4px">
+              <strong style="color: #0078d4">✅ Qualificate:</strong> ${numGroups} gironi × ${teamsAdvance} = <strong>${teamsQualified}</strong>
+            </div>
+            ${hasRepescage ? `
+              <div style="background: #fff8ce; padding: 8px; border-radius: 4px">
+                <strong style="color: #7f6000">🔄 Ripescaggio:</strong> <strong>${teamsRepescage}</strong> squadre
+              </div>
+            ` : '<div style="background: #f0f0f0; padding: 8px; border-radius: 4px; color: #666">Ripescaggio disabilitato</div>'}
+          </div>
+          <small style="display: block; margin-top: 6px; color: #999">
+            Fase successiva riceverà <strong>${teamsQualified}</strong> squadre qualificate${hasRepescage ? ` + ${teamsRepescage} dal ripescaggio` : ''}
+          </small>
+        `;
+      } else {
+        const numTeams = parseInt(document.getElementById(`phase-numTeams-${phaseIdx}`).value) || 4;
+        const teamsAdvance = Math.ceil(numTeams / 2);
+        
+        previewHtml = `
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+            <div style="background: #ecf5ff; padding: 8px; border-radius: 4px">
+              <strong style="color: #0078d4">${numTeams} squadre</strong> in campo
+            </div>
+            <div style="font-size: 16px; color: #d8c39f">→</div>
+            <div style="background: #e8f5e9; padding: 8px; border-radius: 4px">
+              <strong style="color: #107c10">✅ Avanzano:</strong> <strong>${teamsAdvance}</strong>
+            </div>
+            <div style="background: #ffebee; padding: 8px; border-radius: 4px">
+              <strong style="color: #d13438">❌ Eliminate:</strong> <strong>${numTeams - teamsAdvance}</strong>
+            </div>
+          </div>
+          <small style="display: block; margin-top: 6px; color: #999">
+            Fase successiva avrà <strong>${teamsAdvance}</strong> squadre per continuare il torneo
+          </small>
+        `;
+      }
+
+      previewEl.innerHTML = previewHtml;
     }
 
     function renderPhases() {
@@ -5192,7 +5464,7 @@
           <div class="form-grid-modal">
             <div class="field">
               <label>Nome fase</label>
-              <input id="phase-name-${idx}" type="text" value="${escapeHtml(phase.name || 'Fase ' + (idx + 1))}">
+              <input id="phase-name-${idx}" type="text" value="${escapeHtml(phase.name || 'Fase ' + (idx + 1))}" onchange="updatePhasePreview(${idx})">
             </div>
             <div class="field">
               <label>Tipo fase</label>
@@ -5205,22 +5477,27 @@
         if (phase.type === 'groups') {
           html += `<div class="field">
               <label>Numero di gironi</label>
-              <input id="phase-numGroups-${idx}" type="number" min="1" max="16" value="${phase.numGroups || 4}">
+              <input id="phase-numGroups-${idx}" type="number" min="1" max="16" value="${phase.numGroups || 4}" onchange="updatePhasePreview(${idx})">
             </div>
             <div class="field">
-              <label>Squadre che avanzano per girone</label>
-              <input id="phase-teamsAdvance-${idx}" type="number" min="1" max="8" value="${phase.teamsAdvance || 2}">
+              <label>Squadre che avanzano per girone (Top N)</label>
+              <input id="phase-teamsAdvance-${idx}" type="number" min="1" max="8" value="${phase.teamsAdvance || 2}" onchange="updatePhasePreview(${idx})">
             </div>
             <div class="field" style="grid-column: 1 / -1">
               <label style="display: flex; align-items: center; gap: 8px; margin: 0">
-                <input type="checkbox" id="phase-repescage-${idx}" ${phase.hasRepescage ? 'checked' : ''}>
-                Aggiungere girone di ripescaggio per le eliminate
+                <input type="checkbox" id="phase-repescage-${idx}" ${phase.hasRepescage ? 'checked' : ''} onchange="updatePhasePreview(${idx})">
+                🔄 Aggiungere girone di ripescaggio per le eliminate
               </label>
+              <small style="color: #666; display: block; margin-top: 4px">Le squadre non qualificate giocheranno in un mini-girone di ripescaggio</small>
+            </div>
+            <div style="grid-column: 1 / -1; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 8px">
+              <strong style="color: #333">📊 Preview Flusso Squadre:</strong>
+              <div id="phase-preview-${idx}" style="margin-top: 6px; font-size: 12px; color: #666"></div>
             </div>`;
         } else {
           html += `<div class="field">
               <label>Numero di squadre (potenza di 2)</label>
-              <select id="phase-numTeams-${idx}">
+              <select id="phase-numTeams-${idx}" onchange="updatePhasePreview(${idx})">
                 <option value="2" ${phase.numTeams === 2 ? 'selected' : ''}>2 (Finale)</option>
                 <option value="4" ${phase.numTeams === 4 ? 'selected' : ''}>4 (Semifinali)</option>
                 <option value="8" ${phase.numTeams === 8 ? 'selected' : ''}>8 (Quarti)</option>
@@ -5229,6 +5506,11 @@
                 <option value="64" ${phase.numTeams === 64 ? 'selected' : ''}>64</option>
                 <option value="128" ${phase.numTeams === 128 ? 'selected' : ''}>128</option>
               </select>
+              <small style="color: #666; display: block; margin-top: 4px">Numero di squadre che partecipano a questa fase di eliminazione diretta</small>
+            </div>
+            <div style="grid-column: 1 / -1; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 8px">
+              <strong style="color: #333">📊 Preview Eliminazione:</strong>
+              <div id="phase-preview-${idx}" style="margin-top: 6px; font-size: 12px; color: #666"></div>
             </div>`;
         }
 
@@ -5237,6 +5519,9 @@
       });
       html += '</div>';
       c.innerHTML = html;
+      
+      // Aggiorna le preview iniziali
+      phases.forEach((_, idx) => updatePhasePreview(idx));
     }
 
     function updatePhaseType(phaseIdx) {

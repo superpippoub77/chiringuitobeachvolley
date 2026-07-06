@@ -39,14 +39,18 @@
         "c861e8e8ee49b723efe7d5c3a0459270e3343abd",
         "d8e9b5876acb7cc3eca76caf7789efe2f7c690eb",
         "03c2e945b1ab1963198b4e34933d8d811d0c9c88",
-        "db298ce603cdbb0852ff3000641a8a1a4c645488"
-    ],
-    "sessions": [
+        "db298ce603cdbb0852ff3000641a8a1a4c645488",
         {
-            "token": "88d9922e65bd4ac726dadf54a8f0f818471d16c1109778bf3f3fb4d07c74fc94",
-            "email": "mario@rossi.it",
-            "createdAt": "2026-07-03 07:20:41",
-            "expiresAt": "2026-07-10 07:20:41"
+            "token": "9faa60aed888b6647ca92bae7faf275d9c593441",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-03 10:42:32"
+        },
+        {
+            "token": "9b9bfdf1cad5a21d247502d0f5005a84b777ebe2",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-06 21:16:12"
         }
     ]
 }

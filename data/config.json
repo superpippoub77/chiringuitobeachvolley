@@ -14,7 +14,192 @@
         "maxTimeoutsPerSet": 2
     },
     "schedule": {
-        "courts": []
+        "courts": [
+            {
+                "courtName": "Campo 1",
+                "availability": [
+                    {
+                        "date": "2026-07-10",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-11",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-12",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "courtName": "Campo 2",
+                "availability": [
+                    {
+                        "date": "2026-07-10",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-11",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-12",
+                        "timeSlots": [
+                            {
+                                "startTime": "09:00",
+                                "endTime": "10:00"
+                            },
+                            {
+                                "startTime": "10:15",
+                                "endTime": "11:15"
+                            },
+                            {
+                                "startTime": "11:30",
+                                "endTime": "12:30"
+                            },
+                            {
+                                "startTime": "14:00",
+                                "endTime": "15:00"
+                            },
+                            {
+                                "startTime": "15:15",
+                                "endTime": "16:15"
+                            },
+                            {
+                                "startTime": "16:30",
+                                "endTime": "17:30"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
     },
     "phases": [],
     "contact": {

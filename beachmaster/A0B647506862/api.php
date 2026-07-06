@@ -1952,14 +1952,23 @@ if ($action === 'admin_pay_all_teams' && $method === 'POST') {
 if ($action === 'admin_generate_groups' && $method === 'POST') {
     withStateTransaction(function (&$state) {
         $approved = approvedTeams($state);
+        $total = count($state['teams'] ?? []);
+        
         if (count($approved) < 4) {
             jsonResponse(422, [
                 'ok' => false,
                 'error' => 'Servono almeno 4 squadre approvate',
                 'details' => [
+                    'total_teams' => $total,
                     'approved_count' => count($approved),
                     'needed' => 4,
-                    'missing' => max(0, 4 - count($approved))
+                    'missing' => max(0, 4 - count($approved)),
+                    'teams_data' => array_map(fn($t) => [
+                        'name' => $t['name'],
+                        'approved' => $t['approved'] ?? false,
+                        'paid' => $t['paid'] ?? false,
+                        'dummy' => $t['dummy'] ?? false
+                    ], array_slice($state['teams'] ?? [], 0, 5))
                 ]
             ]);
         }
@@ -4482,6 +4491,38 @@ if ($action === 'debug_schedule' && $method === 'GET') {
             'error' => 'Debug error: ' . $e->getMessage(),
             'file' => $e->getFile(),
             'line' => $e->getLine()
+        ]);
+    }
+}
+
+if ($action === 'admin_debug_teams' && $method === 'GET') {
+    try {
+        $state = readJsonFile(DATA_FILE, initialState());
+        $teams = $state['teams'] ?? [];
+        
+        $approved = approvedTeams($state);
+        
+        $teamsList = array_map(function($t) {
+            return [
+                'id' => $t['id'],
+                'name' => $t['name'],
+                'approved' => $t['approved'] ?? false,
+                'paid' => $t['paid'] ?? false,
+                'dummy' => $t['dummy'] ?? false,
+                'kitDelivered' => $t['kitDelivered'] ?? false
+            ];
+        }, $teams);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'total_teams' => count($teams),
+            'approved_count' => count($approved),
+            'teams_list' => $teamsList
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Debug error: ' . $e->getMessage()
         ]);
     }
 }

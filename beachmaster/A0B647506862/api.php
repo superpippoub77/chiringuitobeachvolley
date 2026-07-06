@@ -2403,6 +2403,109 @@ if ($action === 'admin_upload_kit_image' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'imageFile' => $config['kit']['imageFile']]);
 }
 
+if ($action === 'admin_upload_player_photo' && $method === 'POST') {
+    if (!isset($_FILES['playerPhoto'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+    }
+
+    $teamId = $_POST['teamId'] ?? '';
+    $playerIndex = (int)($_POST['playerIndex'] ?? -1);
+
+    if (!$teamId || $playerIndex < 0) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Team ID e Player Index obbligatori']);
+    }
+
+    $file = $_FILES['playerPhoto'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore nel caricamento del file']);
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Tipo di file non supportato. Usa JPG, PNG, GIF o WebP']);
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExts)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Estensione file non valida']);
+    }
+
+    $uploadsDir = dirname(DATA_FILE) . '/uploads/players';
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    // Generate unique filename based on teamId and playerIndex
+    $filename = 'player-' . sanitizeFilename($teamId) . '-' . $playerIndex . '.' . $ext;
+    $filepath = $uploadsDir . '/' . $filename;
+    
+    // Delete old file if exists
+    if (file_exists($filepath)) {
+        unlink($filepath);
+    }
+    
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel salvataggio del file']);
+    }
+
+    withStateTransaction(function (&$state) use ($teamId, $playerIndex) {
+        foreach ($state['teams'] as &$team) {
+            if ($team['id'] !== $teamId) continue;
+            if (!isset($team['players'][$playerIndex])) break;
+            
+            if (!is_array($team['players'][$playerIndex])) {
+                $team['players'][$playerIndex] = ['name' => $team['players'][$playerIndex], 'isCaptain' => false];
+            }
+            $team['players'][$playerIndex]['photoFile'] = 'data/uploads/players/' . $filename;
+            break;
+        }
+        unset($team);
+        return ['ok' => true];
+    });
+
+    jsonResponse(200, ['ok' => true, 'photoFile' => 'data/uploads/players/' . $filename]);
+}
+
+if ($action === 'admin_remove_player_photo' && $method === 'POST') {
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+    $playerIndex = (int)($body['playerIndex'] ?? -1);
+
+    if (!$teamId || $playerIndex < 0) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Team ID e Player Index obbligatori']);
+    }
+
+    withStateTransaction(function (&$state) use ($teamId, $playerIndex) {
+        foreach ($state['teams'] as &$team) {
+            if ($team['id'] !== $teamId) continue;
+            if (!isset($team['players'][$playerIndex])) break;
+            
+            if (!is_array($team['players'][$playerIndex])) {
+                $team['players'][$playerIndex] = ['name' => $team['players'][$playerIndex], 'isCaptain' => false];
+            }
+
+            // Delete physical file
+            $photoFile = $team['players'][$playerIndex]['photoFile'] ?? '';
+            if ($photoFile && file_exists($photoFile)) {
+                unlink($photoFile);
+            }
+
+            unset($team['players'][$playerIndex]['photoFile']);
+            break;
+        }
+        unset($team);
+        return ['ok' => true];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
 if ($action === 'admin_export_backup' && $method === 'GET') {
     $config = readConfig();
     $state = readJsonFile(DATA_FILE, initialState());
@@ -4585,6 +4688,106 @@ if ($action === 'admin_debug_teams' && $method === 'GET') {
         jsonResponse(500, [
             'ok' => false,
             'error' => 'Debug error: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// Tournament Flow Editor Endpoints
+const FLOW_FILE = __DIR__ . '/data/tournament-flow.json';
+
+if ($action === 'admin_save_tournament_flow' && $method === 'POST') {
+    if (!validSession()) jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    
+    if (empty($body['blocks']) || !is_array($body['blocks'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Flusso non valido']);
+    }
+    
+    $flow = [
+        'version' => '1.0',
+        'blocks' => $body['blocks'],
+        'connections' => $body['connections'] ?? [],
+        'savedAt' => date('Y-m-d H:i:s'),
+        'timestamp' => time()
+    ];
+    
+    writeJsonFile(FLOW_FILE, $flow);
+    jsonResponse(200, ['ok' => true, 'message' => 'Flusso salvato con successo']);
+}
+
+if ($action === 'admin_load_tournament_flow' && $method === 'GET') {
+    if (!validSession()) jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    
+    $flow = readJsonFile(FLOW_FILE, ['version' => '1.0', 'blocks' => [], 'connections' => []]);
+    jsonResponse(200, ['ok' => true, 'flow' => $flow]);
+}
+
+if ($action === 'admin_generate_from_flow' && $method === 'POST') {
+    if (!validSession()) jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    
+    try {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $flow = $body['flow'] ?? [];
+        
+        if (empty($flow['blocks'])) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Flusso vuoto']);
+        }
+        
+        // Leggi config e state correnti
+        $config = readConfig();
+        $state = readJsonFile(DATA_FILE, initialState());
+        
+        // Processa ogni blocco del flusso
+        $groupsPhase = null;
+        $knockoutPhases = [];
+        
+        foreach ($flow['blocks'] as $block) {
+            if ($block['type'] === 'groups') {
+                $groupsPhase = [
+                    'type' => 'groups',
+                    'numGroups' => $block['config']['numGroups'] ?? 3,
+                    'teamsAdvance' => $block['config']['teamsAdvance'] ?? 2,
+                    'hasRepescage' => false
+                ];
+            } elseif ($block['type'] === 'knockout') {
+                $knockoutPhases[] = [
+                    'type' => 'knockout',
+                    'numTeams' => $block['config']['numTeams'] ?? 8,
+                    'label' => $block['label'] ?? 'Playoff'
+                ];
+            } elseif ($block['type'] === 'repescage') {
+                if ($groupsPhase) {
+                    $groupsPhase['hasRepescage'] = true;
+                }
+            }
+        }
+        
+        // Costruisci array fasi
+        $phases = [];
+        if ($groupsPhase) {
+            $phases[] = $groupsPhase;
+        }
+        $phases = array_merge($phases, $knockoutPhases);
+        
+        // Salva la configurazione delle fasi
+        $config['phases'] = $phases;
+        writeJsonFile(CONFIG_FILE, $config);
+        
+        // Salva anche il flusso come reference
+        $flow['processedAt'] = date('Y-m-d H:i:s');
+        writeJsonFile(FLOW_FILE, $flow);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Flusso elaborato e configurazione aggiornata',
+            'phasesCreated' => count($phases),
+            'phases' => $phases
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore durante elaborazione flusso: ' . $e->getMessage()
         ]);
     }
 }

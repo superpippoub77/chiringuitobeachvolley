@@ -542,6 +542,7 @@
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">Fasi torneo</button>
+        <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
         <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
         <button class="tab" data-page="standings" onclick="showPage('standings', this)">Classifiche</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
@@ -650,6 +651,50 @@
         <div class="row" style="margin-top:14px">
           <button class="btn btn-primary" onclick="addPhase()" id="addPhaseBtn">+ Aggiungi fase</button>
           <button class="btn btn-green" onclick="savePhases()" id="savePhasesBtn">Salva fasi</button>
+        </div>
+      </div>
+
+      </div>
+
+      <div id="page-floweditor" class="card page hidden">
+        <h3>🎨 Editor Visuale del Flusso Torneo</h3>
+        <p class="muted">Disegna il flusso del tuo torneo trascinando blocchi, collegandoli tra loro per definire il percorso delle squadre da gironi a playoff.</p>
+        
+        <div style="background: #e8f5e9; border-left: 4px solid #2f6a23; border-radius: 4px; padding: 12px; margin-bottom: 16px">
+          <h4 style="margin-top: 0; color: #1b5e20; display: flex; align-items: center; gap: 8px">
+            <span>✨ Nuovo Editor Grafico</span>
+          </h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #1b5e20">
+            Usa l'editor drag-and-drop per creare la struttura del tuo torneo in modo visuale. Salva il flusso e generalo automaticamente nel sistema.
+          </p>
+          <ul style="margin: 8px 0; font-size: 13px; color: #1b5e20; padding-left: 20px">
+            <li>📦 Trascina blocchi (Gironi, Winners, Losers, Ripescaggio)</li>
+            <li>🔗 Collegali con connessioni per definire il flusso</li>
+            <li>⚙️ Configura parametri per ogni blocco</li>
+            <li>💾 Salva il flusso localmente</li>
+            <li>🚀 Genera il torneo dal flusso</li>
+          </ul>
+        </div>
+
+        <div class="row" style="gap: 8px; margin-bottom: 14px">
+          <button class="btn btn-primary" onclick="openFlowEditor()" style="flex: 1; max-width: 200px">
+            🎨 Apri Editor
+          </button>
+          <button class="btn btn-info" onclick="loadFlowFromServer()" style="flex: 1; max-width: 200px">
+            📂 Carica Flusso Salvato
+          </button>
+          <button class="btn btn-green" onclick="generateTournamentFromFlow()" style="flex: 1; max-width: 200px">
+            🚀 Genera da Flusso
+          </button>
+        </div>
+
+        <div id="flowStatus" style="background: #f5f5f5; border: 1px solid #d8c39f; border-radius: 6px; padding: 12px; margin-top: 14px; display: none">
+          <h4 style="margin-top: 0; font-size: 14px">Stato Flusso Corrente</h4>
+          <div id="flowStatusContent" style="font-size: 13px"></div>
+        </div>
+
+        <div id="flowEditorResult" style="margin-top: 14px; display: none">
+          <div id="flowEditorResultContent" style="background: #f5f5f5; border: 1px solid #d8c39f; border-radius: 6px; padding: 12px"></div>
         </div>
       </div>
 
@@ -5227,6 +5272,124 @@
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }
+    }
+
+    }
+
+    // Tournament Flow Editor Integration
+    function openFlowEditor() {
+      // Apri l'editor in una nuova finestra
+      window.open('./tournament-flow-editor.html', 'flowEditor', 'width=1200,height=800');
+    }
+
+    async function loadFlowFromServer() {
+      try {
+        const data = await callApi('admin_load_tournament_flow', 'GET', {}, true);
+        if (data.ok && data.flow && data.flow.blocks && data.flow.blocks.length > 0) {
+          displayFlowStatus(data.flow);
+        } else {
+          await showInfoDialog('Informazione', 'Nessun flusso salvato. Apri l\'editor, crea il tuo flusso e salvalo.');
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Non è stato possibile caricare il flusso: ' + e.message);
+      }
+    }
+
+    function displayFlowStatus(flow) {
+      const statusDiv = document.getElementById('flowStatus');
+      const contentDiv = document.getElementById('flowStatusContent');
+      
+      let html = `
+        <div style="font-size: 13px">
+          <p><strong>Blocchi nel flusso:</strong> ${flow.blocks.length}</p>
+          <ul style="margin: 8px 0; padding-left: 20px">
+      `;
+      
+      flow.blocks.forEach((block, idx) => {
+        const icon = {
+          'groups': '🎯',
+          'knockout': '🏆',
+          'losers': '📋',
+          'repescage': '♻️'
+        }[block.type] || '📦';
+        
+        html += `<li>${icon} ${block.label} (${block.type})</li>`;
+      });
+      
+      html += `
+          </ul>
+          <p><strong>Connessioni:</strong> ${flow.connections.length}</p>
+          <p style="font-size: 12px; color: #666; margin-top: 8px">
+            Salvato: ${flow.savedAt || flow.timestamp}
+          </p>
+        </div>
+      `;
+      
+      contentDiv.innerHTML = html;
+      statusDiv.style.display = 'block';
+    }
+
+    async function generateTournamentFromFlow() {
+      try {
+        // Carica il flusso salvato
+        const flowData = await callApi('admin_load_tournament_flow', 'GET', {}, true);
+        
+        if (!flowData.ok || !flowData.flow || !flowData.flow.blocks || flowData.flow.blocks.length === 0) {
+          await showInfoDialog('Errore', 'Nessun flusso trovato. Crea il flusso nell\'editor e salvalo prima.');
+          return;
+        }
+
+        // Genera il torneo dal flusso
+        const genData = await callApi('admin_generate_from_flow', 'POST', {
+          flow: flowData.flow
+        }, true);
+
+        if (genData.ok) {
+          displayFlowGenerationResult(genData);
+          await refresh();
+          showPage('phases', document.querySelector('[data-page="phases"]'));
+          await showInfoDialog('Successo', `Torneo generato con ${genData.phasesCreated} fase(i). Vai al tab "Fasi torneo" per visualizzare.`);
+        } else {
+          await showInfoDialog('Errore', genData.error || 'Errore durante la generazione del torneo');
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function displayFlowGenerationResult(result) {
+      const resultDiv = document.getElementById('flowEditorResult');
+      const contentDiv = document.getElementById('flowEditorResultContent');
+      
+      let html = `
+        <div style="background: #e8f5e9; border-left: 4px solid #2f6a23; padding: 12px; border-radius: 6px">
+          <h4 style="margin-top: 0; color: #1b5e20">✅ Torneo Generato con Successo</h4>
+          <p style="margin: 8px 0; color: #1b5e20">
+            <strong>${result.phasesCreated}</strong> fase(i) create:
+          </p>
+          <ul style="margin: 8px 0; padding-left: 20px; color: #1b5e20">
+      `;
+      
+      if (result.phases) {
+        result.phases.forEach((phase, idx) => {
+          if (phase.type === 'groups') {
+            html += `<li>Fase ${idx + 1}: ${phase.numGroups} gironi, ${phase.teamsAdvance} passano</li>`;
+          } else if (phase.type === 'knockout') {
+            html += `<li>Fase ${idx + 1}: Knockout a ${phase.numTeams} squadre</li>`;
+          }
+        });
+      }
+      
+      html += `
+          </ul>
+          <p style="margin: 12px 0 0 0; font-size: 12px; color: #555">
+            Vai al tab "Fasi torneo" per vedere la configurazione completa
+          </p>
+        </div>
+      `;
+      
+      contentDiv.innerHTML = html;
+      resultDiv.style.display = 'block';
     }
 
     (async function bootstrap() {

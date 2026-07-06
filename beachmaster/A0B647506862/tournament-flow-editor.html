@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor Flusso Torneo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Original Surfer", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #f3ead8 0%, #e8d3ac 100%);
+      color: #1d1a13;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+      gap: 0;
+    }
+
+    .sidebar {
+      width: 280px;
+      background: #fffdf8;
+      border-right: 2px solid #d8c39f;
+      overflow-y: auto;
+      padding: 20px;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .sidebar h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #e45a0a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .block-palette {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .palette-block {
+      padding: 12px;
+      border: 2px solid #d8c39f;
+      border-radius: 6px;
+      background: #fff;
+      cursor: grab;
+      font-weight: 600;
+      font-size: 13px;
+      text-align: center;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .palette-block:hover {
+      background: #f8f3e8;
+      border-color: #e45a0a;
+      box-shadow: 0 2px 6px rgba(228, 90, 10, 0.15);
+    }
+
+    .palette-block.groups {
+      color: #2f6a23;
+      border-color: #2f6a23;
+    }
+
+    .palette-block.knockout {
+      color: #b11f00;
+      border-color: #b11f00;
+    }
+
+    .palette-block.losers {
+      color: #0066cc;
+      border-color: #0066cc;
+    }
+
+    .palette-block:active {
+      cursor: grabbing;
+    }
+
+    .sidebar-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #e8dcc4;
+    }
+
+    .properties {
+      background: #f8f3e8;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+
+    .property-item {
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .property-item label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #5c4d2f;
+    }
+
+    .property-item input,
+    .property-item select {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #d8c39f;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    .canvas-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(to right, rgba(216, 195, 159, 0.1) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(216, 195, 159, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .toolbar {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: white;
+      border: 1px solid #d8c39f;
+      border-radius: 8px;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      z-index: 100;
+    }
+
+    .toolbar button {
+      padding: 8px 12px;
+      border: 1px solid #d8c39f;
+      background: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+
+    .toolbar button:hover {
+      background: #f8f3e8;
+      border-color: #e45a0a;
+    }
+
+    .toolbar button.danger {
+      color: #b11f00;
+      border-color: #b11f00;
+    }
+
+    .toolbar button.danger:hover {
+      background: #ffebeb;
+    }
+
+    .toolbar button.primary {
+      color: #fff;
+      background: #2f6a23;
+      border-color: #2f6a23;
+    }
+
+    .toolbar button.primary:hover {
+      background: #1f4a13;
+    }
+
+    .status-bar {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: white;
+      border: 1px solid #d8c39f;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      z-index: 100;
+    }
+
+    .hint-text {
+      font-size: 11px;
+      color: #888;
+      margin-top: 8px;
+      font-style: italic;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        width: 200px;
+        padding: 12px;
+      }
+
+      .sidebar h3 {
+        font-size: 13px;
+      }
+
+      .palette-block {
+        padding: 10px 8px;
+        font-size: 11px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h3>📦 Blocchi</h3>
+      <div class="block-palette">
+        <div class="palette-block groups" draggable="true" data-type="groups">
+          🎯 Gironi
+        </div>
+        <div class="palette-block knockout" draggable="true" data-type="knockout">
+          🏆 Winners
+        </div>
+        <div class="palette-block losers" draggable="true" data-type="losers">
+          📋 Losers
+        </div>
+        <div class="palette-block knockout" draggable="true" data-type="repescage">
+          ♻️ Ripescaggio
+        </div>
+      </div>
+      <div class="hint-text">
+        Trascina i blocchi<br>sulla tela per crearli
+      </div>
+
+      <div class="sidebar-section">
+        <h3>⚙️ Proprietà</h3>
+        <div class="properties" id="properties">
+          <div class="hint-text">Seleziona un blocco per modificare</div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <button style="width: 100%; padding: 10px; border: none; background: #2f6a23; color: white; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 6px;" onclick="saveFlowToJson()">💾 Salva</button>
+        <button style="width: 100%; padding: 10px; border: none; background: #0066cc; color: white; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 6px;" onclick="loadFlowFromJson()">📂 Carica</button>
+        <button style="width: 100%; padding: 10px; border: 1px solid #d8c39f; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; color: #666;" onclick="clearCanvas()">🗑️ Pulisci</button>
+      </div>
+    </div>
+
+    <div class="canvas-area">
+      <canvas id="canvas"></canvas>
+      <div class="toolbar">
+        <button onclick="toggleConnectMode()">🔗 Connetti</button>
+        <button class="danger" onclick="deleteSelected()">❌ Elimina</button>
+        <button class="primary" onclick="exportFlow()">📤 Esporta JSON</button>
+      </div>
+      <div class="status-bar">
+        <span id="status">Pronto</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const properties = document.getElementById('properties');
+    const statusBar = document.getElementById('status');
+
+    let blocks = [];
+    let connections = [];
+    let selectedBlock = null;
+    let connectMode = false;
+    let connectFrom = null;
+    let draggedBlock = null;
+    let dragOffset = { x: 0, y: 0 };
+    let nextBlockId = 1;
+
+    // Ridimensiona canvas
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      draw();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Drag from palette
+    document.querySelectorAll('.palette-block').forEach(block => {
+      block.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('blockType', block.dataset.type);
+      });
+    });
+
+    // Drop on canvas
+    canvas.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+
+    canvas.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData('blockType');
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addBlock(type, x, y);
+    });
+
+    // Mouse events on canvas
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const clicked = blocks.find(b => isClickInBlock(x, y, b));
+
+      if (clicked) {
+        if (connectMode) {
+          if (!connectFrom) {
+            connectFrom = clicked;
+            statusBar.textContent = `Connessione da: ${clicked.label}`;
+          } else if (connectFrom.id !== clicked.id) {
+            createConnection(connectFrom, clicked);
+            connectFrom = null;
+            connectMode = false;
+            statusBar.textContent = 'Connessione creata ✓';
+            setTimeout(() => statusBar.textContent = 'Pronto', 2000);
+          }
+        } else {
+          selectedBlock = clicked;
+          draggedBlock = clicked;
+          dragOffset.x = x - clicked.x;
+          dragOffset.y = y - clicked.y;
+          showProperties(clicked);
+        }
+      } else {
+        selectedBlock = null;
+        draggedBlock = null;
+        properties.innerHTML = '<div class="hint-text">Seleziona un blocco per modificare</div>';
+      }
+
+      draw();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (draggedBlock && !connectMode) {
+        draggedBlock.x = x - dragOffset.x;
+        draggedBlock.y = y - dragOffset.y;
+        draw();
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      draggedBlock = null;
+    });
+
+    function addBlock(type, x, y) {
+      const block = {
+        id: nextBlockId++,
+        type: type,
+        x: x,
+        y: y,
+        width: 120,
+        height: 80,
+        label: getBlockLabel(type),
+        config: getDefaultConfig(type)
+      };
+      blocks.push(block);
+      selectedBlock = block;
+      showProperties(block);
+      statusBar.textContent = `Blocco aggiunto: ${block.label}`;
+      draw();
+    }
+
+    function getBlockLabel(type) {
+      const labels = {
+        groups: 'Gironi',
+        knockout: 'Winners',
+        losers: 'Losers',
+        repescage: 'Ripescaggio'
+      };
+      return labels[type] || type;
+    }
+
+    function getDefaultConfig(type) {
+      const configs = {
+        groups: { numGroups: 3, teamSize: 4, teamsAdvance: 2 },
+        knockout: { numTeams: 8 },
+        losers: { numTeams: 6, style: 'group' },
+        repescage: { numTeams: 0 }
+      };
+      return configs[type] || {};
+    }
+
+    function isClickInBlock(x, y, block) {
+      return x >= block.x &&
+        x <= block.x + block.width &&
+        y >= block.y &&
+        y <= block.y + block.height;
+    }
+
+    function createConnection(from, to) {
+      const existing = connections.find(c => c.from === from.id && c.to === to.id);
+      if (!existing) {
+        connections.push({
+          id: `conn_${from.id}_${to.id}`,
+          from: from.id,
+          to: to.id,
+          label: 'Vincenti'
+        });
+      }
+    }
+
+    function toggleConnectMode() {
+      connectMode = !connectMode;
+      connectFrom = null;
+      if (connectMode) {
+        statusBar.textContent = 'Seleziona blocco di partenza';
+        canvas.style.cursor = 'pointer';
+      } else {
+        statusBar.textContent = 'Pronto';
+        canvas.style.cursor = 'crosshair';
+      }
+      draw();
+    }
+
+    function deleteSelected() {
+      if (selectedBlock) {
+        blocks = blocks.filter(b => b.id !== selectedBlock.id);
+        connections = connections.filter(c => c.from !== selectedBlock.id && c.to !== selectedBlock.id);
+        selectedBlock = null;
+        properties.innerHTML = '<div class="hint-text">Seleziona un blocco per modificare</div>';
+        statusBar.textContent = 'Blocco eliminato';
+        draw();
+      }
+    }
+
+    function clearCanvas() {
+      if (confirm('Sei sicuro di voler cancellare tutto?')) {
+        blocks = [];
+        connections = [];
+        selectedBlock = null;
+        properties.innerHTML = '<div class="hint-text">Seleziona un blocco per modificare</div>';
+        statusBar.textContent = 'Canvas pulito';
+        draw();
+      }
+    }
+
+    function showProperties(block) {
+      let html = `
+        <div class="property-item">
+          <label>Nome Blocco</label>
+          <input type="text" value="${block.label}" onchange="updateBlockLabel('${block.id}', this.value)">
+        </div>
+      `;
+
+      if (block.type === 'groups') {
+        html += `
+          <div class="property-item">
+            <label>Numero Gironi</label>
+            <input type="number" value="${block.config.numGroups}" onchange="updateConfig('${block.id}', 'numGroups', this.value)">
+          </div>
+          <div class="property-item">
+            <label>Squadre per Girone</label>
+            <input type="number" value="${block.config.teamSize}" onchange="updateConfig('${block.id}', 'teamSize', this.value)">
+          </div>
+          <div class="property-item">
+            <label>Passano da Girone</label>
+            <input type="number" value="${block.config.teamsAdvance}" onchange="updateConfig('${block.id}', 'teamsAdvance', this.value)">
+          </div>
+        `;
+      } else if (block.type === 'knockout') {
+        html += `
+          <div class="property-item">
+            <label>Squadre in Bracket</label>
+            <input type="number" value="${block.config.numTeams}" onchange="updateConfig('${block.id}', 'numTeams', this.value)">
+          </div>
+        `;
+      } else if (block.type === 'losers') {
+        html += `
+          <div class="property-item">
+            <label>Squadre</label>
+            <input type="number" value="${block.config.numTeams}" onchange="updateConfig('${block.id}', 'numTeams', this.value)">
+          </div>
+          <div class="property-item">
+            <label>Stile</label>
+            <select onchange="updateConfig('${block.id}', 'style', this.value)">
+              <option value="group" ${block.config.style === 'group' ? 'selected' : ''}>Classifica</option>
+              <option value="bracket" ${block.config.style === 'bracket' ? 'selected' : ''}>Bracket</option>
+            </select>
+          </div>
+        `;
+      }
+
+      properties.innerHTML = html;
+    }
+
+    function updateBlockLabel(blockId, label) {
+      const block = blocks.find(b => b.id == blockId);
+      if (block) block.label = label;
+      draw();
+    }
+
+    function updateConfig(blockId, key, value) {
+      const block = blocks.find(b => b.id == blockId);
+      if (block) {
+        block.config[key] = isNaN(value) ? value : parseInt(value);
+      }
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw connections
+      connections.forEach(conn => {
+        const fromBlock = blocks.find(b => b.id === conn.from);
+        const toBlock = blocks.find(b => b.id === conn.to);
+        if (fromBlock && toBlock) {
+          drawConnection(fromBlock, toBlock, conn.label);
+        }
+      });
+
+      // Draw blocks
+      blocks.forEach(block => {
+        drawBlock(block, block === selectedBlock);
+      });
+
+      // Draw connection preview
+      if (connectMode && connectFrom) {
+        ctx.strokeStyle = '#0066cc';
+        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(connectFrom.x + connectFrom.width / 2, connectFrom.y + connectFrom.height / 2);
+        ctx.lineTo(canvas.width / 2, canvas.height / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function drawBlock(block, selected) {
+      const colors = {
+        groups: { bg: '#e8f5e9', border: '#2f6a23', text: '#1b5e20' },
+        knockout: { bg: '#ffebee', border: '#b11f00', text: '#7f0000' },
+        losers: { bg: '#e3f2fd', border: '#0066cc', text: '#003d82' },
+        repescage: { bg: '#fff3e0', border: '#e65100', text: '#bf360c' }
+      };
+      const color = colors[block.type] || colors.groups;
+
+      ctx.fillStyle = selected ? color.border : color.bg;
+      ctx.strokeStyle = color.border;
+      ctx.lineWidth = selected ? 3 : 2;
+      ctx.fillRect(block.x, block.y, block.width, block.height);
+      ctx.strokeRect(block.x, block.y, block.width, block.height);
+
+      ctx.fillStyle = color.text;
+      ctx.font = 'bold 13px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(block.label, block.x + block.width / 2, block.y + block.height / 2);
+    }
+
+    function drawConnection(fromBlock, toBlock, label) {
+      const fromX = fromBlock.x + fromBlock.width / 2;
+      const fromY = fromBlock.y + fromBlock.height / 2;
+      const toX = toBlock.x - 10;
+      const toY = toBlock.y + toBlock.height / 2;
+
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.stroke();
+
+      // Arrow
+      const headlen = 15;
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      ctx.fillStyle = '#888';
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      // Label
+      const midX = (fromX + toX) / 2;
+      const midY = (fromY + toY) / 2;
+      ctx.fillStyle = '#333';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, midX, midY - 8);
+    }
+
+    function saveFlowToJson() {
+      const flow = {
+        version: '1.0',
+        blocks: blocks,
+        connections: connections,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('tournamentFlow', JSON.stringify(flow));
+      statusBar.textContent = '✓ Salvataggio locale completato';
+      setTimeout(() => statusBar.textContent = 'Pronto', 2000);
+    }
+
+    function loadFlowFromJson() {
+      const saved = localStorage.getItem('tournamentFlow');
+      if (saved) {
+        const flow = JSON.parse(saved);
+        blocks = flow.blocks || [];
+        connections = flow.connections || [];
+        nextBlockId = Math.max(...blocks.map(b => b.id), 0) + 1;
+        selectedBlock = null;
+        properties.innerHTML = '<div class="hint-text">Seleziona un blocco per modificare</div>';
+        statusBar.textContent = '✓ Caricamento completato';
+        draw();
+        setTimeout(() => statusBar.textContent = 'Pronto', 2000);
+      } else {
+        statusBar.textContent = '✗ Nessun salvataggio trovato';
+      }
+    }
+
+    function exportFlow() {
+      const flow = {
+        version: '1.0',
+        blocks: blocks,
+        connections: connections,
+        timestamp: new Date().toISOString()
+      };
+      const dataStr = JSON.stringify(flow, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      const exportFileDefaultName = `tournament-flow-${Date.now()}.json`;
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+    }
+
+    // Initial draw
+    draw();
+    statusBar.textContent = 'Pronto';
+  </script>
+</body>
+</html>

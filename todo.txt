@@ -80,3 +80,4 @@ Ho impostato il numero di squadre del torneo ma poi quando clicco genera... mi d
 Squadre di test da aggiungere (facoltativo) non c'entra nulla il sistema in base a Max squadre deve creare il numero di di squadre di test con il pulsante di prima il resto non serve ✅ [RISOLTO: Rimosso campo facoltativo, sistema ora calcola automaticamente (maxTeams - squadre attuali)]
 Il Numero di squadre di un torneo deve essere sempre maggiore di 1 ✅ [RISOLTO: Campo minimo cambio da 4 a 2, validazione client e server-side]
 Metti dei limiti ragionavolei per l'iseimento dei nomi, ecc delle form affichè non ci siano problemi ✅ [RISOLTO: Aggiunti maxlength HTML e validazioni server-side]
+**📌 Nota Simulazione:** Questa è una simulazione basata su **16 squadre iniziali**. I numeri effettivi dipenderanno dalle squadre reali iscritte. deve simulare in bale alle suadre inserite ✅ [RISOLTO: Simulazione ora usa il numero reale di squadre approvate]

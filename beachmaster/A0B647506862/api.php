@@ -983,10 +983,6 @@ function tournamentStarted(array $state): bool {
 function publicState(array $state): array {
     $teamMap = getTeamMap($state);
     $config = readConfig();
-    $dayDateMap = [];
-    foreach ($config['schedule']['days'] ?? [] as $d) {
-        $dayDateMap[$d['dayNumber']] = $d['date'];
-    }
     return [
         'settings' => $state['settings'],
         'teams' => array_values(array_map(function ($t) {
@@ -1011,7 +1007,7 @@ function publicState(array $state): array {
                 }, $g['teamIds']))
             ];
         }, $state['groups'])),
-        'groupMatches' => array_values(array_map(function ($m) use ($teamMap, $dayDateMap) {
+        'groupMatches' => array_values(array_map(function ($m) use ($teamMap) {
             return [
                 'id' => $m['id'],
                 'group' => $m['group'],
@@ -1021,9 +1017,10 @@ function publicState(array $state): array {
                 'team2Name' => $teamMap[$m['team2Id']]['name'] ?? 'N/D',
                 'score1' => $m['score1'],
                 'score2' => $m['score2'],
-                'day' => $m['day'],
-                'dayDate' => $dayDateMap[$m['day']] ?? '',
-                'time' => $m['time']
+                'date' => $m['date'] ?? null,
+                'courtName' => $m['courtName'] ?? null,
+                'startTime' => $m['startTime'] ?? null,
+                'endTime' => $m['endTime'] ?? null
             ];
         }, $state['groupMatches'])),
         'standings' => computeStandings($state),
@@ -1131,9 +1128,9 @@ function computeStandings(array $state): array {
 
 function validateScheduleForTournament(array $state): array {
     $config = readConfig();
-    $schedule = $config['schedule']['days'] ?? [];
+    $courts = $config['schedule']['courts'] ?? [];
 
-    if (empty($schedule)) {
+    if (empty($courts)) {
         return ['valid' => false, 'message' => 'Nessun giorno schedulato nel torneo'];
     }
 
@@ -1147,10 +1144,11 @@ function validateScheduleForTournament(array $state): array {
     }
 
     // Calcola numero totale di slot disponibili (giorno * timeSlot * courtCount)
+    // Struttura: courts[].availability[].timeSlots[]
     $totalSlots = 0;
-    foreach ($schedule as $day) {
-        foreach ($day['timeSlots'] as $slot) {
-            $totalSlots += ($slot['courtCount'] ?? 1);
+    foreach ($courts as $court) {
+        foreach ($court['availability'] ?? [] as $dateAvailability) {
+            $totalSlots += count($dateAvailability['timeSlots'] ?? []);
         }
     }
 
@@ -1339,75 +1337,82 @@ function addMinutes(string $timeStr, int $minutes): string {
 
 function buildGroupMatchesWithSchedule(array &$state): void {
     $config = readConfig();
-    $schedule = $config['schedule']['days'] ?? [];
+    $courts = $config['schedule']['courts'] ?? [];
     
-    if (empty($schedule)) {
+    if (empty($courts)) {
         buildGroupMatches($state);
         return;
     }
     
-    $matches = [];
-    $dayIndex = 0;
-    $slotIndex = 0;
-    $matchesInSlot = 0;
+    // Costruisci lista di slot disponibili da courts
+    $availableSlots = [];
+    foreach ($courts as $court) {
+        foreach ($court['availability'] ?? [] as $dateAvail) {
+            $date = $dateAvail['date'];
+            foreach ($dateAvail['timeSlots'] ?? [] as $timeSlot) {
+                $availableSlots[] = [
+                    'courtId' => $court['courtId'],
+                    'courtName' => $court['courtName'],
+                    'date' => $date,
+                    'startTime' => $timeSlot['startTime'],
+                    'endTime' => $timeSlot['endTime']
+                ];
+            }
+        }
+    }
     
+    if (empty($availableSlots)) {
+        buildGroupMatches($state);
+        return;
+    }
+    
+    // Raccogli tutte le partite dei gironi
+    $matches = [];
     foreach ($state['groups'] as $group) {
-        $groupMatches = [];
         $teamIds = $group['teamIds'];
         for ($i = 0; $i < count($teamIds) - 1; $i++) {
             for ($j = $i + 1; $j < count($teamIds); $j++) {
-                $groupMatches[] = [
+                $matches[] = [
                     'id' => uid(),
                     'group' => $group['name'],
                     'team1Id' => $teamIds[$i],
                     'team2Id' => $teamIds[$j],
                     'score1' => null,
                     'score2' => null,
-                    'day' => null,
-                    'time' => null,
-                    'endTime' => null,
-                    'timeSlot' => null
+                    'date' => null,
+                    'courtId' => null,
+                    'courtName' => null,
+                    'startTime' => null,
+                    'endTime' => null
                 ];
             }
         }
+    }
+    
+    // Assegna slot alle partite in sequenza
+    $slotIndex = 0;
+    $matchesPerSlot = 1;
+    $currentSlotMatchCount = 0;
+    
+    foreach ($matches as &$match) {
+        if ($slotIndex >= count($availableSlots)) {
+            // Se finiscono gli slot, torna a buildGroupMatches
+            $state['groupMatches'] = [];
+            buildGroupMatches($state);
+            return;
+        }
         
-        // Raggruppa partite dello stesso girone nello stesso giorno
-        foreach ($groupMatches as $match) {
-            if ($dayIndex >= count($schedule)) {
-                // Finiti gli slot disponibili
-                break 2;
-            }
-            
-            $courtsPerSlot = $schedule[$dayIndex]['timeSlots'][$slotIndex]['courtCount'] ?? 3;
-            
-            if ($matchesInSlot >= $courtsPerSlot) {
-                $slotIndex++;
-                $matchesInSlot = 0;
-                
-                if ($slotIndex >= count($schedule[$dayIndex]['timeSlots'])) {
-                    $dayIndex++;
-                    $slotIndex = 0;
-                }
-            }
-            
-            if ($dayIndex >= count($schedule)) {
-                // Finiti gli slot disponibili
-                break 2;
-            }
-            
-            $currentDay = $schedule[$dayIndex];
-            $currentSlot = $currentDay['timeSlots'][$slotIndex] ?? null;
-            
-            if ($currentDay && $currentSlot) {
-                $match['day'] = $currentDay['dayNumber'] ?? ($dayIndex + 1);
-                $match['timeSlot'] = $slotIndex;
-                $match['time'] = $currentSlot['startTime'];
-                $duration = calculateMatchDuration($state, $match['score1'], $match['score2']);
-                $match['endTime'] = addMinutes($match['time'], $duration);
-            }
-            
-            $matches[] = $match;
-            $matchesInSlot++;
+        $slot = $availableSlots[$slotIndex];
+        $match['date'] = $slot['date'];
+        $match['courtId'] = $slot['courtId'];
+        $match['courtName'] = $slot['courtName'];
+        $match['startTime'] = $slot['startTime'];
+        $match['endTime'] = $slot['endTime'];
+        
+        $currentSlotMatchCount++;
+        if ($currentSlotMatchCount >= $matchesPerSlot) {
+            $slotIndex++;
+            $currentSlotMatchCount = 0;
         }
     }
     
@@ -2924,7 +2929,7 @@ if ($action === 'admin_reschedule_matches' && $method === 'POST') {
         }
         
         $config = readConfig();
-        if (empty($config['schedule']['days'])) {
+        if (empty($config['schedule']['courts'])) {
             jsonResponse(400, ['ok' => false, 'error' => 'Nessun giorno di schedule configurato']);
         }
         

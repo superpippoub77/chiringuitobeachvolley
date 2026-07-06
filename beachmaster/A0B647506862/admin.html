@@ -4550,7 +4550,11 @@
         return;
       }
 
-      let teamsInPlay = 16; // Squadre iniziali (configurabile)
+      // Calcola il numero reale di squadre approvate
+      const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
+      const teamsToSimulate = approvedCount > 0 ? approvedCount : 16; // Fallback a 16 se nessuna squadra approvata
+      
+      let teamsInPlay = teamsToSimulate;
       let simulationHtml = '<div style="display: flex; gap: 16px; overflow-x: auto; padding: 12px 0">';
       
       phases.forEach((phase, idx) => {
@@ -4607,8 +4611,8 @@
       // Aggiungi nota finale
       let finalNote = `
         <div style="background: #f0f0f0; border-radius: 4px; padding: 12px; margin-top: 12px; font-size: 12px; color: #333">
-          <strong>📌 Nota Simulazione:</strong> Questa è una simulazione basata su <strong>16 squadre iniziali</strong>. 
-          I numeri effettivi dipenderanno dalle squadre reali iscritte.
+          <strong>📌 Nota Simulazione:</strong> Questa è una simulazione basata su <strong>${teamsToSimulate} squadre${approvedCount > 0 ? ' iscritte e approvate' : ' (fallback)'}</strong>. 
+          I numeri effettivi dipenderanno da come vengono applicate le regole di qualificazione delle fasi.
         </div>
       `;
 

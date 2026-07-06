@@ -519,6 +519,7 @@
           <button class="btn btn-primary" onclick="addScheduleCourt()">+ Aggiungi campo</button>
           <button class="btn btn-green" onclick="saveSchedule()">Salva schedule</button>
           <button class="btn btn-primary" onclick="rescheduleMatches()" id="rescheduleBtn" style="display:none">Rischedulare partite</button>
+          <button class="btn btn-secondary" onclick="debugScheduleInfo()" style="margin-left: auto">🔍 Debug Schedule</button>
         </div>
       </div>
 
@@ -4471,9 +4472,11 @@
     async function saveSchedule() {
       try {
         if (!config.schedule || !config.schedule.courts || config.schedule.courts.length === 0) {
-          await showInfoDialog('Attenzione', 'Nessun campo configurato');
+          await showInfoDialog('Attenzione', 'Nessun campo configurato. Clicca "+ Aggiungi campo" prima di salvare.');
           return;
         }
+
+        console.log('📝 Saving schedule - Courts in memory:', config.schedule.courts);
 
         // Leggi i valori dai form per ogni campo
         const courts = [];
@@ -4508,17 +4511,22 @@
           }
         });
 
+        console.log('📋 Courts to save:', courts);
+
         if (courts.length === 0) {
-          await showInfoDialog('Attenzione', 'Nessun campo con disponibilità configurata');
+          await showInfoDialog('Attenzione', 'Nessun campo con disponibilità configurata. Aggiungi almeno una data con fascia oraria.');
           return;
         }
 
+        console.log('🔄 Calling admin_update_config...');
         await callApi('admin_update_config', 'POST', { schedule: { courts } }, true);
         config.schedule.courts = courts;
-        await showInfoDialog('Successo', 'Schedule salvato');
+        console.log('✅ Schedule saved successfully');
+        await showInfoDialog('Successo', `${courts.length} campo/i salvato/i con ${courts.reduce((sum, c) => sum + (c.availability || []).length, 0)} date totali`);
         renderSchedule();
       } catch (e) {
-        await showInfoDialog('Errore', e.message);
+        console.error('❌ Save schedule error:', e);
+        await showInfoDialog('Errore nel salvataggio', `${e.message}\n\nControlla la console (F12) per dettagli.`);
       }
     }
 
@@ -4540,6 +4548,42 @@
         await showInfoDialog('Successo', 'Partite rischedulate con successo');
       } catch (e) {
         await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function debugScheduleInfo() {
+      try {
+        const result = await callApi('debug_schedule', 'GET', {}, false);
+        if (!result.ok) {
+          await showInfoDialog('Errore', 'Debug failed: ' + result.error);
+          return;
+        }
+
+        const debug = result.debug;
+        let info = `📊 DEBUG SCHEDULE\n\n`;
+        info += `🏑 Campi configurati: ${debug.courts_count}\n`;
+        info += `⏰ Total slot temporali: ${debug.total_slots}\n`;
+        info += `🎮 Total partite generate: ${debug.total_matches}\n`;
+        info += `👥 Squadre registrate: ${debug.teams_count}\n`;
+        info += `✅ Squadre approvate: ${debug.approved_teams_count}\n`;
+        info += `👊 Gironi: ${debug.groups_count}\n\n`;
+        
+        if (debug.slots_list.length > 0) {
+          info += `Dettagli slot:\n`;
+          debug.slots_list.forEach(slot => {
+            info += `- ${slot.court} (${slot.date}): ${slot.slots} fascie\n`;
+          });
+        } else {
+          info += `⚠️ ATTENZIONE: Nessuno slot trovato!\n`;
+        }
+
+        info += `\n💾 Courts salvati: ${JSON.stringify(debug.config_schedule_courts, null, 2)}`;
+
+        console.log(info);
+        await showInfoDialog('📋 Debug Schedule', info);
+      } catch (e) {
+        console.error('Debug error:', e);
+        await showInfoDialog('Errore Debug', e.message + '\n\nVedi console (F12) per dettagli');
       }
     }
 

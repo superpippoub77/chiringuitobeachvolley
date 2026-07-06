@@ -4754,4 +4754,42 @@ if ($action === 'delete_tournament' && $method === 'POST') {
     ]);
 }
 
+// DEBUG: Endpoint per diagnosticare lo schedule
+if ($action === 'debug_schedule' && $method === 'GET') {
+    $config = readConfig();
+    $state = readState();
+    
+    $courts = $config['schedule']['courts'] ?? [];
+    
+    $totalSlots = 0;
+    $slotsList = [];
+    foreach ($courts as $court) {
+        foreach ($court['availability'] ?? [] as $dateAvail) {
+            $slotsList[] = [
+                'court' => $court['courtName'],
+                'date' => $dateAvail['date'],
+                'slots' => count($dateAvail['timeSlots'] ?? [])
+            ];
+            $totalSlots += count($dateAvail['timeSlots'] ?? []);
+        }
+    }
+    
+    $groupMatches = $state['groupMatches'] ?? [];
+    $totalMatches = count($groupMatches);
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'debug' => [
+            'courts_count' => count($courts),
+            'total_slots' => $totalSlots,
+            'total_matches' => $totalMatches,
+            'slots_list' => $slotsList,
+            'groups_count' => count($state['groups'] ?? []),
+            'teams_count' => count($state['teams'] ?? []),
+            'approved_teams_count' => count(array_filter($state['teams'] ?? [], fn($t) => $t['approved'] ?? false)),
+            'config_schedule_courts' => $courts
+        ]
+    ]);
+}
+
 jsonResponse(404, ['ok' => false, 'error' => 'Endpoint non trovato']);

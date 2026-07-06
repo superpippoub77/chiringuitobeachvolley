@@ -1828,9 +1828,9 @@ if ($action === 'admin_add_test_teams' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Numero di squadre non valido (1-50)']);
     }
 
-    withStateTransaction(function (&$state) use ($count) {
+    $result = withStateTransaction(function (&$state) use ($count) {
         if (tournamentStarted($state)) {
-            jsonResponse(422, ['ok' => false, 'error' => 'Non puoi aggiungere squadre: il torneo e gia iniziato']);
+            return ['ok' => false, 'error' => 'Non puoi aggiungere squadre: il torneo e gia iniziato'];
         }
 
         $addedCount = 0;
@@ -1858,12 +1858,17 @@ if ($action === 'admin_add_test_teams' && $method === 'POST') {
             'totalTeams' => count($state['teams'])
         ];
     });
+
+    if (!($result['ok'] ?? false)) {
+        jsonResponse(422, $result);
+    }
+    jsonResponse(200, $result);
 }
 
 if ($action === 'admin_remove_test_teams' && $method === 'POST') {
-    withStateTransaction(function (&$state) {
+    $result = withStateTransaction(function (&$state) {
         if (tournamentStarted($state)) {
-            jsonResponse(422, ['ok' => false, 'error' => 'Non puoi rimuovere squadre: il torneo e gia iniziato']);
+            return ['ok' => false, 'error' => 'Non puoi rimuovere squadre: il torneo e gia iniziato'];
         }
 
         $testTeams = array_filter($state['teams'], fn($t) => ($t['dummy'] ?? false) === true);
@@ -1877,6 +1882,11 @@ if ($action === 'admin_remove_test_teams' && $method === 'POST') {
             'totalTeams' => count($state['teams'])
         ];
     });
+
+    if (!($result['ok'] ?? false)) {
+        jsonResponse(422, $result);
+    }
+    jsonResponse(200, $result);
 }
 
 if ($action === 'admin_generate_groups' && $method === 'POST') {

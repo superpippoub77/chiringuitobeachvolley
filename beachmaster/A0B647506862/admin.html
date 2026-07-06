@@ -460,10 +460,10 @@
     <div id="loginBox" class="card">
       <h3>Login amministratore</h3>
       <div id="loginEmailField" style="display: none; margin-bottom: 10px">
-        <input id="adminEmail" type="email" placeholder="Email" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px">
+        <input id="adminEmail" type="email" placeholder="Email" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
       </div>
       <div class="row">
-        <input id="adminPassword" type="password" placeholder="Password admin">
+        <input id="adminPassword" type="password" placeholder="Password admin" onkeypress="if(event.key==='Enter') login()">
         <button class="btn btn-primary" onclick="login()">Accedi</button>
       </div>
     </div>

@@ -2082,8 +2082,26 @@
       try {
         const testTeamsCount = config.tournament?.testTeams || 0;
         
-        if (testTeamsCount === 0) {
-          await showInfoDialog('⚠️ Attenzione', 'Configura prima il numero di squadre di test nella sezione "Impostazioni". Campo: "Squadre di test da aggiungere"');
+        if (testTeamsCount === 0 || testTeamsCount < 1) {
+          const goToSettings = await showConfirmDialog(
+            '⚠️ Numero Squadre di Test Non Configurato',
+            'Non hai impostato il numero di squadre di test da aggiungere.\n\nAnda alle Impostazioni e configura il campo "Squadre di test da aggiungere" (inserisci un valore tra 1 e 50).\n\nVuoi andare alle impostazioni adesso?'
+          );
+          
+          if (goToSettings) {
+            const settingsTab = document.querySelector('[data-page="settings"]');
+            if (settingsTab) {
+              showPage('settings', settingsTab);
+              // Scroll al campo cfg-testTeams
+              setTimeout(() => {
+                const field = document.getElementById('cfg-testTeams');
+                if (field) {
+                  field.focus();
+                  field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }, 300);
+            }
+          }
           return;
         }
 

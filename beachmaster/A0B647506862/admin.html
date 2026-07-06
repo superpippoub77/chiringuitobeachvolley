@@ -4553,9 +4553,17 @@
 
     async function debugScheduleInfo() {
       try {
-        const result = await callApi('debug_schedule', 'GET', {}, false);
+        // GET request senza body
+        const response = await fetch('api.php?action=debug_schedule', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        const result = await response.json();
+        
         if (!result.ok) {
-          await showInfoDialog('Errore', 'Debug failed: ' + result.error);
+          await showInfoDialog('Errore', 'Debug failed: ' + (result.error || 'Unknown error'));
           return;
         }
 
@@ -4574,16 +4582,15 @@
             info += `- ${slot.court} (${slot.date}): ${slot.slots} fascie\n`;
           });
         } else {
-          info += `⚠️ ATTENZIONE: Nessuno slot trovato!\n`;
+          info += `⚠️ ATTENZIONE: Nessuno slot trovato nel backend!\n`;
+          info += `Possibile causa: saveSchedule() non ha salvato i dati.\n`;
         }
 
-        info += `\n💾 Courts salvati: ${JSON.stringify(debug.config_schedule_courts, null, 2)}`;
-
-        console.log(info);
+        console.log('DEBUG INFO:', debug);
         await showInfoDialog('📋 Debug Schedule', info);
       } catch (e) {
         console.error('Debug error:', e);
-        await showInfoDialog('Errore Debug', e.message + '\n\nVedi console (F12) per dettagli');
+        await showInfoDialog('Errore Debug', `${e.message}\n\nVedi console (F12) per dettagli.\n\nErrore: ${e.toString()}`);
       }
     }
 

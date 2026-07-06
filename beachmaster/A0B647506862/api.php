@@ -1733,7 +1733,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             if ($team['id'] !== $id) continue;
             $found = true;
             if (isset($body['name'])) {
-                $name = trim((string)$body['name']);
+                $name = mb_substr(trim((string)$body['name']), 0, 50);
                 if ($name !== '') {
                     $team['name'] = $name;
                 }
@@ -1752,7 +1752,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                 foreach (array_slice($body['players'], 0, $maxPlayers) as $player) {
                     if (is_array($player) && isset($player['name'])) {
                         // Formato {name, isCaptain}
-                        $name = trim((string)$player['name']);
+                        $name = mb_substr(trim((string)$player['name']), 0, 50);
                         if ($name !== '') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
@@ -1761,7 +1761,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                         }
                     } elseif (is_string($player)) {
                         // Compatibilità con vecchio formato string
-                        $name = trim($player);
+                        $name = mb_substr(trim($player), 0, 50);
                         if ($name !== '') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
@@ -1773,7 +1773,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                 $team['players'] = $normalizedPlayers;
             }
             if (isset($body['phone'])) {
-                $team['phone'] = trim((string)$body['phone']);
+                $team['phone'] = mb_substr(trim((string)$body['phone']), 0, 20);
             }
             $team['category'] = 'Misto';
             break;
@@ -2735,7 +2735,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
-        if (isset($t['name'])) $config['tournament']['name'] = trim((string)$t['name']);
+        if (isset($t['name'])) $config['tournament']['name'] = mb_substr(trim((string)$t['name']), 0, 100);
         if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(2, min(100, (int)$t['maxTeams']));
         if (isset($t['maxPlayersPerTeam'])) $config['tournament']['maxPlayersPerTeam'] = max(1, min(12, (int)$t['maxPlayersPerTeam']));
         if (isset($t['maxPlayersOnCourt'])) $config['tournament']['maxPlayersOnCourt'] = max(1, min(6, (int)$t['maxPlayersOnCourt']));
@@ -2810,7 +2810,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     }
     
     if (isset($body['contact']) && is_array($body['contact'])) {
-        $managerEmail = trim((string)($body['contact']['managerEmail'] ?? ''));
+        $managerEmail = mb_substr(trim((string)($body['contact']['managerEmail'] ?? '')), 0, 255);
         if ($managerEmail !== '') {
             if (!filter_var($managerEmail, FILTER_VALIDATE_EMAIL)) {
                 jsonResponse(422, ['ok' => false, 'error' => 'Email del gestore non valida']);
@@ -2840,14 +2840,14 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         $emailCfg = $body['email'];
         $config['email']['enabled'] = (bool)($emailCfg['enabled'] ?? false);
         $config['email']['service'] = trim((string)($emailCfg['service'] ?? 'gmail'));
-        $config['email']['host'] = trim((string)($emailCfg['host'] ?? ''));
+        $config['email']['host'] = mb_substr(trim((string)($emailCfg['host'] ?? '')), 0, 255);
         $config['email']['port'] = (int)($emailCfg['port'] ?? 587);
         $config['email']['secure'] = in_array($emailCfg['secure'] ?? 'tls', ['tls', 'ssl']) ? $emailCfg['secure'] : 'tls';
         $config['email']['auth'] = (bool)($emailCfg['auth'] ?? true);
-        $config['email']['username'] = trim((string)($emailCfg['username'] ?? ''));
-        $config['email']['password'] = trim((string)($emailCfg['password'] ?? ''));
-        $config['email']['fromEmail'] = trim((string)($emailCfg['fromEmail'] ?? 'noreply@beachmaster.local'));
-        $config['email']['fromName'] = trim((string)($emailCfg['fromName'] ?? 'BeachMaster'));
+        $config['email']['username'] = mb_substr(trim((string)($emailCfg['username'] ?? '')), 0, 255);
+        $config['email']['password'] = mb_substr(trim((string)($emailCfg['password'] ?? '')), 0, 100);
+        $config['email']['fromEmail'] = mb_substr(trim((string)($emailCfg['fromEmail'] ?? 'noreply@beachmaster.local')), 0, 255);
+        $config['email']['fromName'] = mb_substr(trim((string)($emailCfg['fromName'] ?? 'BeachMaster')), 0, 100);
         $config['email']['timeout'] = (int)($emailCfg['timeout'] ?? 10);
     }
     

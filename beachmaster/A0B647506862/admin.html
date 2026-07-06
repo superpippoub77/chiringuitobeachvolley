@@ -460,10 +460,10 @@
     <div id="loginBox" class="card">
       <h3>Login amministratore</h3>
       <div id="loginEmailField" style="display: none; margin-bottom: 10px">
-        <input id="adminEmail" type="email" placeholder="Email" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
+        <input id="adminEmail" type="email" placeholder="Email" maxlength="255" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
       </div>
       <div class="row">
-        <input id="adminPassword" type="password" placeholder="Password admin" onkeypress="if(event.key==='Enter') login()">
+        <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter') login()">
         <button class="btn btn-primary" onclick="login()">Accedi</button>
       </div>
     </div>
@@ -1185,11 +1185,11 @@
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
-                  <input type="email" id="emailFromEmail" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="email" id="emailFromEmail" maxlength="255" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Nome Mittente</label>
-                  <input type="text" id="emailFromName" value="${config.email?.fromName || 'BeachMaster'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailFromName" maxlength="100" value="${config.email?.fromName || 'BeachMaster'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Secure (TLS/SSL)</label>
@@ -2255,7 +2255,7 @@
             ${playersHtml}
             <div class="field full" style="margin-top: 12px">
               <label>Telefono</label>
-              <input id="mPhone" type="text" value="${escapeHtml(team.phone || '')}">
+              <input id="mPhone" type="text" maxlength="20" value="${escapeHtml(team.phone || '')}">
             </div>
             <div class="field">
               <label><input id="mApproved" type="checkbox" ${team.approved ? 'checked' : ''}> Iscrizione approvata</label>
@@ -4353,7 +4353,7 @@
           <div class="row" style="justify-content: space-between; margin-bottom: 10px; align-items: center">
             <div>
               <strong>Campo</strong>
-              <input type="text" id="courtName-${courtIdx}" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
+              <input type="text" id="courtName-${courtIdx}" maxlength="50" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
             </div>
             <button class="btn btn-danger" onclick="removeScheduleCourt(${courtIdx})">Rimuovi campo</button>
           </div>

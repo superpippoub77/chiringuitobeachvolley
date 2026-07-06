@@ -460,10 +460,10 @@
     <div id="loginBox" class="card">
       <h3>Login amministratore</h3>
       <div id="loginEmailField" style="display: none; margin-bottom: 10px">
-        <input id="adminEmail" type="email" placeholder="Email" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
+        <input id="adminEmail" type="email" placeholder="Email" maxlength="255" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter') login()">
       </div>
       <div class="row">
-        <input id="adminPassword" type="password" placeholder="Password admin" onkeypress="if(event.key==='Enter') login()">
+        <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter') login()">
         <button class="btn btn-primary" onclick="login()">Accedi</button>
       </div>
     </div>
@@ -805,11 +805,11 @@
           </div>
           
           <div style="background: white; padding: 12px; border-radius: 6px">
-            <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" maxlength="255" style="width: 100%; margin-bottom: 8px; padding: 6px">
             <input type="number" id="ftpPort" placeholder="Porta" value="21" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="text" id="ftpUsername" placeholder="Username" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="password" id="ftpPassword" placeholder="Password" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpUsername" placeholder="Username" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="password" id="ftpPassword" placeholder="Password" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" maxlength="255" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
             
             <div class="row" style="margin-top: 10px">
               <button class="btn btn-primary" onclick="testFtpConnection()">🔌 Testa Connessione</button>
@@ -1109,7 +1109,7 @@
             <div class="form-grid-modal">
               <div class="field">
                 <label>Nome torneo</label>
-                <input id="cfg-tournamentName" type="text" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
+                <input id="cfg-tournamentName" type="text" maxlength="100" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
               </div>
               <div class="field">
                 <label>Max squadre</label>
@@ -1165,7 +1165,7 @@
             <p class="muted">Configura i contatti per ricevere notifiche sulle iscrizioni.</p>
             <div class="field">
               <label>Email del gestore (riceve notifiche iscrizioni)</label>
-              <input id="cfg-managerEmail" type="email" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
+              <input id="cfg-managerEmail" type="email" maxlength="255" value="${config.contact?.managerEmail || ''}" placeholder="gestore@example.com" style="width: 100%; padding: 6px">
               <small style="color: #666; display: block; margin-top: 4px">Riceverai una mail ogni volta che una squadra si iscrive</small>
               <button class="btn" style="width: 100%; margin-top: 8px; background: #2196F3; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer" onclick="testEmailSend()">
                 🧪 Testa Email
@@ -1188,7 +1188,7 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; opacity: ${config.email?.enabled ? '1' : '0.5'}; pointer-events: ${config.email?.enabled ? 'auto' : 'none'}">
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Host SMTP</label>
-                  <input type="text" id="emailHost" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailHost" maxlength="255" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Porta</label>
@@ -1196,19 +1196,19 @@
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Username</label>
-                  <input type="text" id="emailUsername" value="${config.email?.username || ''}" placeholder="your-email@gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailUsername" maxlength="255" value="${config.email?.username || ''}" placeholder="your-email@gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Password</label>
-                  <input type="password" id="emailPassword" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="password" id="emailPassword" maxlength="100" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
-                  <input type="email" id="emailFromEmail" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="email" id="emailFromEmail" maxlength="255\" value=\"${config.email?.fromEmail || 'noreply@beachmaster.local'}\" style=\"width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px\">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Nome Mittente</label>
-                  <input type="text" id="emailFromName" value="${config.email?.fromName || 'BeachMaster'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="text" id="emailFromName" maxlength="100" value="${config.email?.fromName || 'BeachMaster'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Secure (TLS/SSL)</label>
@@ -2242,6 +2242,7 @@
             <input 
               id="mPlayer${i}Name" 
               type="text" 
+              maxlength="50"
               placeholder="Nome giocatore ${i + 1}"
               value="${escapeHtml(player.name || '')}"
               style="padding: 6px; border: 1px solid #ccc; border-radius: 4px"
@@ -2269,12 +2270,12 @@
           <div class="form-grid-modal">
             <div class="field full">
               <label>Nome squadra</label>
-              <input id="mTeamName" type="text" value="${escapeHtml(team.name)}">
+              <input id="mTeamName" type="text" maxlength="50" value="${escapeHtml(team.name)}">
             </div>
             ${playersHtml}
-            <div class="field full" style="margin-top: 12px">
+            <div class="field full">
               <label>Telefono</label>
-              <input id="mPhone" type="text" value="${escapeHtml(team.phone || '')}">
+              <input id="mPhone" type="text" maxlength="20" value="${escapeHtml(team.phone || '')}">
             </div>
             <div class="field">
               <label><input id="mApproved" type="checkbox" ${team.approved ? 'checked' : ''}> Iscrizione approvata</label>
@@ -4570,7 +4571,7 @@
           <div class="row" style="justify-content: space-between; margin-bottom: 10px; align-items: center">
             <div>
               <strong>Campo</strong>
-              <input type="text" id="courtName-${courtIdx}" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
+              <input type="text" id="courtName-${courtIdx}" maxlength="50" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
             </div>
             <button class="btn btn-danger" onclick="removeScheduleCourt(${courtIdx})">Rimuovi campo</button>
           </div>

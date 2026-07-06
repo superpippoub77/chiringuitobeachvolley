@@ -1753,6 +1753,9 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             if (isset($body['approved'])) {
                 $team['approved'] = (bool)$body['approved'];
             }
+            if (isset($body['kitDelivered'])) {
+                $team['kitDelivered'] = (bool)$body['kitDelivered'];
+            }
             if (isset($body['players']) && is_array($body['players'])) {
                 // Normalizza giocatori: supporta sia string che {name, isCaptain}
                 $config = readConfig();
@@ -1894,11 +1897,75 @@ if ($action === 'admin_remove_test_teams' && $method === 'POST') {
     jsonResponse(200, $result);
 }
 
+if ($action === 'admin_approve_all_teams' && $method === 'POST') {
+    $result = withStateTransaction(function (&$state) {
+        if (tournamentStarted($state)) {
+            return ['ok' => false, 'error' => 'Non puoi approvare squadre: il torneo è già iniziato'];
+        }
+
+        $approvedCount = 0;
+        foreach ($state['teams'] as &$team) {
+            if (!($team['dummy'] ?? false) && !($team['approved'] ?? false)) {
+                $team['approved'] = true;
+                $approvedCount++;
+            }
+        }
+        unset($team);
+
+        return [
+            'ok' => true,
+            'approvedCount' => $approvedCount,
+            'totalTeams' => count($state['teams'])
+        ];
+    });
+
+    if (!($result['ok'] ?? false)) {
+        jsonResponse(422, $result);
+    }
+    jsonResponse(200, $result);
+}
+
+if ($action === 'admin_pay_all_teams' && $method === 'POST') {
+    $result = withStateTransaction(function (&$state) {
+        if (tournamentStarted($state)) {
+            return ['ok' => false, 'error' => 'Non puoi registrare pagamenti: il torneo è già iniziato'];
+        }
+
+        $paidCount = 0;
+        foreach ($state['teams'] as &$team) {
+            if (!($team['dummy'] ?? false) && ($team['approved'] ?? false) && !($team['paid'] ?? false)) {
+                $team['paid'] = true;
+                $paidCount++;
+            }
+        }
+        unset($team);
+
+        return [
+            'ok' => true,
+            'paidCount' => $paidCount,
+            'totalTeams' => count($state['teams'])
+        ];
+    });
+
+    if (!($result['ok'] ?? false)) {
+        jsonResponse(422, $result);
+    }
+    jsonResponse(200, $result);
+}
+
 if ($action === 'admin_generate_groups' && $method === 'POST') {
     withStateTransaction(function (&$state) {
         $approved = approvedTeams($state);
         if (count($approved) < 4) {
-            jsonResponse(422, ['ok' => false, 'error' => 'Servono almeno 4 squadre approvate']);
+            jsonResponse(422, [
+                'ok' => false,
+                'error' => 'Servono almeno 4 squadre approvate',
+                'details' => [
+                    'approved_count' => count($approved),
+                    'needed' => 4,
+                    'missing' => max(0, 4 - count($approved))
+                ]
+            ]);
         }
 
         $maxTeams = (int)$state['settings']['maxTeams'];
@@ -1935,7 +2002,14 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         // Valida lo schedule prima di generare le partite
         $validation = validateScheduleForTournament($state);
         if (!$validation['valid']) {
-            jsonResponse(422, ['ok' => false, 'error' => $validation['message']]);
+            jsonResponse(422, [
+                'ok' => false,
+                'error' => $validation['message'],
+                'details' => [
+                    'groups_created' => count($groups),
+                    'teams_in_groups' => count($approved)
+                ]
+            ]);
         }
         
         buildGroupMatchesWithSchedule($state);

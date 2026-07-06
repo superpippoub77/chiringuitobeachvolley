@@ -82,3 +82,5 @@ Il Numero di squadre di un torneo deve essere sempre maggiore di 1 ✅ [RISOLTO:
 Metti dei limiti ragionavolei per l'iseimento dei nomi, ecc delle form affichè non ci siano problemi ✅ [RISOLTO: Aggiunti maxlength HTML e validazioni server-side]
 **📌 Nota Simulazione:** Questa è una simulazione basata su **16 squadre iniziali**. I numeri effettivi dipenderanno dalle squadre reali iscritte. deve simulare in bale alle suadre inserite ✅ [RISOLTO: Simulazione ora usa il numero reale di squadre approvate]
 Reset torneo mi cancella dalla generazione dei gironi fino alla fine, lasciando squadre e configurazione di schedulazioni e fasi?✅
+Nell'approvare e nel pagare aggiungi un pulsante con approva tutte e uno con approva tutti i pagamenti e aggiungimi un flag (non obligatorio) consegna del kit
+Per ogni torneo matti una scheda kit (non obbligatorio) di cosa cosegneremo all'iscritto

@@ -508,6 +508,16 @@
           </div>
           <small style="color: #1565c0; display: block; margin-top: 8px" id="testTeamsStatus"></small>
         </div>
+        <div style="background: #f3e5f5; border-left: 4px solid #7b1fa2; border-radius: 4px; padding: 12px; margin-bottom: 12px">
+          <h4 style="margin-top: 0; color: #4a148c; display: flex; align-items: center; gap: 8px">
+            <span>✅ Azioni Bulk</span>
+          </h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #4a148c">Approva o registra pagamenti per multiple squadre in una volta:</p>
+          <div class="row" style="margin-top: 10px; gap: 8px">
+            <button class="btn btn-primary" onclick="approveAllTeams()" style="flex: 1; max-width: 300px">✅ Approva Tutte</button>
+            <button class="btn btn-primary" onclick="payAllTeams()" style="flex: 1; max-width: 300px">💳 Approva Tutti i Pagamenti</button>
+          </div>
+        </div>
         <div id="teamsContainer"></div>
       </div>
 
@@ -991,7 +1001,19 @@
       
       const res = await fetch(`${API}?action=${action}`, opts);
       const json = await res.json();
-      if (!res.ok || !json.ok) throw new Error(json.error || 'Errore API');
+      if (!res.ok || !json.ok) {
+        // Se c'è un campo details, crea un messaggio più dettagliato
+        let errorMsg = json.error || 'Errore API';
+        if (json.details) {
+          // Aggiungi dettagli specifici in base al tipo di errore
+          if (json.details.missing !== undefined) {
+            errorMsg += `\n\nSquadre approvate: ${json.details.approved_count}/${json.details.needed}\nMancano: ${json.details.missing} squadre`;
+          }
+        }
+        const error = new Error(errorMsg);
+        error.response = json;
+        throw error;
+      }
       return json;
     }
 
@@ -2122,6 +2144,42 @@
       }
     }
 
+    async function approveAllTeams() {
+      const unapproved = (state.teamsAll || []).filter(t => !t.approved && !t.dummy);
+      if (unapproved.length === 0) {
+        await showInfoDialog('ℹ️ Info', 'Tutte le squadre sono già approvate!');
+        return;
+      }
+      const confirmed = await showConfirmDialog(
+        'Conferma',
+        `Approvare ${unapproved.length} squadra${unapproved.length === 1 ? '' : 's'}?`
+      );
+      if (!confirmed) return;
+      try {
+        await callApi('admin_approve_all_teams', 'POST', {}, true);
+        await refresh();
+        await showInfoDialog('✅ Successo', `${unapproved.length} squadra${unapproved.length === 1 ? '' : 's'} approvata${unapproved.length === 1 ? '' : 'e'}!`);
+      } catch (e) { await showInfoDialog('Errore', e.message); }
+    }
+
+    async function payAllTeams() {
+      const unpaid = (state.teamsAll || []).filter(t => !t.paid && t.approved);
+      if (unpaid.length === 0) {
+        await showInfoDialog('ℹ️ Info', 'Tutti i pagamenti sono già registrati!');
+        return;
+      }
+      const confirmed = await showConfirmDialog(
+        'Conferma',
+        `Registrare il pagamento per ${unpaid.length} squadra${unpaid.length === 1 ? '' : 's'}?`
+      );
+      if (!confirmed) return;
+      try {
+        await callApi('admin_pay_all_teams', 'POST', {}, true);
+        await refresh();
+        await showInfoDialog('✅ Successo', `Pagamenti registrati per ${unpaid.length} squadra${unpaid.length === 1 ? '' : 's'}!`);
+      } catch (e) { await showInfoDialog('Errore', e.message); }
+    }
+
     function isTournamentStarted() {
       const p = state?.playoff || {};
       return (state?.groups || []).length > 0
@@ -2202,7 +2260,8 @@
               players: playersData,
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
-              paid: document.getElementById('mPaid').checked
+              paid: document.getElementById('mPaid').checked,
+              kitDelivered: document.getElementById('mKitDelivered').checked
             };
             await callApi('admin_update_team', 'POST', payload, true);
             closeModal();
@@ -2263,6 +2322,10 @@
             </div>
             <div class="field">
               <label><input id="mPaid" type="checkbox" ${team.paid ? 'checked' : ''}> Pagamento registrato</label>
+            </div>
+            <div class="field">
+              <label><input id="mKitDelivered" type="checkbox" ${team.kitDelivered ? 'checked' : ''}> ✓ Kit consegnato</label>
+              <small style="color: #666; display: block; margin-top: 4px">Segna se è stato consegnato il kit alla squadra</small>
             </div>
             <div class="field full muted">Categoria torneo: Misto (bloccata)</div>
             ${isDummy ? '<div class="field full muted" style="color: #8d1800; background: #ffe0d7; padding: 6px; border-radius: 4px;">Squadra fittizia generata automaticamente - eliminazione disabilitata</div>' : ''}
@@ -4093,7 +4156,9 @@
       const hasPhasesForGroups = (config.phases || []).some(p => p.type === 'groups');
       const hasTeams = (state.teams || []).length > 0;
       const hasSchedule = (config.schedule?.courts || []).length > 0;
-      const canGenerateGroups = hasPhasesForGroups && hasTeams && hasSchedule;
+      const approvedCount = (state.teams || []).filter(t => t.approved).length;
+      const hasEnoughApprovedTeams = approvedCount >= 4;
+      const canGenerateGroups = hasPhasesForGroups && hasTeams && hasSchedule && hasEnoughApprovedTeams;
       
       if (generateGroupsBtn) {
         generateGroupsBtn.disabled = !canGenerateGroups;
@@ -4107,6 +4172,7 @@
         if (!hasPhasesForGroups) warnings.push('missingPhases');
         if (!hasTeams) warnings.push('missingTeams');
         if (!hasSchedule) warnings.push('missingSchedule');
+        if (!hasEnoughApprovedTeams) warnings.push('missingApprovedTeams');
         
         if (warnings.length > 0) {
           groupsWarning.style.display = 'block';
@@ -4116,6 +4182,21 @@
             warnings.includes('missingTeams') ? 'list-item' : 'none';
           document.getElementById('missingSchedule').style.display = 
             warnings.includes('missingSchedule') ? 'list-item' : 'none';
+          
+          // Aggiungi avviso squadre approvate se mancano
+          let missingApprovedItem = document.getElementById('missingApprovedTeams');
+          if (!missingApprovedItem && warnings.includes('missingApprovedTeams')) {
+            const ul = groupsWarning.querySelector('ul');
+            missingApprovedItem = document.createElement('li');
+            missingApprovedItem.id = 'missingApprovedTeams';
+            missingApprovedItem.innerHTML = `✗ Almeno 4 squadre approvate (attuali: <strong>${approvedCount}</strong>/4)`;
+            ul.appendChild(missingApprovedItem);
+          } else if (missingApprovedItem) {
+            missingApprovedItem.innerHTML = warnings.includes('missingApprovedTeams') 
+              ? `✗ Almeno 4 squadre approvate (attuali: <strong>${approvedCount}</strong>/4)`
+              : '';
+            missingApprovedItem.style.display = warnings.includes('missingApprovedTeams') ? 'list-item' : 'none';
+          }
         } else {
           groupsWarning.style.display = 'none';
         }

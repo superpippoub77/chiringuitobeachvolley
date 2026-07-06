@@ -1845,10 +1845,15 @@ if ($action === 'admin_add_test_teams' && $method === 'POST') {
                 'id' => uid(),
                 'name' => 'Test Team ' . ($existingDummyCount + $i + 1),
                 'category' => 'Misto',
-                'players' => ['Bot 1', 'Bot 2', 'Bot 3'],
+                'players' => [
+                    ['name' => 'Bot 1', 'isCaptain' => false],
+                    ['name' => 'Bot 2', 'isCaptain' => false],
+                    ['name' => 'Bot 3', 'isCaptain' => false]
+                ],
                 'phone' => '',
                 'paid' => true,
                 'approved' => true,
+                'kitDelivered' => false,
                 'dummy' => true,
                 'createdAt' => gmdate('c')
             ];
@@ -1954,16 +1959,24 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         $approved = approvedTeams($state);
         $total = count($state['teams'] ?? []);
         
+        // Debug: Log all teams status
+        error_log('DEBUG admin_generate_groups: Total teams=' . $total . ', Approved=' . count($approved));
+        foreach (array_slice($state['teams'] ?? [], 0, 5) as $t) {
+            error_log('  Team: ' . $t['name'] . ' | approved=' . ($t['approved'] ? 'true' : 'false') . ' | dummy=' . ($t['dummy'] ? 'true' : 'false'));
+        }
+        
         if (count($approved) < 4) {
+            $message = 'Servono almeno 4 squadre approvate, ne hai ' . count($approved) . ' di ' . $total . ' totali.';
             jsonResponse(422, [
                 'ok' => false,
-                'error' => 'Servono almeno 4 squadre approvate',
+                'error' => $message,
                 'details' => [
                     'total_teams' => $total,
                     'approved_count' => count($approved),
                     'needed' => 4,
                     'missing' => max(0, 4 - count($approved)),
-                    'teams_data' => array_map(fn($t) => [
+                    'debug_message' => 'Controlla che le squadre abbiano il flag approved=true',
+                    'teams_sample' => array_map(fn($t) => [
                         'name' => $t['name'],
                         'approved' => $t['approved'] ?? false,
                         'paid' => $t['paid'] ?? false,

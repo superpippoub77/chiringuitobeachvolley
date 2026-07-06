@@ -601,7 +601,7 @@
         <div class="row">
           <button class="btn btn-primary" onclick="generateGroups()" id="generateGroupsBtn" disabled>Genera gironi (solo approvate)</button>
         </div>
-        <p class="muted" style="margin-top:10px">Se non hai abbastanza squadre approvate per raggiungere il massimo (16), saranno aggiunte automaticamente squadre fittizie.</p>
+        <p class="muted" style="margin-top:10px">Squadre approvate: <strong id="approvedCountDisplay">0</strong>/4 minime richieste. Se non hai abbastanza squadre approvate per raggiungere il massimo, saranno aggiunte automaticamente squadre fittizie.</p>
         <div id="groupsContainer" style="margin-top:10px"></div>
       </div>
 
@@ -4382,6 +4382,7 @@
       const createPlayoffBtn = document.getElementById('createPlayoffBtn');
       const groupsWarning = document.getElementById('groupsWarning');
       const playoffWarning = document.getElementById('playoffWarning');
+      const approvedCountDisplay = document.getElementById('approvedCountDisplay');
       
       // Check prerequisites for "Genera gironi" button
       const hasPhasesForGroups = (config.phases || []).some(p => p.type === 'groups');
@@ -4390,6 +4391,12 @@
       const approvedCount = (state.teams || []).filter(t => t.approved).length;
       const hasEnoughApprovedTeams = approvedCount >= 4;
       const canGenerateGroups = hasPhasesForGroups && hasTeams && hasSchedule && hasEnoughApprovedTeams;
+      
+      // Update approved count display
+      if (approvedCountDisplay) {
+        approvedCountDisplay.textContent = approvedCount;
+        approvedCountDisplay.style.color = approvedCount >= 4 ? '#2e7d32' : '#d32f2f';
+      }
       
       if (generateGroupsBtn) {
         generateGroupsBtn.disabled = !canGenerateGroups;

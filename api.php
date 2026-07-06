@@ -1910,7 +1910,8 @@ if ($action === 'admin_approve_all_teams' && $method === 'POST') {
 
         $approvedCount = 0;
         foreach ($state['teams'] as &$team) {
-            if (!($team['dummy'] ?? false) && !($team['approved'] ?? false)) {
+            // Approva tutte le squadre che non sono già approvate (dummy o non-dummy)
+            if (!($team['approved'] ?? false)) {
                 $team['approved'] = true;
                 $approvedCount++;
             }
@@ -1920,7 +1921,8 @@ if ($action === 'admin_approve_all_teams' && $method === 'POST') {
         return [
             'ok' => true,
             'approvedCount' => $approvedCount,
-            'totalTeams' => count($state['teams'])
+            'totalTeams' => count($state['teams']),
+            'message' => 'Approvate ' . $approvedCount . ' squadre'
         ];
     });
 

@@ -98,6 +98,198 @@
             "approved": true,
             "dummy": true,
             "createdAt": "2026-07-06T12:53:16+00:00"
+        },
+        {
+            "id": "792d2936db4a6e92",
+            "name": "Test Team 5",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 13",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 14",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 15",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "e2a3f1181ae13e83",
+            "name": "Test Team 6",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 16",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 17",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 18",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "d7f587003d80ee65",
+            "name": "Test Team 7",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 19",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 20",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 21",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "c9101ad6b87bf83a",
+            "name": "Test Team 8",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 22",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 23",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 24",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "278bf03db674269d",
+            "name": "Test Team 9",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 25",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 26",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 27",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "78594a32151bba99",
+            "name": "Test Team 10",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 28",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 29",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 30",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "c4ee637f38fb996c",
+            "name": "Test Team 11",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 31",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 32",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 33",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
+        },
+        {
+            "id": "3d0bb63a5d12e9c5",
+            "name": "Test Team 12",
+            "category": "Misto",
+            "players": [
+                {
+                    "name": "Bot 34",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 35",
+                    "isCaptain": false
+                },
+                {
+                    "name": "Bot 36",
+                    "isCaptain": false
+                }
+            ],
+            "phone": "+39123456789",
+            "paid": true,
+            "approved": true,
+            "dummy": true,
+            "createdAt": "2026-07-06T13:09:51+00:00"
         }
     ],
     "groups": [],

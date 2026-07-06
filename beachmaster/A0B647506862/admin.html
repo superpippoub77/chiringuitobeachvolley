@@ -1335,6 +1335,40 @@
             <div id="customThemesList" style="margin-top: 12px"></div>
           </div>
 
+          <div class="card" style="background: #f0e8f8; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">📦 Configurazione Kit Torneo</h4>
+            <p class="muted">Descrivi cosa consegnerai ai partecipanti iscritti (opzionale).</p>
+            
+            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
+              <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; cursor: pointer; font-weight: bold">
+                <input type="checkbox" id="cfg-kitEnabled" ${config.kit?.enabled ? 'checked' : ''}>
+                <span>Abilita Configurazione Kit</span>
+              </label>
+              
+              <div style="opacity: ${config.kit?.enabled ? '1' : '0.5'}; pointer-events: ${config.kit?.enabled ? 'auto' : 'none'}">
+                <div style="margin-bottom: 12px">
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Descrizione Kit</label>
+                  <textarea id="cfg-kitDescription" placeholder="Es: Maglietta da Beach Volley, Bandana, Bottiglia d'acqua riutilizzabile" style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical; line-height: 1.4">${escapeHtml(config.kit?.description || '')}</textarea>
+                  <small style="color: #666; display: block; margin-top: 4px">Descrivi i contenuti del kit che i partecipanti riceveranno all'iscrizione</small>
+                </div>
+                
+                <div style="margin-bottom: 12px">
+                  <label style="display: block; margin-bottom: 6px; font-weight: bold">Immagine Kit (opzionale)</label>
+                  <div id="kitImagePreview" style="margin-bottom: 10px; text-align: center"></div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+                    <input type="file" id="kitImageUpload" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('kitImageUpload').click()">📤 Carica Immagine Kit</button>
+                    <button type="button" class="btn btn-danger" onclick="removeKitImage()">🗑️ Rimuovi Immagine</button>
+                  </div>
+                </div>
+                
+                <button type="button" class="btn btn-primary" onclick="saveKitConfig()" style="width: 100%; margin-top: 12px">💾 Salva Configurazione Kit</button>
+              </div>
+              
+              <div id="kitConfigStatus" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none"></div>
+            </div>
+          </div>
+
           <div class="card" style="background: #e8f8f5; padding: 12px; margin-top: 12px">
             <h4 style="margin-top: 0">💾 Salvataggio Automatico e Cronologia</h4>
             <p class="muted">Abilita il salvataggio automatico per creare snapshot della configurazione e dei dati. Puoi annullare fino a n passi precedenti.</p>
@@ -1501,6 +1535,52 @@
               e.target.value = '';
             };
           }
+          
+          // Setup kit image preview and upload handler
+          const kitImagePreview = document.getElementById('kitImagePreview');
+          if (kitImagePreview) {
+            if (config.kit?.imageFile) {
+              kitImagePreview.innerHTML = `<img src="${config.kit.imageFile}" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 2px solid #e8b4b4">`;
+            } else {
+              kitImagePreview.innerHTML = '<div style="color: #aaa; padding: 20px">Nessuna immagine kit caricata</div>';
+            }
+          }
+          
+          const kitImageUploadInput = document.getElementById('kitImageUpload');
+          if (kitImageUploadInput) {
+            kitImageUploadInput.onchange = async (e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              
+              const formData = new FormData();
+              formData.append('kitImage', file);
+              
+              try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('api.php?action=admin_upload_kit_image', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': 'Bearer ' + token
+                  },
+                  body: formData
+                });
+                
+                const data = await response.json();
+                if (data.ok) {
+                  if (!config.kit) config.kit = {};
+                  config.kit.imageFile = data.imageFile;
+                  await renderSettings();
+                  await showInfoDialog('Successo', 'Immagine kit caricata correttamente');
+                } else {
+                  await showInfoDialog('Errore', data.error || 'Errore nel caricamento');
+                }
+              } catch (err) {
+                await showInfoDialog('Errore', err.message);
+              }
+              
+              e.target.value = '';
+            };
+          }
         } catch (e) {
           console.error('Errore caricamento temi:', e);
         }
@@ -1599,6 +1679,43 @@
         delete config.display.backgroundFile;
         await renderSettings();
         await showInfoDialog('Successo', 'Sfondo rimosso');
+      }
+    }
+
+    async function saveKitConfig() {
+      try {
+        const kitEnabled = document.getElementById('cfg-kitEnabled')?.checked || false;
+        const kitDescription = document.getElementById('cfg-kitDescription')?.value?.trim() || '';
+        
+        if (kitEnabled && !kitDescription) {
+          await showInfoDialog('Attenzione', 'Se abiliti il kit, inserisci almeno una descrizione');
+          return;
+        }
+        
+        if (!config.kit) config.kit = {};
+        config.kit.enabled = kitEnabled;
+        config.kit.description = kitDescription;
+        
+        const payload = { kit: config.kit };
+        await callApi('admin_update_config', 'POST', payload, true);
+        await showInfoDialog('✅ Successo', 'Configurazione kit salvata');
+      } catch (e) {
+        await showInfoDialog('❌ Errore', e.message);
+      }
+    }
+
+    async function removeKitImage() {
+      if (!config.kit?.imageFile) {
+        await showInfoDialog('Info', 'Nessuna immagine kit caricata');
+        return;
+      }
+      
+      const confirmed = await showConfirmDialog('Rimozione Immagine Kit', 'Sei sicuro di voler rimuovere l\'immagine kit?');
+      if (confirmed) {
+        if (!config.kit) config.kit = {};
+        delete config.kit.imageFile;
+        await renderSettings();
+        await showInfoDialog('Successo', 'Immagine kit rimossa');
       }
     }
 

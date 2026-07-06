@@ -1094,7 +1094,8 @@
               </div>
               <div class="field">
                 <label>Max squadre</label>
-                <input id="cfg-maxTeams" type="number" min="4" max="100" value="${t.maxTeams || ''}" placeholder="Es: 16, 32">
+                <input id="cfg-maxTeams" type="number" min="2" max="100" value="${t.maxTeams || ''}" placeholder="Es: 16, 32">
+                <small style="color: #666; display: block; margin-top: 4px">Deve essere almeno 2 squadre</small>
               </div>
               <div class="field">
                 <label>Max giocatori per squadra</label>
@@ -1103,11 +1104,6 @@
               <div class="field">
                 <label>Numero gironi</label>
                 <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}" placeholder="Es: 2, 4">
-              </div>
-              <div class="field">
-                <label>Squadre di test da aggiungere (facoltativo)</label>
-                <input id="cfg-testTeams" type="number" min="0" max="50" value="${t.testTeams || 0}" placeholder="Es: 5 (numero di squadre fittizie per test)">
-                <small style="color: #666; display: block; margin-top: 4px">Quando clicchi "Carica Squadre di Test", verranno aggiunte automaticamente N squadre fittizie</small>
               </div>
               <div class="field">
                 <label>Set da vincere</label>
@@ -1656,11 +1652,17 @@
     async function saveSettings() {
       try {
         const maxTeamsVal = parseInt(document.getElementById('cfg-maxTeams').value) || 0;
+        
+        // Validazione: maxTeams deve essere > 1
+        if (maxTeamsVal > 0 && maxTeamsVal <= 1) {
+          await showInfoDialog('❌ Errore Validazione', 'Il numero massimo di squadre deve essere almeno 2.');
+          return;
+        }
+        
         const maxPlayersPerTeamVal = parseInt(document.getElementById('cfg-maxPlayersPerTeam').value) || 3;
         const maxPlayersOnCourtVal = parseInt(document.getElementById('cfg-maxPlayersOnCourt').value) || 2;
         const maxSubstitutionsVal = parseInt(document.getElementById('cfg-maxSubstitutions').value) || 0;
         const numGroupsVal = parseInt(document.getElementById('cfg-numGroups').value) || 0;
-        const testTeamsVal = parseInt(document.getElementById('cfg-testTeams').value) || 0;
         const winScoreVal = parseInt(document.getElementById('cfg-winScore').value) || 0;
         const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
         const setupTimeVal = parseInt(document.getElementById('cfg-setupTime').value) || 0;
@@ -1669,12 +1671,11 @@
         const payload = {
           tournament: {
             name: document.getElementById('cfg-tournamentName').value.trim(),
-            maxTeams: maxTeamsVal > 0 ? Math.max(4, maxTeamsVal) : 0,
+            maxTeams: maxTeamsVal > 0 ? Math.max(2, maxTeamsVal) : 0,
             maxPlayersPerTeam: Math.max(1, Math.min(12, maxPlayersPerTeamVal)),
             maxPlayersOnCourt: Math.max(1, Math.min(6, maxPlayersOnCourtVal)),
             maxSubstitutions: Math.max(0, maxSubstitutionsVal),
             numGroups: numGroupsVal > 0 ? Math.max(1, numGroupsVal) : 0,
-            testTeams: Math.max(0, Math.min(50, testTeamsVal)),
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
             timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
@@ -2061,39 +2062,32 @@
 
     async function loadTestTeams() {
       try {
-        const testTeamsCount = config.tournament?.testTeams || 0;
+        const maxTeams = config.tournament?.maxTeams || 0;
+        const currentTeams = state.teams?.length || 0;
         
-        if (testTeamsCount === 0 || testTeamsCount < 1) {
-          const goToSettings = await showConfirmDialog(
-            '⚠️ Numero Squadre di Test Non Configurato',
-            'Non hai impostato il numero di squadre di test da aggiungere.\n\nAnda alle Impostazioni e configura il campo "Squadre di test da aggiungere" (inserisci un valore tra 1 e 50).\n\nVuoi andare alle impostazioni adesso?'
+        if (maxTeams === 0) {
+          await showInfoDialog(
+            '⚠️ Max Squadre Non Configurato',
+            'Configura prima il numero massimo di squadre nella sezione "Impostazioni", campo "Max squadre".'
           );
-          
-          if (goToSettings) {
-            const settingsTab = document.querySelector('[data-page="settings"]');
-            if (settingsTab) {
-              showPage('settings', settingsTab);
-              // Scroll al campo cfg-testTeams
-              setTimeout(() => {
-                const field = document.getElementById('cfg-testTeams');
-                if (field) {
-                  field.focus();
-                  field.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }, 300);
-            }
-          }
+          return;
+        }
+
+        const teamsToAdd = Math.max(0, maxTeams - currentTeams);
+        
+        if (teamsToAdd === 0) {
+          await showInfoDialog('ℹ️ Info', `Hai già raggiunto il numero massimo di squadre (${maxTeams}).`);
           return;
         }
 
         const confirmed = await showConfirmDialog(
           '🧪 Carica Squadre di Test',
-          `Verranno aggiunte automaticamente ${testTeamsCount} squadre fittizie per test.\n\nContinuare?`
+          `Verranno aggiunte automaticamente ${teamsToAdd} squadre fittizie per raggiungere il numero massimo (${maxTeams}).\n\nAttualmente hai ${currentTeams} squadra${currentTeams !== 1 ? 'e' : ''}.\n\nContinuare?`
         );
         if (!confirmed) return;
 
         // Genera squadre fittizie
-        const result = await callApi('admin_add_test_teams', 'POST', { count: testTeamsCount }, true);
+        const result = await callApi('admin_add_test_teams', 'POST', { count: teamsToAdd }, true);
         
         await showInfoDialog('✅ Successo', `${result.addedCount} squadre di test aggiunte.\n\nTotale squadre: ${result.totalTeams}`);
         await refresh();

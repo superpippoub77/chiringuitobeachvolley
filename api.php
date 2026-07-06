@@ -2750,7 +2750,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
         if (isset($t['name'])) $config['tournament']['name'] = trim((string)$t['name']);
-        if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(4, min(100, (int)$t['maxTeams']));
+        if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(2, min(100, (int)$t['maxTeams']));
         if (isset($t['maxPlayersPerTeam'])) $config['tournament']['maxPlayersPerTeam'] = max(1, min(12, (int)$t['maxPlayersPerTeam']));
         if (isset($t['maxPlayersOnCourt'])) $config['tournament']['maxPlayersOnCourt'] = max(1, min(6, (int)$t['maxPlayersOnCourt']));
         if (isset($t['maxSubstitutions'])) $config['tournament']['maxSubstitutions'] = ((int)$t['maxSubstitutions'] < 0 ? 0 : (int)$t['maxSubstitutions']);
@@ -2760,7 +2760,6 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['timePerSetMinutes'])) $config['tournament']['timePerSetMinutes'] = max(20, min(60, (int)$t['timePerSetMinutes']));
         if (isset($t['setupTimeMinutes'])) $config['tournament']['setupTimeMinutes'] = max(1, min(15, (int)$t['setupTimeMinutes']));
         if (isset($t['maxTimeoutsPerSet'])) $config['tournament']['maxTimeoutsPerSet'] = max(0, min(5, (int)$t['maxTimeoutsPerSet']));
-        if (isset($t['testTeams'])) $config['tournament']['testTeams'] = max(0, min(50, (int)$t['testTeams']));
     }
     
     if (isset($body['schedule']) && is_array($body['schedule']['courts'] ?? null)) {

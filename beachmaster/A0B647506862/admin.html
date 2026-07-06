@@ -513,6 +513,21 @@
         <h3>Configurazione Fasi Torneo</h3>
         <p class="muted">Definisci la struttura del torneo: numero di fasi, tipo (gironi o eliminazione diretta), e parametri specifici per ogni fase.</p>
         
+        <!-- Template Tornei Predefiniti -->
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 16px">
+          <h4 style="margin-top: 0; color: #856404; display: flex; align-items: center; gap: 8px">
+            <span>⚡ Template Tornei Brevettati</span>
+          </h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #856404">Carica una configurazione predefinita di torneo con fasi e parametri già ottimizzati:</p>
+          <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 10px">
+            <button class="btn btn-primary" onclick="applyTournamentTemplate('4x3_repescage')">4 Gironi → Ripescaggio</button>
+            <button class="btn btn-primary" onclick="applyTournamentTemplate('2x6_top2')">2 Gironi → Top 2</button>
+            <button class="btn btn-primary" onclick="applyTournamentTemplate('3x4_top1')">3 Gironi → Top 1</button>
+            <button class="btn btn-primary" onclick="applyTournamentTemplate('1_knockout')">1 Girone → Knockout</button>
+            <button class="btn btn-primary" onclick="applyTournamentTemplate('pure_knockout')">Pure Knockout</button>
+          </div>
+        </div>
+        
         <!-- Guida Workflow -->
         <div style="background: #ecf5ff; border-left: 4px solid #0078d4; border-radius: 4px; padding: 12px; margin-bottom: 16px">
           <h4 style="margin-top: 0; color: #003b6f; display: flex; align-items: center; gap: 8px">
@@ -541,15 +556,23 @@
 
         <div id="phasesContainer" style="margin-top:10px"></div>
         <div class="row" style="margin-top:14px">
-          <button class="btn btn-primary" onclick="addPhase()">+ Aggiungi fase</button>
-          <button class="btn btn-green" onclick="savePhases()">Salva fasi</button>
+          <button class="btn btn-primary" onclick="addPhase()" id="addPhaseBtn">+ Aggiungi fase</button>
+          <button class="btn btn-green" onclick="savePhases()" id="savePhasesBtn">Salva fasi</button>
         </div>
       </div>
 
       <div id="page-groups" class="card page hidden">
         <h3>Gestione gironi</h3>
+        <div id="groupsWarning" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px; display: none">
+          <strong>⚠️ Prerequisiti non soddisfatti:</strong>
+          <ul style="margin: 8px 0; font-size: 13px;">
+            <li id="missingPhases">✗ Definisci almeno una fase di tipo "Gironi" nella sezione Fasi Torneo</li>
+            <li id="missingTeams" style="display: none">✗ Registra almeno una squadra nella sezione Squadre</li>
+            <li id="missingSchedule" style="display: none">✗ Configura campi e disponibilità nella sezione Giorni e Fasce</li>
+          </ul>
+        </div>
         <div class="row">
-          <button class="btn btn-primary" onclick="generateGroups()">Genera gironi (solo approvate)</button>
+          <button class="btn btn-primary" onclick="generateGroups()" id="generateGroupsBtn" disabled>Genera gironi (solo approvate)</button>
         </div>
         <p class="muted" style="margin-top:10px">Se non hai abbastanza squadre approvate per raggiungere il massimo (16), saranno aggiunte automaticamente squadre fittizie.</p>
         <div id="groupsContainer" style="margin-top:10px"></div>
@@ -571,8 +594,14 @@
 
       <div id="page-playoff" class="card page hidden">
         <h3>Gestione playoff</h3>
+        <div id="playoffWarning" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px; display: none">
+          <strong>⚠️ Prerequisiti non soddisfatti:</strong>
+          <ul style="margin: 8px 0; font-size: 13px;">
+            <li id="missingGroups">✗ Genera prima i gironi nella sezione Gironi</li>
+          </ul>
+        </div>
         <div class="row">
-          <button class="btn btn-primary" onclick="createPlayoff()">Crea playoff</button>
+          <button class="btn btn-primary" onclick="createPlayoff()" id="createPlayoffBtn" disabled>Crea playoff</button>
         </div>
         <div id="playoffContainer" style="margin-top:10px"></div>
       </div>
@@ -1016,6 +1045,7 @@
       renderStandings();
       renderMatches();
       renderPlayoff();
+      updateButtonStates();
       
       // Se è specificato un tab nell'URL, aprilo automaticamente
       const urlParams = new URLSearchParams(window.location.search);
@@ -1644,6 +1674,7 @@
         config = payload;
         await showInfoDialog('Successo', 'Impostazioni salvate');
         await renderSettings();
+        updateButtonStates();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }
@@ -3964,6 +3995,259 @@
         .replaceAll("'", '&#039;');
     }
 
+    // ==================== BUTTON STATE MANAGEMENT ====================
+    
+    function updateButtonStates() {
+      const generateGroupsBtn = document.getElementById('generateGroupsBtn');
+      const createPlayoffBtn = document.getElementById('createPlayoffBtn');
+      const groupsWarning = document.getElementById('groupsWarning');
+      const playoffWarning = document.getElementById('playoffWarning');
+      
+      // Check prerequisites for "Genera gironi" button
+      const hasPhasesForGroups = (config.phases || []).some(p => p.type === 'groups');
+      const hasTeams = (state.teams || []).length > 0;
+      const hasSchedule = (config.schedule?.courts || []).length > 0;
+      const canGenerateGroups = hasPhasesForGroups && hasTeams && hasSchedule;
+      
+      if (generateGroupsBtn) {
+        generateGroupsBtn.disabled = !canGenerateGroups;
+        generateGroupsBtn.style.opacity = canGenerateGroups ? '1' : '0.6';
+        generateGroupsBtn.style.cursor = canGenerateGroups ? 'pointer' : 'not-allowed';
+      }
+      
+      // Show/hide warning for groups
+      if (groupsWarning) {
+        const warnings = [];
+        if (!hasPhasesForGroups) warnings.push('missingPhases');
+        if (!hasTeams) warnings.push('missingTeams');
+        if (!hasSchedule) warnings.push('missingSchedule');
+        
+        if (warnings.length > 0) {
+          groupsWarning.style.display = 'block';
+          document.getElementById('missingPhases').style.display = 
+            warnings.includes('missingPhases') ? 'list-item' : 'none';
+          document.getElementById('missingTeams').style.display = 
+            warnings.includes('missingTeams') ? 'list-item' : 'none';
+          document.getElementById('missingSchedule').style.display = 
+            warnings.includes('missingSchedule') ? 'list-item' : 'none';
+        } else {
+          groupsWarning.style.display = 'none';
+        }
+      }
+      
+      // Check prerequisites for "Crea playoff" button
+      const hasGroups = (state.groups || []).length > 0;
+      const canCreatePlayoff = hasGroups;
+      
+      if (createPlayoffBtn) {
+        createPlayoffBtn.disabled = !canCreatePlayoff;
+        createPlayoffBtn.style.opacity = canCreatePlayoff ? '1' : '0.6';
+        createPlayoffBtn.style.cursor = canCreatePlayoff ? 'pointer' : 'not-allowed';
+      }
+      
+      // Show/hide warning for playoff
+      if (playoffWarning) {
+        if (!hasGroups) {
+          playoffWarning.style.display = 'block';
+          document.getElementById('missingGroups').style.display = 'list-item';
+        } else {
+          playoffWarning.style.display = 'none';
+        }
+      }
+    }
+
+    // ==================== TOURNAMENT TEMPLATES ====================
+    
+    const TOURNAMENT_TEMPLATES = {
+      '4x3_repescage': {
+        name: '4 Gironi → Ripescaggio → Top 8',
+        description: '4 gironi, ne passano 3 per girone, gli altri fanno ripescaggio, poi tutti a castle',
+        config: {
+          tournament: {
+            numGroups: 4,
+            maxTeams: 16
+          },
+          phases: [
+            {
+              id: 'phase-1',
+              name: 'Gironi',
+              type: 'groups',
+              teamsAdvance: 3,
+              hasRepescage: true,
+              groupSize: 4
+            },
+            {
+              id: 'phase-2',
+              name: 'Ripescaggio',
+              type: 'groups',
+              teamsAdvance: 0,
+              hasRepescage: false,
+              groupSize: 0,
+              source: 'repescage'
+            },
+            {
+              id: 'phase-3',
+              name: 'Semifinali',
+              type: 'knockout',
+              teamsAdvance: 0,
+              hasRepescage: false
+            }
+          ]
+        }
+      },
+      '2x6_top2': {
+        name: '2 Gironi → Top 2 → Knockout',
+        description: '2 gironi da 8, passano primi 2 per girone (4 totali), poi semifinale e finale',
+        config: {
+          tournament: {
+            numGroups: 2,
+            maxTeams: 16
+          },
+          phases: [
+            {
+              id: 'phase-1',
+              name: 'Gironi',
+              type: 'groups',
+              teamsAdvance: 2,
+              hasRepescage: false,
+              groupSize: 8
+            },
+            {
+              id: 'phase-2',
+              name: 'Semifinali',
+              type: 'knockout',
+              teamsAdvance: 0,
+              hasRepescage: false
+            }
+          ]
+        }
+      },
+      '3x4_top1': {
+        name: '3 Gironi → Top 1 → Finali',
+        description: '3 gironi, passa solo il primo (3 totali), poi finali',
+        config: {
+          tournament: {
+            numGroups: 3,
+            maxTeams: 12
+          },
+          phases: [
+            {
+              id: 'phase-1',
+              name: 'Gironi',
+              type: 'groups',
+              teamsAdvance: 1,
+              hasRepescage: false,
+              groupSize: 4
+            },
+            {
+              id: 'phase-2',
+              name: 'Finali',
+              type: 'knockout',
+              teamsAdvance: 0,
+              hasRepescage: false
+            }
+          ]
+        }
+      },
+      '1_knockout': {
+        name: '1 Girone → Knockout',
+        description: 'Tutte le squadre in un unico girone, poi playoff diretto',
+        config: {
+          tournament: {
+            numGroups: 1,
+            maxTeams: 16
+          },
+          phases: [
+            {
+              id: 'phase-1',
+              name: 'Girone Unico',
+              type: 'groups',
+              teamsAdvance: 8,
+              hasRepescage: false,
+              groupSize: 16
+            },
+            {
+              id: 'phase-2',
+              name: 'Playoff',
+              type: 'knockout',
+              teamsAdvance: 0,
+              hasRepescage: false
+            }
+          ]
+        }
+      },
+      'pure_knockout': {
+        name: 'Pure Knockout',
+        description: 'Diretto knockout senza gironi preliminari (16 squadre)',
+        config: {
+          tournament: {
+            numGroups: 0,
+            maxTeams: 16
+          },
+          phases: [
+            {
+              id: 'phase-1',
+              name: 'Quarti',
+              type: 'knockout',
+              teamsAdvance: 0,
+              hasRepescage: false
+            }
+          ]
+        }
+      }
+    };
+
+    async function applyTournamentTemplate(templateId) {
+      const template = TOURNAMENT_TEMPLATES[templateId];
+      if (!template) {
+        await showInfoDialog('Errore', '❌ Template non trovato');
+        return;
+      }
+      
+      const confirmed = await showConfirmDialog(
+        'Carica Template',
+        `Vuoi caricare il template "${template.name}"?\n\n${template.description}\n\nLe impostazioni attuali verranno sovrascritte per questa sezione.`
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        // Apply tournament settings
+        if (template.config.tournament) {
+          config.tournament = config.tournament || {};
+          Object.assign(config.tournament, template.config.tournament);
+        }
+        
+        // Apply phases
+        if (template.config.phases) {
+          config.phases = template.config.phases.map(p => ({
+            id: p.id || `phase-${Date.now()}-${Math.random()}`,
+            name: p.name,
+            type: p.type,
+            teamsAdvance: p.teamsAdvance,
+            hasRepescage: p.hasRepescage,
+            groupSize: p.groupSize || 0,
+            source: p.source || 'previous'
+          }));
+        }
+        
+        // Salva sul server
+        await callApi('admin_update_config', 'POST', { 
+          tournament: config.tournament,
+          phases: config.phases
+        }, true);
+        
+        await showInfoDialog('✅ Successo', `Template "${template.name}" caricato con successo!\n\nOra configura i parametri specifici del tuo torneo nella sezione Fasi.`);
+        
+        // Refresh UI
+        await renderSettings();
+        renderPhases();
+        updateButtonStates();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore durante il caricamento del template: ' + e.message);
+      }
+    }
+
     function formatDateIta(dateStr) {
       if (!dateStr) return '';
       const d = new Date(dateStr + 'T00:00:00');
@@ -4450,6 +4734,7 @@
         config.phases = phasesToSave;
         await showInfoDialog('Successo', 'Fasi salvate con successo');
         renderPhases();
+        updateButtonStates();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }

@@ -496,6 +496,19 @@
 
       <div id="page-teams" class="card page hidden">
         <h3>Gestione squadre</h3>
+        <div style="background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px; padding: 12px; margin-bottom: 12px">
+          <h4 style="margin-top: 0; color: #1565c0; display: flex; align-items: center; gap: 8px">
+            <span>🧪 Squadre di Test</span>
+          </h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #1565c0">
+            Carica rapidamente un numero configurabile di squadre fittizie per testare il torneo. Il valore è impostato in Configurazione.
+          </p>
+          <div class="row" style="margin-top: 10px; gap: 8px">
+            <button class="btn btn-info" onclick="loadTestTeams()" style="flex: 1; max-width: 300px">🧪 Carica Squadre di Test</button>
+            <button class="btn btn-danger" onclick="removeAllTestTeams()" style="flex: 1; max-width: 300px">🗑️ Rimuovi Tutte le Squadre Fittizie</button>
+          </div>
+          <small style="color: #1565c0; display: block; margin-top: 8px" id="testTeamsStatus"></small>
+        </div>
         <div id="teamsContainer"></div>
       </div>
 
@@ -1111,6 +1124,11 @@
                 <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}" placeholder="Es: 2, 4">
               </div>
               <div class="field">
+                <label>Squadre di test da aggiungere (facoltativo)</label>
+                <input id="cfg-testTeams" type="number" min="0" max="50" value="${t.testTeams || 0}" placeholder="Es: 5 (numero di squadre fittizie per test)">
+                <small style="color: #666; display: block; margin-top: 4px">Quando clicchi "Carica Squadre di Test", verranno aggiunte automaticamente N squadre fittizie</small>
+              </div>
+              <div class="field">
                 <label>Set da vincere</label>
                 <select id="cfg-numSets">
                   <option value="">-- Seleziona --</option>
@@ -1656,12 +1674,12 @@
 
     async function saveSettings() {
       try {
-        // Leggi i valori dei campi
         const maxTeamsVal = parseInt(document.getElementById('cfg-maxTeams').value) || 0;
         const maxPlayersPerTeamVal = parseInt(document.getElementById('cfg-maxPlayersPerTeam').value) || 3;
         const maxPlayersOnCourtVal = parseInt(document.getElementById('cfg-maxPlayersOnCourt').value) || 2;
         const maxSubstitutionsVal = parseInt(document.getElementById('cfg-maxSubstitutions').value) || 0;
         const numGroupsVal = parseInt(document.getElementById('cfg-numGroups').value) || 0;
+        const testTeamsVal = parseInt(document.getElementById('cfg-testTeams').value) || 0;
         const winScoreVal = parseInt(document.getElementById('cfg-winScore').value) || 0;
         const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
         const setupTimeVal = parseInt(document.getElementById('cfg-setupTime').value) || 0;
@@ -1675,6 +1693,7 @@
             maxPlayersOnCourt: Math.max(1, Math.min(6, maxPlayersOnCourtVal)),
             maxSubstitutions: Math.max(0, maxSubstitutionsVal),
             numGroups: numGroupsVal > 0 ? Math.max(1, numGroupsVal) : 0,
+            testTeams: Math.max(0, Math.min(50, testTeamsVal)),
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
             timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
@@ -2056,6 +2075,56 @@
         await refresh();
       } catch (e) {
         await showInfoDialog('Errore eliminazione', e.message);
+      }
+    }
+
+    async function loadTestTeams() {
+      try {
+        const testTeamsCount = config.tournament?.testTeams || 0;
+        
+        if (testTeamsCount === 0) {
+          await showInfoDialog('⚠️ Attenzione', 'Configura prima il numero di squadre di test nella sezione "Impostazioni". Campo: "Squadre di test da aggiungere"');
+          return;
+        }
+
+        const confirmed = await showConfirmDialog(
+          '🧪 Carica Squadre di Test',
+          `Verranno aggiunte automaticamente ${testTeamsCount} squadre fittizie per test.\n\nContinuare?`
+        );
+        if (!confirmed) return;
+
+        // Genera squadre fittizie
+        const result = await callApi('admin_add_test_teams', 'POST', { count: testTeamsCount }, true);
+        
+        await showInfoDialog('✅ Successo', `${result.addedCount} squadre di test aggiunte.\n\nTotale squadre: ${result.totalTeams}`);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Errore durante l\'aggiunta delle squadre di test: ' + e.message);
+      }
+    }
+
+    async function removeAllTestTeams() {
+      try {
+        const testTeams = (state.teamsAll || []).filter(t => t.dummy === true);
+        
+        if (testTeams.length === 0) {
+          await showInfoDialog('ℹ️ Info', 'Non ci sono squadre fittizie da rimuovere.');
+          return;
+        }
+
+        const confirmed = await showConfirmDialog(
+          '🗑️ Rimuovi Squadre Fittizie',
+          `Verranno rimosse ${testTeams.length} squadre fittizie.\n\nContinuare?`
+        );
+        if (!confirmed) return;
+
+        // Rimuove tutte le squadre fittizie
+        const result = await callApi('admin_remove_test_teams', 'POST', {}, true);
+        
+        await showInfoDialog('✅ Successo', `${result.removedCount} squadre fittizie rimosse.\n\nTotale squadre: ${result.totalTeams}`);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Errore durante la rimozione delle squadre fittizie: ' + e.message);
       }
     }
 

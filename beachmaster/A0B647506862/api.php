@@ -1816,6 +1816,65 @@ if ($action === 'admin_delete_team' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_add_test_teams' && $method === 'POST') {
+    $body = bodyJson();
+    $count = (int)($body['count'] ?? 0);
+
+    if ($count <= 0 || $count > 50) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Numero di squadre non valido (1-50)']);
+    }
+
+    withStateTransaction(function (&$state) use ($count) {
+        if (tournamentStarted($state)) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Non puoi aggiungere squadre: il torneo e gia iniziato']);
+        }
+
+        $addedCount = 0;
+        $existingDummyCount = count(array_filter($state['teams'], fn($t) => ($t['dummy'] ?? false) === true));
+        
+        for ($i = 0; $i < $count; $i++) {
+            $dummyTeam = [
+                'id' => uid(),
+                'name' => 'Test Team ' . ($existingDummyCount + $i + 1),
+                'category' => 'Misto',
+                'players' => ['Bot 1', 'Bot 2', 'Bot 3'],
+                'phone' => '',
+                'paid' => true,
+                'approved' => true,
+                'dummy' => true,
+                'createdAt' => gmdate('c')
+            ];
+            $state['teams'][] = $dummyTeam;
+            $addedCount++;
+        }
+
+        return [
+            'ok' => true,
+            'addedCount' => $addedCount,
+            'totalTeams' => count($state['teams'])
+        ];
+    });
+}
+
+if ($action === 'admin_remove_test_teams' && $method === 'POST') {
+    withStateTransaction(function (&$state) {
+        if (tournamentStarted($state)) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Non puoi rimuovere squadre: il torneo e gia iniziato']);
+        }
+
+        $testTeams = array_filter($state['teams'], fn($t) => ($t['dummy'] ?? false) === true);
+        $removedCount = count($testTeams);
+
+        $state['teams'] = array_values(array_filter($state['teams'], fn($t) => ($t['dummy'] ?? false) !== true));
+
+        return [
+            'ok' => true,
+            'removedCount' => $removedCount,
+            'totalTeams' => count($state['teams'])
+        ];
+    });
+}
+
 if ($action === 'admin_generate_groups' && $method === 'POST') {
     withStateTransaction(function (&$state) {
         $approved = approvedTeams($state);

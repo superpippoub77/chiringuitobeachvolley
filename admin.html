@@ -5520,6 +5520,23 @@
             </div>`;
         }
 
+        // Aggiungi sezione di routing per tutte le fasi
+        html += `<div style="grid-column: 1 / -1; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin-top: 8px">
+          <strong style="color: #856404">🔀 Routing Squadre (da wizard):</strong>
+          <div style="margin-top: 6px; font-size: 12px">
+            <div style="margin: 6px 0">
+              <span style="color: #2ecc71">✓ Qualificate:</span> 
+              <small style="color: #666">${escapeHtml(phase.qualifiedGoTo || '(non specificato)')}</small>
+            </div>
+            <div style="margin: 6px 0">
+              <span style="color: ${phase.hasRepescage ? '#f39c12' : '#e74c3c'}">
+                ${phase.hasRepescage ? '⟳ Ripescaggio' : '✗ Eliminate'}:
+              </span> 
+              <small style="color: #666">${escapeHtml(phase.eliminatedGoTo || '(non specificato)')}</small>
+            </div>
+          </div>
+        </div>`;
+
         html += `</div>
         </div>`;
       });
@@ -5534,18 +5551,272 @@
       renderPhases();
     }
 
-    function addPhase() {
+    // Wizard pilotato per la creazione delle fasi
+    function openPhaseWizard() {
       const phases = config.phases || [];
-      const newPhase = {
-        phaseNumber: phases.length + 1,
-        name: 'Nuova fase',
-        type: 'groups',
-        numGroups: 4,
-        teamsAdvance: 2,
-        hasRepescage: false
+      let wizardState = {
+        step: 1,
+        totalSteps: 3,
+        phaseData: {
+          phaseNumber: phases.length + 1,
+          name: '',
+          type: 'groups',
+          numGroups: 4,
+          teamsAdvance: 2,
+          hasRepescage: false,
+          numTeams: 4,
+          qualifiedGoTo: null, // Dove vanno le qualificate
+          eliminatedGoTo: null, // Dove vanno le eliminate
+          description: '' // Descrizione dello step
+        }
       };
-      config.phases = [...phases, newPhase];
-      renderPhases();
+
+      function renderWizardStep() {
+        let bodyHtml = '';
+        let buttons = [];
+
+        if (wizardState.step === 1) {
+          // STEP 1: Nome e Tipo fase
+          bodyHtml = `
+            <div style="font-size: 13px">
+              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Nome e Tipo Fase</strong></p>
+              
+              <div class="form-grid-modal" style="gap: 12px">
+                <div class="field" style="grid-column: 1 / -1">
+                  <label>Nome della fase</label>
+                  <input type="text" id="wizard-phaseName" placeholder="Es: Fase primaria a gironi" 
+                    value="${escapeHtml(wizardState.phaseData.name)}" style="width: 100%">
+                  <small style="color: #666">Descrivi il ruolo di questa fase nel torneo</small>
+                </div>
+                
+                <div class="field" style="grid-column: 1 / -1">
+                  <label>Tipo di fase</label>
+                  <select id="wizard-phaseType" style="width: 100%">
+                    <option value="groups" ${wizardState.phaseData.type === 'groups' ? 'selected' : ''}>
+                      🎯 Gironi - Squadre divise in gruppi, le migliori di ogni gruppo avanzano
+                    </option>
+                    <option value="knockout" ${wizardState.phaseData.type === 'knockout' ? 'selected' : ''}>
+                      🏆 Eliminazione Diretta (Castello) - Eliminazione progressiva fino ai migliori
+                    </option>
+                  </select>
+                  <small style="color: #666">Scegli come le squadre competono in questa fase</small>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          buttons = [
+            { 
+              text: 'Avanti →', 
+              className: 'btn btn-primary', 
+              onClick: async () => {
+                wizardState.phaseData.name = document.getElementById('wizard-phaseName').value.trim();
+                wizardState.phaseData.type = document.getElementById('wizard-phaseType').value;
+                
+                if (!wizardState.phaseData.name) {
+                  await showInfoDialog('Attenzione', 'Inserisci il nome della fase');
+                  return;
+                }
+                
+                wizardState.step = 2;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            }
+          ];
+        } 
+        else if (wizardState.step === 2) {
+          // STEP 2: Configurazione tipo fase
+          if (wizardState.phaseData.type === 'groups') {
+            bodyHtml = `
+              <div style="font-size: 13px">
+                <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Configurazione Gironi</strong></p>
+                
+                <div class="form-grid-modal" style="gap: 12px">
+                  <div class="field">
+                    <label>Numero di gironi</label>
+                    <input type="number" id="wizard-numGroups" min="1" max="16" value="${wizardState.phaseData.numGroups}" style="width: 100%">
+                    <small style="color: #666">Ad es: 4 gironi, 3 gironi, 2 gironi...</small>
+                  </div>
+                  
+                  <div class="field">
+                    <label>Squadre che avanzano per girone (Top N)</label>
+                    <input type="number" id="wizard-teamsAdvance" min="1" max="8" value="${wizardState.phaseData.teamsAdvance}" style="width: 100%">
+                    <small style="color: #666">I migliori N classificati di ogni girone passano</small>
+                  </div>
+                  
+                  <div class="field" style="grid-column: 1 / -1">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0">
+                      <input type="checkbox" id="wizard-repescage" ${wizardState.phaseData.hasRepescage ? 'checked' : ''}>
+                      🔄 Girone di ripescaggio per le eliminate
+                    </label>
+                    <small style="color: #666">Le squadre non qualificate giocheranno in un mini-girone</small>
+                  </div>
+                </div>
+              </div>
+            `;
+          } else {
+            bodyHtml = `
+              <div style="font-size: 13px">
+                <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Configurazione Eliminazione Diretta</strong></p>
+                
+                <div class="form-grid-modal" style="gap: 12px">
+                  <div class="field" style="grid-column: 1 / -1">
+                    <label>Numero di squadre (potenza di 2)</label>
+                    <select id="wizard-numTeams" style="width: 100%">
+                      <option value="2" ${wizardState.phaseData.numTeams === 2 ? 'selected' : ''}>2 (Finale)</option>
+                      <option value="4" ${wizardState.phaseData.numTeams === 4 ? 'selected' : ''}>4 (Semifinali)</option>
+                      <option value="8" ${wizardState.phaseData.numTeams === 8 ? 'selected' : ''}>8 (Quarti)</option>
+                      <option value="16" ${wizardState.phaseData.numTeams === 16 ? 'selected' : ''}>16 (Sedicesimi)</option>
+                      <option value="32" ${wizardState.phaseData.numTeams === 32 ? 'selected' : ''}>32</option>
+                    </select>
+                    <small style="color: #666">Seleziona il numero di squadre in questa fase</small>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          
+          buttons = [
+            { 
+              text: '← Indietro', 
+              className: 'btn', 
+              onClick: async () => {
+                wizardState.step = 1;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            },
+            { 
+              text: 'Avanti →', 
+              className: 'btn btn-primary', 
+              onClick: async () => {
+                if (wizardState.phaseData.type === 'groups') {
+                  wizardState.phaseData.numGroups = Math.max(1, parseInt(document.getElementById('wizard-numGroups').value) || 4);
+                  wizardState.phaseData.teamsAdvance = Math.max(1, parseInt(document.getElementById('wizard-teamsAdvance').value) || 2);
+                  wizardState.phaseData.hasRepescage = document.getElementById('wizard-repescage').checked;
+                } else {
+                  wizardState.phaseData.numTeams = parseInt(document.getElementById('wizard-numTeams').value) || 4;
+                }
+                
+                wizardState.step = 3;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            }
+          ];
+        }
+        else if (wizardState.step === 3) {
+          // STEP 3: Routing delle squadre
+          const qualifiedCount = wizardState.phaseData.type === 'groups' 
+            ? (wizardState.phaseData.numGroups || 4) * (wizardState.phaseData.teamsAdvance || 2)
+            : (wizardState.phaseData.numTeams || 4) / 2;
+          const eliminatedCount = wizardState.phaseData.type === 'groups'
+            ? ((wizardState.phaseData.numGroups || 4) * 4) - qualifiedCount // Supponendo 4 squadre per girone
+            : (wizardState.phaseData.numTeams || 4) / 2;
+          
+          bodyHtml = `
+            <div style="font-size: 13px">
+              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Routing delle Squadre</strong></p>
+              
+              <div style="background: #f0f8ff; border: 1px solid #87ceeb; border-radius: 4px; padding: 10px; margin-bottom: 12px">
+                <strong>📊 Flusso previsto:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px">
+                  <li><span style="color: #2ecc71">✓ Qualificate:</span> ~${qualifiedCount} squadre</li>
+                  ${wizardState.phaseData.hasRepescage ? '<li><span style="color: #f39c12">⟳ Ripescaggio:</span> ~' + eliminatedCount + ' squadre</li>' : '<li><span style="color: #e74c3c">✗ Eliminate:</span> ~' + eliminatedCount + ' squadre</li>'}
+                </ul>
+              </div>
+              
+              <div class="form-grid-modal" style="gap: 12px">
+                <div class="field" style="grid-column: 1 / -1">
+                  <label style="margin-bottom: 6px; display: block">
+                    <strong>Le squadre qualificate cosa faranno?</strong>
+                  </label>
+                  <textarea id="wizard-qualifiedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
+                    placeholder="Es: Passano alla fase finale (Eliminazione Diretta) oppure continuano al girone di classifica...">
+${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
+                  <small style="color: #666">Descrivi il percorso delle squadre qualificate</small>
+                </div>
+                
+                <div class="field" style="grid-column: 1 / -1">
+                  <label style="margin-bottom: 6px; display: block">
+                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : 'eliminate'} cosa faranno?</strong>
+                  </label>
+                  <textarea id="wizard-eliminatedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
+                    placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Vengono eliminate dal torneo oppure...'}">
+${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
+                  <small style="color: #666">Descrivi il percorso delle squadre ${wizardState.phaseData.hasRepescage ? 'ripescate' : 'eliminate'}</small>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          buttons = [
+            { 
+              text: '← Indietro', 
+              className: 'btn', 
+              onClick: async () => {
+                wizardState.phaseData.qualifiedGoTo = document.getElementById('wizard-qualifiedGoTo').value.trim();
+                wizardState.phaseData.eliminatedGoTo = document.getElementById('wizard-eliminatedGoTo').value.trim();
+                
+                wizardState.step = 2;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            },
+            { 
+              text: 'Crea Fase', 
+              className: 'btn btn-success', 
+              onClick: async () => {
+                wizardState.phaseData.qualifiedGoTo = document.getElementById('wizard-qualifiedGoTo').value.trim();
+                wizardState.phaseData.eliminatedGoTo = document.getElementById('wizard-eliminatedGoTo').value.trim();
+                
+                if (!wizardState.phaseData.qualifiedGoTo || !wizardState.phaseData.eliminatedGoTo) {
+                  await showInfoDialog('Attenzione', 'Completa la descrizione del routing delle squadre');
+                  return;
+                }
+                
+                // Crea la fase
+                config.phases = [...phases, {
+                  phaseNumber: wizardState.phaseData.phaseNumber,
+                  name: wizardState.phaseData.name,
+                  type: wizardState.phaseData.type,
+                  numGroups: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.numGroups : undefined,
+                  teamsAdvance: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.teamsAdvance : undefined,
+                  hasRepescage: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.hasRepescage : false,
+                  numTeams: wizardState.phaseData.type === 'knockout' ? wizardState.phaseData.numTeams : undefined,
+                  qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
+                  eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
+                }];
+                
+                closeModal(true);
+                renderPhases();
+                await showInfoDialog('Successo', `Fase "${wizardState.phaseData.name}" creata con successo!\n\nNon dimenticare di salvare le modifiche.`);
+              }
+            }
+          ];
+        }
+
+        openModal({
+          title: `Creazione Fase ${wizardState.phaseData.phaseNumber}`,
+          bodyHtml,
+          buttons,
+          onClose: null
+        });
+      }
+
+      // Funzione statica per continuare il wizard
+      openPhaseWizard.continue = (state) => {
+        wizardState = state;
+        renderWizardStep();
+      };
+
+      renderWizardStep();
+    }
+
+    function addPhase() {
+      // Apri il wizard pilotato invece di creare la fase direttamente
+      openPhaseWizard();
     }
 
     function removePhase(idx) {
@@ -5567,7 +5838,14 @@
           const name = document.getElementById(`phase-name-${idx}`).value.trim() || `Fase ${idx + 1}`;
           const type = document.getElementById(`phase-type-${idx}`).value;
 
-          const phaseData = { phaseNumber: idx + 1, name, type };
+          const phaseData = { 
+            phaseNumber: idx + 1, 
+            name, 
+            type,
+            // Mantieni il routing definito dal wizard
+            qualifiedGoTo: phase.qualifiedGoTo || '',
+            eliminatedGoTo: phase.eliminatedGoTo || ''
+          };
 
           if (type === 'groups') {
             phaseData.numGroups = Math.max(1, Math.min(16, parseInt(document.getElementById(`phase-numGroups-${idx}`).value) || 4));
@@ -5579,6 +5857,17 @@
 
           return phaseData;
         });
+
+        // Validazione: tutte le fasi devono avere il routing definito
+        const missingRouting = phasesToSave.filter(p => !p.qualifiedGoTo || !p.eliminatedGoTo);
+        if (missingRouting.length > 0) {
+          const phaseNames = missingRouting.map((p, i) => `Fase ${i + 1}`).join(', ');
+          await showInfoDialog(
+            'Attenzione',
+            `Le seguenti fasi non hanno il routing completo:\n\n${phaseNames}\n\nUtilizza il wizard per definire dove vanno le squadre qualificate e eliminate.`
+          );
+          return;
+        }
 
         await callApi('admin_update_config', 'POST', { phases: phasesToSave }, true);
         config.phases = phasesToSave;

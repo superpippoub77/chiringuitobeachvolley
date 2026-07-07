@@ -1805,6 +1805,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     $teamLastSlot = [];
     $teamLastTime = []; // Traccia il tempo dell'ultimo match
     $matchesWithSlots = [];
+    $slotsByDate = []; // Traccia quale giorno è stato usato per ogni girone
     
     // Per ogni squadra, calcola quante partite ha
     $teamMatchCount = [];
@@ -1830,11 +1831,15 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             
             $team1 = $match['team1Id'];
             $team2 = $match['team2Id'];
+            $group = $match['group'];
             
-            // Trova il miglior slot per questa partita considerando il tempo
+            // Trova il miglior slot per questa partita considerando il tempo E il giorno del girone
             $bestSlotIdx = -1;
             $bestScore = PHP_INT_MIN;
             $bestSlotTime = null;
+            
+            // Ottieni il giorno preferito per questo girone (se già usato)
+            $preferredDate = $slotsByDate[$group] ?? null;
             
             foreach ($availableSlots as $slotIdx => $slot) {
                 if ($slotUsed[$slotIdx]) {
@@ -1852,12 +1857,18 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $team2Gap = ($slotTime - $team2LastTime) / 60;
                 $minGap = min($team1Gap, $team2Gap);
                 
-                // Penalizza se il gap è troppo piccolo
+                // Score base basato sul gap temporale
                 if ($minGap < 30) {
                     $score = PHP_INT_MIN + (int)$minGap;
                 } else {
                     // Score basato su quanto tempo è passato (preferisci squadre che non hanno giocato da tempo)
                     $score = (int)$minGap;
+                }
+                
+                // BONUS: Se lo slot è dello stesso giorno del girone, aggiungi bonus
+                if ($preferredDate && $slot['date'] === $preferredDate) {
+                    $score += 1000; // Bonus elevato per preferenza giorno girone
+                    error_log("    💡 Group $group: bonus for same-day slot {$slot['date']} (slot $slotIdx)");
                 }
                 
                 if ($score > $bestScore) {
@@ -1879,6 +1890,12 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $match['dateIdx'] = $slot['dateIdx'];
                 $match['slotIdx'] = $slot['slotIdx'];
                 
+                // Registra il giorno usato per questo girone
+                if (!isset($slotsByDate[$group])) {
+                    $slotsByDate[$group] = $slot['date'];
+                    error_log("  📅 Group $group assigned to date {$slot['date']}");
+                }
+                
                 $matchesWithSlots[$idx] = $match;
                 $slotUsed[$bestSlotIdx] = true;
                 $teamLastSlot[$match['team1Id']] = $bestSlotIdx;
@@ -1886,10 +1903,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $teamLastTime[$match['team1Id']] = $bestSlotTime;
                 $teamLastTime[$match['team2Id']] = $bestSlotTime;
                 
-                error_log("  ✅ Assigned: {$match['team1Id']} vs {$match['team2Id']} → Slot $bestSlotIdx ({$slot['startTime']}) | Gap min: " . (int)min(
-                    ($bestSlotTime - ($teamLastTime[$match['team1Id']] ?? PHP_INT_MIN)) / 60,
-                    ($bestSlotTime - ($teamLastTime[$match['team2Id']] ?? PHP_INT_MIN)) / 60
-                ) . " min");
+                error_log("  ✅ Assigned: {$match['team1Id']} vs {$match['team2Id']} (Group $group) → Slot $bestSlotIdx ({$slot['date']} {$slot['startTime']})");
                 
                 $assignedThisRound = true;
             }

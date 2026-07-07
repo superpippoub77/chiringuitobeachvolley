@@ -1235,9 +1235,11 @@ function publicState(array $state): array {
                 'score1' => $m['score1'],
                 'score2' => $m['score2'],
                 'date' => $m['date'] ?? null,
+                'dayDate' => $m['date'] ?? null,  // Alias per compatibilità frontend
                 'courtName' => $m['courtName'] ?? null,
                 'startTime' => $m['startTime'] ?? null,
                 'endTime' => $m['endTime'] ?? null,
+                'time' => !empty($m['startTime']) && !empty($m['endTime']) ? ($m['startTime'] . ' - ' . $m['endTime']) : '',  // Formato leggibile
                 'duration' => $m['duration'] ?? null
             ];
         }, $state['groupMatches'])),

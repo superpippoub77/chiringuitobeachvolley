@@ -1864,7 +1864,7 @@
       };
       
       const themes = themesResp.themes || [];
-      const currentTheme = config.display?.theme || 'chiringuito';
+      const currentTheme = config.display?.theme || 'beachmaster';
       
       let themeHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 10px">';
       themes.forEach(t => {
@@ -1961,7 +1961,7 @@
       try {
         const data = await callApi('admin_get_custom_themes', 'GET', null, true);
         const customThemes = data.customThemes || [];
-        const currentTheme = config.display?.theme || 'chiringuito';
+        const currentTheme = config.display?.theme || 'beachmaster';
         
         let html = '';
         if (customThemes.length > 0) {
@@ -2073,7 +2073,7 @@
             managerEmail: document.getElementById('cfg-managerEmail').value.trim()
           },
           display: {
-            theme: config.display?.theme || 'chiringuito'
+            theme: config.display?.theme || 'beachmaster'
           }
         };
 
@@ -5819,9 +5819,41 @@
 
     function openBulkTimeSlotDialog() {
       // Verifica che ci siano campi configurati
-      const courts = config.schedule?.courts || [];
+      let courts = config.schedule?.courts || [];
+      
       if (courts.length === 0) {
-        showInfoDialog('Attenzione', 'Configura almeno un campo prima di aggiungere fasce orarie bulk.');
+        // Nessun campo ancora: chiedi quanti campi creare
+        const bodyHtml = `
+          <div style="padding: 12px 0">
+            <p style="margin-bottom: 12px; color: #333">Per poter assegnare le fasce orarie bulk, devi prima creare i campi.</p>
+            <div style="margin-bottom: 12px">
+              <label style="display: block; margin-bottom: 6px; font-weight: bold">Numero di Campi da Creare</label>
+              <input type="number" id="numCourtsToCreate" value="1" min="1" max="10" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+            </div>
+            <div style="background: #fff3cd; border-left: 3px solid #ffc107; padding: 10px; border-radius: 4px; font-size: 12px; color: #856404">
+              <strong>💡 Nota:</strong> I campi saranno creati vuoti (senza date). Potrai assegnare le date e fasce orarie bulk subito dopo.
+            </div>
+          </div>
+        `;
+
+        openModal({
+          title: 'Crea Campi per il Torneo',
+          bodyHtml,
+          buttons: [
+            {
+              text: 'Annulla',
+              className: 'btn btn-secondary',
+              closeOnClick: true
+            },
+            {
+              text: 'Crea Campi',
+              className: 'btn btn-primary',
+              closeOnClick: false,
+              onClick: () => createCourtsThenBulk()
+            }
+          ],
+          onClose: () => {}
+        });
         return;
       }
 
@@ -5873,6 +5905,39 @@
       });
     }
 
+    function createCourtsThenBulk() {
+      const numCourtEl = document.getElementById('numCourtsToCreate');
+      if (!numCourtEl) return;
+
+      const numCourts = parseInt(numCourtEl.value) || 1;
+      if (numCourts < 1 || numCourts > 10) {
+        showInfoDialog('Errore', 'Inserisci un numero tra 1 e 10');
+        return;
+      }
+
+      // Crea i campi vuoti
+      config.schedule = config.schedule || { courts: [] };
+      for (let i = 0; i < numCourts; i++) {
+        const newCourt = {
+          courtId: 'court-' + Date.now() + '-' + i,
+          courtName: 'Campo ' + (config.schedule.courts.length + i + 1),
+          availability: []
+        };
+        config.schedule.courts.push(newCourt);
+      }
+
+      // Chiudi il modal corrente
+      closeModal();
+      
+      // Renderizza per mostrare i nuovi campi
+      renderSchedule();
+
+      // Dopo un breve delay, apri il dialog bulk per assegnare le date
+      setTimeout(() => {
+        openBulkTimeSlotDialog();
+      }, 300);
+    }
+
     function applyBulkTimeSlot() {
       const dateStartEl = document.getElementById('bulkDateStart');
       const dateEndEl = document.getElementById('bulkDateEnd');
@@ -5920,32 +5985,43 @@
       // Applica la fascia oraria a tutte le date nell'intervallo, su tutti i campi
       const courts = config.schedule?.courts || [];
       let addedCount = 0;
+      let skippedCount = 0;
 
       courts.forEach(court => {
         datesInRange.forEach(dateStr => {
           // Controlla se questa data esiste già nel court
           let dateAvail = (court.availability || []).find(av => av.date === dateStr);
           
-          // Se la data non esiste, la aggiungo
+          // Se la data non esiste, la aggiungo con la fascia oraria
           if (!dateAvail) {
             court.availability = court.availability || [];
             dateAvail = { date: dateStr, timeSlots: [] };
             court.availability.push(dateAvail);
+            
+            // Aggiungi la fascia oraria solo alla data nuova
+            dateAvail.timeSlots.push({
+              startTime: startTime,
+              endTime: endTime
+            });
+            addedCount++;
+          } else {
+            // Data già esiste: bypassala
+            skippedCount++;
           }
-
-          // Aggiungi la fascia oraria
-          dateAvail.timeSlots = dateAvail.timeSlots || [];
-          dateAvail.timeSlots.push({
-            startTime: startTime,
-            endTime: endTime
-          });
-          addedCount++;
         });
       });
 
       closeModal();
       renderSchedule();
-      showInfoDialog('✅ Successo', `Fascia oraria ${startTime} - ${endTime} aggiunta a ${datesInRange.length} giorno${datesInRange.length !== 1 ? 'i' : ''} (${dateStart} fino a ${dateEnd}) in tutti i ${courts.length} campo${courts.length !== 1 ? 'i' : ''}.`);
+      
+      // Messaggio personalizzato se ci sono state date saltate
+      let message = `Fascia oraria ${startTime} - ${endTime} aggiunta a ${addedCount} giorno${addedCount !== 1 ? 'i' : ''} (${dateStart} fino a ${dateEnd})`;
+      if (skippedCount > 0) {
+        message += `\n\n⏭️ ${skippedCount} data${skippedCount !== 1 ? 'e' : ''} già esisten${skippedCount !== 1 ? 'ti' : 'te'} bypassat${skippedCount !== 1 ? 'e' : 'a'} (nessuna fascia aggiunta).`;
+      }
+      message += ` in tutti i ${courts.length} campo${courts.length !== 1 ? 'i' : ''}.`;
+      
+      showInfoDialog('✅ Successo', message);
     }
 
     function syncScheduleFromForm() {

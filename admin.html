@@ -5653,186 +5653,257 @@
       const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
       const totalTeams = approvedCount > 0 ? approvedCount : (config.tournament?.maxTeams || 16);
 
-      // Calcola struttura bracket
+      // Calcola struttura bracket con entrambi i rami
       const bracket = {
-        stages: [], // Array di stadi (colonne)
-        width: 0,
-        height: 0
+        qualified: [], // Ramo qualified (vincitori)
+        eliminated: [] // Ramo eliminated (perdenti)
       };
 
-      // Crea stadi per il ramo qualified (main bracket)
-      let currentTeams = totalTeams;
-      let stageIdx = 0;
+      // Traccia lo stato di entrambi i rami
+      let qualifiedTeams = totalTeams;
+      let eliminatedTeams = 0;
+      let eliminatedPhaseExists = false;
 
+      // Prima passa: crea il ramo qualified (main bracket)
       for (let i = 0; i < phases.length; i++) {
         const phase = phases[i];
-        if (phase.branch === 'eliminated' || phase.type === 'subtournament') continue;
+        if (phase.type === 'subtournament') continue;
+        
+        // Salta fasi eliminated per adesso (le faremo dopo)
+        if (phase.branch === 'eliminated' || phase.branch === 'repescaggio') {
+          if (!eliminatedPhaseExists) eliminatedPhaseExists = true;
+          continue;
+        }
 
-        let qualified = currentTeams;
+        let qualified = qualifiedTeams;
         let eliminated = 0;
 
         if (phase.type === 'groups') {
           const numGroups = phase.numGroups || 4;
           const teamsAdvance = phase.teamsAdvance || 2;
           qualified = numGroups * teamsAdvance;
-          eliminated = Math.max(0, currentTeams - qualified);
+          eliminated = Math.max(0, qualifiedTeams - qualified);
         } else if (phase.type === 'knockout') {
-          qualified = Math.ceil(currentTeams / 2);
-          eliminated = Math.floor(currentTeams / 2);
+          qualified = Math.ceil(qualifiedTeams / 2);
+          eliminated = Math.floor(qualifiedTeams / 2);
         } else if (phase.type === 'finale') {
           qualified = 1; // La finale ha 1 vincitore
-          eliminated = Math.max(0, currentTeams - 1);
+          eliminated = Math.max(0, qualifiedTeams - 1);
         }
 
-        bracket.stages.push({
+        bracket.qualified.push({
           phaseIdx: i,
           phaseName: phase.name,
           phaseType: phase.type,
-          teamsIn: currentTeams,
+          teamsIn: qualifiedTeams,
           teamsOut: qualified,
           eliminated,
-          branch: phase.branch || 'qualified',
+          branch: 'qualified',
           phase
         });
 
-        currentTeams = qualified;
-        stageIdx++;
+        eliminatedTeams = eliminated;
+        qualifiedTeams = qualified;
+      }
+
+      // Seconda passa: crea il ramo eliminated (losers bracket)
+      eliminatedTeams = 0;
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i];
+        if (phase.branch !== 'eliminated' && phase.branch !== 'repescaggio') continue;
+
+        let qualified = eliminatedTeams;
+        let eliminated = 0;
+
+        if (phase.type === 'groups') {
+          const numGroups = phase.numGroups || 4;
+          const teamsAdvance = phase.teamsAdvance || 2;
+          qualified = numGroups * teamsAdvance;
+          eliminated = Math.max(0, eliminatedTeams - qualified);
+        } else if (phase.type === 'knockout') {
+          qualified = Math.ceil(eliminatedTeams / 2);
+          eliminated = Math.floor(eliminatedTeams / 2);
+        } else if (phase.type === 'finale') {
+          qualified = 1;
+          eliminated = Math.max(0, eliminatedTeams - 1);
+        }
+
+        bracket.eliminated.push({
+          phaseIdx: i,
+          phaseName: phase.name,
+          phaseType: phase.type,
+          teamsIn: eliminatedTeams,
+          teamsOut: qualified,
+          eliminated,
+          branch: 'eliminated',
+          phase
+        });
+
+        eliminatedTeams = qualified;
       }
 
       // Calcola dimensioni
-      const stageWidth = 200;
+      const stageWidth = 180;
       const stageHeight = 60;
-      const gapX = 80;
-      const gapY = 80;
+      const gapX = 60;
+      const gapY = 20;
       const marginX = 40;
       const marginY = 40;
 
-      bracket.width = (bracket.stages.length * stageWidth) + ((bracket.stages.length - 1) * gapX) + (marginX * 2);
-      bracket.height = 500;
-
-      // Genera SVG per le linee di connessione
+      // Genera HTML per bracket con doppio ramo
       const svgId = 'bracket-svg-' + Math.random().toString(36).substr(2, 9);
       let html = `
         <div style="background: #f9f3e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto">
           <h4 style="margin: 0 0 16px 0; color: #6b5d45">🎬 Workflow Torneo - Bracket</h4>
-          <div style="position: relative; width: 100%; min-height: 500px">
-            <svg id="${svgId}" width="100%" height="500" style="position: absolute; top: 0; left: 0; background: transparent; z-index: 1">
-            </svg>
-            <div style="display: flex; gap: ${gapX}px; align-items: flex-start; padding: ${marginY}px ${marginX}px; position: relative; z-index: 2; min-width: fit-content">
+          <div style="background: white; border-radius: 8px; padding: 16px; position: relative">
       `;
 
-      // Renderizza gli stadi
-      bracket.stages.forEach((stage, idx) => {
-        const phase = stage.phase;
-        const bgColor = '#e8f5e9';
-        const borderColor = '#2ecc71';
+      // Ramo QUALIFIED (vincitori)
+      html += `
+        <div style="margin-bottom: 32px">
+          <h5 style="margin: 0 0 12px 0; color: #2ecc71; font-size: 13px; text-transform: uppercase; letter-spacing: 1px">
+            ✓ Ramo Qualificate (Vincitori)
+          </h5>
+          <div style="position: relative; min-height: ${bracket.qualified.length > 0 ? 120 : 40}px; overflow-x: auto; background: #f0f8f5; border: 2px solid #2ecc71; border-radius: 8px; padding: 12px">
+      `;
 
-        // Info sulla fase
-        let phaseInfo = '';
-        if (phase.type === 'groups') {
-          phaseInfo = `${phase.numGroups}G × ${phase.teamsAdvance}T`;
-        } else if (phase.type === 'knockout') {
-          phaseInfo = `${stage.teamsIn}T`;
-        } else if (phase.type === 'finale') {
-          phaseInfo = `🏆 Torneo Concluso`;
-        }
+      if (bracket.qualified.length > 0) {
+        html += `<div style="display: flex; gap: ${gapX}px; align-items: flex-start; min-width: fit-content">`;
+        
+        bracket.qualified.forEach((stage, idx) => {
+          const phase = stage.phase;
+          let phaseInfo = '';
+          if (phase.type === 'groups') {
+            phaseInfo = `${phase.numGroups}G × ${phase.teamsAdvance}T`;
+          } else if (phase.type === 'knockout') {
+            phaseInfo = `${stage.teamsIn}T`;
+          } else if (phase.type === 'finale') {
+            phaseInfo = `🏆 Torneo Concluso`;
+          }
 
-        html += `
-          <div style="
-            flex-shrink: 0;
-            min-width: ${stageWidth}px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          ">
-            <div style="
-              background: ${phase.type === 'finale' ? '#fff3cd' : bgColor};
-              border: 3px solid ${phase.type === 'finale' ? '#ffc107' : borderColor};
-              border-radius: 8px;
-              padding: 12px;
-              text-align: center;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-              position: relative;
-            " class="bracket-stage" data-stage="${idx}">
-              <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : borderColor}; font-size: 13px; margin-bottom: 6px">
-                ${escapeHtml(phase.name)}
-              </div>
-              <div style="font-size: 11px; color: #666; margin-bottom: 4px">
-                <div>${phaseInfo}</div>
-                ${phase.type !== 'finale' ? `
-                  <div style="margin-top: 2px"><span style="color: #2ecc71">IN: ${stage.teamsIn}</span></div>
-                  <div style="color: #2ecc71">OUT: ${stage.teamsOut}</div>
-                ` : `
-                  <div style="margin-top: 2px"><span style="color: #f39c12">🥇 1 Vincitore</span></div>
-                `}
-              </div>
-              ${phase.wildcardTeams > 0 && phase.type !== 'finale' ? `
-                <div style="font-size: 10px; color: #ff9800; margin-top: 4px; padding: 4px; background: #fff9e6; border-radius: 2px">
-                  🎁 ${phase.wildcardTeams} wildcard
+          html += `
+            <div style="flex-shrink: 0; min-width: ${stageWidth}px; display: flex; flex-direction: column; gap: 8px">
+              <div style="
+                background: ${phase.type === 'finale' ? '#fff3cd' : '#e8f5e9'};
+                border: 3px solid ${phase.type === 'finale' ? '#ffc107' : '#2ecc71'};
+                border-radius: 8px;
+                padding: 12px;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              " class="bracket-stage-qualified" data-stage="${idx}">
+                <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : '#2ecc71'}; font-size: 13px; margin-bottom: 6px">
+                  ${escapeHtml(phase.name)}
                 </div>
-              ` : ''}
+                <div style="font-size: 11px; color: #666; margin-bottom: 4px">
+                  <div>${phaseInfo}</div>
+                  ${phase.type !== 'finale' ? `
+                    <div style="margin-top: 2px"><span style="color: #2ecc71">IN: ${stage.teamsIn}</span></div>
+                    <div style="color: #2ecc71">OUT: ${stage.teamsOut}</div>
+                  ` : `
+                    <div style="margin-top: 2px"><span style="color: #f39c12">🥇 1 Vincitore</span></div>
+                  `}
+                </div>
+                ${phase.wildcardTeams > 0 && phase.type !== 'finale' ? `
+                  <div style="font-size: 10px; color: #ff9800; margin-top: 4px; padding: 4px; background: #fff9e6; border-radius: 2px">
+                    🎁 ${phase.wildcardTeams} wildcard
+                  </div>
+                ` : ''}
+              </div>
+              ${phase.type !== 'finale' ? `
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
+                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                    onclick="openPhaseWizard('qualified')">
+                    ✓ +Qualificate
+                  </button>
+                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                    onclick="openPhaseWizard('eliminated')">
+                    ✗ +Eliminate
+                  </button>
+                </div>
+              ` : `
+                <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; text-align: center; font-size: 12px; color: #2ecc71; font-weight: bold">
+                  🎉 Torneo Finito
+                </div>
+              `}
             </div>
-            ${phase.type !== 'finale' ? `
-              <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
-                <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                  onclick="openPhaseWizard('qualified')">
-                  ✓ +Qualificate
-                </button>
-                <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                  onclick="openPhaseWizard('eliminated')">
-                  ✗ +Eliminate
-                </button>
-              </div>
-            ` : `
-              <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; text-align: center; font-size: 12px; color: #2ecc71; font-weight: bold">
-                🎉 Torneo Finito
-              </div>
-            `}
-          </div>
+          `;
+        });
+
+        html += `</div>`;
+      } else {
+        html += `<div style="color: #999; font-style: italic; text-align: center">Nessuna fase qualificata. Crea la prima fase per iniziare.</div>`;
+      }
+
+      html += `</div></div>`;
+
+      // Ramo ELIMINATED (perdenti) - se esiste
+      if (bracket.eliminated.length > 0) {
+        html += `
+          <div>
+            <h5 style="margin: 0 0 12px 0; color: #ff9800; font-size: 13px; text-transform: uppercase; letter-spacing: 1px">
+              ✗ Ramo Eliminate (Perdenti/Ripescaggio)
+            </h5>
+            <div style="position: relative; min-height: 120px; overflow-x: auto; background: #fffef7; border: 2px solid #ff9800; border-radius: 8px; padding: 12px">
+              <div style="display: flex; gap: ${gapX}px; align-items: flex-start; min-width: fit-content">
         `;
-      });
+
+        bracket.eliminated.forEach((stage, idx) => {
+          const phase = stage.phase;
+          let phaseInfo = '';
+          if (phase.type === 'groups') {
+            phaseInfo = `${phase.numGroups}G × ${phase.teamsAdvance}T`;
+          } else if (phase.type === 'knockout') {
+            phaseInfo = `${stage.teamsIn}T`;
+          } else if (phase.type === 'finale') {
+            phaseInfo = `🏆 Finale`;
+          }
+
+          html += `
+            <div style="flex-shrink: 0; min-width: ${stageWidth}px; display: flex; flex-direction: column; gap: 8px">
+              <div style="
+                background: ${phase.type === 'finale' ? '#fff3cd' : '#fff3e0'};
+                border: 3px solid ${phase.type === 'finale' ? '#ffc107' : '#ff9800'};
+                border-radius: 8px;
+                padding: 12px;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              " class="bracket-stage-eliminated" data-stage="${idx}">
+                <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : '#ff9800'}; font-size: 13px; margin-bottom: 6px">
+                  ${escapeHtml(phase.name)}
+                </div>
+                <div style="font-size: 11px; color: #666; margin-bottom: 4px">
+                  <div>${phaseInfo}</div>
+                  ${phase.type !== 'finale' ? `
+                    <div style="margin-top: 2px"><span style="color: #ff9800">IN: ${stage.teamsIn}</span></div>
+                    <div style="color: #ff9800">OUT: ${stage.teamsOut}</div>
+                  ` : `
+                    <div style="margin-top: 2px"><span style="color: #f39c12">🥈 Runner-up</span></div>
+                  `}
+                </div>
+              </div>
+              ${phase.type !== 'finale' ? `
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
+                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                    onclick="openPhaseWizard('qualified', 'eliminated')">
+                    ✓ +Next Round
+                  </button>
+                </div>
+              ` : `
+                <div style="padding: 8px; background: #fff3e0; border-radius: 4px; text-align: center; font-size: 12px; color: #ff9800; font-weight: bold">
+                  🥈 Losers Finale
+                </div>
+              `}
+            </div>
+          `;
+        });
+
+        html += `</div></div></div>`;
+      }
 
       html += `
-            </div>
           </div>
         </div>
       `;
-
-      // Disegna linee di connessione con SVG
-      setTimeout(() => {
-        const svgEl = document.getElementById(svgId);
-        if (!svgEl) return;
-
-        const stages = document.querySelectorAll('.bracket-stage');
-        if (stages.length < 2) return;
-
-        const svg = svgEl;
-        svg.innerHTML = ''; // Pulisci SVG precedente
-
-        for (let i = 0; i < stages.length - 1; i++) {
-          const currentStage = stages[i];
-          const nextStage = stages[i + 1];
-
-          const fromRect = currentStage.getBoundingClientRect();
-          const toRect = nextStage.getBoundingClientRect();
-
-          const fromX = fromRect.right - svg.getBoundingClientRect().left;
-          const fromY = fromRect.top - svg.getBoundingClientRect().top + fromRect.height / 2;
-          const toX = toRect.left - svg.getBoundingClientRect().left;
-          const toY = toRect.top - svg.getBoundingClientRect().top + toRect.height / 2;
-
-          // Disegna linee di connessione
-          const midX = (fromX + toX) / 2;
-
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          path.setAttribute('d', `M ${fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${toX} ${toY}`);
-          path.setAttribute('stroke', '#ccc');
-          path.setAttribute('stroke-width', '2');
-          path.setAttribute('fill', 'none');
-          path.setAttribute('stroke-linecap', 'round');
-          svg.appendChild(path);
-        }
-      }, 100);
 
       return html;
     }

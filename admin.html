@@ -6160,8 +6160,33 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       choosePhaseTreeBranch();
     }
 
-    function removePhase(idx) {
+    async function removePhase(idx) {
       const phases = config.phases || [];
+      const phaseToRemove = phases[idx];
+      
+      if (!phaseToRemove) return;
+      
+      // Controlla se ci sono fasi dipendenti (fasi successive che usano questa come input)
+      const dependentPhases = phases.slice(idx + 1).filter(p => 
+        p.branch === 'qualified' || p.branch === 'eliminated'
+      );
+      
+      if (dependentPhases.length > 0) {
+        const depNames = dependentPhases.map((p, i) => `- ${p.name || 'Fase ' + (idx + 2 + i)}`).join('\n');
+        await showConfirmDialog(
+          '⚠️ Attenzione',
+          `Non puoi cancellare questa fase perché altre fasi dipendono da essa:\n\n${depNames}\n\nCancella prima le fasi dipendenti.`
+        );
+        return;
+      }
+      
+      const confirmed = await showConfirmDialog(
+        '🗑️ Rimuovi Fase',
+        `Vuoi veramente cancellare la fase "${phaseToRemove.name || 'Fase ' + (idx + 1)}"?`
+      );
+      
+      if (!confirmed) return;
+      
       phases.splice(idx, 1);
       config.phases = phases;
       renderPhases();

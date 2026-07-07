@@ -1,13 +1,13 @@
 {
     "tournament": {
-        "name": "Test Tournament",
+        "name": "Test Knockout Losers",
         "maxTeams": 16,
         "maxPlayersPerTeam": 3,
         "maxPlayersOnCourt": 2,
         "maxSubstitutions": 0,
         "numGroups": 0,
         "numSets": 2,
-        "winScore": 21,
+        "winScore": 25,
         "maxScore": 25,
         "timePerSetMinutes": 35,
         "setupTimeMinutes": 5,
@@ -201,7 +201,39 @@
             }
         ]
     },
-    "phases": [],
+    "phases": [
+        {
+            "phaseNumber": 1,
+            "name": "Gironi Preliminari",
+            "type": "groups",
+            "branch": "root",
+            "qualifiedGoTo": "Winners Bracket",
+            "eliminatedGoTo": "Losers Bracket",
+            "numGroups": 2,
+            "teamsAdvance": 2,
+            "hasRepescage": false
+        },
+        {
+            "phaseNumber": 2,
+            "name": "Winners Bracket",
+            "type": "knockout",
+            "branch": "qualified",
+            "qualifiedGoTo": "Finale",
+            "eliminatedGoTo": "Losers Bracket 2",
+            "numTeams": 4,
+            "hasLosersPath": false
+        },
+        {
+            "phaseNumber": 3,
+            "name": "Losers Bracket",
+            "type": "knockout",
+            "branch": "eliminated",
+            "qualifiedGoTo": "Losers Bracket 2",
+            "eliminatedGoTo": "Fine torneo",
+            "numTeams": 4,
+            "hasLosersPath": true
+        }
+    ],
     "contact": {
         "managerEmail": "admin@test.com"
     },

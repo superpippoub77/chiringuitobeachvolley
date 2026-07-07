@@ -5548,34 +5548,157 @@
       return flows;
     }
 
-    function renderPhaseWorkflow() {
-      const flows = calculatePhaseFlows();
-      if (flows.length === 0) return '';
+    function renderPhaseWorkflowTree() {
+      const phases = config.phases || [];
+      if (phases.length === 0) return '';
 
-      let html = '<div style="background: #f9f3e6; border-radius: 8px; padding: 12px; margin-bottom: 16px">';
-      html += '<h4 style="margin-top: 0; color: #6b5d45">📊 Workflow Torneo</h4>';
-      html += '<div style="display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 8px 0">';
+      // Crea struttura ad albero
+      const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
+      const totalTeams = approvedCount > 0 ? approvedCount : (config.tournament?.maxTeams || 16);
 
-      flows.forEach((flow, idx) => {
-        html += `
-          <div style="flex-shrink: 0; background: white; border: 2px solid #d8c39f; border-radius: 6px; padding: 10px; min-width: 200px">
-            <div style="font-weight: bold; color: #6b5d45; margin-bottom: 8px">🏆 ${flow.name}</div>
-            <div style="font-size: 12px; color: #666">
-              <div><span style="color: #0078d4">📥 In:</span> ${flow.teamsIn}</div>
-              <div><span style="color: #107c10">✅ Qualificate:</span> ${flow.teamsAdvance}</div>
-              ${flow.teamsRepescage > 0 ? `<div><span style="color: #ffb900">🔄 Ripescaggio:</span> ${flow.teamsRepescage}</div>` : ''}
-              ${flow.teamsEliminated > 0 ? `<div><span style="color: #d13438">❌ Eliminate:</span> ${flow.teamsEliminated}</div>` : ''}
+      let html = `
+        <div style="background: #f9f3e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto">
+          <h4 style="margin: 0 0 16px 0; color: #6b5d45">🌳 Workflow Torneo - Albero Diramazioni</h4>
+          <div style="display: flex; gap: 0; align-items: flex-start; flex-wrap: wrap; min-height: 400px; position: relative">
+      `;
+
+      // Crea visualizzazione ad albero
+      let processedPhases = new Set();
+      let treeHtml = '';
+      let depthCounter = 0;
+
+      function renderTreeNode(phaseIdx, branch, teamsIn, depth = 0, parentX = 0) {
+        const nodeKey = `${phaseIdx}-${branch}`;
+        if (processedPhases.has(nodeKey)) return { html: '', nextTeams: 0 };
+
+        processedPhases.add(nodeKey);
+
+        if (phaseIdx >= phases.length) return { html: '', nextTeams: 0 };
+
+        const phase = phases[phaseIdx];
+        if (phase.branch !== branch && !(phaseIdx === 0 && branch === 'root')) return { html: '', nextTeams: 0 };
+
+        // Calcola squadre qualificate e eliminate
+        let teamStats = {};
+        if (phase.type === 'groups') {
+          const numGroups = phase.numGroups || 4;
+          const teamsAdvance = phase.teamsAdvance || 2;
+          const qualified = numGroups * teamsAdvance;
+          const eliminated = Math.max(0, teamsIn - qualified);
+          teamStats = { qualified, eliminated };
+        } else {
+          teamStats = { qualified: Math.ceil(teamsIn / 2), eliminated: Math.floor(teamsIn / 2) };
+        }
+
+        const bgColor = branch === 'qualified' ? '#e8f5e9' : (branch === 'eliminated' ? '#fff3e0' : '#f0f8ff');
+        const borderColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
+        const titleColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
+
+        let nodeHtml = `
+          <div style="
+            background: ${bgColor}; 
+            border: 3px solid ${borderColor}; 
+            border-radius: 8px; 
+            padding: 12px 14px; 
+            min-width: 240px; 
+            margin: 0 16px 24px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            flex-shrink: 0;
+            position: relative;
+          ">
+            <div style="font-weight: bold; color: ${titleColor}; margin-bottom: 8px; font-size: 14px">
+              ${branch === 'root' ? '📥' : (branch === 'qualified' ? '✅' : '❌')} 
+              ${escapeHtml(phase.name)}
             </div>
+            <div style="font-size: 12px; line-height: 1.6; color: #333">
+              <div><span style="color: #666">📥 In ingresso:</span> <strong>${teamsIn} squadre</strong></div>
+              <div style="color: #2ecc71; margin-top: 4px">✓ Qualificate: <strong>${teamStats.qualified}</strong></div>
+              ${phase.hasRepescage && teamStats.eliminated > 0 ? 
+                `<div style="color: #ff9800; margin-top: 2px">⟳ Ripescaggio: <strong>${teamStats.eliminated}</strong></div>` : 
+                (phase.hasLosersPath && teamStats.eliminated > 0 ? 
+                  `<div style="color: #ff9800; margin-top: 2px">🎯 Losers Bracket: <strong>${teamStats.eliminated}</strong></div>` :
+                  (teamStats.eliminated > 0 ? `<div style="color: #d13438; margin-top: 2px">✗ Eliminate: <strong>${teamStats.eliminated}</strong></div>` : '')
+                )
+              }
+            </div>
+            ${phase.qualifiedGoTo ? `
+              <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid ${borderColor}">
+                <small>📍 Qualificate → ${escapeHtml(phase.qualifiedGoTo)}</small>
+              </div>
+            ` : ''}
+            ${phase.eliminatedGoTo ? `
+              <div style="font-size: 11px; color: #666; margin-top: 4px">
+                <small>📍 ${phase.hasRepescage ? 'Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? 'Losers Bracket' : 'Eliminate')} → ${escapeHtml(phase.eliminatedGoTo)}</small>
+              </div>
+            ` : ''}
           </div>
         `;
 
-        if (idx < flows.length - 1) {
-          html += '<div style="flex-shrink: 0; font-size: 20px; color: #d8c39f">→</div>';
+        // Trova fasi successive in base al ramo
+        let nextNodes = `<div style="display: flex; gap: 0; align-items: flex-start; flex-wrap: wrap; margin-left: 24px">`;
+        let hasChildren = false;
+
+        for (let nextIdx = phaseIdx + 1; nextIdx < phases.length; nextIdx++) {
+          const nextPhase = phases[nextIdx];
+          
+          if (nextPhase.branch === 'qualified' && branch === 'root') {
+            hasChildren = true;
+            const childResult = renderTreeNode(nextIdx, 'qualified', teamStats.qualified, depth + 1, depth);
+            nextNodes += childResult.html;
+          } else if (nextPhase.branch === 'eliminated' && branch === 'root' && phase.hasRepescage) {
+            hasChildren = true;
+            const childResult = renderTreeNode(nextIdx, 'eliminated', teamStats.eliminated, depth + 1, depth);
+            nextNodes += childResult.html;
+          }
         }
-      });
+        nextNodes += '</div>';
+
+        return {
+          html: `
+            <div style="display: flex; flex-direction: column">
+              ${nodeHtml}
+              ${hasChildren ? `
+                <div style="margin-left: 12px; padding-left: 12px; border-left: 2px dashed #999">
+                  ${nextNodes}
+                </div>
+              ` : ''}
+            </div>
+          `,
+          nextTeams: teamStats.qualified
+        };
+      };
+
+      // Render la radice (prima fase)
+      if (phases.length > 0 && phases[0].branch === 'root') {
+        const firstPhase = phases[0];
+        let teamStats = {};
+        if (firstPhase.type === 'groups') {
+          const numGroups = firstPhase.numGroups || 4;
+          const teamsAdvance = firstPhase.teamsAdvance || 2;
+          const qualified = numGroups * teamsAdvance;
+          const eliminated = Math.max(0, totalTeams - qualified);
+          teamStats = { qualified, eliminated };
+        } else {
+          teamStats = { qualified: Math.ceil(totalTeams / 2), eliminated: Math.floor(totalTeams / 2) };
+        }
+
+        const treeResult = renderTreeNode(0, 'root', totalTeams, 0);
+        treeHtml = treeResult.html;
+      }
+
+      html += `
+        <div style="display: flex; flex-direction: column; gap: 16px">
+          ${treeHtml}
+        </div>
+      `;
 
       html += '</div></div>';
       return html;
+    }
+
+    function renderPhaseWorkflow() {
+      // Usa la nuova visualizzazione ad albero
+      return renderPhaseWorkflowTree();
     }
 
     function updatePhasePreview(phaseIdx) {
@@ -5610,6 +5733,7 @@
         `;
       } else {
         const numTeams = parseInt(document.getElementById(`phase-numTeams-${phaseIdx}`).value) || 4;
+        const hasLosersPath = document.getElementById(`phase-losersPath-${phaseIdx}`) && document.getElementById(`phase-losersPath-${phaseIdx}`).checked;
         const teamsAdvance = Math.ceil(numTeams / 2);
         
         previewHtml = `
@@ -5621,12 +5745,17 @@
             <div style="background: #e8f5e9; padding: 8px; border-radius: 4px">
               <strong style="color: #107c10">✅ Avanzano:</strong> <strong>${teamsAdvance}</strong>
             </div>
-            <div style="background: #ffebee; padding: 8px; border-radius: 4px">
-              <strong style="color: #d13438">❌ Eliminate:</strong> <strong>${numTeams - teamsAdvance}</strong>
+            <div style="background: ${hasLosersPath ? '#fff8ce' : '#ffebee'}; padding: 8px; border-radius: 4px">
+              <strong style="color: ${hasLosersPath ? '#7f6000' : '#d13438'}">
+                ${hasLosersPath ? '🎯 Losers:' : '❌ Eliminate:'}
+              </strong> <strong>${numTeams - teamsAdvance}</strong>
             </div>
           </div>
           <small style="display: block; margin-top: 6px; color: #999">
-            Fase successiva avrà <strong>${teamsAdvance}</strong> squadre per continuare il torneo
+            ${hasLosersPath 
+              ? `Fase successiva avrà <strong>${teamsAdvance}</strong> vincitori + <strong>${numTeams - teamsAdvance}</strong> nel losers bracket`
+              : `Fase successiva avrà <strong>${teamsAdvance}</strong> squadre per continuare il torneo`
+            }
           </small>
         `;
       }
@@ -5698,6 +5827,13 @@
               </select>
               <small style="color: #666; display: block; margin-top: 4px">Numero di squadre che partecipano a questa fase di eliminazione diretta</small>
             </div>
+            <div class="field" style="grid-column: 1 / -1">
+              <label style="display: flex; align-items: center; gap: 8px; margin: 0">
+                <input type="checkbox" id="phase-losersPath-${idx}" ${phase.hasLosersPath ? 'checked' : ''} onchange="updatePhasePreview(${idx})">
+                🎯 Abilitare losers bracket per le perdenti del primo turno
+              </label>
+              <small style="color: #666; display: block; margin-top: 4px">Le squadre che perdono nel primo turno potranno continuare in un ramo separato (Losers Bracket). La fase successiva sarà configurata nel wizard.</small>
+            </div>
             <div style="grid-column: 1 / -1; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 8px">
               <strong style="color: #333">📊 Preview Eliminazione:</strong>
               <div id="phase-preview-${idx}" style="margin-top: 6px; font-size: 12px; color: #666"></div>
@@ -5713,8 +5849,8 @@
               <small style="color: #666">${escapeHtml(phase.qualifiedGoTo || '(non specificato)')}</small>
             </div>
             <div style="margin: 6px 0">
-              <span style="color: ${phase.hasRepescage ? '#f39c12' : '#e74c3c'}">
-                ${phase.hasRepescage ? '⟳ Ripescaggio' : '✗ Eliminate'}:
+              <span style="color: ${phase.hasRepescage || (phase.hasLosersPath && phase.type === 'knockout') ? '#f39c12' : '#e74c3c'}">
+                ${phase.hasRepescage ? '⟳ Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? '🎯 Losers Bracket' : '✗ Eliminate')}:
               </span> 
               <small style="color: #666">${escapeHtml(phase.eliminatedGoTo || '(non specificato)')}</small>
             </div>
@@ -5968,6 +6104,14 @@
                     </select>
                     <small style="color: #666">Seleziona il numero di squadre in questa fase</small>
                   </div>
+                  
+                  <div class="field" style="grid-column: 1 / -1">
+                    <label style="display: flex; align-items: center; gap: 8px; margin: 0">
+                      <input type="checkbox" id="wizard-losersPath" ${wizardState.phaseData.hasLosersPath ? 'checked' : ''}>
+                      🎯 Permettere un ramo per le perdenti del primo turno
+                    </label>
+                    <small style="color: #666">Le squadre che perdono nel primo turno potranno continuare in un altro ramo (Losers Bracket)</small>
+                  </div>
                 </div>
               </div>
             `;
@@ -5993,6 +6137,7 @@
                   wizardState.phaseData.hasRepescage = document.getElementById('wizard-repescage').checked;
                 } else {
                   wizardState.phaseData.numTeams = parseInt(document.getElementById('wizard-numTeams').value) || 4;
+                  wizardState.phaseData.hasLosersPath = document.getElementById('wizard-losersPath').checked;
                 }
                 
                 wizardState.step = 3;
@@ -6010,6 +6155,11 @@
           const eliminatedCount = wizardState.phaseData.type === 'groups'
             ? ((wizardState.phaseData.numGroups || 4) * 4) - qualifiedCount // Supponendo 4 squadre per girone
             : (wizardState.phaseData.numTeams || 4) / 2;
+          
+          // Label dinamico per le perdenti in knockout
+          const knockoutLosersLabel = wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath
+            ? 'Losers Bracket (Perdenti del primo turno)'
+            : 'Eliminate';
           
           // Calcola squadre dalla fase precedente
           const previousPhaseInfo = (() => {
@@ -6064,7 +6214,9 @@
                 <strong>📊 Flusso previsto da questa fase:</strong>
                 <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px">
                   <li><span style="color: #2ecc71">✓ Qualificate:</span> ~${qualifiedCount} squadre</li>
-                  ${wizardState.phaseData.hasRepescage ? '<li><span style="color: #f39c12">⟳ Ripescaggio:</span> ~' + eliminatedCount + ' squadre</li>' : '<li><span style="color: #e74c3c">✗ Eliminate:</span> ~' + eliminatedCount + ' squadre</li>'}
+                  ${wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath) 
+                    ? `<li><span style="color: #f39c12">🎯 ${knockoutLosersLabel}:</span> ~${eliminatedCount} squadre</li>` 
+                    : `<li><span style="color: #e74c3c">✗ Eliminate:</span> ~${eliminatedCount} squadre</li>`}
                 </ul>
               </div>
               
@@ -6081,7 +6233,7 @@ ${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
                 
                 <div class="field" style="grid-column: 1 / -1">
                   <label style="margin-bottom: 6px; display: block">
-                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : 'eliminate'} cosa faranno?</strong>
+                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath ? 'del losers bracket' : 'eliminate')} cosa faranno?</strong>
                   </label>
                   <textarea id="wizard-eliminatedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
                     placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Vengono eliminate dal torneo oppure...'}">
@@ -6126,6 +6278,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                   teamsAdvance: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.teamsAdvance : undefined,
                   hasRepescage: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.hasRepescage : false,
                   numTeams: wizardState.phaseData.type === 'knockout' ? wizardState.phaseData.numTeams : undefined,
+                  hasLosersPath: wizardState.phaseData.type === 'knockout' ? (wizardState.phaseData.hasLosersPath || false) : false,
                   qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
                   eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
                 }];
@@ -6237,6 +6390,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
             phaseData.hasRepescage = document.getElementById(`phase-repescage-${idx}`).checked;
           } else {
             phaseData.numTeams = parseInt(document.getElementById(`phase-numTeams-${idx}`).value) || 4;
+            phaseData.hasLosersPath = document.getElementById(`phase-losersPath-${idx}`) && document.getElementById(`phase-losersPath-${idx}`).checked;
           }
 
           return phaseData;

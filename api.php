@@ -3186,6 +3186,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
                 $numTeams = (int)($phase['numTeams'] ?? 4);
                 $validPowers = [2, 4, 8, 16, 32, 64, 128];
                 $phaseData['numTeams'] = in_array($numTeams, $validPowers) ? $numTeams : 4;
+                $phaseData['hasLosersPath'] = (bool)($phase['hasLosersPath'] ?? false);
             }
             
             $phases[] = $phaseData;

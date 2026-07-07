@@ -716,6 +716,32 @@
 
       <div id="page-groups" class="card page hidden">
         <h3>Gestione gironi</h3>
+        
+        <!-- Stato Fase Corrente -->
+        <div id="phaseStatusContainer" style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 2px solid #673ab7; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: none">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px">
+            <div>
+              <h4 style="margin: 0 0 8px 0; color: #673ab7; font-size: 14px">📌 Fase Corrente</h4>
+              <div id="currentPhaseInfo" style="background: white; padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.6">
+                <div><strong>Nome:</strong> <span id="currentPhaseName">-</span></div>
+                <div><strong>Stato:</strong> <span id="currentPhaseStatus">-</span></div>
+                <div><strong>Gironi:</strong> <span id="currentPhaseGroups">-</span></div>
+                <div><strong>Squadre Avanzate:</strong> <span id="currentPhaseAdvanced">-</span></div>
+              </div>
+            </div>
+            <div>
+              <h4 style="margin: 0 0 8px 0; color: #673ab7; font-size: 14px">➜ Prossima Fase</h4>
+              <div id="nextPhaseInfo" style="background: white; padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.6">
+                <div id="nextPhaseContent">Nessuna fase successiva</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: center">
+            <button class="btn btn-success" onclick="completePhase()" id="completePhaseBtn" style="display: none">✅ Completa Fase Corrente</button>
+            <button class="btn btn-info" onclick="loadPhaseStatus()" style="padding: 6px 12px; font-size: 12px">🔄 Aggiorna Status</button>
+          </div>
+        </div>
+        
         <div id="groupsWarning" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px; display: none">
           <strong>⚠️ Prerequisiti non soddisfatti:</strong>
           <ul style="margin: 8px 0; font-size: 13px;">
@@ -1219,6 +1245,8 @@
         renderPaymentAndNotes();
       } else if (page === 'news') {
         renderNews();
+      } else if (page === 'groups') {
+        loadPhaseStatus();
       }
     }
 
@@ -2908,6 +2936,85 @@
       } catch (e) { 
         console.error('Errore generateGroups:', e);
         await showInfoDialog('Errore', e.message); 
+      }
+    }
+
+    /**
+     * Carica e visualizza lo stato della fase corrente
+     */
+    async function loadPhaseStatus() {
+      try {
+        const response = await callApi('admin_get_current_phase', 'GET', null, true);
+        if (!response.ok) {
+          document.getElementById('phaseStatusContainer').style.display = 'none';
+          return;
+        }
+        
+        const current = response.currentPhase;
+        const next = response.nextPhase;
+        
+        // Mostra il container
+        document.getElementById('phaseStatusContainer').style.display = 'block';
+        
+        // Popola info fase corrente
+        document.getElementById('currentPhaseName').textContent = current.name;
+        document.getElementById('currentPhaseStatus').textContent = current.status.toUpperCase();
+        document.getElementById('currentPhaseGroups').textContent = current.groupCount || '0';
+        document.getElementById('currentPhaseAdvanced').textContent = current.advancedTeamsCount || '0';
+        
+        // Popola info prossima fase
+        if (next) {
+          document.getElementById('nextPhaseContent').innerHTML = `
+            <div><strong>Nome:</strong> ${next.name}</div>
+            <div><strong>Tipo:</strong> ${next.type === 'knockout' ? '🏆 Playoff' : '📊 Gironi'}</div>
+            <div><strong>Stato:</strong> ${next.status.toUpperCase()}</div>
+          `;
+        } else {
+          document.getElementById('nextPhaseContent').innerHTML = '<em>Nessuna fase successiva</em>';
+        }
+        
+        // Mostra bottone completa solo se fase è active
+        const completeBtn = document.getElementById('completePhaseBtn');
+        if (current.status === 'active' && next) {
+          completeBtn.style.display = 'inline-block';
+        } else {
+          completeBtn.style.display = 'none';
+        }
+      } catch (e) {
+        console.error('Errore loadPhaseStatus:', e);
+      }
+    }
+
+    /**
+     * Completa la fase corrente e fa avanzare a quella successiva
+     */
+    async function completePhase() {
+      try {
+        if (!confirm('Sei sicuro di voler completare la fase corrente e avanzare a quella successiva?')) {
+          return;
+        }
+        
+        const response = await callApi('admin_complete_phase', 'POST', {}, true);
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile completare la fase');
+          return;
+        }
+        
+        console.log('✅ Fase completata:', response.completedPhase);
+        
+        // Aggiorna UI
+        await loadPhaseStatus();
+        await refresh();
+        
+        // Se c'è una prossima fase, mostra messaggio
+        if (response.nextPhaseReady && response.nextPhase) {
+          await showInfoDialog('✅ Fase Completata', 
+            `La fase "${response.completedPhase.name}" è stata completata.\n\n` +
+            `La prossima fase è ora attiva: "${response.nextPhase.name}"`);
+        }
+      } catch (e) {
+        console.error('Errore completePhase:', e);
+        await showInfoDialog('Errore', e.message);
       }
     }
 

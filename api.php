@@ -2818,6 +2818,115 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+/**
+ * Ottiene la fase corrente con i suoi dettagli
+ */
+if ($action === 'admin_get_current_phase' && $method === 'GET') {
+    $state = readState();
+    ensurePhases($state);
+    
+    $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
+    $currentPhase = getPhase($state, $currentPhaseIdx);
+    
+    if (!$currentPhase) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Nessuna fase attiva trovata']);
+        exit;
+    }
+    
+    // Prepara info sulla prossima fase
+    $nextPhaseIdx = $currentPhaseIdx + 1;
+    $nextPhase = getPhase($state, $nextPhaseIdx);
+    
+    // Conta squadre avanzate dalla fase corrente
+    $advancedTeamsCount = 0;
+    if ($currentPhase['type'] === 'groups') {
+        $standings = computeStandings($state);
+        $advancedTeamsCount = count($standings);
+    }
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'currentPhase' => [
+            'phaseIdx' => $currentPhase['phaseIdx'],
+            'name' => $currentPhase['name'],
+            'type' => $currentPhase['type'],
+            'status' => $currentPhase['status'],
+            'groupCount' => count($currentPhase['groups'] ?? []),
+            'matchCount' => count($currentPhase['matches'] ?? []),
+            'advancedTeamsCount' => $advancedTeamsCount,
+            'createdAt' => $currentPhase['createdAt']
+        ],
+        'nextPhase' => $nextPhase ? [
+            'phaseIdx' => $nextPhase['phaseIdx'],
+            'name' => $nextPhase['name'],
+            'type' => $nextPhase['type'],
+            'status' => $nextPhase['status']
+        ] : null
+    ]);
+    exit;
+}
+
+/**
+ * Completa la fase corrente e fa avanzare a quella successiva
+ */
+if ($action === 'admin_complete_phase' && $method === 'POST') {
+    withStateTransaction(function (&$state) {
+        ensurePhases($state);
+        
+        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
+        $currentPhase = getPhase($state, $currentPhaseIdx);
+        
+        if (!$currentPhase) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Nessuna fase attiva trovata']);
+            exit;
+        }
+        
+        if ($currentPhase['status'] === 'completed') {
+            jsonResponse(400, ['ok' => false, 'error' => 'La fase è già stata completata']);
+            exit;
+        }
+        
+        // Marca la fase corrente come completata
+        setPhaseStatus($state, $currentPhaseIdx, 'completed');
+        error_log("✅ Fase {$currentPhaseIdx} ({$currentPhase['name']}) completata");
+        
+        // Prepara la prossima fase
+        $nextPhaseIdx = $currentPhaseIdx + 1;
+        $nextPhase = getPhase($state, $nextPhaseIdx);
+        
+        $result = [
+            'ok' => true,
+            'completedPhase' => [
+                'phaseIdx' => $currentPhaseIdx,
+                'name' => $currentPhase['name'],
+                'status' => 'completed'
+            ],
+            'nextPhaseReady' => false,
+            'nextPhase' => null
+        ];
+        
+        // Se esiste la fase successiva, l'attiva
+        if ($nextPhase && $nextPhase['status'] !== 'active') {
+            setPhaseStatus($state, $nextPhaseIdx, 'active');
+            $state['currentPhaseIdx'] = $nextPhaseIdx;
+            
+            $result['nextPhaseReady'] = true;
+            $result['nextPhase'] = [
+                'phaseIdx' => $nextPhaseIdx,
+                'name' => $nextPhase['name'],
+                'type' => $nextPhase['type'],
+                'status' => 'active'
+            ];
+            
+            error_log("✅ Fase {$nextPhaseIdx} ({$nextPhase['name']}) ora attiva");
+        }
+        
+        return $result;
+    });
+    
+    jsonResponse(200, ['ok' => true]);
+}
+
 if ($action === 'admin_move_team_group' && $method === 'POST') {
     $body = bodyJson();
     $teamId = (string)($body['teamId'] ?? '');

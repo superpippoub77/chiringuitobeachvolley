@@ -862,6 +862,140 @@
     let state = null;
     let config = null;
     let tournamentStartDate = new Date('2026-07-14T19:30:00'); // Default fallback
+    
+    // Timer state per gestire i timer di tutte le partite
+    const timerState = {
+      activeTimers: {}, // { matchId: { running: bool, seconds: number, interval: id } }
+      get(matchId) {
+        if (!this.activeTimers[matchId]) {
+          this.activeTimers[matchId] = { running: false, seconds: 0, interval: null };
+        }
+        return this.activeTimers[matchId];
+      }
+    };
+    
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+    
+    function startTimer(matchId) {
+      const timer = timerState.get(matchId);
+      if (timer.running) return;
+      
+      timer.running = true;
+      timer.interval = setInterval(() => {
+        timer.seconds++;
+        updateTimerDisplay(matchId);
+      }, 1000);
+      
+      updateTimerDisplay(matchId);
+    }
+    
+    function stopTimer(matchId) {
+      const timer = timerState.get(matchId);
+      if (!timer.running) return;
+      
+      timer.running = false;
+      clearInterval(timer.interval);
+      timer.interval = null;
+      updateTimerDisplay(matchId);
+    }
+    
+    function resetTimer(matchId) {
+      const timer = timerState.get(matchId);
+      timer.running = false;
+      if (timer.interval) clearInterval(timer.interval);
+      timer.interval = null;
+      timer.seconds = 0;
+      updateTimerDisplay(matchId);
+    }
+    
+    function updateTimerDisplay(matchId) {
+      const timer = timerState.get(matchId);
+      const el = document.getElementById(`timer-${matchId}`);
+      const btnStart = document.getElementById(`btn-start-${matchId}`);
+      const btnStop = document.getElementById(`btn-stop-${matchId}`);
+      
+      if (el) {
+        el.textContent = formatTime(timer.seconds);
+        el.style.color = timer.running ? '#ea5b0c' : '#666';
+      }
+      
+      if (btnStart) btnStart.style.opacity = timer.running ? '0.5' : '1';
+      if (btnStop) btnStop.style.opacity = timer.running ? '1' : '0.5';
+    }
+    
+    function openTimerModal(matchId, team1, team2) {
+      const timer = timerState.get(matchId);
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      backdrop.onclick = (e) => {
+        if (e.target === backdrop) backdrop.remove();
+      };
+      
+      backdrop.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <h4>⏱️ Timer Partita</h4>
+            <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+          </div>
+          <div class="modal-body" style="text-align: center;">
+            <div style="font-size: 14px; margin-bottom: 12px; color: #666;">
+              ${esc(team1)} vs ${esc(team2)}
+            </div>
+            <div style="font-size: 48px; font-weight: bold; color: #ea5b0c; margin: 20px 0; font-family: monospace;">
+              ${formatTime(timer.seconds)}
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 16px;">
+              <button id="btn-modal-start" class="btn" style="flex: 1" onclick="startTimer('${matchId}'); document.getElementById('btn-modal-start').style.opacity = '0.5'; document.getElementById('btn-modal-stop').style.opacity = '1';">
+                ▶️ Avvia
+              </button>
+              <button id="btn-modal-stop" class="btn" style="flex: 1; opacity: 0.5" onclick="stopTimer('${matchId}'); document.getElementById('btn-modal-start').style.opacity = '1'; document.getElementById('btn-modal-stop').style.opacity = '0.5';">
+                ⏸️ Pausa
+              </button>
+              <button class="btn" style="flex: 1" onclick="resetTimer('${matchId}'); document.getElementById('timer-modal-display').textContent = '00:00:00';">
+                🔄 Reset
+              </button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="this.closest('.modal-backdrop').remove()">Chiudi</button>
+            <button class="btn btn-success" onclick="saveMatchDuration('${matchId}', ${timer.seconds}); this.closest('.modal-backdrop').remove();">
+              💾 Salva Tempo
+            </button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(backdrop);
+      
+      // Aggiorna il display del timer nel modale in tempo reale
+      const updateInterval = setInterval(() => {
+        if (!document.body.contains(backdrop)) {
+          clearInterval(updateInterval);
+          return;
+        }
+        const t = timerState.get(matchId);
+        const displayEl = backdrop.querySelector('[style*="font-size: 48px"]');
+        if (displayEl) {
+          displayEl.textContent = formatTime(t.seconds);
+        }
+      }, 100);
+    }
+    
+    async function saveMatchDuration(matchId, seconds) {
+      try {
+        // Salva la durata della partita
+        // Nota: Questo richiede implementazione nel backend per salvare matchDuration
+        await api('save_match_duration', 'POST', { matchId, duration: seconds });
+        await showInfoDialog('Successo', `⏱️ Tempo di gioco salvato: ${formatTime(seconds)}`);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Non è stato possibile salvare il tempo: ' + (e.message || 'Errore sconosciuto'));
+      }
+    }
 
     async function api(action, method = 'GET', body = null) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
@@ -1091,14 +1225,24 @@
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${state.groupMatches.map(m => {
+      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th><th>⏱️ Timer</th></tr></thead><tbody>${state.groupMatches.map(m => {
         const status = getMatchStatus(m);
+        const timer = timerState.get(m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`);
+        const matchId = m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`;
+        const savedDuration = m.duration ? formatTime(m.duration) : null;
+        const timerDisplay = savedDuration ? `<span style="color: #2e5d1f; font-weight: bold;">${savedDuration}</span>` : `<span id="timer-${matchId}" style="font-family: monospace; font-weight: bold; color: #666;">00:00:00</span>`;
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
           <td>${formatDateIta(m.dayDate)} ${esc(m.time)}</td>
           <td>${m.group}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+          <td style="text-align: center">
+            ${timerDisplay}
+            <button class="btn" style="padding: 4px 8px; font-size: 12px; margin-left: 8px" onclick="openTimerModal('${matchId}', '${esc(m.team1Name)}', '${esc(m.team2Name)}')">
+              🎯 Gestisci
+            </button>
+          </td>
         </tr>`;
       }).join('')}</tbody></table>`;
     }

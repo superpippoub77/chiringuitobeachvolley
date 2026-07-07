@@ -1013,6 +1013,7 @@ function publicState(array $state): array {
         }, $state['groups'])),
         'groupMatches' => array_values(array_map(function ($m) use ($teamMap) {
             return [
+                'matchId' => $m['id'],
                 'id' => $m['id'],
                 'group' => $m['group'],
                 'team1Id' => $m['team1Id'],
@@ -1024,7 +1025,8 @@ function publicState(array $state): array {
                 'date' => $m['date'] ?? null,
                 'courtName' => $m['courtName'] ?? null,
                 'startTime' => $m['startTime'] ?? null,
-                'endTime' => $m['endTime'] ?? null
+                'endTime' => $m['endTime'] ?? null,
+                'duration' => $m['duration'] ?? null
             ];
         }, $state['groupMatches'])),
         'standings' => computeStandings($state),
@@ -5323,6 +5325,104 @@ if ($action === 'admin_generate_from_flow' && $method === 'POST') {
         jsonResponse(500, [
             'ok' => false,
             'error' => 'Errore durante elaborazione flusso: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// Salva la durata di una partita
+if ($action === 'save_match_duration' && $method === 'POST') {
+    try {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $matchId = $data['matchId'] ?? null;
+        $duration = intval($data['duration'] ?? 0);
+        
+        if (!$matchId) {
+            jsonResponse(400, ['ok' => false, 'error' => 'matchId non fornito']);
+        }
+        
+        // Leggi lo stato
+        $state = readJsonFile(DATA_FILE, []);
+        $found = false;
+        
+        // Cerca la partita nei groupMatches
+        foreach ($state['groupMatches'] ?? [] as &$match) {
+            if (($match['id'] ?? '') === $matchId) {
+                $match['duration'] = $duration;
+                $found = true;
+                break;
+            }
+        }
+        
+        // Se non trovato nei groupMatches, cerca nei playoff matches
+        if (!$found) {
+            $playoff = $state['playoff'] ?? [];
+            
+            // Cerca in quarterFinals
+            foreach ($playoff['quarterFinals'] ?? [] as &$match) {
+                if (($match['id'] ?? '') === $matchId) {
+                    $match['duration'] = $duration;
+                    $found = true;
+                    break;
+                }
+            }
+            
+            // Cerca in semiFinals
+            if (!$found) {
+                foreach ($playoff['semiFinals'] ?? [] as &$match) {
+                    if (($match['id'] ?? '') === $matchId) {
+                        $match['duration'] = $duration;
+                        $found = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Cerca in thirdPlace
+            if (!$found && isset($playoff['thirdPlace'])) {
+                if (($playoff['thirdPlace']['id'] ?? '') === $matchId) {
+                    $playoff['thirdPlace']['duration'] = $duration;
+                    $found = true;
+                }
+            }
+            
+            // Cerca in final
+            if (!$found && isset($playoff['final'])) {
+                if (($playoff['final']['id'] ?? '') === $matchId) {
+                    $playoff['final']['duration'] = $duration;
+                    $found = true;
+                }
+            }
+            
+            if ($found) {
+                $state['playoff'] = $playoff;
+            }
+        }
+        
+        if ($found) {
+            writeJsonFile(DATA_FILE, $state);
+            
+            // Formatta il tempo
+            $hours = intdiv($duration, 3600);
+            $minutes = intdiv($duration % 3600, 60);
+            $seconds = $duration % 60;
+            $timeStr = sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
+            
+            jsonResponse(200, [
+                'ok' => true,
+                'message' => "Durata partita salvata: $timeStr",
+                'duration' => $duration,
+                'formatted' => $timeStr
+            ]);
+        } else {
+            jsonResponse(404, [
+                'ok' => false,
+                'error' => 'Partita non trovata'
+            ]);
+        }
+    } catch (Exception $e) {
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore nel salvataggio della durata: ' . $e->getMessage()
         ]);
     }
 }

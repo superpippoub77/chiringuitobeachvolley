@@ -5397,6 +5397,75 @@
       });
     }
 
+    // Validazione intelligente della configurazione delle fasi
+    function validatePhaseConfiguration() {
+      const phases = config.phases || [];
+      const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
+      const maxTeams = config.tournament?.maxTeams || 16;
+      const teamsToUse = approvedCount > 0 ? approvedCount : maxTeams;
+      
+      const warnings = [];
+      let teamsInPlay = teamsToUse;
+
+      phases.forEach((phase, idx) => {
+        const phaseNum = idx + 1;
+        const phaseName = phase.name || `Fase ${phaseNum}`;
+        
+        if (phase.type === 'groups') {
+          const numGroups = phase.numGroups || 4;
+          const teamsPerGroup = phase.teamsAdvance || 2;
+          const qualified = numGroups * teamsPerGroup;
+          
+          // Avvertimento: squadre non sufficienti per i gironi
+          if (teamsInPlay < numGroups * 2) {
+            warnings.push({
+              type: 'error',
+              phase: phaseName,
+              message: `❌ Squadre insufficienti: ${teamsInPlay} squadre non bastano per ${numGroups} gironi (minimo ${numGroups * 2})`
+            });
+          }
+          
+          // Avvertimento: squadre per girone non uniformi
+          if (teamsInPlay % numGroups !== 0) {
+            const squadrePerGirone = Math.floor(teamsInPlay / numGroups);
+            warnings.push({
+              type: 'warning',
+              phase: phaseName,
+              message: `⚠️ Squadre non uniformi: ${teamsInPlay} squadre in ${numGroups} gironi non è divisibile. Risultato: ${squadrePerGirone} per girone + ${teamsInPlay % numGroups} extra`
+            });
+          }
+          
+          teamsInPlay = qualified + (phase.hasRepescage ? Math.max(0, teamsInPlay - qualified) : 0);
+        } 
+        else if (phase.type === 'knockout') {
+          const numTeams = phase.numTeams || 4;
+          
+          // Validazione: numero squadre deve essere potenza di 2
+          const isPowerOf2 = (numTeams & (numTeams - 1)) === 0 && numTeams > 0;
+          if (!isPowerOf2) {
+            warnings.push({
+              type: 'error',
+              phase: phaseName,
+              message: `❌ Numero non valido: ${numTeams} non è una potenza di 2. Usa 2, 4, 8, 16, 32, 64, 128`
+            });
+          }
+          
+          // Avvertimento: numero squadre non corrisponde alla fase precedente
+          if (idx > 0 && teamsInPlay !== numTeams) {
+            warnings.push({
+              type: 'warning',
+              phase: phaseName,
+              message: `⚠️ Mismatch squadre: dalla fase precedente arrivano ${teamsInPlay} squadre, ma la fase ${phaseNum} è configurata per ${numTeams}. ${teamsInPlay < numTeams ? 'Mancano ' + (numTeams - teamsInPlay) + ' squadre' : 'Avanzano ' + (teamsInPlay - numTeams) + ' squadre non usate'}`
+            });
+          }
+          
+          teamsInPlay = Math.ceil(numTeams / 2);
+        }
+      });
+
+      return warnings;
+    }
+
     function calculatePhaseFlows() {
       const phases = config.phases || [];
       const flows = [];
@@ -5793,12 +5862,57 @@
             ? ((wizardState.phaseData.numGroups || 4) * 4) - qualifiedCount // Supponendo 4 squadre per girone
             : (wizardState.phaseData.numTeams || 4) / 2;
           
+          // Calcola squadre dalla fase precedente
+          const previousPhaseInfo = (() => {
+            if (wizardState.phaseData.phaseNumber === 1) {
+              const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
+              const maxTeams = config.tournament?.maxTeams || 16;
+              const teamsToUse = approvedCount > 0 ? approvedCount : maxTeams;
+              return {
+                teamsIn: teamsToUse,
+                phaseName: '🎯 Iscritti',
+                description: `Questo è il primo turno, ${teamsToUse} squadre iscritte/approvate`
+              };
+            } else {
+              const prevPhase = phases[wizardState.phaseData.phaseNumber - 2];
+              if (!prevPhase) return null;
+              
+              let teamsFromPrev = 0;
+              if (prevPhase.type === 'groups') {
+                const numGroups = prevPhase.numGroups || 4;
+                const teamsPerGroup = prevPhase.teamsAdvance || 2;
+                teamsFromPrev = numGroups * teamsPerGroup;
+                if (prevPhase.hasRepescage) {
+                  teamsFromPrev += Math.max(0, 12 - teamsFromPrev); // Stima
+                }
+              } else {
+                teamsFromPrev = Math.ceil((prevPhase.numTeams || 4) / 2);
+              }
+              
+              return {
+                teamsIn: teamsFromPrev,
+                phaseName: prevPhase.name || `Fase ${wizardState.phaseData.phaseNumber - 1}`,
+                description: `Da questa fase arrivano ${teamsFromPrev} squadre`
+              };
+            }
+          })();
+          
           bodyHtml = `
             <div style="font-size: 13px">
               <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Routing delle Squadre</strong></p>
               
+              ${previousPhaseInfo ? `
+              <div style="background: #ecf5ff; border: 1px solid #0078d4; border-radius: 4px; padding: 10px; margin-bottom: 12px">
+                <strong>📥 Fase Precedente:</strong>
+                <div style="margin-top: 6px; padding: 8px; background: white; border-radius: 2px; color: #003b6f">
+                  <strong>${escapeHtml(previousPhaseInfo.phaseName)}</strong><br>
+                  <small>${previousPhaseInfo.description}</small>
+                </div>
+              </div>
+              ` : ''}
+              
               <div style="background: #f0f8ff; border: 1px solid #87ceeb; border-radius: 4px; padding: 10px; margin-bottom: 12px">
-                <strong>📊 Flusso previsto:</strong>
+                <strong>📊 Flusso previsto da questa fase:</strong>
                 <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px">
                   <li><span style="color: #2ecc71">✓ Qualificate:</span> ~${qualifiedCount} squadre</li>
                   ${wizardState.phaseData.hasRepescage ? '<li><span style="color: #f39c12">⟳ Ripescaggio:</span> ~' + eliminatedCount + ' squadre</li>' : '<li><span style="color: #e74c3c">✗ Eliminate:</span> ~' + eliminatedCount + ' squadre</li>'}
@@ -5947,9 +6061,34 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
           return;
         }
 
+        // Validazione intelligente della configurazione
+        const warnings = validatePhaseConfiguration();
+        if (warnings.length > 0) {
+          let warningHtml = '<div style="font-size: 13px">';
+          warnings.forEach(w => {
+            const bgColor = w.type === 'error' ? '#ffebee' : '#fff3cd';
+            const borderColor = w.type === 'error' ? '#ef5350' : '#ffc107';
+            warningHtml += `
+              <div style="background: ${bgColor}; border-left: 4px solid ${borderColor}; padding: 8px; margin-bottom: 8px; border-radius: 2px">
+                <strong>${w.phase}:</strong> ${w.message}
+              </div>
+            `;
+          });
+          warningHtml += '</div>';
+
+          const shouldContinue = await showConfirmDialog(
+            'Avvertimenti Configurazione',
+            warningHtml,
+            'Salva comunque',
+            'Annulla'
+          );
+
+          if (!shouldContinue) return;
+        }
+
         await callApi('admin_update_config', 'POST', { phases: phasesToSave }, true);
         config.phases = phasesToSave;
-        await showInfoDialog('Successo', 'Fasi salvate con successo');
+        await showInfoDialog('Successo', '✅ Fasi salvate con successo!\n\n💡 Usa il pulsante "🎬 Simula Torneo" per verificare il flusso completo.');
         renderPhases();
         updateButtonStates();
       } catch (e) {

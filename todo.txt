@@ -88,4 +88,6 @@ Per ogni torneo matti una scheda kit (non obbligatorio) di cosa cosegneremo all'
 Ogni singola ezione di Impostazioni riesci a strutturarla in modalità tab e compatibile con mobile? ✅✅
 Per ogni giocatore dai la possiilità di caricare l'immagine ✅
 Inserimento dello sponsor non funziona. ✅ [RISOLTO: Rimosso bin2hex() non disponibile in JS, sistemato array con indici sparsi, coerenza risposta API]
-La creazione delle fasi deve essere pilotata in quanto se uno costruisce prima fase a gironi poi deve capore cosa fare per le qualificate e quelle non qualificate uindi le fasi successive dipendono dalle fasi precedenti e nelle succssive il numero di squadre dipende dalla fase precedente
+La creazione delle fasi deve essere pilotata in quanto se uno costruisce prima fase a gironi poi deve capore cosa fare per le qualificate e quelle non qualificate uindi le fasi successive dipendono dalle fasi precedenti e nelle succssive il numero di squadre dipende dalla fase precedente ✅
+Quindi per i passi successivi delle fasi deve selezonare il blocco ad esempio di chi passa e decidere cosa fare, idem di quelli e dedidere cosa fare e così via, giusto?✅
+Aggiungi un timer su tabellone affinchè si conteggi quanto duri la partita e venga poi salvato (opzionalmente) nel risultato finale.✅

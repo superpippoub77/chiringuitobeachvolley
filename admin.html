@@ -5561,177 +5561,159 @@
       const phases = config.phases || [];
       if (phases.length === 0) return '';
 
-      // Crea struttura ad albero
       const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
       const totalTeams = approvedCount > 0 ? approvedCount : (config.tournament?.maxTeams || 16);
 
-      let html = `
-        <div style="background: #f9f3e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto">
-          <h4 style="margin: 0 0 16px 0; color: #6b5d45">🌳 Workflow Torneo - Albero Diramazioni</h4>
-          <div style="display: flex; gap: 0; align-items: flex-start; flex-wrap: wrap; min-height: 400px; position: relative">
-      `;
+      // Calcola struttura bracket
+      const bracket = {
+        stages: [], // Array di stadi (colonne)
+        width: 0,
+        height: 0
+      };
 
-      // Crea visualizzazione ad albero
-      let processedPhases = new Set();
-      let treeHtml = '';
-      let depthCounter = 0;
+      // Crea stadi per il ramo qualified (main bracket)
+      let currentTeams = totalTeams;
+      let stageIdx = 0;
 
-      function renderTreeNode(phaseIdx, branch, teamsIn, depth = 0, parentX = 0) {
-        const nodeKey = `${phaseIdx}-${branch}`;
-        if (processedPhases.has(nodeKey)) return { html: '', nextTeams: 0 };
+      for (let i = 0; i < phases.length; i++) {
+        const phase = phases[i];
+        if (phase.branch === 'eliminated' || phase.type === 'subtournament') continue;
 
-        processedPhases.add(nodeKey);
+        let qualified = currentTeams;
+        let eliminated = 0;
 
-        if (phaseIdx >= phases.length) return { html: '', nextTeams: 0 };
-
-        const phase = phases[phaseIdx];
-        if (phase.branch !== branch && !(phaseIdx === 0 && branch === 'root')) return { html: '', nextTeams: 0 };
-
-        // Calcola squadre qualificate e eliminate
-        let teamStats = {};
         if (phase.type === 'groups') {
           const numGroups = phase.numGroups || 4;
           const teamsAdvance = phase.teamsAdvance || 2;
-          const qualified = numGroups * teamsAdvance;
-          const eliminated = Math.max(0, teamsIn - qualified);
-          teamStats = { qualified, eliminated };
-        } else {
-          teamStats = { qualified: Math.ceil(teamsIn / 2), eliminated: Math.floor(teamsIn / 2) };
+          qualified = numGroups * teamsAdvance;
+          eliminated = Math.max(0, currentTeams - qualified);
+        } else if (phase.type === 'knockout') {
+          qualified = Math.ceil(currentTeams / 2);
+          eliminated = Math.floor(currentTeams / 2);
         }
 
-        // Controlla se esiste una fase successiva per il ramo 'qualified'
-        const hasQualifiedNext = phases.slice(phaseIdx + 1).some(p => p.branch === 'qualified');
-        
-        // Controlla se esiste una fase successiva per il ramo 'eliminated'
-        const hasEliminatedNext = phases.slice(phaseIdx + 1).some(p => p.branch === 'eliminated');
+        bracket.stages.push({
+          phaseIdx: i,
+          phaseName: phase.name,
+          phaseType: phase.type,
+          teamsIn: currentTeams,
+          teamsOut: qualified,
+          eliminated,
+          branch: phase.branch || 'qualified',
+          phase
+        });
 
-        const bgColor = branch === 'qualified' ? '#e8f5e9' : (branch === 'eliminated' ? '#fff3e0' : '#f0f8ff');
-        const borderColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
-        const titleColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
+        currentTeams = qualified;
+        stageIdx++;
+      }
 
-        // Rendi cliccabili i link alle fasi successive
-        const qualificateLink = branch === 'root' && !hasQualifiedNext ? 
-          `<div onclick="openPhaseWizard('qualified', ${teamStats.qualified})" style="cursor: pointer; padding: 6px 8px; border-radius: 4px; background: rgba(46, 204, 113, 0.1); transition: all 0.2s; border-left: 3px solid #2ecc71" onmouseover="this.style.background='rgba(46, 204, 113, 0.2)'; this.style.boxShadow='0 2px 6px rgba(46,204,113,0.3)'" onmouseout="this.style.background='rgba(46, 204, 113, 0.1)'; this.style.boxShadow='none'">
-            <span style="color: #2ecc71; font-weight: 500">✓ Qualificate: <strong>${teamStats.qualified}</strong> squadre</span>
-            <span style="color: #999; font-size: 11px; margin-left: 8px">[clicca per configurare]</span>
-          </div>` :
-          `<div style="color: #2ecc71; margin-top: 4px">✓ Qualificate: <strong>${teamStats.qualified}</strong></div>`;
+      // Calcola dimensioni
+      const stageWidth = 200;
+      const stageHeight = 60;
+      const gapX = 80;
+      const gapY = 80;
+      const marginX = 40;
+      const marginY = 40;
 
-        const eliminateLabel = phase.hasRepescage ? 'Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? 'Losers Bracket' : 'Eliminate');
-        const eliminateIcon = phase.hasRepescage ? '⟳' : (phase.hasLosersPath && phase.type === 'knockout' ? '🎯' : '✗');
-        const eliminateColor = (phase.hasRepescage || phase.hasLosersPath) ? '#ff9800' : '#d13438';
+      bracket.width = (bracket.stages.length * stageWidth) + ((bracket.stages.length - 1) * gapX) + (marginX * 2);
+      bracket.height = 500;
 
-        const eliminateLink = branch === 'root' && !hasEliminatedNext && teamStats.eliminated > 0 ?
-          `<div onclick="openPhaseWizard('eliminated', ${teamStats.eliminated})" style="cursor: pointer; padding: 6px 8px; border-radius: 4px; background: rgba(255, 152, 0, 0.1); transition: all 0.2s; border-left: 3px solid ${eliminateColor}; margin-top: 6px" onmouseover="this.style.background='rgba(255, 152, 0, 0.2)'; this.style.boxShadow='0 2px 6px rgba(255,152,0,0.3)'" onmouseout="this.style.background='rgba(255, 152, 0, 0.1)'; this.style.boxShadow='none'">
-            <span style="color: ${eliminateColor}; font-weight: 500">${eliminateIcon} ${eliminateLabel}: <strong>${teamStats.eliminated}</strong> squadre</span>
-            <span style="color: #999; font-size: 11px; margin-left: 8px">[clicca per configurare]</span>
-          </div>` :
-          (phase.hasRepescage && teamStats.eliminated > 0 ? 
-            `<div style="color: #ff9800; margin-top: 2px">⟳ Ripescaggio: <strong>${teamStats.eliminated}</strong></div>` : 
-            (phase.hasLosersPath && teamStats.eliminated > 0 ? 
-              `<div style="color: #ff9800; margin-top: 2px">🎯 Losers Bracket: <strong>${teamStats.eliminated}</strong></div>` :
-              (teamStats.eliminated > 0 ? `<div style="color: #d13438; margin-top: 2px">✗ Eliminate: <strong>${teamStats.eliminated}</strong></div>` : '')
-            )
-          );
+      // Genera SVG per le linee di connessione
+      const svgId = 'bracket-svg-' + Math.random().toString(36).substr(2, 9);
+      let html = `
+        <div style="background: #f9f3e6; border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto">
+          <h4 style="margin: 0 0 16px 0; color: #6b5d45">🎬 Workflow Torneo - Bracket</h4>
+          <div style="position: relative; width: 100%; min-height: 500px">
+            <svg id="${svgId}" width="100%" height="500" style="position: absolute; top: 0; left: 0; background: transparent; z-index: 1">
+            </svg>
+            <div style="display: flex; gap: ${gapX}px; align-items: flex-start; padding: ${marginY}px ${marginX}px; position: relative; z-index: 2; min-width: fit-content">
+      `;
 
-        let nodeHtml = `
+      // Renderizza gli stadi
+      bracket.stages.forEach((stage, idx) => {
+        const phase = stage.phase;
+        const bgColor = '#e8f5e9';
+        const borderColor = '#2ecc71';
+
+        // Info sulla fase
+        let phaseInfo = '';
+        if (phase.type === 'groups') {
+          phaseInfo = `${phase.numGroups}G × ${phase.teamsAdvance}T`;
+        } else if (phase.type === 'knockout') {
+          phaseInfo = `${stage.teamsIn}T`;
+        }
+
+        html += `
           <div style="
-            background: ${bgColor}; 
-            border: 3px solid ${borderColor}; 
-            border-radius: 8px; 
-            padding: 12px 14px; 
-            min-width: 240px; 
-            margin: 0 16px 24px 0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             flex-shrink: 0;
+            min-width: ${stageWidth}px;
+            background: ${bgColor};
+            border: 3px solid ${borderColor};
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             position: relative;
-          ">
-            <div style="font-weight: bold; color: ${titleColor}; margin-bottom: 8px; font-size: 14px">
-              ${branch === 'root' ? '📥' : (branch === 'qualified' ? '✅' : '❌')} 
+          " class="bracket-stage" data-stage="${idx}">
+            <div style="font-weight: bold; color: ${borderColor}; font-size: 13px; margin-bottom: 6px">
               ${escapeHtml(phase.name)}
             </div>
-            <div style="font-size: 12px; line-height: 1.6; color: #333">
-              <div><span style="color: #666">📥 In ingresso:</span> <strong>${teamsIn} squadre</strong></div>
-              ${qualificateLink}
-              ${eliminateLink}
-              ${phase.type === 'knockout' && phase.wildcardTeams > 0 ? 
-                `<div style="color: #ff9800; margin-top: 4px; padding: 6px 8px; background: #fff3cd; border-radius: 3px; border-left: 3px solid #ff9800;">
-                  <span style="font-size: 11px"><strong>🎯 ${phase.wildcardTeams}</strong> wildcard dalle migliori non qualificate</span>
-                </div>` : ''
-              }
+            <div style="font-size: 11px; color: #666; margin-bottom: 4px">
+              <div>${phaseInfo}</div>
+              <div style="margin-top: 2px"><span style="color: #2ecc71">IN: ${stage.teamsIn}</span></div>
+              <div style="color: #2ecc71">OUT: ${stage.teamsOut}</div>
             </div>
-            ${phase.qualifiedGoTo && hasQualifiedNext ? `
-              <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid ${borderColor}">
-                <small>📍 Qualificate → ${escapeHtml(phase.qualifiedGoTo)}</small>
-              </div>
-            ` : ''}
-            ${phase.eliminatedGoTo && hasEliminatedNext ? `
-              <div style="font-size: 11px; color: #666; margin-top: 4px">
-                <small>📍 ${phase.hasRepescage ? 'Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? 'Losers Bracket' : 'Eliminate')} → ${escapeHtml(phase.eliminatedGoTo)}</small>
+            ${phase.wildcardTeams > 0 ? `
+              <div style="font-size: 10px; color: #ff9800; margin-top: 4px; padding: 4px; background: #fff9e6; border-radius: 2px">
+                🎁 ${phase.wildcardTeams} wildcard
               </div>
             ` : ''}
           </div>
         `;
-
-        // Trova fasi successive in base al ramo
-        let nextNodes = `<div style="display: flex; gap: 0; align-items: flex-start; flex-wrap: wrap; margin-left: 24px">`;
-        let hasChildren = false;
-
-        for (let nextIdx = phaseIdx + 1; nextIdx < phases.length; nextIdx++) {
-          const nextPhase = phases[nextIdx];
-          
-          if (nextPhase.branch === 'qualified' && branch === 'root') {
-            hasChildren = true;
-            const childResult = renderTreeNode(nextIdx, 'qualified', teamStats.qualified, depth + 1, depth);
-            nextNodes += childResult.html;
-          } else if (nextPhase.branch === 'eliminated' && branch === 'root' && phase.hasRepescage) {
-            hasChildren = true;
-            const childResult = renderTreeNode(nextIdx, 'eliminated', teamStats.eliminated, depth + 1, depth);
-            nextNodes += childResult.html;
-          }
-        }
-        nextNodes += '</div>';
-
-        return {
-          html: `
-            <div style="display: flex; flex-direction: column">
-              ${nodeHtml}
-              ${hasChildren ? `
-                <div style="margin-left: 12px; padding-left: 12px; border-left: 2px dashed #999">
-                  ${nextNodes}
-                </div>
-              ` : ''}
-            </div>
-          `,
-          nextTeams: teamStats.qualified
-        };
-      };
-
-      // Render la radice (prima fase)
-      if (phases.length > 0 && phases[0].branch === 'root') {
-        const firstPhase = phases[0];
-        let teamStats = {};
-        if (firstPhase.type === 'groups') {
-          const numGroups = firstPhase.numGroups || 4;
-          const teamsAdvance = firstPhase.teamsAdvance || 2;
-          const qualified = numGroups * teamsAdvance;
-          const eliminated = Math.max(0, totalTeams - qualified);
-          teamStats = { qualified, eliminated };
-        } else {
-          teamStats = { qualified: Math.ceil(totalTeams / 2), eliminated: Math.floor(totalTeams / 2) };
-        }
-
-        const treeResult = renderTreeNode(0, 'root', totalTeams, 0);
-        treeHtml = treeResult.html;
-      }
+      });
 
       html += `
-        <div style="display: flex; flex-direction: column; gap: 16px">
-          ${treeHtml}
+            </div>
+          </div>
         </div>
       `;
 
-      html += '</div></div>';
+      // Disegna linee di connessione con SVG
+      setTimeout(() => {
+        const svgEl = document.getElementById(svgId);
+        if (!svgEl) return;
+
+        const stages = document.querySelectorAll('.bracket-stage');
+        if (stages.length < 2) return;
+
+        const svg = svgEl;
+        svg.innerHTML = ''; // Pulisci SVG precedente
+
+        for (let i = 0; i < stages.length - 1; i++) {
+          const currentStage = stages[i];
+          const nextStage = stages[i + 1];
+
+          const fromRect = currentStage.getBoundingClientRect();
+          const toRect = nextStage.getBoundingClientRect();
+
+          const fromX = fromRect.right - svg.getBoundingClientRect().left;
+          const fromY = fromRect.top - svg.getBoundingClientRect().top + fromRect.height / 2;
+          const toX = toRect.left - svg.getBoundingClientRect().left;
+          const toY = toRect.top - svg.getBoundingClientRect().top + toRect.height / 2;
+
+          // Disegna linee di connessione
+          const midX = (fromX + toX) / 2;
+
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', `M ${fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${toX} ${toY}`);
+          path.setAttribute('stroke', '#ccc');
+          path.setAttribute('stroke-width', '2');
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke-linecap', 'round');
+          svg.appendChild(path);
+        }
+      }, 100);
+
       return html;
     }
 

@@ -1154,11 +1154,20 @@
       
       // Controlla se le iscrizioni sono chiuse
       const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
+      const registrationDeadline = config?.tournament?.registrationDeadline ?? '';
+      let isDeadlineExpired = false;
+      
+      if (registrationDeadline) {
+        const now = new Date();
+        const deadline = new Date(registrationDeadline);
+        isDeadlineExpired = now > deadline;
+      }
+      
       const closedNotice = document.getElementById('closedNotice');
       const submitBtn = document.getElementById('submitBtn');
       const registrationForm = document.getElementById('registrationForm');
       
-      if (registrationsClosed) {
+      if (registrationsClosed || isDeadlineExpired) {
         if (closedNotice) closedNotice.classList.remove('hidden');
         if (submitBtn) {
           submitBtn.disabled = true;
@@ -1397,6 +1406,17 @@
       if (config?.tournament?.registrationsClosed) {
         await showInfoDialog('🚫 Iscrizioni Chiuse', 'Le iscrizioni al torneo sono chiuse. Non è possibile iscrivere nuove squadre.');
         return;
+      }
+
+      // Controlla se la data di scadenza è stata superata
+      const registrationDeadline = config?.tournament?.registrationDeadline ?? '';
+      if (registrationDeadline) {
+        const now = new Date();
+        const deadline = new Date(registrationDeadline);
+        if (now > deadline) {
+          await showInfoDialog('🚫 Data Scadenza Superata', `La data di scadenza iscrizioni (${new Date(registrationDeadline).toLocaleString()}) è stata superata. Non è possibile iscrivere nuove squadre.`);
+          return;
+        }
       }
 
       if (!name || !player1 || !player2) {

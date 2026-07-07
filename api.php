@@ -377,7 +377,8 @@ function defaultConfig(): array {
             'timePerSetMinutes' => 35,
             'setupTimeMinutes' => 5,
             'maxTimeoutsPerSet' => 2,
-            'registrationsClosed' => false
+            'registrationsClosed' => false,
+            'registrationDeadline' => ''  // Data di fine iscrizioni (formato YYYY-MM-DD)
         ],
         'schedule' => [
             'courts' => []
@@ -2288,6 +2289,19 @@ if ($action === 'register_team' && $method === 'POST') {
             'error' => '🚫 Le iscrizioni al torneo sono chiuse',
             'registrationsClosed' => true
         ]);
+    }
+
+    // Controlla se la data di scadenza iscrizioni è stata superata
+    $deadline = $config['tournament']['registrationDeadline'] ?? '';
+    if (!empty($deadline)) {
+        $deadlineDate = strtotime($deadline);
+        if ($deadlineDate !== false && time() > $deadlineDate) {
+            jsonResponse(403, [
+                'ok' => false,
+                'error' => '🚫 La data di scadenza iscrizioni è stata superata',
+                'deadlineExpired' => true
+            ]);
+        }
     }
 
     $emailResult = null;

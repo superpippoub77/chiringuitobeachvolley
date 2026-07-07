@@ -1361,6 +1361,11 @@
                 </label>
                 <small style="color: #666; display: block; margin-top: 4px">Se spuntato, nessuna squadra può iscriversi (mostra messaggio di iscrizioni chiuse)</small>
               </div>
+              <div class="field" style="grid-column: span 2">
+                <label>📅 Data di fine iscrizioni</label>
+                <input id="cfg-registrationDeadline" type="datetime-local" value="${(t.registrationDeadline || '').replace('Z', '').replace(/:00$/, '')}" placeholder="Seleziona data e ora">
+                <small style="color: #666; display: block; margin-top: 4px">Dopo questa data/ora, nessuna squadra può iscriversi. Se vuoto, la data non è considerata.</small>
+              </div>
               <div class="field">
                 <label>Max giocatori per squadra</label>
                 <input id="cfg-maxPlayersPerTeam" type="number" min="1" max="12" value="${t.maxPlayersPerTeam || 3}" placeholder="Es: 3">
@@ -2147,7 +2152,8 @@
             timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
             setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
             maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
-            registrationsClosed: document.getElementById('cfg-registrationsClosed').checked
+            registrationsClosed: document.getElementById('cfg-registrationsClosed').checked,
+            registrationDeadline: document.getElementById('cfg-registrationDeadline').value.trim()
           },
           contact: {
             managerEmail: document.getElementById('cfg-managerEmail').value.trim()
@@ -6474,10 +6480,12 @@
           phaseData.teamsAdvance = numGroups * teamsPerGroup;
           phaseData.teamsRepescage = phase.hasRepescage ? Math.max(0, 12 - phaseData.teamsAdvance) : 0;
           phaseData.teamsEliminated = teamsInPlay - phaseData.teamsAdvance;
+          phaseData.showEliminated = phase.hasRepescage; // Mostra eliminate SOLO se repescaggio è abilitato
         } else {
           const numTeams = phase.numTeams || 4;
           phaseData.teamsAdvance = Math.ceil(numTeams / 2);
           phaseData.teamsEliminated = numTeams - phaseData.teamsAdvance;
+          phaseData.showEliminated = phase.hasLosersPath; // Mostra eliminate SOLO se losers path è abilitato
           phaseData.teamsRepescage = 0;
         }
 
@@ -6492,7 +6500,7 @@
               <div style="border-top: 1px solid #b3d9ff; padding-top: 6px; margin-top: 6px">
                 <div style="color: #107c10; margin-bottom: 3px">✅ Qualificate: <strong>${phaseData.teamsAdvance}</strong></div>
                 ${phaseData.teamsRepescage > 0 ? `<div style="color: #ffb900; margin-bottom: 3px">🔄 Ripescaggio: <strong>${phaseData.teamsRepescage}</strong></div>` : ''}
-                ${phaseData.teamsEliminated > 0 ? `<div style="color: #d13438">❌ Eliminate: <strong>${phaseData.teamsEliminated}</strong></div>` : ''}
+                ${phaseData.showEliminated && phaseData.teamsEliminated > 0 ? `<div style="color: #d13438">❌ Eliminate: <strong>${phaseData.teamsEliminated}</strong></div>` : ''}
               </div>
             </div>
           </div>
@@ -6701,12 +6709,23 @@
           const teamsAdvance = phase.teamsAdvance || 2;
           qualified = numGroups * teamsAdvance;
           eliminated = Math.max(0, qualifiedTeams - qualified);
+          // Solo se il repescaggio è abilitato, contiamo i team eliminati
+          if (!phase.hasRepescage) {
+            eliminated = 0;
+          }
         } else if (phase.type === 'knockout') {
           qualified = Math.ceil(qualifiedTeams / 2);
           eliminated = Math.floor(qualifiedTeams / 2);
+          // Solo se il losers path è abilitato, contiamo i team eliminati
+          if (!phase.hasLosersPath) {
+            eliminated = 0;
+          }
         } else if (phase.type === 'finale') {
           qualified = 1; // La finale ha 1 vincitore
           eliminated = Math.max(0, qualifiedTeams - 1);
+          if (!phase.hasLosersPath) {
+            eliminated = 0;
+          }
         }
 
         bracket.qualified.push({
@@ -6725,10 +6744,13 @@
       }
 
       // Seconda passa: crea il ramo eliminated (losers bracket)
-      eliminatedTeams = 0;
+      // Nota: eliminatedTeams viene mantenuto dal calcolo della prima passa
+      // Se non ci sono team eliminati (perché i flag non sono spuntati), 
+      // questa passa non aggiungerà nulla a bracket.eliminated
       for (let i = 0; i < phases.length; i++) {
         const phase = phases[i];
         if (phase.branch !== 'eliminated' && phase.branch !== 'repescaggio') continue;
+        if (eliminatedTeams === 0) break; // Salta se non ci sono team eliminati
 
         let qualified = eliminatedTeams;
         let eliminated = 0;
@@ -7005,11 +7027,11 @@
             <div style="background: #e8f5e9; padding: 8px; border-radius: 4px">
               <strong style="color: #107c10">✅ Vincono:</strong> <strong>${teamsAdvance}</strong>
             </div>
-            <div style="background: ${hasLosersPath ? '#fff8ce' : '#ffebee'}; padding: 8px; border-radius: 4px">
-              <strong style="color: ${hasLosersPath ? '#7f6000' : '#d13438'}">
-                ${hasLosersPath ? '🎯 Losers:' : '❌ Eliminate:'}
-              </strong> <strong>${teamsEliminated}</strong>
+            ${hasLosersPath ? `
+            <div style="background: #fff8ce; padding: 8px; border-radius: 4px">
+              <strong style="color: #7f6000">🎯 Losers:</strong> <strong>${teamsEliminated}</strong>
             </div>
+            ` : ''}
           </div>
           <small style="display: block; margin-top: 8px; color: #666; background: #f9f9f9; padding: 6px 8px; border-radius: 4px;">
             ${hasLosersPath 
@@ -7767,9 +7789,9 @@
                 <strong>📊 Flusso previsto da questa fase:</strong>
                 <ul style="margin: 8px 0; padding-left: 20px; font-size: 12px">
                   <li><span style="color: #2ecc71">✓ Qualificate:</span> ~${qualifiedCount} squadre</li>
-                  ${wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath) 
-                    ? `<li><span style="color: #f39c12">🎯 ${knockoutLosersLabel}:</span> ~${eliminatedCount} squadre</li>` 
-                    : `<li><span style="color: #e74c3c">✗ Eliminate:</span> ~${eliminatedCount} squadre</li>`}
+                  ${(wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath)) ? `
+                    <li><span style="color: #f39c12">🎯 ${knockoutLosersLabel}:</span> ~${eliminatedCount} squadre</li>
+                  ` : ''}
                 </ul>
               </div>
               

@@ -3856,6 +3856,103 @@ if ($action === 'admin_remove_sponsor' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'sponsors' => $config['sponsors']]);
 }
 
+// ==================== PLAYER IMAGES ====================
+
+if ($action === 'admin_upload_player_image' && $method === 'POST') {
+    requireAdmin();
+    
+    if (!isset($_FILES['playerImage'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+    }
+    
+    $file = $_FILES['playerImage'];
+    $teamId = $_POST['teamId'] ?? null;
+    $playerIndex = $_POST['playerIndex'] ?? null;
+    
+    if (!$teamId || $playerIndex === null || $playerIndex === '') {
+        jsonResponse(400, ['ok' => false, 'error' => 'teamId e playerIndex obbligatori']);
+    }
+    
+    $playerIndex = (int)$playerIndex;
+    
+    // Validazione file
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    
+    if (!in_array($mimeType, $allowedMimes)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Tipo file non supportato. Usa JPG, PNG, GIF o WebP']);
+    }
+    
+    if ($file['size'] > 5 * 1024 * 1024) {
+        jsonResponse(422, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+    }
+    
+    // Determina estensione
+    $ext = match($mimeType) {
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        default => 'jpg'
+    };
+    
+    // Salva il file
+    $filename = "player-${teamId}-${playerIndex}.${ext}";
+    $uploadsDir = __DIR__ . '/data/uploads';
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+    $filepath = $uploadsDir . '/' . $filename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel salvataggio del file']);
+    }
+    
+    // Aggiorna il team nello state
+    withStateTransaction(function (&$state) use ($teamId, $playerIndex, $filename) {
+        $found = false;
+        foreach ($state['teams'] as &$team) {
+            if ($team['id'] !== $teamId) continue;
+            $found = true;
+            
+            if (!isset($team['players']) || !is_array($team['players'])) {
+                $team['players'] = [];
+            }
+            
+            // Controlla che l'indice del giocatore sia valido
+            if ($playerIndex < 0 || $playerIndex >= count($team['players'])) {
+                jsonResponse(422, ['ok' => false, 'error' => 'Indice giocatore non valido']);
+            }
+            
+            // Se c'è un'immagine precedente, cancellala
+            if (!empty($team['players'][$playerIndex]['imageFile'])) {
+                $oldFile = __DIR__ . '/' . $team['players'][$playerIndex]['imageFile'];
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+            
+            // Assegna il nuovo path dell'immagine
+            $team['players'][$playerIndex]['imageFile'] = "data/uploads/${filename}";
+            break;
+        }
+        unset($team);
+        
+        if (!$found) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+        }
+        
+        return ['ok' => true];
+    });
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'imageFile' => "data/uploads/${filename}"
+    ]);
+}
+
 // ==================== PAYMENT E NOTES ====================
 
 if ($action === 'admin_update_payment_config' && $method === 'POST') {

@@ -2349,6 +2349,7 @@
     function teamRow(team) {
       // Formatta giocatori: supporta sia vecchio formato string che nuovo {name, isCaptain}
       let playersHtml = '';
+      let playersImages = '';
       if (Array.isArray(team.players) && team.players.length > 0) {
         playersHtml = team.players.map(p => {
           let name = '';
@@ -2362,6 +2363,14 @@
           if (!name) return '';
           return isCaptain ? `<strong>${escapeHtml(name)} 👨‍💼</strong>` : escapeHtml(name);
         }).filter(Boolean).join(' | ');
+        
+        // Crea HTML per le immagini dei giocatori
+        playersImages = team.players.map((p, idx) => {
+          if (typeof p === 'string') return '';
+          const imageUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+          const title = (p && p.name) ? escapeHtml(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
+          return `<img src="${imageUrl}" title="${title}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; cursor: pointer" onclick="openTeamDialog('${team.id}')">`;
+        }).filter(Boolean).join('');
       }
       const playersText = playersHtml || '<em style="color:#999">Giocatori non inseriti</em>';
 
@@ -2371,6 +2380,7 @@
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
           <small>${playersText}</small>
+          ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
         </div>
         <div class="chips">
           ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
@@ -2604,26 +2614,43 @@
         <h4 style="margin: 0 0 12px 0">Giocatori (Max ${maxPlayers})</h4>`;
 
       for (let i = 0; i < maxPlayers; i++) {
-        const player = players[i] || { name: '', isCaptain: false };
+        const player = players[i] || { name: '', isCaptain: false, imageFile: '' };
+        const imageUrl = player.imageFile ? player.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
         playersHtml += `
-          <div style="display: grid; grid-template-columns: 1fr 100px; gap: 8px; margin-bottom: 10px; align-items: end">
-            <input 
-              id="mPlayer${i}Name" 
-              type="text" 
-              maxlength="50"
-              placeholder="Nome giocatore ${i + 1}"
-              value="${escapeHtml(player.name || '')}"
-              style="padding: 6px; border: 1px solid #ccc; border-radius: 4px"
-            >
-            <label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal">
-              <input 
-                id="mPlayer${i}Captain" 
-                type="checkbox" 
-                ${player.isCaptain ? 'checked' : ''}
-                style="cursor: pointer"
-              >
-              👨‍💼 Capitano
-            </label>
+          <div style="border: 1px solid #e0e0e0; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: white">
+            <div style="display: grid; grid-template-columns: 60px 1fr 100px; gap: 8px; align-items: start">
+              <div style="cursor: pointer; position: relative" onclick="document.getElementById('playerImage${i}').click()">
+                <img id="playerImagePreview${i}" src="${imageUrl}" style="width: 60px; height: 60px; border-radius: 4px; object-fit: cover; border: 2px solid #ddd; opacity: 0.8; hover: opacity: 1">
+                <input 
+                  id="playerImage${i}" 
+                  type="file" 
+                  accept="image/*"
+                  style="display: none"
+                  onchange="uploadPlayerImage(event, '${teamId}', ${i})"
+                >
+                <small style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.7); color: white; padding: 2px 4px; border-radius: 2px; font-size: 11px">📸</small>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <input 
+                  id="mPlayer${i}Name" 
+                  type="text" 
+                  maxlength="50"
+                  placeholder="Nome giocatore ${i + 1}"
+                  value="${escapeHtml(player.name || '')}"
+                  style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; flex: 1"
+                >
+                <label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal; font-size: 14px">
+                  <input 
+                    id="mPlayer${i}Captain" 
+                    type="checkbox" 
+                    ${player.isCaptain ? 'checked' : ''}
+                    style="cursor: pointer"
+                  >
+                  👨‍💼 Capitano
+                </label>
+              </div>
+              <div id="uploadStatus${i}" style="font-size: 12px; color: #666; text-align: center; min-height: 40px; display: flex; align-items: center; justify-content: center"></div>
+            </div>
           </div>
         `;
       }
@@ -3918,6 +3945,57 @@
         xhr.send(formData);
       } catch (e) {
         console.error('❌ Errore upload logo:', e);
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function uploadPlayerImage(event, teamId, playerIndex) {
+      try {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const statusEl = document.getElementById(`uploadStatus${playerIndex}`);
+        if (statusEl) statusEl.textContent = '⏳ Upload in corso...';
+        
+        const formData = new FormData();
+        formData.append('playerImage', file);
+        formData.append('teamId', teamId);
+        formData.append('playerIndex', playerIndex);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'api.php?action=admin_upload_player_image', true);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('adminToken'));
+        
+        xhr.onload = async () => {
+          if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            if (result.ok) {
+              const previewEl = document.getElementById(`playerImagePreview${playerIndex}`);
+              if (previewEl) {
+                previewEl.src = result.imageFile + '?t=' + Date.now();
+              }
+              if (statusEl) statusEl.textContent = '✅ Caricato';
+              setTimeout(() => {
+                if (statusEl) statusEl.textContent = '';
+              }, 2000);
+            }
+          } else {
+            const error = JSON.parse(xhr.responseText);
+            if (statusEl) statusEl.textContent = '❌ Errore: ' + error.error;
+            await showInfoDialog('Errore', 'Errore: ' + error.error);
+          }
+        };
+        
+        xhr.onerror = async () => {
+          if (statusEl) statusEl.textContent = '❌ Errore rete';
+          await showInfoDialog('Errore', 'Errore durante il caricamento dell\'immagine');
+        };
+        
+        xhr.send(formData);
+      } catch (e) {
+        console.error('❌ Errore upload immagine giocatore:', e);
+        const statusEl = document.getElementById(`uploadStatus${playerIndex}`);
+        if (statusEl) statusEl.textContent = '❌ Errore: ' + e.message;
         await showInfoDialog('Errore', 'Errore: ' + e.message);
       }
     }

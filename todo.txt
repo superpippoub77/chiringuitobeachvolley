@@ -86,6 +86,6 @@ Nell'approvare e nel pagare aggiungi un pulsante con approva tutte e uno con app
 Se clicco su una voce del menù e faccio i refresh deve rimanere su quella non tornare ad "impostazionie"✅
 Per ogni torneo matti una scheda kit (non obbligatorio) di cosa cosegneremo all'iscritto✅
 Ogni singola ezione di Impostazioni riesci a strutturarla in modalità tab e compatibile con mobile? ✅✅
-Per ogni giocatore dai la possiilità di caricare l'immagine
+Per ogni giocatore dai la possiilità di caricare l'immagine ✅
 Inserimento dello sponsor non funziona. ✅ [RISOLTO: Rimosso bin2hex() non disponibile in JS, sistemato array con indici sparsi, coerenza risposta API]
-La creazione delle fasi deve essere pilotata in quanto se uno costruisce prima fase a gironi poi deve capore cosa fare per le qualificate e quelle non qualificate
+La creazione delle fasi deve essere pilotata in quanto se uno costruisce prima fase a gironi poi deve capore cosa fare per le qualificate e quelle non qualificate uindi le fasi successive dipendono dalle fasi precedenti e nelle succssive il numero di squadre dipende dalla fase precedente

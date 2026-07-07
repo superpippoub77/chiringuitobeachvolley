@@ -5590,9 +5590,40 @@
           teamStats = { qualified: Math.ceil(teamsIn / 2), eliminated: Math.floor(teamsIn / 2) };
         }
 
+        // Controlla se esiste una fase successiva per il ramo 'qualified'
+        const hasQualifiedNext = phases.slice(phaseIdx + 1).some(p => p.branch === 'qualified');
+        
+        // Controlla se esiste una fase successiva per il ramo 'eliminated'
+        const hasEliminatedNext = phases.slice(phaseIdx + 1).some(p => p.branch === 'eliminated');
+
         const bgColor = branch === 'qualified' ? '#e8f5e9' : (branch === 'eliminated' ? '#fff3e0' : '#f0f8ff');
         const borderColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
         const titleColor = branch === 'qualified' ? '#2ecc71' : (branch === 'eliminated' ? '#ff9800' : '#0078d4');
+
+        // Rendi cliccabili i link alle fasi successive
+        const qualificateLink = branch === 'root' && !hasQualifiedNext ? 
+          `<div onclick="openPhaseWizard('qualified', ${teamStats.qualified})" style="cursor: pointer; padding: 6px 8px; border-radius: 4px; background: rgba(46, 204, 113, 0.1); transition: all 0.2s; border-left: 3px solid #2ecc71" onmouseover="this.style.background='rgba(46, 204, 113, 0.2)'; this.style.boxShadow='0 2px 6px rgba(46,204,113,0.3)'" onmouseout="this.style.background='rgba(46, 204, 113, 0.1)'; this.style.boxShadow='none'">
+            <span style="color: #2ecc71; font-weight: 500">✓ Qualificate: <strong>${teamStats.qualified}</strong> squadre</span>
+            <span style="color: #999; font-size: 11px; margin-left: 8px">[clicca per configurare]</span>
+          </div>` :
+          `<div style="color: #2ecc71; margin-top: 4px">✓ Qualificate: <strong>${teamStats.qualified}</strong></div>`;
+
+        const eliminateLabel = phase.hasRepescage ? 'Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? 'Losers Bracket' : 'Eliminate');
+        const eliminateIcon = phase.hasRepescage ? '⟳' : (phase.hasLosersPath && phase.type === 'knockout' ? '🎯' : '✗');
+        const eliminateColor = (phase.hasRepescage || phase.hasLosersPath) ? '#ff9800' : '#d13438';
+
+        const eliminateLink = branch === 'root' && !hasEliminatedNext && teamStats.eliminated > 0 ?
+          `<div onclick="openPhaseWizard('eliminated', ${teamStats.eliminated})" style="cursor: pointer; padding: 6px 8px; border-radius: 4px; background: rgba(255, 152, 0, 0.1); transition: all 0.2s; border-left: 3px solid ${eliminateColor}; margin-top: 6px" onmouseover="this.style.background='rgba(255, 152, 0, 0.2)'; this.style.boxShadow='0 2px 6px rgba(255,152,0,0.3)'" onmouseout="this.style.background='rgba(255, 152, 0, 0.1)'; this.style.boxShadow='none'">
+            <span style="color: ${eliminateColor}; font-weight: 500">${eliminateIcon} ${eliminateLabel}: <strong>${teamStats.eliminated}</strong> squadre</span>
+            <span style="color: #999; font-size: 11px; margin-left: 8px">[clicca per configurare]</span>
+          </div>` :
+          (phase.hasRepescage && teamStats.eliminated > 0 ? 
+            `<div style="color: #ff9800; margin-top: 2px">⟳ Ripescaggio: <strong>${teamStats.eliminated}</strong></div>` : 
+            (phase.hasLosersPath && teamStats.eliminated > 0 ? 
+              `<div style="color: #ff9800; margin-top: 2px">🎯 Losers Bracket: <strong>${teamStats.eliminated}</strong></div>` :
+              (teamStats.eliminated > 0 ? `<div style="color: #d13438; margin-top: 2px">✗ Eliminate: <strong>${teamStats.eliminated}</strong></div>` : '')
+            )
+          );
 
         let nodeHtml = `
           <div style="
@@ -5612,21 +5643,15 @@
             </div>
             <div style="font-size: 12px; line-height: 1.6; color: #333">
               <div><span style="color: #666">📥 In ingresso:</span> <strong>${teamsIn} squadre</strong></div>
-              <div style="color: #2ecc71; margin-top: 4px">✓ Qualificate: <strong>${teamStats.qualified}</strong></div>
-              ${phase.hasRepescage && teamStats.eliminated > 0 ? 
-                `<div style="color: #ff9800; margin-top: 2px">⟳ Ripescaggio: <strong>${teamStats.eliminated}</strong></div>` : 
-                (phase.hasLosersPath && teamStats.eliminated > 0 ? 
-                  `<div style="color: #ff9800; margin-top: 2px">🎯 Losers Bracket: <strong>${teamStats.eliminated}</strong></div>` :
-                  (teamStats.eliminated > 0 ? `<div style="color: #d13438; margin-top: 2px">✗ Eliminate: <strong>${teamStats.eliminated}</strong></div>` : '')
-                )
-              }
+              ${qualificateLink}
+              ${eliminateLink}
             </div>
-            ${phase.qualifiedGoTo ? `
+            ${phase.qualifiedGoTo && hasQualifiedNext ? `
               <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid ${borderColor}">
                 <small>📍 Qualificate → ${escapeHtml(phase.qualifiedGoTo)}</small>
               </div>
             ` : ''}
-            ${phase.eliminatedGoTo ? `
+            ${phase.eliminatedGoTo && hasEliminatedNext ? `
               <div style="font-size: 11px; color: #666; margin-top: 4px">
                 <small>📍 ${phase.hasRepescage ? 'Ripescaggio' : (phase.hasLosersPath && phase.type === 'knockout' ? 'Losers Bracket' : 'Eliminate')} → ${escapeHtml(phase.eliminatedGoTo)}</small>
               </div>
@@ -5917,7 +5942,7 @@
     }
 
     // Wizard pilotato per la creazione delle fasi
-    function openPhaseWizard(branch = 'root') {
+    function openPhaseWizard(branch = 'root', teamsIn = null) {
       const phases = config.phases || [];
       let wizardState = {
         step: 1,
@@ -5934,7 +5959,8 @@
           qualifiedGoTo: null, // Dove vanno le qualificate
           eliminatedGoTo: null, // Dove vanno le eliminate
           description: '' // Descrizione dello step
-        }
+        },
+        incomingTeams: teamsIn // Teams in ingresso dalla diramazione
       };
 
       function renderWizardStep() {

@@ -733,6 +733,159 @@ function randomInt(int $min, int $max): int {
     return random_int($min, $max);
 }
 
+// ===========================
+// PHASE MANAGEMENT FUNCTIONS
+// ===========================
+
+/**
+ * Ottiene o crea l'array phases nello state
+ */
+function ensurePhases(array &$state): void {
+    if (!isset($state['phases']) || !is_array($state['phases'])) {
+        // Migra da vecchia struttura se necessario
+        if (!empty($state['groups']) || !empty($state['groupMatches'])) {
+            $state['phases'] = [
+                [
+                    'id' => 'phase-1-groups',
+                    'phaseIdx' => 1,
+                    'name' => 'Fase 1 - Gironi',
+                    'type' => 'groups',
+                    'status' => !empty($state['groups']) ? 'active' : 'pending',
+                    'groups' => $state['groups'] ?? [],
+                    'matches' => $state['groupMatches'] ?? [],
+                    'standings' => $state['standings'] ?? [],
+                    'createdAt' => $state['meta']['groupsCreatedAt'] ?? gmdate('c')
+                ],
+                [
+                    'id' => 'phase-2-knockout',
+                    'phaseIdx' => 2,
+                    'name' => 'Fase 2 - Playoff',
+                    'type' => 'knockout',
+                    'status' => 'pending',
+                    'matches' => $state['playoff'] ?? ['quarterFinals' => [], 'semiFinals' => [], 'final' => null],
+                    'standings' => [],
+                    'createdAt' => null
+                ]
+            ];
+            $state['currentPhaseIdx'] = 1;
+        } else {
+            $state['phases'] = [];
+            $state['currentPhaseIdx'] = 0;
+        }
+    }
+    
+    if (!isset($state['currentPhaseIdx'])) {
+        $state['currentPhaseIdx'] = 1;
+    }
+}
+
+/**
+ * Ottiene una fase per indice
+ */
+function getPhase(array &$state, int $phaseIdx): ?array {
+    ensurePhases($state);
+    foreach ($state['phases'] as &$phase) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
+            return $phase;
+        }
+    }
+    return null;
+}
+
+/**
+ * Inizializza una nuova fase
+ */
+function initializePhase(array &$state, int $phaseIdx, string $name, string $type, array $config = []): array {
+    ensurePhases($state);
+    
+    $phase = [
+        'id' => 'phase-' . $phaseIdx . '-' . $type,
+        'phaseIdx' => $phaseIdx,
+        'name' => $name,
+        'type' => $type,
+        'status' => 'pending',
+        'groups' => $config['groups'] ?? [],
+        'matches' => $config['matches'] ?? [],
+        'standings' => $config['standings'] ?? [],
+        'createdAt' => gmdate('c'),
+        'metadata' => $config['metadata'] ?? []
+    ];
+    
+    // Rimuovi fasi precedenti con lo stesso phaseIdx se esiste
+    $state['phases'] = array_filter($state['phases'], function($p) use ($phaseIdx) {
+        return $p['phaseIdx'] !== $phaseIdx;
+    });
+    
+    $state['phases'][] = $phase;
+    $state['currentPhaseIdx'] = $phaseIdx;
+    
+    return $phase;
+}
+
+/**
+ * Ottiene le partite di una fase
+ */
+function getPhaseMatches(array &$state, int $phaseIdx): array {
+    $phase = getPhase($state, $phaseIdx);
+    if (!$phase) return [];
+    
+    if ($phase['type'] === 'groups') {
+        return $phase['matches'] ?? [];
+    } elseif ($phase['type'] === 'knockout') {
+        return $phase['matches'] ?? [];
+    }
+    
+    return [];
+}
+
+/**
+ * Imposta le partite di una fase
+ */
+function setPhaseMatches(array &$state, int $phaseIdx, array $matches): void {
+    ensurePhases($state);
+    foreach ($state['phases'] as &$phase) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
+            $phase['matches'] = $matches;
+            break;
+        }
+    }
+}
+
+/**
+ * Ottiene i gironi di una fase
+ */
+function getPhaseGroups(array &$state, int $phaseIdx): array {
+    $phase = getPhase($state, $phaseIdx);
+    if (!$phase) return [];
+    return $phase['groups'] ?? [];
+}
+
+/**
+ * Imposta i gironi di una fase
+ */
+function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
+    ensurePhases($state);
+    foreach ($state['phases'] as &$phase) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
+            $phase['groups'] = $groups;
+            break;
+        }
+    }
+}
+
+/**
+ * Aggiorna lo status di una fase
+ */
+function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
+    ensurePhases($state);
+    foreach ($state['phases'] as &$phase) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
+            $phase['status'] = $status; // 'pending', 'active', 'completed'
+            break;
+        }
+    }
+}
+
 function getVersionInfo(): array {
     return readJsonFile(VERSION_FILE, [
         'version' => '1.0.0',
@@ -2633,6 +2786,31 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
             'final' => null
         ];
         $state['finalRanking'] = [];
+        
+        // ===== INTEGRAZIONE NUOVO SISTEMA DI FASI =====
+        // Inizializza il sistema di fasi se necessario
+        ensurePhases($state);
+        
+        // Crea/Aggiorna Fase 1 - Gironi
+        initializePhase($state, 1, 'Fase 1 - Gironi', 'groups', [
+            'groups' => $state['groups'],
+            'matches' => $state['groupMatches'] ?? [],
+            'metadata' => [
+                'teamCount' => count($approved),
+                'groupCount' => $groupCount
+            ]
+        ]);
+        
+        // Imposta status a 'active'
+        setPhaseStatus($state, 1, 'active');
+        
+        // Iniz ializza Fase 2 - Playoff (vuota, da compilare dopo)
+        initializePhase($state, 2, 'Fase 2 - Playoff', 'knockout', [
+            'matches' => $state['playoff'],
+            'metadata' => []
+        ]);
+        
+        error_log('✅ Fasi create: Phase 1 (Gironi) - ' . count($groups) . ' groups, Phase 2 (Playoff) - pending');
 
         return ['ok' => true];
     });
@@ -2731,10 +2909,72 @@ if ($action === 'admin_create_playoff' && $method === 'POST') {
         if (!createPlayoff($state)) {
             jsonResponse(422, ['ok' => false, 'error' => 'Playoff non generabile: servono almeno 8 squadre classificate']);
         }
+        
+        // ===== INTEGRAZIONE NUOVO SISTEMA DI FASI =====
+        ensurePhases($state);
+        
+        // Aggiorna Fase 2 - Playoff con i dati generati
+        initializePhase($state, 2, 'Fase 2 - Playoff', 'knockout', [
+            'matches' => $state['playoff'] ?? ['quarterFinals' => [], 'semiFinals' => [], 'final' => null],
+            'metadata' => []
+        ]);
+        
+        // Imposta status a 'active'
+        setPhaseStatus($state, 2, 'active');
+        
+        error_log('✅ Fase 2 (Playoff) creata e attivata');
+        
         return ['ok' => true];
     });
 
     jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_get_phase_details' && $method === 'GET') {
+    validSession();
+    
+    $phaseIdx = (int)($_GET['phaseIdx'] ?? 1);
+    
+    $state = readJsonFile(DATA_FILE, []);
+    ensurePhases($state);
+    
+    $phase = getPhase($state, $phaseIdx);
+    if (!$phase) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
+    }
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'phase' => $phase,
+        'phaseCount' => count($state['phases']),
+        'currentPhaseIdx' => $state['currentPhaseIdx'] ?? 1
+    ]);
+}
+
+if ($action === 'admin_get_phases_list' && $method === 'GET') {
+    validSession();
+    
+    $state = readJsonFile(DATA_FILE, []);
+    ensurePhases($state);
+    
+    // Ritorna lista semplificata delle fasi per dropdown
+    $phasesList = [];
+    foreach ($state['phases'] as $phase) {
+        $phasesList[] = [
+            'phaseIdx' => $phase['phaseIdx'],
+            'name' => $phase['name'],
+            'type' => $phase['type'],
+            'status' => $phase['status'],
+            'matchCount' => count($phase['matches'] ?? []),
+            'groupCount' => count($phase['groups'] ?? [])
+        ];
+    }
+    
+    jsonResponse(200, [
+        'ok' => true,
+        'phases' => $phasesList,
+        'currentPhaseIdx' => $state['currentPhaseIdx'] ?? 1
+    ]);
 }
 
 if ($action === 'admin_update_playoff_match' && $method === 'POST') {

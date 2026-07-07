@@ -6101,4 +6101,136 @@ if ($action === 'save_match_duration' && $method === 'POST') {
     }
 }
 
+// ========== JSON EDITOR ENDPOINTS ==========
+
+if ($action === 'admin_get_json' && $method === 'GET') {
+    // Legge i file JSON disponibili sul server
+    try {
+        $file = $_GET['file'] ?? null;
+        if (!$file) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File non specificato']);
+            exit;
+        }
+        
+        // Whitelist dei file accessibili
+        $allowedFiles = ['tournament', 'config', 'sessions', 'releases', 'version'];
+        if (!in_array($file, $allowedFiles)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File non consentito']);
+            exit;
+        }
+        
+        // Costruisci il percorso del file
+        $filePath = "data/{$file}.json";
+        if (!file_exists($filePath)) {
+            jsonResponse(404, ['ok' => false, 'error' => "File non trovato: {$file}.json"]);
+            exit;
+        }
+        
+        // Leggi il file
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            jsonResponse(500, ['ok' => false, 'error' => 'Errore lettura file']);
+            exit;
+        }
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'file' => $file,
+            'content' => $content,
+            'size' => filesize($filePath),
+            'modified' => date('Y-m-d H:i:s', filemtime($filePath))
+        ]);
+        
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore: ' . $e->getMessage()]);
+    }
+}
+
+if ($action === 'admin_save_json' && $method === 'POST') {
+    // Salva i file JSON dopo le modifiche
+    try {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $file = $input['file'] ?? null;
+        $content = $input['content'] ?? null;
+        
+        if (!$file || !$content) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File o content non specificati']);
+            exit;
+        }
+        
+        // Whitelist dei file salvabili
+        $allowedFiles = ['tournament', 'config', 'sessions', 'releases', 'version'];
+        if (!in_array($file, $allowedFiles)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'File non consentito']);
+            exit;
+        }
+        
+        // Valida JSON
+        if (json_decode($content, true) === null && json_last_error() !== JSON_ERROR_NONE) {
+            jsonResponse(400, [
+                'ok' => false,
+                'error' => 'JSON non valido: ' . json_last_error_msg()
+            ]);
+            exit;
+        }
+        
+        // Crea backup prima di salvare
+        $filePath = "data/{$file}.json";
+        $backupDir = 'data/backups';
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+        
+        if (file_exists($filePath)) {
+            $timestamp = date('Y-m-d_His');
+            $backupPath = "{$backupDir}/backup-{$file}-{$timestamp}.json";
+            if (!copy($filePath, $backupPath)) {
+                jsonResponse(500, ['ok' => false, 'error' => 'Errore creazione backup']);
+                exit;
+            }
+        }
+        
+        // Salva il file con flock per evitare race conditions
+        $fp = fopen($filePath, 'w');
+        if (!$fp) {
+            jsonResponse(500, ['ok' => false, 'error' => 'Errore apertura file']);
+            exit;
+        }
+        
+        if (!flock($fp, LOCK_EX)) {
+            fclose($fp);
+            jsonResponse(500, ['ok' => false, 'error' => 'Errore lock file']);
+            exit;
+        }
+        
+        // Formatta il JSON prima di salvare (indentato per leggibilità)
+        $formatted = json_encode(json_decode($content, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        
+        if (fwrite($fp, $formatted) === false) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+            jsonResponse(500, ['ok' => false, 'error' => 'Errore scrittura file']);
+            exit;
+        }
+        
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        
+        // Leggi il file salvato per conferma
+        $savedContent = file_get_contents($filePath);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => "File {$file}.json salvato con successo",
+            'file' => $file,
+            'size' => filesize($filePath),
+            'modified' => date('Y-m-d H:i:s', filemtime($filePath)),
+            'content' => $savedContent
+        ]);
+        
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore: ' . $e->getMessage()]);
+    }
+}
+
 jsonResponse(404, ['ok' => false, 'error' => 'Endpoint non trovato']);

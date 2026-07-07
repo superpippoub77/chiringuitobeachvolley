@@ -1309,6 +1309,7 @@
             <button class="settings-subtab-btn" onclick="showSettingsTab('calendar', this)">📅 Calendario</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('display', this)">🎨 Visualizzazione</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('advanced', this)">📦 Avanzate</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('jsoneditor', this)">💾 JSON Editor</button>
           </div>
 
           <!-- TAB 1: TORNEO -->
@@ -1635,6 +1636,49 @@
                 <small style="color: #666; display: block">
                   ${config.security?.encryptionEnabled ? 'I dati sensibili sono protetti da password master' : 'I dati sensibili sono salvati in chiaro (non consigliato)'}
                 </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: JSON EDITOR -->
+          <div class="settings-tab-content" id="settings-jsoneditor">
+            <div class="card" style="background: #f5f5f5; padding: 12px">
+              <h4 style="margin-top: 0">💾 JSON Editor</h4>
+              <p class="muted">Visualizza e modifica i file JSON salvati sul server</p>
+              
+              <div style="margin-bottom: 12px">
+                <label style="display: block; margin-bottom: 6px; font-weight: bold">Seleziona file:</label>
+                <select id="jsonFileSelector" onchange="loadJsonFile()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px">
+                  <option value="">-- Seleziona un file --</option>
+                  <option value="tournament">📊 tournament.json (Stato torneo)</option>
+                  <option value="config">⚙️ config.json (Configurazione)</option>
+                  <option value="sessions">👥 sessions.json (Sessioni)</option>
+                  <option value="releases">📦 releases.json (Release)</option>
+                  <option value="version">📌 version.json (Versione)</option>
+                </select>
+              </div>
+              
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; margin-bottom: 12px">
+                <div style="background: #f9f9f9; padding: 8px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center">
+                  <span style="font-size: 12px; color: #666"><span id="jsonLineCount">0</span> linee | <span id="jsonFileSize">0 KB</span></span>
+                  <div style="display: flex; gap: 6px">
+                    <button class="btn btn-sm" onclick="formatJsonEditor()" title="Formatta JSON">🎨 Formatta</button>
+                    <button class="btn btn-sm" onclick="copyJsonToClipboard()" title="Copia negli appunti">📋 Copia</button>
+                    <button class="btn btn-sm" onclick="downloadJson()" title="Scarica file">📥 Scarica</button>
+                  </div>
+                </div>
+                <textarea id="jsonEditor" placeholder="Seleziona un file per visualizzarlo..." style="width: 100%; height: 400px; padding: 12px; border: none; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; line-height: 1.5; resize: vertical; white-space: pre; overflow-wrap: normal; color: #333; background: #fafafa"></textarea>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px">
+                <button class="btn btn-primary" onclick="saveJsonFile()" style="width: 100%">💾 Salva Modifiche</button>
+                <button class="btn btn-danger" onclick="reloadJsonFile()" style="width: 100%">🔄 Ricarica</button>
+              </div>
+              
+              <div id="jsonEditorStatus" style="padding: 10px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none; border-left: 4px solid #4caf50"></div>
+              
+              <div style="background: #fff8e1; border-left: 4px solid #ff9800; padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 12px">
+                <strong>⚠️ Attenzione:</strong> Modifica i JSON con cautela. Errori di sintassi possono danneggiare il torneo. I file vengono salvati con backup automatico.
               </div>
             </div>
           </div>
@@ -8239,6 +8283,165 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
         }
       }
     })();
+    
+    // ========== JSON EDITOR FUNCTIONS ==========
+    
+    let jsonEditorCache = null;
+    let jsonEditorCurrentFile = null;
+    
+    async function loadJsonFile() {
+      const fileSelector = document.getElementById('jsonFileSelector');
+      const jsonEditor = document.getElementById('jsonEditor');
+      const lineCount = document.getElementById('jsonLineCount');
+      const fileSize = document.getElementById('jsonFileSize');
+      
+      if (!fileSelector.value) {
+        jsonEditor.value = '';
+        lineCount.textContent = '0';
+        fileSize.textContent = '0 KB';
+        jsonEditorCurrentFile = null;
+        return;
+      }
+      
+      try {
+        const response = await fetch(`api.php?action=admin_get_json&file=${encodeURIComponent(fileSelector.value)}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || 'Errore caricamento JSON');
+        
+        jsonEditorCache = data.content;
+        jsonEditorCurrentFile = fileSelector.value;
+        
+        // Formatta il JSON per visualizzazione
+        const formatted = JSON.stringify(JSON.parse(data.content), null, 2);
+        jsonEditor.value = formatted;
+        
+        // Aggiorna statistiche
+        const lines = formatted.split('\n').length;
+        const bytes = new Blob([formatted]).size;
+        lineCount.textContent = lines;
+        fileSize.textContent = (bytes / 1024).toFixed(1);
+        
+        console.log(`✅ JSON caricato: ${fileSelector.value} (${lines} linee, ${(bytes / 1024).toFixed(1)} KB)`);
+        
+      } catch (err) {
+        showJsonEditorStatus(`❌ Errore: ${err.message}`, 'error');
+        console.error('Errore nel caricamento JSON:', err);
+      }
+    }
+    
+    function formatJsonEditor() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      try {
+        const parsed = JSON.parse(jsonEditor.value);
+        jsonEditor.value = JSON.stringify(parsed, null, 2);
+        showJsonEditorStatus('✅ JSON formattato correttamente', 'success');
+      } catch (err) {
+        showJsonEditorStatus(`❌ Errore JSON: ${err.message}`, 'error');
+      }
+    }
+    
+    function copyJsonToClipboard() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      navigator.clipboard.writeText(jsonEditor.value).then(() => {
+        showJsonEditorStatus('✅ JSON copiato negli appunti', 'success');
+      }).catch(err => {
+        showJsonEditorStatus(`❌ Errore copia: ${err.message}`, 'error');
+      });
+    }
+    
+    function downloadJson() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      const fileSelector = document.getElementById('jsonFileSelector');
+      const fileName = `${fileSelector.value}.json`;
+      
+      const blob = new Blob([jsonEditor.value], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showJsonEditorStatus(`✅ File scaricato: ${fileName}`, 'success');
+    }
+    
+    async function saveJsonFile() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      const fileSelector = document.getElementById('jsonFileSelector');
+      
+      if (!fileSelector.value) {
+        showJsonEditorStatus('❌ Seleziona un file prima di salvare', 'error');
+        return;
+      }
+      
+      try {
+        // Valida JSON
+        JSON.parse(jsonEditor.value);
+        
+        const response = await fetch('api.php?action=admin_save_json', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          },
+          body: JSON.stringify({
+            file: fileSelector.value,
+            content: jsonEditor.value
+          })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || 'Errore salvataggio');
+        
+        jsonEditorCache = jsonEditor.value;
+        showJsonEditorStatus(`✅ File salvato con successo: ${fileSelector.value}.json`, 'success');
+        console.log('✅ JSON salvato:', fileSelector.value);
+        
+      } catch (err) {
+        showJsonEditorStatus(`❌ Errore: ${err.message}`, 'error');
+        console.error('Errore nel salvataggio JSON:', err);
+      }
+    }
+    
+    async function reloadJsonFile() {
+      const fileSelector = document.getElementById('jsonFileSelector');
+      if (fileSelector.value) {
+        loadJsonFile();
+        showJsonEditorStatus('🔄 File ricaricato', 'info');
+      }
+    }
+    
+    function showJsonEditorStatus(message, type = 'info') {
+      const statusDiv = document.getElementById('jsonEditorStatus');
+      
+      // Colori per tipo
+      const colors = {
+        success: { bg: '#c8e6c9', border: '#4caf50', color: '#1b5e20' },
+        error: { bg: '#ffcdd2', border: '#f44336', color: '#b71c1c' },
+        info: { bg: '#bbdefb', border: '#2196f3', color: '#0d47a1' }
+      };
+      
+      const style = colors[type] || colors.info;
+      statusDiv.style.background = style.bg;
+      statusDiv.style.borderLeftColor = style.border;
+      statusDiv.style.color = style.color;
+      statusDiv.textContent = message;
+      statusDiv.style.display = 'block';
+      
+      // Auto-hide dopo 5 secondi
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 5000);
+    }
   </script>
 </body>
 

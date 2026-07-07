@@ -3168,6 +3168,8 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     
     if (isset($body['phases']) && is_array($body['phases'])) {
         $phases = [];
+        
+        // Prima passata: normalizza tutti i dati
         foreach ($body['phases'] as $idx => $phase) {
             $phaseData = [
                 'phaseNumber' => $idx + 1,
@@ -3187,10 +3189,31 @@ if ($action === 'admin_update_config' && $method === 'POST') {
                 $validPowers = [2, 4, 8, 16, 32, 64, 128];
                 $phaseData['numTeams'] = in_array($numTeams, $validPowers) ? $numTeams : 4;
                 $phaseData['hasLosersPath'] = (bool)($phase['hasLosersPath'] ?? false);
+                $phaseData['wildcardTeams'] = 0; // Inizializza a 0, sarà calcolato nella seconda passata
             }
             
             $phases[] = $phaseData;
         }
+        
+        // Seconda passata: calcola wildcard per knockout in base alla fase precedente
+        $totalTeams = max(2, (int)($config['tournament']['maxTeams'] ?? 16));
+        $teamsInPlay = $totalTeams;
+        
+        foreach ($phases as $idx => &$phase) {
+            if ($phase['type'] === 'groups') {
+                $qualified = ($phase['numGroups'] ?? 4) * ($phase['teamsAdvance'] ?? 2);
+                $eliminated = max(0, $teamsInPlay - $qualified);
+                $teamsInPlay = $qualified + ($phase['hasRepescage'] ? $eliminated : 0);
+            } elseif ($phase['type'] === 'knockout') {
+                $knockoutTeams = $phase['numTeams'] ?? 4;
+                // Se abbiamo meno squadre di quelle richieste, aggiungi wildcard
+                $wildcards = max(0, $knockoutTeams - $teamsInPlay);
+                $phase['wildcardTeams'] = $wildcards;
+                // Le squadre in gioco sono tutte quelle che entrano nel knockout
+                $teamsInPlay = $knockoutTeams;
+            }
+        }
+        unset($phase);
         
         // Salva sempre, anche se l'array è vuoto (permette cancellazione completa)
         $config['phases'] = $phases;

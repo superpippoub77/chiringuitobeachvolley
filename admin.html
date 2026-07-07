@@ -5487,12 +5487,21 @@
             });
           }
           
-          // Avvertimento: numero squadre non corrisponde alla fase precedente
-          if (idx > 0 && teamsInPlay !== numTeams) {
+          // Sistema wildcard: se squadre da fase precedente < numTeams, aggiungi wildcard
+          const wildcardNeeded = Math.max(0, numTeams - teamsInPlay);
+          if (idx > 0 && teamsInPlay < numTeams) {
+            warnings.push({
+              type: 'info',
+              phase: phaseName,
+              message: `🎯 Sistema Wildcard Attivo: delle ${teamsInPlay} squadre qualificate, verranno ammesse direttamente ${teamsInPlay} e <strong>${wildcardNeeded}</strong> wildcard dalle migliori non qualificate della fase precedente (per differenza punti) per raggiungere ${numTeams} squadre in questa fase.`
+            });
+          }
+          // Avvertimento solo se non ci sono abbastanza squadre
+          else if (idx > 0 && teamsInPlay > numTeams) {
             warnings.push({
               type: 'warning',
               phase: phaseName,
-              message: `⚠️ Mismatch squadre: dalla fase precedente arrivano ${teamsInPlay} squadre, ma la fase ${phaseNum} è configurata per ${numTeams}. ${teamsInPlay < numTeams ? 'Mancano ' + (numTeams - teamsInPlay) + ' squadre' : 'Avanzano ' + (teamsInPlay - numTeams) + ' squadre non usate'}`
+              message: `⚠️ Troppe squadre: dalla fase precedente arrivano ${teamsInPlay} squadre, ma questa fase ne può accoglierne solo ${numTeams}. Le ${teamsInPlay - numTeams} squadre in eccesso non potranno partecipare.`
             });
           }
           
@@ -5645,6 +5654,11 @@
               <div><span style="color: #666">📥 In ingresso:</span> <strong>${teamsIn} squadre</strong></div>
               ${qualificateLink}
               ${eliminateLink}
+              ${phase.type === 'knockout' && phase.wildcardTeams > 0 ? 
+                `<div style="color: #ff9800; margin-top: 4px; padding: 6px 8px; background: #fff3cd; border-radius: 3px; border-left: 3px solid #ff9800;">
+                  <span style="font-size: 11px"><strong>🎯 ${phase.wildcardTeams}</strong> wildcard dalle migliori non qualificate</span>
+                </div>` : ''
+              }
             </div>
             ${phase.qualifiedGoTo && hasQualifiedNext ? `
               <div style="font-size: 11px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid ${borderColor}">
@@ -5760,26 +5774,34 @@
         const numTeams = parseInt(document.getElementById(`phase-numTeams-${phaseIdx}`).value) || 4;
         const hasLosersPath = document.getElementById(`phase-losersPath-${phaseIdx}`) && document.getElementById(`phase-losersPath-${phaseIdx}`).checked;
         const teamsAdvance = Math.ceil(numTeams / 2);
+        const teamsEliminated = Math.floor(numTeams / 2);
+        const phase = config.phases[phaseIdx] || {};
+        const wildcardTeams = phase.wildcardTeams || 0;
         
         previewHtml = `
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-wrap: wrap;">
             <div style="background: #ecf5ff; padding: 8px; border-radius: 4px">
               <strong style="color: #0078d4">${numTeams} squadre</strong> in campo
             </div>
+            ${wildcardTeams > 0 ? `
+              <div style="font-size: 11px; background: #fff3cd; color: #856404; padding: 6px 8px; border-radius: 4px; border-left: 3px solid #ff9800;">
+                🎯 <strong>${wildcardTeams}</strong> wildcard
+              </div>
+            ` : ''}
             <div style="font-size: 16px; color: #d8c39f">→</div>
             <div style="background: #e8f5e9; padding: 8px; border-radius: 4px">
-              <strong style="color: #107c10">✅ Avanzano:</strong> <strong>${teamsAdvance}</strong>
+              <strong style="color: #107c10">✅ Vincono:</strong> <strong>${teamsAdvance}</strong>
             </div>
             <div style="background: ${hasLosersPath ? '#fff8ce' : '#ffebee'}; padding: 8px; border-radius: 4px">
               <strong style="color: ${hasLosersPath ? '#7f6000' : '#d13438'}">
                 ${hasLosersPath ? '🎯 Losers:' : '❌ Eliminate:'}
-              </strong> <strong>${numTeams - teamsAdvance}</strong>
+              </strong> <strong>${teamsEliminated}</strong>
             </div>
           </div>
-          <small style="display: block; margin-top: 6px; color: #999">
+          <small style="display: block; margin-top: 8px; color: #666; background: #f9f9f9; padding: 6px 8px; border-radius: 4px;">
             ${hasLosersPath 
-              ? `Fase successiva avrà <strong>${teamsAdvance}</strong> vincitori + <strong>${numTeams - teamsAdvance}</strong> nel losers bracket`
-              : `Fase successiva avrà <strong>${teamsAdvance}</strong> squadre per continuare il torneo`
+              ? `✓ <strong>${teamsAdvance}</strong> vincitori → fase successiva | <strong>${teamsEliminated}</strong> nel losers bracket`
+              : `✓ <strong>${teamsAdvance}</strong> squadre avanzeranno | <strong>${teamsEliminated}</strong> eliminate`
             }
           </small>
         `;
@@ -5850,7 +5872,7 @@
                 <option value="64" ${phase.numTeams === 64 ? 'selected' : ''}>64</option>
                 <option value="128" ${phase.numTeams === 128 ? 'selected' : ''}>128</option>
               </select>
-              <small style="color: #666; display: block; margin-top: 4px">Numero di squadre che partecipano a questa fase di eliminazione diretta</small>
+              <small style="color: #666; display: block; margin-top: 4px">Se le squadre dalla fase precedente sono meno di questo numero, verranno aggiunte squadre wildcard dalle migliori non qualificate per differenza punti.</small>
             </div>
             <div class="field" style="grid-column: 1 / -1">
               <label style="display: flex; align-items: center; gap: 8px; margin: 0">
@@ -5942,6 +5964,21 @@
     }
 
     // Wizard pilotato per la creazione delle fasi
+    // Calcola la prossima potenza di 2 e wildcard necessarie
+    function getNextPowerOf2(num) {
+      if (num <= 0) return 2;
+      if ((num & (num - 1)) === 0) return num; // Già potenza di 2
+      let power = 1;
+      while (power < num) power *= 2;
+      return power;
+    }
+    
+    // Calcola le squadre wildcard necessarie
+    function calculateWildcardsNeeded(qualifiedTeams, knockoutTeams) {
+      if (knockoutTeams >= qualifiedTeams) return 0;
+      return knockoutTeams - qualifiedTeams;
+    }
+
     function openPhaseWizard(branch = 'root', teamsIn = null) {
       const phases = config.phases || [];
       let wizardState = {
@@ -6114,21 +6151,63 @@
               </div>
             `;
           } else {
+            // Calcola il suggerimento per numTeams
+            let suggestedNumTeams = 4; // Default
+            let suggestedReason = 'valore di default';
+            
+            if (wizardState.phaseData.phaseNumber === 1) {
+              // Prima fase: usa maxTeams
+              suggestedNumTeams = getNextPowerOf2(config.tournament?.maxTeams || 16);
+              suggestedReason = `numero massimo di squadre nel torneo (${config.tournament?.maxTeams || 16}) arrotondato a potenza di 2`;
+            } else if (prevPhaseInfo) {
+              // Fase successiva: calcola dalla fase precedente
+              const teamsIn = wizardState.phaseData.branch === 'qualified' ? prevPhaseInfo.qualified : prevPhaseInfo.eliminated;
+              suggestedNumTeams = getNextPowerOf2(teamsIn);
+              suggestedReason = `${teamsIn} squadre ${wizardState.phaseData.branch === 'qualified' ? 'qualificate' : 'eliminate'} dalla fase precedente arrotondato a potenza di 2`;
+            }
+            
+            // Se non era mai stato impostato, usa il suggerimento
+            if (wizardState.phaseData.numTeams === 4 && wizardState.step === 2) {
+              wizardState.phaseData.numTeams = suggestedNumTeams;
+            }
+            
             bodyHtml = `
               <div style="font-size: 13px">
                 <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Configurazione Eliminazione Diretta</strong></p>
                 
+                <div style="background: #e3f2fd; border: 1px solid #0078d4; border-radius: 4px; padding: 10px; margin-bottom: 12px">
+                  <strong style="color: #0078d4;">💡 Suggerimento Automatico:</strong>
+                  <div style="margin-top: 6px; font-size: 12px; color: #333; background: white; padding: 8px; border-radius: 2px; border-left: 3px solid #0078d4;">
+                    Consigliato: <strong>${suggestedNumTeams} squadre</strong><br>
+                    <small style="color: #666">Calcolato in base a: ${suggestedReason}</small>
+                  </div>
+                </div>
+                
                 <div class="form-grid-modal" style="gap: 12px">
                   <div class="field" style="grid-column: 1 / -1">
-                    <label>Numero di squadre (potenza di 2)</label>
-                    <select id="wizard-numTeams" style="width: 100%">
+                    <label>Numero di squadre in campo</label>
+                    <select id="wizard-numTeams" style="width: 100%; margin-bottom: 8px">
                       <option value="2" ${wizardState.phaseData.numTeams === 2 ? 'selected' : ''}>2 (Finale)</option>
                       <option value="4" ${wizardState.phaseData.numTeams === 4 ? 'selected' : ''}>4 (Semifinali)</option>
                       <option value="8" ${wizardState.phaseData.numTeams === 8 ? 'selected' : ''}>8 (Quarti)</option>
                       <option value="16" ${wizardState.phaseData.numTeams === 16 ? 'selected' : ''}>16 (Sedicesimi)</option>
                       <option value="32" ${wizardState.phaseData.numTeams === 32 ? 'selected' : ''}>32</option>
                     </select>
-                    <small style="color: #666">Seleziona il numero di squadre in questa fase</small>
+                    ${prevPhaseInfo && wizardState.phaseData.branch === 'qualified' ? `
+                      <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin: 8px 0">
+                        <strong style="color: #333; font-size: 13px">🎯 Sistema Wildcard Automatico:</strong>
+                        <div style="margin-top: 6px; font-size: 12px; color: #666; line-height: 1.6">
+                          <div>📊 Squadre qualificate: <strong>${prevPhaseInfo.qualified}</strong></div>
+                          <div>📥 In questa fase: <strong>${wizardState.phaseData.numTeams}</strong></div>
+                          ${prevPhaseInfo.qualified < wizardState.phaseData.numTeams ? `
+                            <div style="background: #fff9e6; padding: 6px; border-radius: 2px; margin-top: 4px; border-left: 3px solid #ff9800;">
+                              🎁 <strong>${wizardState.phaseData.numTeams - prevPhaseInfo.qualified}</strong> squadra/e wildcard dalle migliori non qualificate (per differenza punti)
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                    ` : ''}
+                    <small style="color: #666">Se le squadre qualificate sono dispari, verranno aggiunte wildcard per raggiungere una potenza di 2</small>
                   </div>
                   
                   <div class="field" style="grid-column: 1 / -1">
@@ -6257,15 +6336,23 @@ ${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
                   <small style="color: #666">Descrivi il percorso delle squadre qualificate</small>
                 </div>
                 
+                ${wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath) ? `
                 <div class="field" style="grid-column: 1 / -1">
                   <label style="margin-bottom: 6px; display: block">
-                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath ? 'del losers bracket' : 'eliminate')} cosa faranno?</strong>
+                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath ? 'del losers bracket' : '')} cosa faranno?</strong>
                   </label>
                   <textarea id="wizard-eliminatedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
-                    placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Vengono eliminate dal torneo oppure...'}">
+                    placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Continuano nel losers bracket...'}">
 ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
-                  <small style="color: #666">Descrivi il percorso delle squadre ${wizardState.phaseData.hasRepescage ? 'ripescate' : 'eliminate'}</small>
+                  <small style="color: #666">Descrivi il percorso delle squadre ${wizardState.phaseData.hasRepescage ? 'ripescate' : 'del losers bracket'}</small>
                 </div>
+                ` : `
+                <div style="background: #fff3cd; border: 1px solid #ff9800; border-radius: 4px; padding: 10px; color: #856404;">
+                  <strong style="color: #ff9800;">⚠️  Squadre Eliminate</strong><br>
+                  <small>Le ${eliminatedCount} squadre eliminate verranno escluse dal torneo. Non è necessario specificare una destinazione.</small>
+                </div>
+                `}
+              
               </div>
             </div>
           `;
@@ -6288,10 +6375,19 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
               className: 'btn btn-success', 
               onClick: async () => {
                 wizardState.phaseData.qualifiedGoTo = document.getElementById('wizard-qualifiedGoTo').value.trim();
-                wizardState.phaseData.eliminatedGoTo = document.getElementById('wizard-eliminatedGoTo').value.trim();
                 
-                if (!wizardState.phaseData.qualifiedGoTo || !wizardState.phaseData.eliminatedGoTo) {
-                  await showInfoDialog('Attenzione', 'Completa la descrizione del routing delle squadre');
+                // Recupera eliminatedGoTo solo se visibile
+                const eliminatedTextarea = document.getElementById('wizard-eliminatedGoTo');
+                wizardState.phaseData.eliminatedGoTo = eliminatedTextarea ? eliminatedTextarea.value.trim() : '';
+                
+                if (!wizardState.phaseData.qualifiedGoTo) {
+                  await showInfoDialog('Attenzione', 'Completa la descrizione: dove vanno le squadre qualificate?');
+                  return;
+                }
+                
+                // Validazione eliminatedGoTo solo se il flag è attivo
+                if ((wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath)) && !wizardState.phaseData.eliminatedGoTo) {
+                  await showInfoDialog('Attenzione', 'Completa la descrizione: dove vanno le squadre eliminate/ripescate?');
                   return;
                 }
                 
@@ -6427,12 +6523,19 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
         });
 
         // Validazione: tutte le fasi devono avere il routing definito
-        const missingRouting = phasesToSave.filter(p => !p.qualifiedGoTo || !p.eliminatedGoTo);
+        // Validazione routing: qualificati sempre obbligatori, eliminati solo se flag è attivo
+        const missingRouting = phasesToSave.filter(p => {
+          if (!p.qualifiedGoTo) return true; // Qualificati sempre obbligatori
+          // Eliminati obbligatori solo se il flag è attivo
+          if ((p.hasRepescage || p.hasLosersPath) && !p.eliminatedGoTo) return true;
+          return false;
+        });
+        
         if (missingRouting.length > 0) {
           const phaseNames = missingRouting.map((p, i) => `Fase ${i + 1}`).join(', ');
           await showInfoDialog(
             'Attenzione',
-            `Le seguenti fasi non hanno il routing completo:\n\n${phaseNames}\n\nUtilizza il wizard per definire dove vanno le squadre qualificate e eliminate.`
+            `Le seguenti fasi non hanno il routing completo:\n\n${phaseNames}\n\nUtilizza il wizard per completare il percorso delle squadre.`
           );
           return;
         }

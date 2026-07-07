@@ -6190,6 +6190,9 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       phases.splice(idx, 1);
       config.phases = phases;
       renderPhases();
+      
+      // Salva automaticamente le fasi rimanenti
+      await savePhases();
     }
 
     async function savePhases() {

@@ -642,15 +642,15 @@
           </h4>
           <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
             <strong>Fase con Gironi:</strong> Le squadre vengono divise in gironi. Da ogni girone avanzano N squadre (es. le prime 2), 
-            il resto può fare un mini girone di ripescaggio (se abilitato).
+            il resto può avere un percorso distinto nella fase successiva (se ripescaggio abilitato).
           </p>
           <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
             <strong>Fase Eliminazione Diretta:</strong> Le squadre giocano in un torneo ad eliminazione (es. 16 → 8 semifinali → 4 semifinali → 2 finale). 
             Avanzano solo i vincitori.
           </p>
           <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
-            <strong>Collegamento Fasi:</strong> Le squadre che passano dalla fase precedente entrano in questa. Ripescaggio dalla fase precedente possono 
-            entrare in una fase di ripescaggio separata.
+            <strong>Collegamento Fasi:</strong> Le squadre che passano dalla fase precedente entrano in questa. Le squadre eliminate dalla fase precedente possono 
+            essere indirizzate a una fase distinta (ripescaggio), il cui tipo dipende dalla configurazione.
           </p>
           <div style="background: white; border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px">
             <strong>Esempio:</strong> 16 squadre → Fase 1 (4 gironi, top 1) → 4 squadre qualificate → Fase 2 (Semifinali 2v2) → Finale
@@ -5676,9 +5676,9 @@
             <div class="field" style="grid-column: 1 / -1">
               <label style="display: flex; align-items: center; gap: 8px; margin: 0">
                 <input type="checkbox" id="phase-repescage-${idx}" ${phase.hasRepescage ? 'checked' : ''} onchange="updatePhasePreview(${idx})">
-                🔄 Aggiungere girone di ripescaggio per le eliminate
+                🔄 Abilitare ramo di ripescaggio per le eliminate
               </label>
-              <small style="color: #666; display: block; margin-top: 4px">Le squadre non qualificate giocheranno in un mini-girone di ripescaggio</small>
+              <small style="color: #666; display: block; margin-top: 4px">Le squadre non qualificate avranno un percorso distinto. La fase successiva sarà configurata nel wizard.</small>
             </div>
             <div style="grid-column: 1 / -1; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-top: 8px">
               <strong style="color: #333">📊 Preview Flusso Squadre:</strong>
@@ -5944,9 +5944,9 @@
                   <div class="field" style="grid-column: 1 / -1">
                     <label style="display: flex; align-items: center; gap: 8px; margin: 0">
                       <input type="checkbox" id="wizard-repescage" ${wizardState.phaseData.hasRepescage ? 'checked' : ''}>
-                      🔄 Girone di ripescaggio per le eliminate
+                      🔄 Abilitare ramo di ripescaggio per le eliminate
                     </label>
-                    <small style="color: #666">Le squadre non qualificate giocheranno in un mini-girone</small>
+                    <small style="color: #666">Le squadre non qualificate avranno un percorso distinto nella fase successiva</small>
                   </div>
                 </div>
               </div>

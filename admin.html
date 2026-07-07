@@ -6480,12 +6480,10 @@
           phaseData.teamsAdvance = numGroups * teamsPerGroup;
           phaseData.teamsRepescage = phase.hasRepescage ? Math.max(0, 12 - phaseData.teamsAdvance) : 0;
           phaseData.teamsEliminated = teamsInPlay - phaseData.teamsAdvance;
-          phaseData.showEliminated = phase.hasRepescage; // Mostra eliminate SOLO se repescaggio è abilitato
         } else {
           const numTeams = phase.numTeams || 4;
           phaseData.teamsAdvance = Math.ceil(numTeams / 2);
           phaseData.teamsEliminated = numTeams - phaseData.teamsAdvance;
-          phaseData.showEliminated = phase.hasLosersPath; // Mostra eliminate SOLO se losers path è abilitato
           phaseData.teamsRepescage = 0;
         }
 
@@ -6500,7 +6498,7 @@
               <div style="border-top: 1px solid #b3d9ff; padding-top: 6px; margin-top: 6px">
                 <div style="color: #107c10; margin-bottom: 3px">✅ Qualificate: <strong>${phaseData.teamsAdvance}</strong></div>
                 ${phaseData.teamsRepescage > 0 ? `<div style="color: #ffb900; margin-bottom: 3px">🔄 Ripescaggio: <strong>${phaseData.teamsRepescage}</strong></div>` : ''}
-                ${phaseData.showEliminated && phaseData.teamsEliminated > 0 ? `<div style="color: #d13438">❌ Eliminate: <strong>${phaseData.teamsEliminated}</strong></div>` : ''}
+                ${phaseData.teamsEliminated > 0 ? `<div style="color: #d13438">❌ Eliminate: <strong>${phaseData.teamsEliminated}</strong></div>` : ''}
               </div>
             </div>
           </div>
@@ -6709,23 +6707,12 @@
           const teamsAdvance = phase.teamsAdvance || 2;
           qualified = numGroups * teamsAdvance;
           eliminated = Math.max(0, qualifiedTeams - qualified);
-          // Solo se il repescaggio è abilitato, contiamo i team eliminati
-          if (!phase.hasRepescage) {
-            eliminated = 0;
-          }
         } else if (phase.type === 'knockout') {
           qualified = Math.ceil(qualifiedTeams / 2);
           eliminated = Math.floor(qualifiedTeams / 2);
-          // Solo se il losers path è abilitato, contiamo i team eliminati
-          if (!phase.hasLosersPath) {
-            eliminated = 0;
-          }
         } else if (phase.type === 'finale') {
           qualified = 1; // La finale ha 1 vincitore
           eliminated = Math.max(0, qualifiedTeams - 1);
-          if (!phase.hasLosersPath) {
-            eliminated = 0;
-          }
         }
 
         bracket.qualified.push({
@@ -6744,13 +6731,10 @@
       }
 
       // Seconda passa: crea il ramo eliminated (losers bracket)
-      // Nota: eliminatedTeams viene mantenuto dal calcolo della prima passa
-      // Se non ci sono team eliminati (perché i flag non sono spuntati), 
-      // questa passa non aggiungerà nulla a bracket.eliminated
+      eliminatedTeams = 0;
       for (let i = 0; i < phases.length; i++) {
         const phase = phases[i];
         if (phase.branch !== 'eliminated' && phase.branch !== 'repescaggio') continue;
-        if (eliminatedTeams === 0) break; // Salta se non ci sono team eliminati
 
         let qualified = eliminatedTeams;
         let eliminated = 0;
@@ -6866,10 +6850,12 @@
                     onclick="openPhaseWizard('qualified')">
                     ✓ +Qualificate
                   </button>
-                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                    onclick="openPhaseWizard('eliminated')">
-                    ✗ +Eliminate
-                  </button>
+                  ${(phase.type === 'groups' && phase.hasRepescage) || (phase.type === 'knockout' && phase.hasLosersPath) ? `
+                    <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                      onclick="openPhaseWizard('eliminated')">
+                      ✗ +Eliminate
+                    </button>
+                  ` : ''}
                 </div>
               ` : `
                 <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; text-align: center; font-size: 12px; color: #2ecc71; font-weight: bold">

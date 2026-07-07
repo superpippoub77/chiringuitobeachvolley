@@ -6187,12 +6187,27 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       
       if (!confirmed) return;
       
-      phases.splice(idx, 1);
-      config.phases = phases;
-      renderPhases();
-      
-      // Salva automaticamente le fasi rimanenti
-      await savePhases();
+      try {
+        // Rimuovi dalla lista locale
+        phases.splice(idx, 1);
+        
+        // Aggiorna i numeri di fase
+        const phasesToSave = phases.map((phase, i) => ({
+          ...phase,
+          phaseNumber: i + 1
+        }));
+        
+        // Salva direttamente via API (non legge da HTML per evitare mismatch di indici)
+        await callApi('admin_update_config', 'POST', { phases: phasesToSave }, true);
+        
+        config.phases = phasesToSave;
+        await showInfoDialog('✅ Fase rimossa', 'La fase è stata cancellata con successo.');
+        renderPhases();
+        updateButtonStates();
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Errore durante la cancellazione: ' + e.message);
+        config.phases = phases; // Ripristina la fase se il salvataggio fallisce
+      }
     }
 
     async function savePhases() {

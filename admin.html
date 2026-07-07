@@ -6298,6 +6298,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                 // Crea la fase
                 config.phases = [...phases, {
                   phaseNumber: wizardState.phaseData.phaseNumber,
+                  branch: wizardState.phaseData.branch,
                   name: wizardState.phaseData.name,
                   type: wizardState.phaseData.type,
                   numGroups: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.numGroups : undefined,

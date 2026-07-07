@@ -3192,9 +3192,8 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             $phases[] = $phaseData;
         }
         
-        if (count($phases) > 0) {
-            $config['phases'] = $phases;
-        }
+        // Salva sempre, anche se l'array è vuoto (permette cancellazione completa)
+        $config['phases'] = $phases;
     }
     
     if (isset($body['contact']) && is_array($body['contact'])) {

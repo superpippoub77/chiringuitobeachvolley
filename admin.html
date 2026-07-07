@@ -5818,21 +5818,27 @@
     }
 
     function openBulkTimeSlotDialog() {
-      // Verifica che ci siano campi e date configurati
+      // Verifica che ci siano campi configurati
       const courts = config.schedule?.courts || [];
-      let totalDates = 0;
-      courts.forEach(court => {
-        totalDates += (court.availability || []).length;
-      });
-
-      if (totalDates === 0) {
-        showInfoDialog('Attenzione', 'Configura almeno un campo con una data prima di aggiungere fasce orarie bulk.');
+      if (courts.length === 0) {
+        showInfoDialog('Attenzione', 'Configura almeno un campo prima di aggiungere fasce orarie bulk.');
         return;
       }
 
-      // Crea il dialog con due input time
+      // Calcola data di oggi come default
+      const today = new Date().toISOString().split('T')[0];
+
+      // Crea il dialog con input date e time
       const bodyHtml = `
         <div style="padding: 12px 0">
+          <div style="margin-bottom: 12px">
+            <label style="display: block; margin-bottom: 6px; font-weight: bold">Data Inizio</label>
+            <input type="date" id="bulkDateStart" value="${today}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+          </div>
+          <div style="margin-bottom: 12px">
+            <label style="display: block; margin-bottom: 6px; font-weight: bold">Data Fine</label>
+            <input type="date" id="bulkDateEnd" value="${today}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+          </div>
           <div style="margin-bottom: 12px">
             <label style="display: block; margin-bottom: 6px; font-weight: bold">Orario Inizio</label>
             <input type="time" id="bulkStartTime" value="19:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
@@ -5842,13 +5848,13 @@
             <input type="time" id="bulkEndTime" value="20:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
           </div>
           <div style="background: #e3f2fd; border-left: 3px solid #1976d2; padding: 10px; border-radius: 4px; font-size: 12px; color: #0d47a1">
-            <strong>ℹ️ Nota:</strong> La fascia oraria sarà aggiunta a <strong>${totalDates}</strong> data${totalDates !== 1 ? 'e' : ''} configurata${totalDates !== 1 ? 'e' : ''} in tutti i campi.
+            <strong>ℹ️ Nota:</strong> La fascia oraria sarà aggiunta a tutti i giorni compresi nell'intervallo di date, in tutti i campi configurati.
           </div>
         </div>
       `;
 
       openModal({
-        title: 'Aggiungi fascia oraria a TUTTI i giorni',
+        title: 'Aggiungi fascia oraria per intervallo di giorni',
         bodyHtml,
         buttons: [
           {
@@ -5868,20 +5874,33 @@
     }
 
     function applyBulkTimeSlot() {
+      const dateStartEl = document.getElementById('bulkDateStart');
+      const dateEndEl = document.getElementById('bulkDateEnd');
       const startTimeEl = document.getElementById('bulkStartTime');
       const endTimeEl = document.getElementById('bulkEndTime');
 
-      if (!startTimeEl || !endTimeEl) return;
+      if (!dateStartEl || !dateEndEl || !startTimeEl || !endTimeEl) return;
 
+      const dateStart = dateStartEl.value.trim();
+      const dateEnd = dateEndEl.value.trim();
       const startTime = startTimeEl.value.trim();
       const endTime = endTimeEl.value.trim();
 
-      if (!startTime || !endTime) {
-        showInfoDialog('Attenzione', 'Inserisci sia l\'orario inizio che l\'orario fine.');
+      // Validazione campi vuoti
+      if (!dateStart || !dateEnd || !startTime || !endTime) {
+        showInfoDialog('Attenzione', 'Compila tutti i campi: data inizio, data fine, orario inizio, orario fine.');
         return;
       }
 
-      // Validazione: end non deve essere <= start
+      // Validazione: endDate >= startDate
+      const startDate = new Date(dateStart);
+      const endDate = new Date(dateEnd);
+      if (endDate < startDate) {
+        showInfoDialog('Errore', 'La data fine deve essere uguale o successiva alla data inizio.');
+        return;
+      }
+
+      // Validazione: endTime > startTime
       const startMin = timeStringToMinutes(startTime);
       const endMin = timeStringToMinutes(endTime);
       if (endMin <= startMin) {
@@ -5889,12 +5908,32 @@
         return;
       }
 
-      // Applica la fascia a tutti i giorni di tutti i campi
+      // Genera tutte le date nell'intervallo
+      const datesInRange = [];
+      let currentDate = new Date(startDate);
+      while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        datesInRange.push(dateStr);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Applica la fascia oraria a tutte le date nell'intervallo, su tutti i campi
       const courts = config.schedule?.courts || [];
       let addedCount = 0;
 
       courts.forEach(court => {
-        (court.availability || []).forEach(dateAvail => {
+        datesInRange.forEach(dateStr => {
+          // Controlla se questa data esiste già nel court
+          let dateAvail = (court.availability || []).find(av => av.date === dateStr);
+          
+          // Se la data non esiste, la aggiungo
+          if (!dateAvail) {
+            court.availability = court.availability || [];
+            dateAvail = { date: dateStr, timeSlots: [] };
+            court.availability.push(dateAvail);
+          }
+
+          // Aggiungi la fascia oraria
           dateAvail.timeSlots = dateAvail.timeSlots || [];
           dateAvail.timeSlots.push({
             startTime: startTime,
@@ -5906,7 +5945,7 @@
 
       closeModal();
       renderSchedule();
-      showInfoDialog('✅ Successo', `Fascia oraria ${startTime} - ${endTime} aggiunta a ${addedCount} giorno${addedCount !== 1 ? 'i' : ''}.`);
+      showInfoDialog('✅ Successo', `Fascia oraria ${startTime} - ${endTime} aggiunta a ${datesInRange.length} giorno${datesInRange.length !== 1 ? 'i' : ''} (${dateStart} fino a ${dateEnd}) in tutti i ${courts.length} campo${courts.length !== 1 ? 'i' : ''}.`);
     }
 
     function syncScheduleFromForm() {

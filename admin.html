@@ -3322,11 +3322,27 @@
         c.innerHTML = '<p>Partite non disponibili. Ricaricare la pagina.</p>';
         return;
       }
-      const m = state.groupMatches || [];
+      let m = state.groupMatches || [];
       if (!m.length) {
         c.innerHTML = '<p>Nessuna partita.</p>';
         return;
       }
+      
+      // Ordina per data e ora
+      m = m.slice().sort((a, b) => {
+        // Prova prima con 'date' (nuovo formato), poi con 'dayDate' (vecchio formato)
+        const dateA = a.date || a.dayDate || '';
+        const dateB = b.date || b.dayDate || '';
+        
+        // Prova prima con 'startTime' (nuovo formato), poi con 'time' (vecchio formato)
+        const timeA = a.startTime || a.time || '00:00';
+        const timeB = b.startTime || b.time || '00:00';
+        
+        if (dateA !== dateB) {
+          return dateA.localeCompare(dateB); // Ordine alfabetico (YYYY-MM-DD)
+        }
+        return timeA.localeCompare(timeB); // Ordine alfabetico (HH:MM)
+      });
       
       // DEBUG: Log first few matches to inspect data
       console.log('renderMatches: Total matches=' + m.length);

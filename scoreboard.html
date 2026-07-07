@@ -1212,6 +1212,22 @@
         return;
       }
 
+      // Ordina per data e ora
+      let matches = state.groupMatches.slice().sort((a, b) => {
+        // Prova prima con 'date' (nuovo formato), poi con 'dayDate' (vecchio formato)
+        const dateA = a.date || a.dayDate || '';
+        const dateB = b.date || b.dayDate || '';
+        
+        // Prova prima con 'startTime' (nuovo formato), poi con 'time' (vecchio formato)
+        const timeA = a.startTime || a.time || '00:00';
+        const timeB = b.startTime || b.time || '00:00';
+        
+        if (dateA !== dateB) {
+          return dateA.localeCompare(dateB); // Ordine alfabetico (YYYY-MM-DD)
+        }
+        return timeA.localeCompare(timeB); // Ordine alfabetico (HH:MM)
+      });
+
       function getMatchStatus(m) {
         // If both scores are null/undefined: not started (gray)
         if ((m.score1 === null || m.score1 === undefined) && (m.score2 === null || m.score2 === undefined)) {
@@ -1225,7 +1241,7 @@
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th><th>⏱️ Timer</th></tr></thead><tbody>${state.groupMatches.map(m => {
+      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th><th>⏱️ Timer</th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
         const timer = timerState.get(m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`);
         const matchId = m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`;

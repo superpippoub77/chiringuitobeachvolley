@@ -3108,6 +3108,13 @@
         c.innerHTML = '<p>Nessuna partita.</p>';
         return;
       }
+      
+      // DEBUG: Log first few matches to inspect data
+      console.log('renderMatches: Total matches=' + m.length);
+      if (m.length > 0) {
+        console.log('First match:', m[0]);
+      }
+      
       c.innerHTML = `<table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr>
         <td>${match.group}</td>
@@ -5429,15 +5436,13 @@
 
     // Conta il numero di partite assegnate a uno slot specifico
     function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
-      // Questa funzione conta quante partite sono programmate in uno slot specifico
-      // Per adesso restituisce 0 poiché l'assegnazione automatica non è ancora implementata
-      // In futuro verrà aggiornata per leggere da state.matches quando sarà disponibile
-      
-      if (!state || !state.matches) return 0;
+      if (!state || !state.groupMatches || !Array.isArray(state.groupMatches)) {
+        return 0;
+      }
       
       // Conta le partite che corrispondono a court, date, e slot
       let count = 0;
-      state.matches.forEach(match => {
+      state.groupMatches.forEach(match => {
         if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === slotIdx) {
           count++;
         }

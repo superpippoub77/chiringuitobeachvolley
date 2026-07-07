@@ -1236,10 +1236,14 @@ function publicState(array $state): array {
                 'score2' => $m['score2'],
                 'date' => $m['date'] ?? null,
                 'dayDate' => $m['date'] ?? null,  // Alias per compatibilità frontend
+                'courtId' => $m['courtId'] ?? null,
+                'courtIdx' => $m['courtIdx'] ?? null,  // Indice della corte
                 'courtName' => $m['courtName'] ?? null,
                 'startTime' => $m['startTime'] ?? null,
                 'endTime' => $m['endTime'] ?? null,
                 'time' => !empty($m['startTime']) && !empty($m['endTime']) ? ($m['startTime'] . ' - ' . $m['endTime']) : '',  // Formato leggibile
+                'dateIdx' => $m['dateIdx'] ?? null,  // Indice della data
+                'slotIdx' => $m['slotIdx'] ?? null,  // Indice dello slot
                 'duration' => $m['duration'] ?? null
             ];
         }, $state['groupMatches'])),
@@ -1642,17 +1646,21 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     $courts = $config['schedule']['courts'] ?? [];
     
     if (empty($courts)) {
+        error_log('DEBUG buildGroupMatchesWithSchedule: No courts found, using buildGroupMatches');
         buildGroupMatches($state);
         return;
     }
     
-    // Costruisci lista di slot disponibili da courts
+    // Costruisci lista di slot disponibili da courts con indici
     $availableSlots = [];
-    foreach ($courts as $court) {
-        foreach ($court['availability'] ?? [] as $dateAvail) {
+    foreach ($courts as $courtIdx => $court) {
+        foreach ($court['availability'] ?? [] as $dateIdx => $dateAvail) {
             $date = $dateAvail['date'];
-            foreach ($dateAvail['timeSlots'] ?? [] as $timeSlot) {
+            foreach ($dateAvail['timeSlots'] ?? [] as $slotIdx => $timeSlot) {
                 $availableSlots[] = [
+                    'courtIdx' => $courtIdx,
+                    'dateIdx' => $dateIdx,
+                    'slotIdx' => $slotIdx,
                     'courtId' => $court['courtId'],
                     'courtName' => $court['courtName'],
                     'date' => $date,
@@ -1663,7 +1671,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         }
     }
     
+    error_log('DEBUG buildGroupMatchesWithSchedule: courts=' . count($courts) . ', totalAvailableSlots=' . count($availableSlots));
+    
     if (empty($availableSlots)) {
+        error_log('DEBUG buildGroupMatchesWithSchedule: No available slots found, using buildGroupMatches');
         buildGroupMatches($state);
         return;
     }
@@ -1685,11 +1696,16 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                     'courtId' => null,
                     'courtName' => null,
                     'startTime' => null,
-                    'endTime' => null
+                    'endTime' => null,
+                    'courtIdx' => null,
+                    'dateIdx' => null,
+                    'slotIdx' => null
                 ];
             }
         }
     }
+    
+    error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
     
     // Assegna slot alle partite in sequenza
     $slotIndex = 0;
@@ -1698,6 +1714,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     foreach ($matches as &$match) {
         if ($slotIndex >= count($availableSlots)) {
+            error_log('DEBUG buildGroupMatchesWithSchedule: Ran out of slots at matchIndex=' . count($matches) . ' slotIndex=' . $slotIndex);
             // Se finiscono gli slot, torna a buildGroupMatches
             $state['groupMatches'] = [];
             buildGroupMatches($state);
@@ -1710,6 +1727,9 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         $match['courtName'] = $slot['courtName'];
         $match['startTime'] = $slot['startTime'];
         $match['endTime'] = $slot['endTime'];
+        $match['courtIdx'] = $slot['courtIdx'];
+        $match['dateIdx'] = $slot['dateIdx'];
+        $match['slotIdx'] = $slot['slotIdx'];
         
         $currentSlotMatchCount++;
         if ($currentSlotMatchCount >= $matchesPerSlot) {
@@ -1718,6 +1738,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         }
     }
     
+    error_log('DEBUG buildGroupMatchesWithSchedule: Assigned all ' . count($matches) . ' matches to slots');
     $state['groupMatches'] = $matches;
 }
 

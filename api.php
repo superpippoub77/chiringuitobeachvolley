@@ -2401,11 +2401,6 @@ if ($action === 'admin_move_team_group' && $method === 'POST') {
     $newGroup = (string)($body['newGroup'] ?? '');
 
     withStateTransaction(function (&$state) use ($teamId, $newGroup) {
-        // Verifica che il torneo non sia iniziato
-        if (tournamentStarted($state)) {
-            jsonResponse(422, ['ok' => false, 'error' => 'Impossibile spostare squadre: il torneo è già iniziato']);
-        }
-
         // Trova il girone attuale
         $currentGroup = null;
         $currentGroupIdx = null;

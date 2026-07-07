@@ -1014,7 +1014,7 @@
     const API = 'api.php';
     let token = localStorage.getItem('adminToken') || '';
     let state = null;
-    let config = null;
+    let config = {};
     let modalCloseHandler = null;
     let modalOnClose = null;
 
@@ -1257,7 +1257,7 @@
 
     async function refresh() {
       const r = await callApi('admin_state', 'GET', null, true);
-      state = r.data;
+      state = r.data || {};
       await renderSettings();
       renderTeams();
       renderSchedule();
@@ -1324,10 +1324,6 @@
               <div class="field">
                 <label>Max giocatori per squadra</label>
                 <input id="cfg-maxPlayersPerTeam" type="number" min="1" max="12" value="${t.maxPlayersPerTeam || 3}" placeholder="Es: 3">
-              </div>
-              <div class="field">
-                <label>Numero gironi</label>
-                <input id="cfg-numGroups" type="number" min="1" max="8" value="${t.numGroups || ''}" placeholder="Es: 2, 4">
               </div>
               <div class="field">
                 <label>Set da vincere</label>
@@ -1788,6 +1784,8 @@
         }
       } catch (e) {
         console.error('Errore caricamento config:', e);
+        // Assicura che config sia almeno un oggetto vuoto
+        config = config || {};
       }
       
       // Carica la lista dei backup dal server
@@ -2049,7 +2047,6 @@
         const maxPlayersPerTeamVal = parseInt(document.getElementById('cfg-maxPlayersPerTeam').value) || 3;
         const maxPlayersOnCourtVal = parseInt(document.getElementById('cfg-maxPlayersOnCourt').value) || 2;
         const maxSubstitutionsVal = parseInt(document.getElementById('cfg-maxSubstitutions').value) || 0;
-        const numGroupsVal = parseInt(document.getElementById('cfg-numGroups').value) || 0;
         const winScoreVal = parseInt(document.getElementById('cfg-winScore').value) || 0;
         const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
         const setupTimeVal = parseInt(document.getElementById('cfg-setupTime').value) || 0;
@@ -2062,7 +2059,6 @@
             maxPlayersPerTeam: Math.max(1, Math.min(12, maxPlayersPerTeamVal)),
             maxPlayersOnCourt: Math.max(1, Math.min(6, maxPlayersOnCourtVal)),
             maxSubstitutions: Math.max(0, maxSubstitutionsVal),
-            numGroups: numGroupsVal > 0 ? Math.max(1, numGroupsVal) : 0,
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
             timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
@@ -2438,8 +2434,14 @@
 
     function renderTeams() {
       const c = document.getElementById('teamsContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!state) {
+        console.warn('⚠️ renderTeams: state non inizializzato');
+        c.innerHTML = '<p>Dati non caricati. Ricaricare la pagina.</p>';
+        return;
+      }
       const all = state.teamsAll || [];
-      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
+      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
     }
 
     async function deleteTeamFromList(teamId, teamName) {
@@ -2849,6 +2851,12 @@
 
     function renderStandings() {
       const c = document.getElementById('standingsContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!state) {
+        console.warn('⚠️ renderStandings: state non inizializzato');
+        c.innerHTML = '<p>Classifiche non disponibili. Ricaricare la pagina.</p>';
+        return;
+      }
       const standings = state.standings || [];
 
       if (standings.length === 0) {
@@ -3008,13 +3016,24 @@
 
     function renderGroups() {
       const c = document.getElementById('groupsContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!state || !state.groups) {
+        console.warn('⚠️ renderGroups: state o groups non inizializzato');
+        c.innerHTML = '<p>Gruppi non disponibili. Ricaricare la pagina.</p>';
+        return;
+      }
       if (!state.groups.length) {
         c.innerHTML = '<p>Nessun girone generato.</p>';
         return;
       }
 
-      // Calcola statistiche bilanciamento
-      const groupSizes = state.groups.map(g => g.teamIds.length);
+      // Calcola statistiche bilanciamento - usa group.teams (non teamIds)
+      const validGroups = (state.groups || []).filter(g => g);
+      if (validGroups.length === 0) {
+        c.innerHTML = '<p>Nessun girone valido.</p>';
+        return;
+      }
+      const groupSizes = validGroups.map(g => (g?.teams?.length || 0));
       const minSize = Math.min(...groupSizes);
       const maxSize = Math.max(...groupSizes);
       const isBalanced = minSize === maxSize;
@@ -3041,7 +3060,7 @@
       html += '<p class="muted">🖱️ Trascina le squadre tra i gironi per riequilibrare. Le partite verranno rigenerate automaticamente.</p>';
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
-      state.groups.forEach(group => {
+      validGroups.forEach(group => {
         html += `
           <div class="group-drop-zone" data-group="${group.name}" style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0; min-height: 300px; transition: all 0.3s ease">
             <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
@@ -3049,10 +3068,10 @@
                 <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
                 Girone ${group.name}
               </span>
-              <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${group.teamIds.length}</span>
+              <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${(group?.teams?.length || 0)}</span>
             </h4>
             <div class="group-teams-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 250px; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 4px">
-              ${group.teams.map(team => `
+              ${(group?.teams || []).map(team => `
                 <div class="draggable-team" draggable="true" data-team-id="${team.id}" data-team-name="${escapeHtml(team.name)}" data-current-group="${group.name}" style="background: white; border: 1px solid #d8c39f; border-radius: 6px; padding: 10px; cursor: move; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05)">
                   <strong style="display: block; color: #6b5d45">${escapeHtml(team.name)}</strong>
                   <small style="color: #999">👥 ${(team.players || []).filter(Boolean).length} giocatori</small>
@@ -3235,6 +3254,12 @@
 
     function renderMatches() {
       const c = document.getElementById('matchesContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!state) {
+        console.warn('⚠️ renderMatches: state non inizializzato');
+        c.innerHTML = '<p>Partite non disponibili. Ricaricare la pagina.</p>';
+        return;
+      }
       const m = state.groupMatches || [];
       if (!m.length) {
         c.innerHTML = '<p>Nessuna partita.</p>';
@@ -3294,6 +3319,12 @@
 
     function renderPlayoff() {
       const c = document.getElementById('playoffContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!state) {
+        console.warn('⚠️ renderPlayoff: state non inizializzato');
+        c.innerHTML = '<p>Playoff non disponibili. Ricaricare la pagina.</p>';
+        return;
+      }
       const p = state.playoff || {};
 
       if (!p.quarterFinals || p.quarterFinals.length === 0) {
@@ -6529,6 +6560,12 @@
 
     function renderPhases() {
       const c = document.getElementById('phasesContainer');
+      if (!c) return; // Guard: container non trovato
+      if (!config) {
+        console.warn('⚠️ renderPhases: config non inizializzato');
+        c.innerHTML = '<p class="muted">Configurazione non caricata. Prova a ricaricare la pagina.</p>';
+        return;
+      }
       const phases = config.phases || [];
 
       if (phases.length === 0) {

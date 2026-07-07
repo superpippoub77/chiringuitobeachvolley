@@ -105,3 +105,4 @@ Per ogni giocatore inserisci nel form il livello che può essere da 0 = amatore 
 Applica il bilanciamento/peso squadra nella formula generazione gironi: snake-draft con squadre ordinate per peso, e nella formula castello: seeding top-vs-bottom per partite competitive✅
 Se i gironi sono stati creati ma le partite non sono ancora iniziate è possibile spostare di posiozne una squadra con il sistema drag & drop, quinid temporanemante possono essere gironi sbilanciati ma quando si salva in base alla configurazione viene fuori un emessaggio di errore se il sistema proposto dei gironi non è corretto✅
 Consenti anche lo sbilanciamento in cui un girone pèuò avere più squadre quando il numero di squadre complessive non consente una divisione corretta✅
+Il numero di gironi non serve nelle impostazioni di base del torneo✅

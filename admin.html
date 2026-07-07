@@ -1354,6 +1354,13 @@
                 <input id="cfg-maxTeams" type="number" min="2" max="100" value="${t.maxTeams || ''}" placeholder="Es: 16, 32">
                 <small style="color: #666; display: block; margin-top: 4px">Deve essere almeno 2 squadre</small>
               </div>
+              <div class="field" style="grid-column: span 2">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; background: #ffebee; border-radius: 4px">
+                  <input type="checkbox" id="cfg-registrationsClosed" ${t.registrationsClosed ? 'checked' : ''}>
+                  <span style="font-weight: bold; color: #b71c1c">🚫 Chiudi iscrizioni</span>
+                </label>
+                <small style="color: #666; display: block; margin-top: 4px">Se spuntato, nessuna squadra può iscriversi (mostra messaggio di iscrizioni chiuse)</small>
+              </div>
               <div class="field">
                 <label>Max giocatori per squadra</label>
                 <input id="cfg-maxPlayersPerTeam" type="number" min="1" max="12" value="${t.maxPlayersPerTeam || 3}" placeholder="Es: 3">
@@ -2139,7 +2146,8 @@
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
             timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
             setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
-            maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0
+            maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
+            registrationsClosed: document.getElementById('cfg-registrationsClosed').checked
           },
           contact: {
             managerEmail: document.getElementById('cfg-managerEmail').value.trim()

@@ -795,8 +795,7 @@
       <h3>Registrazione squadra</h3>
       <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
         conferma.</div>
-      <div id="closedNotice" class="closed-notice hidden">Le iscrizioni sono chiuse - Torneo al completo (16 squadre)
-      </div>
+      <div id="closedNotice" class="closed-notice hidden">🚫 Le iscrizioni al torneo sono chiuse</div>
       <div class="form-grid" id="registrationForm">
         <input id="fName" placeholder="Nome squadra">
         
@@ -1153,6 +1152,30 @@
       if (heroEl) heroEl.style.display = 'block';
       if (countdownEl) countdownEl.style.display = 'grid';
       
+      // Controlla se le iscrizioni sono chiuse
+      const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
+      const closedNotice = document.getElementById('closedNotice');
+      const submitBtn = document.getElementById('submitBtn');
+      const registrationForm = document.getElementById('registrationForm');
+      
+      if (registrationsClosed) {
+        if (closedNotice) closedNotice.classList.remove('hidden');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          submitBtn.style.cursor = 'not-allowed';
+        }
+        if (registrationForm) registrationForm.style.opacity = '0.6';
+      } else {
+        if (closedNotice) closedNotice.classList.add('hidden');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+        }
+        if (registrationForm) registrationForm.style.opacity = '1';
+      }
+      
       // Aggiorna hero section con dati dal config
       updateHeroSection();
       
@@ -1369,6 +1392,12 @@
       const phone = document.getElementById('fPhone').value.trim();
       const privacyOk = document.getElementById('fPrivacy').checked;
       const cookiesOk = document.getElementById('fCookies').checked;
+
+      // Controlla se le iscrizioni sono chiuse
+      if (config?.tournament?.registrationsClosed) {
+        await showInfoDialog('🚫 Iscrizioni Chiuse', 'Le iscrizioni al torneo sono chiuse. Non è possibile iscrivere nuove squadre.');
+        return;
+      }
 
       if (!name || !player1 || !player2) {
         await showInfoDialog('Dati mancanti', 'Compila nome squadra e i primi due giocatori');

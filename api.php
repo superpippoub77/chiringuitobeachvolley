@@ -376,7 +376,8 @@ function defaultConfig(): array {
             'maxScore' => 25,
             'timePerSetMinutes' => 35,
             'setupTimeMinutes' => 5,
-            'maxTimeoutsPerSet' => 2
+            'maxTimeoutsPerSet' => 2,
+            'registrationsClosed' => false
         ],
         'schedule' => [
             'courts' => []
@@ -2279,6 +2280,15 @@ if ($action === 'register_team' && $method === 'POST') {
     // Leggi configurazione per email del gestore
     $config = readConfig();
     $managerEmail = $config['contact']['managerEmail'] ?? '';
+
+    // Controlla se le iscrizioni sono chiuse
+    if ($config['tournament']['registrationsClosed'] ?? false) {
+        jsonResponse(403, [
+            'ok' => false,
+            'error' => '🚫 Le iscrizioni al torneo sono chiuse',
+            'registrationsClosed' => true
+        ]);
+    }
 
     $emailResult = null;
 

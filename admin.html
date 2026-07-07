@@ -2410,6 +2410,10 @@
         }).filter(Boolean).join('');
       }
       const playersText = playersHtml || '<em style="color:#999">Giocatori non inseriti</em>';
+      
+      // Calcola il peso della squadra
+      const weight = getTeamWeight(team);
+      const weightColor = getWeightColor(weight);
 
       const canDelete = !isTournamentStarted();
       const isDummy = team.dummy === true;
@@ -2421,6 +2425,7 @@
         </div>
         <div class="chips">
           ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
+          <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold" title="Peso squadra = Media livelli giocatori">⚖️ ${weight}</span>
           <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
           <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
         </div>
@@ -2620,10 +2625,12 @@
             for (let i = 0; i < maxPlayers; i++) {
               const nameInput = document.getElementById(`mPlayer${i}Name`);
               const captainCheckbox = document.getElementById(`mPlayer${i}Captain`);
+              const levelSelect = document.getElementById(`mPlayer${i}Level`);
               if (nameInput && nameInput.value.trim()) {
                 playersData.push({
                   name: nameInput.value.trim(),
-                  isCaptain: captainCheckbox ? captainCheckbox.checked : false
+                  isCaptain: captainCheckbox ? captainCheckbox.checked : false,
+                  level: levelSelect ? parseInt(levelSelect.value) || 2 : 2
                 });
               }
             }
@@ -2651,11 +2658,13 @@
         <h4 style="margin: 0 0 12px 0">Giocatori (Max ${maxPlayers})</h4>`;
 
       for (let i = 0; i < maxPlayers; i++) {
-        const player = players[i] || { name: '', isCaptain: false, imageFile: '' };
+        const player = players[i] || { name: '', isCaptain: false, imageFile: '', level: 2 };
         const imageUrl = player.imageFile ? player.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+        const playerLevel = player.level || 2;
+        const levelLabels = ['Amatore', 'Intermedio', 'Avanzato', 'Professionista', 'Top'];
         playersHtml += `
           <div style="border: 1px solid #e0e0e0; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: white">
-            <div style="display: grid; grid-template-columns: 60px 1fr 100px; gap: 8px; align-items: start">
+            <div style="display: grid; grid-template-columns: 60px 1fr 140px; gap: 8px; align-items: start">
               <div style="cursor: pointer; position: relative" onclick="document.getElementById('playerImage${i}').click()">
                 <img id="playerImagePreview${i}" src="${imageUrl}" style="width: 60px; height: 60px; border-radius: 4px; object-fit: cover; border: 2px solid #ddd; opacity: 0.8; hover: opacity: 1">
                 <input 
@@ -2686,14 +2695,23 @@
                   👨‍💼 Capitano
                 </label>
               </div>
-              <div id="uploadStatus${i}" style="font-size: 12px; color: #666; text-align: center; min-height: 40px; display: flex; align-items: center; justify-content: center"></div>
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <label style="font-size: 12px; font-weight: 600; color: #555">Livello giocatore</label>
+                <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 14px" onchange="updateTeamWeight()">
+                  ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${playerLevel === l ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
+                </select>
+              </div>
+              <div id="uploadStatus${i}" style="font-size: 12px; color: #666; text-align: center; display: none"></div>
             </div>
           </div>
         `;
       }
 
       playersHtml += `
-        <small style="color: #666; display: block; margin-top: 8px">Segna il giocatore come capitano responsabile della squadra</small>
+        <div id="teamWeightBox" style="background: #e3f2fd; border: 2px solid #2196f3; padding: 8px; border-radius: 4px; margin-top: 8px; text-align: center; display: none">
+          <strong style="color: #1976d2">Peso Squadra (Media Livelli):</strong> <span id="teamWeightValue" style="font-size: 16px; font-weight: bold; color: #1565c0">-</span>
+        </div>
+        <small style="color: #666; display: block; margin-top: 8px">• Livello: 0=Amatore ... 4=Top | • Capitano responsabile: squadra | • Peso: media dei livelli dei giocatori inseriti</small>
       </div>`;
 
       openModal({
@@ -2726,6 +2744,72 @@
         `,
         buttons
       });
+    }
+
+    // Calcola il peso di una squadra dal suo oggetto dati
+    function getTeamWeight(team) {
+      if (!team.players || team.players.length === 0) return 0;
+      
+      let totalLevel = 0;
+      let playerCount = 0;
+      
+      team.players.forEach(p => {
+        if (p && p.name) {
+          totalLevel += (p.level || 2);
+          playerCount++;
+        }
+      });
+      
+      return playerCount > 0 ? (totalLevel / playerCount).toFixed(2) : 0;
+    }
+
+    // Ottiene il colore del peso per il badge
+    function getWeightColor(weight) {
+      weight = parseFloat(weight);
+      if (weight < 1) return '#d32f2f'; // Rosso
+      if (weight < 2) return '#f57c00'; // Arancione
+      if (weight < 3) return '#fbc02d'; // Giallo
+      if (weight < 4) return '#689f38'; // Verde
+      return '#1565c0'; // Blu
+    }
+
+    function calculateTeamWeight() {
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+      let totalLevel = 0;
+      let playerCount = 0;
+      
+      for (let i = 0; i < maxPlayers; i++) {
+        const levelSelect = document.getElementById(`mPlayer${i}Level`);
+        const nameInput = document.getElementById(`mPlayer${i}Name`);
+        if (nameInput && nameInput.value.trim() && levelSelect) {
+          totalLevel += parseInt(levelSelect.value) || 2;
+          playerCount++;
+        }
+      }
+      
+      return playerCount > 0 ? (totalLevel / playerCount).toFixed(2) : 0;
+    }
+
+    // Aggiorna la visualizzazione del peso della squadra in tempo reale
+    function updateTeamWeight() {
+      const weight = calculateTeamWeight();
+      const weightBox = document.getElementById('teamWeightBox');
+      const weightValue = document.getElementById('teamWeightValue');
+      
+      if (weightValue) {
+        weightValue.textContent = weight;
+        
+        // Colora il peso in base al valore
+        let color = '#1565c0';
+        if (weight >= 0 && weight < 1) color = '#d32f2f'; // Rosso - squad weak
+        else if (weight >= 1 && weight < 2) color = '#f57c00'; // Arancione
+        else if (weight >= 2 && weight < 3) color = '#fbc02d'; // Giallo
+        else if (weight >= 3 && weight < 4) color = '#689f38'; // Verde chiaro
+        else if (weight >= 4) color = '#1565c0'; // Blu - squad strong
+        
+        if (weightValue) weightValue.style.color = color;
+        if (weightBox) weightBox.style.display = 'block';
+      }
     }
 
     async function generateGroups() {
@@ -5341,6 +5425,24 @@
           slotsContainer.innerHTML = slotsHtml;
         });
       });
+    }
+
+    // Conta il numero di partite assegnate a uno slot specifico
+    function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
+      // Questa funzione conta quante partite sono programmate in uno slot specifico
+      // Per adesso restituisce 0 poiché l'assegnazione automatica non è ancora implementata
+      // In futuro verrà aggiornata per leggere da state.matches quando sarà disponibile
+      
+      if (!state || !state.matches) return 0;
+      
+      // Conta le partite che corrispondono a court, date, e slot
+      let count = 0;
+      state.matches.forEach(match => {
+        if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === slotIdx) {
+          count++;
+        }
+      });
+      return count;
     }
 
     function timeStringToMinutes(timeStr) {

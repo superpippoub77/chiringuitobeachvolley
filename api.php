@@ -1041,6 +1041,135 @@ function generateDummyTeamName(int $index): string {
     return $names[$index % count($names)] . (intdiv($index, count($names)) > 0 ? ' ' . (intdiv($index, count($names))) : '');
 }
 
+/**
+ * Calcola il peso di una squadra come media dei livelli dei giocatori
+ * Livelli: 0=Amatore, 1=Intermedio, 2=Avanzato, 3=Professionista, 4=Top
+ * Default per vecchio formato: 2 (Avanzato)
+ */
+function getTeamWeight(array $team): float {
+    $players = $team['players'] ?? [];
+    if (empty($players)) {
+        return 2.0; // Default per squadre senza giocatori
+    }
+    
+    $totalLevel = 0;
+    $playerCount = 0;
+    
+    foreach ($players as $player) {
+        if (is_array($player) && !empty($player['name'])) {
+            $level = (int)($player['level'] ?? 2);
+            $totalLevel += $level;
+            $playerCount++;
+        } elseif (is_string($player) && !empty($player)) {
+            // Vecchio formato: string player
+            $totalLevel += 2; // Default level
+            $playerCount++;
+        }
+    }
+    
+    return $playerCount > 0 ? (float)($totalLevel / $playerCount) : 2.0;
+}
+
+/**
+ * Distribuisce le squadre nei gironi usando snake-draft bilanciato
+ * Garantisce che ogni girone abbia peso simile
+ */
+function balancedGroupDistribution(array $teams, int $groupCount): array {
+    // Ordina squadre per peso (decrescente)
+    $sortedTeams = $teams;
+    usort($sortedTeams, function($a, $b) {
+        return getTeamWeight($b) <=> getTeamWeight($a);
+    });
+    
+    // Inizializza i gironi
+    $groups = [];
+    for ($i = 0; $i < $groupCount; $i++) {
+        $groups[] = [
+            'name' => chr(65 + $i),
+            'teamIds' => [],
+            'totalWeight' => 0.0
+        ];
+    }
+    
+    // Snake-draft: alternare direzione per bilanciare i pesi
+    $forward = true;
+    foreach ($sortedTeams as $team) {
+        $weight = getTeamWeight($team);
+        
+        if ($forward) {
+            // Dall'inizio alla fine: assegna al girone con peso minore
+            usort($groups, fn($a, $b) => $a['totalWeight'] <=> $b['totalWeight']);
+        } else {
+            // Dalla fine all'inizio: assegna ancora al girone con peso minore
+            usort($groups, fn($a, $b) => $a['totalWeight'] <=> $b['totalWeight']);
+        }
+        
+        $groups[0]['teamIds'][] = $team['id'];
+        $groups[0]['totalWeight'] += $weight;
+        $forward = !$forward; // Alterna direzione
+    }
+    
+    // Rimuovi il campo temporaneo totalWeight dal risultato
+    foreach ($groups as &$group) {
+        unset($group['totalWeight']);
+    }
+    unset($group);
+    
+    return $groups;
+}
+
+/**
+ * Crea seeding bilanciato per knockout
+ * Le squadre più forti vengono posizionate negli incroci opposti (top 8)
+ * per garantire partite competitive
+ */
+function balancedKnockoutSeeding(array $teams): array {
+    // Ordina squadre per peso (decrescente)
+    $sortedTeams = $teams;
+    usort($sortedTeams, function($a, $b) {
+        return getTeamWeight($b) <=> getTeamWeight($a);
+    });
+    
+    // Genera seeding bilanciato: 1vs8, 4vs5, 2vs7, 3vs6
+    // Questo garantisce che le squadre più forti affrontino quelle più deboli
+    $seeding = [];
+    $count = count($sortedTeams);
+    
+    if ($count >= 2) {
+        // QF1: 1° vs ultimo
+        $seeding[] = [
+            'team1' => $sortedTeams[0]['id'],
+            'team2' => $sortedTeams[$count - 1]['id']
+        ];
+    }
+    
+    if ($count >= 4) {
+        // QF2: 3° vs penultimo
+        $seeding[] = [
+            'team1' => $sortedTeams[2]['id'],
+            'team2' => $sortedTeams[$count - 2]['id']
+        ];
+    }
+    
+    if ($count >= 6) {
+        // QF3: 2° vs terzultimo
+        $seeding[] = [
+            'team1' => $sortedTeams[1]['id'],
+            'team2' => $sortedTeams[$count - 3]['id']
+        ];
+    }
+    
+    if ($count >= 8) {
+        // QF4: 4° vs quartultimo
+        $seeding[] = [
+            'team1' => $sortedTeams[3]['id'],
+            'team2' => $sortedTeams[$count - 4]['id']
+        ];
+    }
+    
+    return $seeding;
+}
+
 function tournamentStarted(array $state): bool {
     if (count($state['groups']) > 0 || count($state['groupMatches']) > 0) {
         return true;
@@ -1372,12 +1501,35 @@ function createPlayoff(array &$state): bool {
         return false;
     }
 
-    $state['playoff']['quarterFinals'] = [
-        ['id' => uid(), 'label' => 'QF1', 'team1Id' => $qualified[0], 'team2Id' => $qualified[7], 'score1' => null, 'score2' => null],
-        ['id' => uid(), 'label' => 'QF2', 'team1Id' => $qualified[3], 'team2Id' => $qualified[4], 'score1' => null, 'score2' => null],
-        ['id' => uid(), 'label' => 'QF3', 'team1Id' => $qualified[1], 'team2Id' => $qualified[6], 'score1' => null, 'score2' => null],
-        ['id' => uid(), 'label' => 'QF4', 'team1Id' => $qualified[2], 'team2Id' => $qualified[5], 'score1' => null, 'score2' => null]
-    ];
+    // Recupera gli oggetti squadra dalle loro ID per calcolare il peso
+    $teamsById = [];
+    foreach ($state['teams'] as $team) {
+        $teamsById[$team['id']] = $team;
+    }
+    
+    // Crea array di squadre qualificate con i loro dati completi per il seeding bilanciato
+    $qualifiedTeams = [];
+    foreach ($qualified as $teamId) {
+        if (isset($teamsById[$teamId])) {
+            $qualifiedTeams[] = $teamsById[$teamId];
+        }
+    }
+    
+    // Genera seeding bilanciato per peso
+    $seeding = balancedKnockoutSeeding($qualifiedTeams);
+    
+    // Crea i quarter-finals usando il seeding bilanciato
+    $state['playoff']['quarterFinals'] = [];
+    foreach ($seeding as $idx => $match) {
+        $state['playoff']['quarterFinals'][] = [
+            'id' => uid(),
+            'label' => 'QF' . ($idx + 1),
+            'team1Id' => $match['team1'],
+            'team2Id' => $match['team2'],
+            'score1' => null,
+            'score2' => null
+        ];
+    }
 
     $state['playoff']['semiFinals'] = [
         ['id' => uid(), 'label' => 'SF1', 'team1Id' => null, 'team2Id' => null, 'score1' => null, 'score2' => null],
@@ -1901,18 +2053,19 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                 $team['kitDelivered'] = (bool)$body['kitDelivered'];
             }
             if (isset($body['players']) && is_array($body['players'])) {
-                // Normalizza giocatori: supporta sia string che {name, isCaptain}
+                // Normalizza giocatori: supporta sia string che {name, isCaptain, level}
                 $config = readConfig();
                 $maxPlayers = $config['tournament']['maxPlayersPerTeam'] ?? 3;
                 $normalizedPlayers = [];
                 foreach (array_slice($body['players'], 0, $maxPlayers) as $player) {
                     if (is_array($player) && isset($player['name'])) {
-                        // Formato {name, isCaptain}
+                        // Formato {name, isCaptain, level}
                         $name = mb_substr(trim((string)$player['name']), 0, 50);
                         if ($name !== '') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
-                                'isCaptain' => (bool)($player['isCaptain'] ?? false)
+                                'isCaptain' => (bool)($player['isCaptain'] ?? false),
+                                'level' => (int)($player['level'] ?? 2) // Valori 0-4, default 2
                             ];
                         }
                     } elseif (is_string($player)) {
@@ -1921,7 +2074,8 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                         if ($name !== '') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
-                                'isCaptain' => false
+                                'isCaptain' => false,
+                                'level' => 2 // Default level per vecchio formato
                             ];
                         }
                     }
@@ -2156,13 +2310,9 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
 
         $groupCount = min(4, max(1, (int)ceil(count($approved) / 4)));
-        $groups = [];
-        for ($i = 0; $i < $groupCount; $i++) {
-            $groups[] = ['name' => chr(65 + $i), 'teamIds' => []];
-        }
-        foreach ($approved as $idx => $team) {
-            $groups[$idx % $groupCount]['teamIds'][] = $team['id'];
-        }
+        
+        // Usa distribuzione bilanciata per peso squadra
+        $groups = balancedGroupDistribution($approved, $groupCount);
 
         $state['groups'] = $groups;
         

@@ -1246,10 +1246,15 @@ function validateScheduleForTournament(array $state): array {
     }
 
     if ($totalMatches > $totalSlots) {
-        return ['valid' => false, 'message' => 'Il sistema non è in grado di generare il torneo sei prega di modificare i giorni e i time range'];
+        return [
+            'valid' => false, 
+            'message' => "Slot insufficienti! Partite necessarie: {$totalMatches} | Slot disponibili: {$totalSlots}. Aggiungi più giorni o time range.",
+            'totalMatches' => $totalMatches,
+            'totalSlots' => $totalSlots
+        ];
     }
 
-    return ['valid' => true];
+    return ['valid' => true, 'totalMatches' => $totalMatches, 'totalSlots' => $totalSlots];
 }
 
 function buildGroupMatches(array &$state): void {

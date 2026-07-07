@@ -5083,6 +5083,92 @@
       return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
+    // Calcola il numero di partite necessarie in base ai gironi configurati
+    function calculateRequiredMatches() {
+      let totalMatches = 0;
+      const groups = config.groups || [];
+      
+      groups.forEach(group => {
+        const teamCount = (group.teamIds || []).length;
+        if (teamCount >= 2) {
+          // Combinazioni: n * (n-1) / 2
+          totalMatches += Math.floor(teamCount * (teamCount - 1) / 2);
+        }
+      });
+      
+      return totalMatches;
+    }
+
+    // Calcola il numero di slot disponibili nello schedule
+    function calculateAvailableSlots() {
+      let totalSlots = 0;
+      const courts = config.schedule?.courts || [];
+      
+      courts.forEach(court => {
+        (court.availability || []).forEach(dateAvail => {
+          totalSlots += (dateAvail.timeSlots || []).length;
+        });
+      });
+      
+      return totalSlots;
+    }
+
+    // Valida il schedule in real-time
+    function validateScheduleRealtimeHtml() {
+      const requiredMatches = calculateRequiredMatches();
+      const availableSlots = calculateAvailableSlots();
+      const isValid = availableSlots >= requiredMatches && availableSlots > 0;
+      
+      if (requiredMatches === 0) {
+        return `
+          <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px">
+            <strong style="color: #856404">⚠️ Nessun girone configurato</strong>
+            <div style="margin-top: 6px; font-size: 12px; color: #666">
+              Crea prima i gironi in "Fasi Torneo" per visualizzare la validazione dello schedule.
+            </div>
+          </div>
+        `;
+      }
+      
+      const bgColor = isValid ? '#d4edda' : '#f8d7da';
+      const borderColor = isValid ? '#28a745' : '#dc3545';
+      const textColor = isValid ? '#155724' : '#721c24';
+      const icon = isValid ? '✅' : '❌';
+      const statusText = isValid ? 'SCHEDULE VALIDO' : 'SLOT INSUFFICIENTI';
+      
+      return `
+        <div style="background: ${bgColor}; border: 2px solid ${borderColor}; border-radius: 4px; padding: 12px; margin-bottom: 12px">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+            <strong style="color: ${textColor}; font-size: 14px">${icon} ${statusText}</strong>
+            <span style="color: ${textColor}; font-weight: bold">Rapporto Slot/Partite</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px">
+            <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
+              <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${requiredMatches}</div>
+              <div style="font-size: 11px; color: #666">Partite Richieste</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
+              <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${availableSlots}</div>
+              <div style="font-size: 11px; color: #666">Slot Disponibili</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
+              <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${availableSlots - requiredMatches}</div>
+              <div style="font-size: 11px; color: #666">Slot Liberi</div>
+            </div>
+          </div>
+          ${!isValid ? `
+            <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.6); border-left: 3px solid ${borderColor}; border-radius: 2px">
+              <strong style="color: ${textColor}">⚠️ Azione Richiesta:</strong>
+              <div style="font-size: 12px; color: ${textColor}; margin-top: 4px">
+                Aggiungi <strong>${requiredMatches - availableSlots}</strong> slot per completare lo schedule.<br>
+                Aumenta i giorni oppure aggiungi più fasce orarie (time range).
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
     function renderSchedule() {
       const c = document.getElementById('scheduleContainer');
       const sched = config.schedule || { courts: [] };
@@ -5095,7 +5181,9 @@
       
       document.getElementById('rescheduleBtn').style.display = (state.groupMatches || []).length > 0 ? 'inline-block' : 'none';
       
-      let html = '';
+      let html = validateScheduleRealtimeHtml(); // Aggiungi validazione real-time
+      
+      html += '<div style="margin-top: 12px">';
       sched.courts.forEach((court, courtIdx) => {
         html += `<div class="card" style="margin-top: 12px; padding: 10px; background: #f9f3e6">
           <div class="row" style="justify-content: space-between; margin-bottom: 10px; align-items: center">
@@ -5111,6 +5199,7 @@
         </div>`;
       });
       
+      html += '</div>'; // Chiudi il div di wrapper
       c.innerHTML = html;
       
       // Render availability dates
@@ -5590,6 +5679,9 @@
         } else if (phase.type === 'knockout') {
           qualified = Math.ceil(currentTeams / 2);
           eliminated = Math.floor(currentTeams / 2);
+        } else if (phase.type === 'finale') {
+          qualified = 1; // La finale ha 1 vincitore
+          eliminated = Math.max(0, currentTeams - 1);
         }
 
         bracket.stages.push({
@@ -5641,6 +5733,8 @@
           phaseInfo = `${phase.numGroups}G × ${phase.teamsAdvance}T`;
         } else if (phase.type === 'knockout') {
           phaseInfo = `${stage.teamsIn}T`;
+        } else if (phase.type === 'finale') {
+          phaseInfo = `🏆 Torneo Concluso`;
         }
 
         html += `
@@ -5652,38 +5746,48 @@
             gap: 8px;
           ">
             <div style="
-              background: ${bgColor};
-              border: 3px solid ${borderColor};
+              background: ${phase.type === 'finale' ? '#fff3cd' : bgColor};
+              border: 3px solid ${phase.type === 'finale' ? '#ffc107' : borderColor};
               border-radius: 8px;
               padding: 12px;
               text-align: center;
               box-shadow: 0 2px 8px rgba(0,0,0,0.1);
               position: relative;
             " class="bracket-stage" data-stage="${idx}">
-              <div style="font-weight: bold; color: ${borderColor}; font-size: 13px; margin-bottom: 6px">
+              <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : borderColor}; font-size: 13px; margin-bottom: 6px">
                 ${escapeHtml(phase.name)}
               </div>
               <div style="font-size: 11px; color: #666; margin-bottom: 4px">
                 <div>${phaseInfo}</div>
-                <div style="margin-top: 2px"><span style="color: #2ecc71">IN: ${stage.teamsIn}</span></div>
-                <div style="color: #2ecc71">OUT: ${stage.teamsOut}</div>
+                ${phase.type !== 'finale' ? `
+                  <div style="margin-top: 2px"><span style="color: #2ecc71">IN: ${stage.teamsIn}</span></div>
+                  <div style="color: #2ecc71">OUT: ${stage.teamsOut}</div>
+                ` : `
+                  <div style="margin-top: 2px"><span style="color: #f39c12">🥇 1 Vincitore</span></div>
+                `}
               </div>
-              ${phase.wildcardTeams > 0 ? `
+              ${phase.wildcardTeams > 0 && phase.type !== 'finale' ? `
                 <div style="font-size: 10px; color: #ff9800; margin-top: 4px; padding: 4px; background: #fff9e6; border-radius: 2px">
                   🎁 ${phase.wildcardTeams} wildcard
                 </div>
               ` : ''}
             </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
-              <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                onclick="openPhaseWizard('qualified')">
-                ✓ +Qualificate
-              </button>
-              <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                onclick="openPhaseWizard('eliminated')">
-                ✗ +Eliminate
-              </button>
-            </div>
+            ${phase.type !== 'finale' ? `
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
+                <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                  onclick="openPhaseWizard('qualified')">
+                  ✓ +Qualificate
+                </button>
+                <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                  onclick="openPhaseWizard('eliminated')">
+                  ✗ +Eliminate
+                </button>
+              </div>
+            ` : `
+              <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; text-align: center; font-size: 12px; color: #2ecc71; font-weight: bold">
+                🎉 Torneo Finito
+              </div>
+            `}
           </div>
         `;
       });
@@ -5820,6 +5924,23 @@
       let html = renderPhaseWorkflow();
       html += '<div class="phases-list">';
       phases.forEach((phase, idx) => {
+        // Fase finale: visualizza in sola lettura
+        if (phase.type === 'finale') {
+          html += `<div class="card" style="background: #fffbea; margin-bottom: 12px; padding: 12px; border-left: 4px solid #ffc107; opacity: 0.9">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
+              <h4 style="margin: 0">🏆 Fase ${idx + 1} - FINALE (Auto-generata)</h4>
+            </div>
+            <div class="form-grid-modal">
+              <div class="field" style="grid-column: 1 / -1">
+                <label>Nome fase</label>
+                <input type="text" value="${escapeHtml(phase.name || 'Finale')}" readonly style="background: #f9f9f9; cursor: default">
+                <small style="color: #f39c12">⚠️ Questa fase è stata generata automaticamente dalla configurazione del Castello</small>
+              </div>
+            </div>
+          </div>`;
+          return;
+        }
+
         html += `<div class="card" style="background: #f5f5f5; margin-bottom: 12px; padding: 12px">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
             <h4 style="margin: 0">Fase ${idx + 1}</h4>
@@ -5858,8 +5979,14 @@
               <strong style="color: #333">📊 Preview Flusso Squadre:</strong>
               <div id="phase-preview-${idx}" style="margin-top: 6px; font-size: 12px; color: #666"></div>
             </div>`;
-        } else {
-          html += `<div class="field">
+        } else if (phase.type === 'knockout') {
+          html += `<div class="field" style="grid-column: 1 / -1; background: #fff9e6; border: 1px solid #ff9800; border-radius: 4px; padding: 10px; margin-bottom: 8px">
+            <strong style="color: #f39c12">💡 Auto-generazione Fasi:</strong>
+            <div style="font-size: 12px; color: #666; margin-top: 6px">
+              Quando salvi, il sistema genererà automaticamente tutte le fasi dal Castello (${phase.numTeams}T) fino alla Finale e la fase "Fine".
+            </div>
+          </div>
+          <div class="field">
               <label>Numero di squadre (potenza di 2)</label>
               <select id="phase-numTeams-${idx}" onchange="updatePhasePreview(${idx})">
                 <option value="2" ${phase.numTeams === 2 ? 'selected' : ''}>2 (Finale)</option>
@@ -5909,7 +6036,11 @@
       c.innerHTML = html;
       
       // Aggiorna le preview iniziali
-      phases.forEach((_, idx) => updatePhasePreview(idx));
+      phases.forEach((_, idx) => {
+        if (phases[idx].type !== 'finale') {
+          updatePhasePreview(idx);
+        }
+      });
     }
 
     function updatePhaseType(phaseIdx) {
@@ -5975,6 +6106,78 @@
     function calculateWildcardsNeeded(qualifiedTeams, knockoutTeams) {
       if (knockoutTeams >= qualifiedTeams) return 0;
       return knockoutTeams - qualifiedTeams;
+    }
+
+    // Genera automaticamente tutte le fasi knockout fino alla finale
+    // Es: 8 squadre → Quarti → Semifinali → Finale → Fine
+    function generateKnockoutPhases(wizardState) {
+      const phases = config.phases || [];
+      const startingPhaseNumber = wizardState.phaseData.phaseNumber;
+      const numTeams = wizardState.phaseData.numTeams;
+      const baseName = wizardState.phaseData.name;
+      const branch = wizardState.phaseData.branch;
+      const qualifiedGoTo = wizardState.phaseData.qualifiedGoTo;
+      const hasLosersPath = wizardState.phaseData.hasLosersPath;
+      const eliminatedGoTo = wizardState.phaseData.eliminatedGoTo;
+      
+      const newPhases = [];
+      let currentTeams = numTeams;
+      let phaseNumber = startingPhaseNumber;
+      let roundName = '';
+      
+      // Determina il nome del round in base al numero di squadre iniziali
+      const getRoundName = (teams) => {
+        switch (teams) {
+          case 2: return 'Finale';
+          case 4: return 'Semifinali';
+          case 8: return 'Quarti di Finale';
+          case 16: return 'Sedicesimi';
+          case 32: return '32esimi';
+          case 64: return '64esimi';
+          case 128: return '128esimi';
+          default: return `Round ${teams}T`;
+        }
+      };
+      
+      // Genera le fasi knockout (es: 8→4→2)
+      while (currentTeams > 1) {
+        roundName = getRoundName(currentTeams);
+        const phaseName = `${baseName} - ${roundName}`;
+        const nextTeams = Math.ceil(currentTeams / 2);
+        
+        // Se è l'ultima fase prima della finale, qualifiedGoTo è "Finale"
+        const isLastBeforeFinal = nextTeams === 1;
+        
+        const knockoutPhase = {
+          phaseNumber: phaseNumber,
+          branch: branch,
+          name: phaseName,
+          type: 'knockout',
+          numTeams: currentTeams,
+          hasLosersPath: (currentTeams === numTeams) ? hasLosersPath : false, // Solo il primo round ha losers
+          wildcardTeams: 0, // Sarà calcolato dal backend
+          qualifiedGoTo: isLastBeforeFinal ? 'Finale' : `${baseName} - ${getRoundName(nextTeams)}`,
+          eliminatedGoTo: eliminatedGoTo || (hasLosersPath ? 'Losers Bracket' : 'Eliminati')
+        };
+        
+        newPhases.push(knockoutPhase);
+        currentTeams = nextTeams;
+        phaseNumber++;
+      }
+      
+      // Aggiungi la fase finale "Fine" che rappresenta il torneo completato
+      const finalPhase = {
+        phaseNumber: phaseNumber,
+        branch: branch,
+        name: `${baseName} - Fine`,
+        type: 'finale',
+        qualifiedGoTo: 'Torneo Concluso',
+        eliminatedGoTo: null
+      };
+      
+      newPhases.push(finalPhase);
+      
+      return newPhases;
     }
 
     function openPhaseWizard(branch = 'root', teamsIn = null) {
@@ -6519,22 +6722,31 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                   return;
                 }
                 
-                // Crea la fase
-                const newPhase = {
-                  phaseNumber: wizardState.phaseData.phaseNumber,
-                  branch: wizardState.phaseData.branch,
-                  name: wizardState.phaseData.name,
-                  type: wizardState.phaseData.type,
-                  numGroups: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.numGroups : undefined,
-                  teamsAdvance: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.teamsAdvance : undefined,
-                  hasRepescage: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.hasRepescage : false,
-                  numTeams: wizardState.phaseData.type === 'knockout' ? wizardState.phaseData.numTeams : undefined,
-                  hasLosersPath: wizardState.phaseData.type === 'knockout' ? (wizardState.phaseData.hasLosersPath || false) : false,
-                  qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
-                  eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
-                };
+                // Se è una fase knockout, genera automaticamente tutte le fasi fino alla finale
+                let phasesToAdd = [];
                 
-                config.phases = [...phases, newPhase];
+                if (wizardState.phaseData.type === 'knockout') {
+                  phasesToAdd = generateKnockoutPhases(wizardState);
+                } else {
+                  // Crea una sola fase per groups e subtournament
+                  const newPhase = {
+                    phaseNumber: wizardState.phaseData.phaseNumber,
+                    branch: wizardState.phaseData.branch,
+                    name: wizardState.phaseData.name,
+                    type: wizardState.phaseData.type,
+                    numGroups: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.numGroups : undefined,
+                    teamsAdvance: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.teamsAdvance : undefined,
+                    hasRepescage: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.hasRepescage : false,
+                    subtournamentName: wizardState.phaseData.type === 'subtournament' ? wizardState.phaseData.subtournamentName : undefined,
+                    subtournamentTeamCount: wizardState.phaseData.type === 'subtournament' ? wizardState.phaseData.subtournamentTeamCount : undefined,
+                    selectedTeams: wizardState.phaseData.type === 'subtournament' ? wizardState.phaseData.selectedTeams : undefined,
+                    qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
+                    eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
+                  };
+                  phasesToAdd = [newPhase];
+                }
+                
+                config.phases = [...phases, ...phasesToAdd];
                 
                 closeModal(true);
                 renderPhases();
@@ -6542,9 +6754,12 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                 // Salva immediatamente nel JSON
                 try {
                   await callApi('admin_update_config', 'POST', { phases: config.phases }, true);
-                  await showInfoDialog('✅ Successo', `Fase "${wizardState.phaseData.name}" creata e salvata con successo!`);
+                  const countMsg = wizardState.phaseData.type === 'knockout' 
+                    ? `✅ ${phasesToAdd.length} fasi create automaticamente` 
+                    : `Fase "${wizardState.phaseData.name}" creata`;
+                  await showInfoDialog('✅ Successo', `${countMsg} e salvate con successo!`);
                 } catch (e) {
-                  await showInfoDialog('⚠️ Avvertimento', `Fase creata ma errore nel salvataggio:\n\n${e.message}\n\nRiprovare con il pulsante "Salva fasi".`);
+                  await showInfoDialog('⚠️ Avvertimento', `Fase/i creata/e ma errore nel salvataggio:\n\n${e.message}\n\nRiprovare con il pulsante "Salva fasi".`);
                 }
               }
             }

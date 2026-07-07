@@ -2701,8 +2701,8 @@
                   ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${playerLevel === l ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
                 </select>
               </div>
-              <div id="uploadStatus${i}" style="font-size: 12px; color: #666; text-align: center; display: none"></div>
             </div>
+            <div id="uploadStatus${i}" style="font-size: 12px; color: #666; text-align: center; display: none; margin-top: 6px"></div>
           </div>
         `;
       }
@@ -3013,16 +3013,43 @@
         return;
       }
 
+      // Calcola statistiche bilanciamento
+      const groupSizes = state.groups.map(g => g.teamIds.length);
+      const minSize = Math.min(...groupSizes);
+      const maxSize = Math.max(...groupSizes);
+      const isBalanced = minSize === maxSize;
+      
+      let balanceStatusHtml = '';
+      if (isBalanced) {
+        balanceStatusHtml = `<div style="background: #e8f5e9; border-left: 4px solid #2ecc71; padding: 8px; margin-bottom: 12px; border-radius: 2px; font-size: 13px">
+          ✅ <strong>Gironi bilanciati:</strong> ${groupSizes.join(' - ')} squadre per girone
+        </div>`;
+      } else {
+        const imbalance = maxSize - minSize;
+        const statusMsg = imbalance === 1 
+          ? `✅ <strong>Distribuzione intelligente:</strong> ${groupSizes.join(' - ')} squadre per girone<br><em>Differenza massima: 1 squadra (perfetto per competizione equa)</em>`
+          : `⚠️ <strong>Gironi sbilanciati:</strong> ${groupSizes.join(' - ')} squadre per girone (Min: ${minSize}, Max: ${maxSize})<br><em>Differenza massima: ${imbalance} squadre</em>`;
+        
+        balanceStatusHtml = `<div style="background: ${imbalance === 1 ? '#e3f2fd' : '#fff3cd'}; border-left: 4px solid ${imbalance === 1 ? '#2196f3' : '#ffc107'}; padding: 8px; margin-bottom: 12px; border-radius: 2px; font-size: 13px">
+          ${statusMsg}
+          ${imbalance > 1 ? `<br><button class="btn btn-warning" onclick="rebalanceGroups()" style="margin-top: 8px; font-size: 12px">🔄 Riequilibra Gironi</button>` : ''}
+        </div>`;
+      }
+
       // HTML per modifica gironi con drag and drop
-      let html = '<p class="muted">🖱️ Trascina le squadre tra i gironi. Le partite verranno rigenerate automaticamente.</p>';
+      let html = balanceStatusHtml;
+      html += '<p class="muted">🖱️ Trascina le squadre tra i gironi per riequilibrare. Le partite verranno rigenerate automaticamente.</p>';
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
       state.groups.forEach(group => {
         html += `
           <div class="group-drop-zone" data-group="${group.name}" style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0; min-height: 300px; transition: all 0.3s ease">
-            <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px">
-              <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
-              Girone ${group.name}
+            <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
+              <span style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
+                Girone ${group.name}
+              </span>
+              <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${group.teamIds.length}</span>
             </h4>
             <div class="group-teams-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 250px; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 4px">
               ${group.teams.map(team => `
@@ -3126,6 +3153,83 @@
         await showInfoDialog('Successo', `${teamName} spostata nel girone ${newGroup}`);
       } catch (e) {
         await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function rebalanceGroups() {
+      try {
+        // Conferma dell'operazione
+        const confirmed = await showConfirmDialog(
+          '🔄 Riequilibra Gironi',
+          'Questa operazione ridistribuirà le squadre in modo uniforme tra tutti i gironi usando un sistema round-robin bilanciato per peso delle squadre.\n\nGarantisce una differenza massima di 1 squadra tra i gironi.\n\nLe partite verranno rigenerate automaticamente.\n\nConfermare?',
+          'Riequilibra',
+          'Annulla'
+        );
+
+        if (!confirmed) return;
+
+        // Raccogli tutte le squadre con i loro dati completi (peso, players, ecc)
+        let allTeams = [];
+        state.groups.forEach(group => {
+          group.teams.forEach(team => {
+            allTeams.push(team);
+          });
+        });
+
+        if (allTeams.length === 0) {
+          await showInfoDialog('Attenzione', 'Nessuna squadra da riequilibrare');
+          return;
+        }
+
+        const numGroups = state.groups.length;
+        
+        // Ordina le squadre per peso (livello medio dei giocatori) per un bilanciamento migliore
+        const teamsWithWeight = allTeams.map(team => {
+          // Calcola peso medio della squadra
+          const players = team.players || [];
+          const validPlayers = players.filter(p => p && p.level !== undefined);
+          const avgWeight = validPlayers.length > 0 
+            ? validPlayers.reduce((sum, p) => sum + (p.level || 0), 0) / validPlayers.length 
+            : 0;
+          return { ...team, weight: avgWeight };
+        });
+
+        // Ordina per peso in modo decrescente
+        teamsWithWeight.sort((a, b) => b.weight - a.weight);
+
+        // Distribuisci squadre usando distribuzione uniforme round-robin
+        // Se 10 squadre in 3 gironi: 4-3-3 (3+1 ciascuno)
+        const newGroupAssignments = {}; // teamId -> newGroupName
+        const groupNames = state.groups.map(g => g.name);
+
+        teamsWithWeight.forEach((team, idx) => {
+          // Distribuzione uniforme: ogni squadra va al girone idx % numGroups
+          newGroupAssignments[team.id] = groupNames[idx % numGroups];
+        });
+
+        // Muovi le squadre al loro nuovo girone tramite API
+        // Fai questo in sequenza per evitare race conditions
+        let movementCount = 0;
+        for (const [teamId, newGroup] of Object.entries(newGroupAssignments)) {
+          // Trova il girone attuale della squadra
+          const currentGroup = state.groups.find(g => g.teams.some(t => t.id === teamId))?.name;
+          
+          // Se la squadra deve essere spostata
+          if (currentGroup !== newGroup) {
+            await callApi('admin_move_team_group', 'POST', { teamId, newGroup: newGroup }, true);
+            movementCount++;
+          }
+        }
+
+        // Aggiorna lo state da backend per sincronizzazione completa
+        await refresh();
+        
+        renderGroups();
+        
+        const distribution = state.groups.map(g => g.teamIds.length).join(', ');
+        await showInfoDialog('✅ Gironi Riequilibrati', `${movementCount} squadre spostate.\n\nNuova distribuzione: ${distribution} squadre per girone\n\nLe partite sono state rigenerate automaticamente.`);
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Non è stato possibile riequilibrare i gironi: ' + e.message);
       }
     }
 
@@ -5928,6 +6032,14 @@
     }
 
     // Validazione intelligente della configurazione delle fasi
+    // NOTA IMPORTANTE: Questa funzione distingue tra:
+    // 1. ERRORI CRITICI: bloccano il salvataggio (es: squadre insufficienti per i gironi)
+    // 2. AVVISI NON-CRITICI: permettono il salvataggio con conferma (es: gironi sbilanciati)
+    //
+    // Lo SBILANCIAMENTO INTELLIGENTE è PERMESSO e NORMALE quando il numero di squadre 
+    // non si divide uniformemente per il numero di gironi (es: 10 in 3 = 4-3-3).
+    // Il massimo sbilanciamento consentito è 1 squadra di differenza tra gironi,
+    // il che garantisce una competizione equa per tutti.
     function validatePhaseConfiguration() {
       const phases = config.phases || [];
       const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
@@ -5946,22 +6058,25 @@
           const teamsPerGroup = phase.teamsAdvance || 2;
           const qualified = numGroups * teamsPerGroup;
           
-          // Avvertimento: squadre non sufficienti per i gironi
+          // ERRORE CRITICO: squadre non sufficienti per i gironi
           if (teamsInPlay < numGroups * 2) {
             warnings.push({
               type: 'error',
               phase: phaseName,
-              message: `❌ Squadre insufficienti: ${teamsInPlay} squadre non bastano per ${numGroups} gironi (minimo ${numGroups * 2})`
+              message: `❌ Squadre insufficienti: ${teamsInPlay} squadre non bastano per ${numGroups} gironi (minimo ${numGroups * 2})<br><br>💡 <strong>Soluzione:</strong> Riduci il numero di gironi oppure aggiungi più squadre (iscrizioni o squadre di test)`,
+              critical: true
             });
           }
           
-          // Avvertimento: squadre per girone non uniformi
-          if (teamsInPlay % numGroups !== 0) {
+          // AVVISO: squadre per girone non uniformi (NON critico - è una distribuzione intelligente)
+          if (teamsInPlay % numGroups !== 0 && teamsInPlay >= numGroups * 2) {
             const squadrePerGirone = Math.floor(teamsInPlay / numGroups);
+            const extra = teamsInPlay % numGroups;
             warnings.push({
-              type: 'warning',
+              type: 'info',
               phase: phaseName,
-              message: `⚠️ Squadre non uniformi: ${teamsInPlay} squadre in ${numGroups} gironi non è divisibile. Risultato: ${squadrePerGirone} per girone + ${teamsInPlay % numGroups} extra`
+              message: `✅ Distribuzione intelligente dei gironi<br><strong>Configurazione:</strong> ${teamsInPlay} squadre in ${numGroups} gironi<br><strong>Risultato:</strong> ${extra} girone(i) con ${squadrePerGirone + 1} sq, ${numGroups - extra} girone(i) con ${squadrePerGirone} sq<br><br>💡 Questa è una distribuzione <strong>normale e permessa</strong> quando le squadre non si dividono uniformemente. La differenza massima è di 1 sola squadra tra gironi, garantendo una competizione equa.<br><br>📌 <strong>Se desideri:</strong> Usa drag & drop nella sezione "Gironi" per spostare squadre oppure il pulsante "🔄 Riequilibra Gironi" per una ridistribuzione automatica.`,
+              critical: false
             });
           }
           
@@ -5970,13 +6085,14 @@
         else if (phase.type === 'knockout') {
           const numTeams = phase.numTeams || 4;
           
-          // Validazione: numero squadre deve essere potenza di 2
+          // ERRORE CRITICO: numero squadre deve essere potenza di 2
           const isPowerOf2 = (numTeams & (numTeams - 1)) === 0 && numTeams > 0;
           if (!isPowerOf2) {
             warnings.push({
               type: 'error',
               phase: phaseName,
-              message: `❌ Numero non valido: ${numTeams} non è una potenza di 2. Usa 2, 4, 8, 16, 32, 64, 128`
+              message: `❌ Numero non valido: ${numTeams} non è una potenza di 2<br><strong>Valori validi:</strong> 2, 4, 8, 16, 32, 64, 128<br><br>💡 <strong>Soluzione:</strong> Modifica il numero di squadre per questa fase knockout`,
+              critical: true
             });
           }
           
@@ -5986,15 +6102,17 @@
             warnings.push({
               type: 'info',
               phase: phaseName,
-              message: `🎯 Sistema Wildcard Attivo: delle ${teamsInPlay} squadre qualificate, verranno ammesse direttamente ${teamsInPlay} e <strong>${wildcardNeeded}</strong> wildcard dalle migliori non qualificate della fase precedente (per differenza punti) per raggiungere ${numTeams} squadre in questa fase.`
+              message: `🎯 Sistema Wildcard Attivo: delle ${teamsInPlay} squadre qualificate, ${teamsInPlay} verranno ammesse direttamente e <strong>${wildcardNeeded}</strong> wildcard dalle migliori non qualificate della fase precedente (per differenza punti) per raggiungere ${numTeams} squadre in questa fase.`,
+              critical: false
             });
           }
-          // Avvertimento solo se non ci sono abbastanza squadre
+          // Avvertimento: troppo squadre da fase precedente
           else if (idx > 0 && teamsInPlay > numTeams) {
             warnings.push({
               type: 'warning',
               phase: phaseName,
-              message: `⚠️ Troppe squadre: dalla fase precedente arrivano ${teamsInPlay} squadre, ma questa fase ne può accoglierne solo ${numTeams}. Le ${teamsInPlay - numTeams} squadre in eccesso non potranno partecipare.`
+              message: `⚠️ Troppe squadre: dalla fase precedente arrivano ${teamsInPlay} squadre, ma questa fase ne può accoglierne solo ${numTeams}. Le ${teamsInPlay - numTeams} squadre in eccesso non potranno partecipare.`,
+              critical: false
             });
           }
           
@@ -6185,6 +6303,14 @@
             phaseInfo = `🏆 Torneo Concluso`;
           }
 
+          // Definisci etichetta tipo fase
+          const phaseTypeLabel = {
+            'groups': '📊 Gironi',
+            'knockout': '🏆 Knockout',
+            'finale': '🎯 Finale',
+            'subtournament': '🎪 Sub-Torneo'
+          }[phase.type] || phase.type;
+
           html += `
             <div style="flex-shrink: 0; min-width: ${stageWidth}px; display: flex; flex-direction: column; gap: 8px">
               <div style="
@@ -6195,6 +6321,9 @@
                 text-align: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
               " class="bracket-stage-qualified" data-stage="${idx}">
+                <div style="font-size: 10px; color: ${phase.type === 'finale' ? '#ff6b35' : '#666'}; margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px">
+                  ${phaseTypeLabel}
+                </div>
                 <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : '#2ecc71'}; font-size: 13px; margin-bottom: 6px">
                   ${escapeHtml(phase.name)}
                 </div>
@@ -6262,6 +6391,14 @@
             phaseInfo = `🏆 Finale`;
           }
 
+          // Definisci etichetta tipo fase
+          const phaseTypeLabel = {
+            'groups': '📊 Gironi',
+            'knockout': '🏆 Knockout',
+            'finale': '🎯 Finale',
+            'subtournament': '🎪 Sub-Torneo'
+          }[phase.type] || phase.type;
+
           html += `
             <div style="flex-shrink: 0; min-width: ${stageWidth}px; display: flex; flex-direction: column; gap: 8px">
               <div style="
@@ -6272,6 +6409,9 @@
                 text-align: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
               " class="bracket-stage-eliminated" data-stage="${idx}">
+                <div style="font-size: 10px; color: ${phase.type === 'finale' ? '#ff6b35' : '#666'}; margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px">
+                  ${phaseTypeLabel}
+                </div>
                 <div style="font-weight: bold; color: ${phase.type === 'finale' ? '#f39c12' : '#ff9800'}; font-size: 13px; margin-bottom: 6px">
                   ${escapeHtml(phase.name)}
                 </div>
@@ -7595,11 +7735,33 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
 
         // Validazione intelligente della configurazione
         const warnings = validatePhaseConfiguration();
-        if (warnings.length > 0) {
-          let warningHtml = '<div style="font-size: 13px">';
-          warnings.forEach(w => {
-            const bgColor = w.type === 'error' ? '#ffebee' : '#fff3cd';
-            const borderColor = w.type === 'error' ? '#ef5350' : '#ffc107';
+        
+        // Separa errori critici dagli avvisi
+        const criticalErrors = warnings.filter(w => w.critical === true);
+        const nonCriticalWarnings = warnings.filter(w => w.critical !== true);
+        
+        // BLOCCA il salvataggio se ci sono errori critici
+        if (criticalErrors.length > 0) {
+          let errorHtml = '<div style="font-size: 13px"><strong>Impossibile salvare:</strong><br><br>';
+          criticalErrors.forEach(w => {
+            errorHtml += `
+              <div style="background: #ffebee; border-left: 4px solid #ef5350; padding: 8px; margin-bottom: 8px; border-radius: 2px">
+                <strong>${w.phase}:</strong> ${w.message}
+              </div>
+            `;
+          });
+          errorHtml += '</div>';
+          
+          await showInfoDialog('❌ Configurazione non valida', errorHtml);
+          return;
+        }
+        
+        // MOSTRA AVVISO ma PERMETTE il salvataggio per non-critical warnings
+        if (nonCriticalWarnings.length > 0) {
+          let warningHtml = '<div style="font-size: 13px"><strong>Attenzione - Avvisi di configurazione:</strong><br><br>';
+          nonCriticalWarnings.forEach(w => {
+            const bgColor = w.type === 'info' ? '#e3f2fd' : '#fff3cd';
+            const borderColor = w.type === 'info' ? '#2196f3' : '#ffc107';
             warningHtml += `
               <div style="background: ${bgColor}; border-left: 4px solid ${borderColor}; padding: 8px; margin-bottom: 8px; border-radius: 2px">
                 <strong>${w.phase}:</strong> ${w.message}
@@ -7611,7 +7773,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
           const shouldContinue = await showConfirmDialog(
             'Avvertimenti Configurazione',
             warningHtml,
-            'Salva comunque',
+            'Salva comunque ✅',
             'Annulla'
           );
 

@@ -6319,18 +6319,21 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       
       if (!phaseToRemove) return;
       
-      // Controlla se ci sono fasi dipendenti (fasi successive che usano questa come input)
-      const dependentPhases = phases.slice(idx + 1).filter(p => 
-        p.branch === 'qualified' || p.branch === 'eliminated'
-      );
-      
-      if (dependentPhases.length > 0) {
-        const depNames = dependentPhases.map((p, i) => `- ${p.name || 'Fase ' + (idx + 2 + i)}`).join('\n');
-        await showConfirmDialog(
-          '⚠️ Attenzione',
-          `Non puoi cancellare questa fase perché altre fasi dipendono da essa:\n\n${depNames}\n\nCancella prima le fasi dipendenti.`
+      // Non controllare dipendenze per la prima fase (è la radice)
+      if (idx > 0) {
+        // Controlla se ci sono fasi dipendenti (fasi successive che usano questa come input)
+        const dependentPhases = phases.slice(idx + 1).filter(p => 
+          p.branch === 'qualified' || p.branch === 'eliminated'
         );
-        return;
+        
+        if (dependentPhases.length > 0) {
+          const depNames = dependentPhases.map((p, i) => `- ${p.name || 'Fase ' + (idx + 2 + i)}`).join('\n');
+          await showConfirmDialog(
+            '⚠️ Attenzione',
+            `Non puoi cancellare questa fase perché altre fasi dipendono da essa:\n\n${depNames}\n\nCancella prima le fasi dipendenti.`
+          );
+          return;
+        }
       }
       
       const confirmed = await showConfirmDialog(

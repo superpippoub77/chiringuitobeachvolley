@@ -5698,14 +5698,60 @@
       renderPhases();
     }
 
+    // Scelta di quale ramo (branch) dell'albero creare una nuova fase
+    function choosePhaseTreeBranch() {
+      const phases = config.phases || [];
+      
+      if (phases.length === 0) {
+        // Prima fase - no branch choice
+        openPhaseWizard('root');
+        return;
+      }
+      
+      // Mostra scelte di branch
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop';
+      
+      backdrop.innerHTML = `
+        <div class="modal">
+          <div class="modal-head">
+            <h4>🌳 Scegli il Ramo dell'Albero</h4>
+            <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+          </div>
+          <div class="modal-body" style="text-align: center;">
+            <p style="color: #666; margin-bottom: 16px;">
+              Quale ramo vuoi estendere?
+            </p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <button class="btn" style="padding: 16px; background: #e8f5e9; border: 2px solid #2ecc71; color: #2ecc71; font-weight: bold;" 
+                onclick="openPhaseWizard('qualified'); this.closest('.modal-backdrop').remove();">
+                ✓ QUALIFICATE<br><small style="font-size: 11px; color: #666; font-weight: normal;">Nuova fase<br>per i vincenti</small>
+              </button>
+              <button class="btn" style="padding: 16px; background: #fff3e0; border: 2px solid #ff9800; color: #ff9800; font-weight: bold;" 
+                onclick="openPhaseWizard('eliminated'); this.closest('.modal-backdrop').remove();">
+                ✗ ELIMINATE<br><small style="font-size: 11px; color: #666; font-weight: normal;">Nuova fase<br>per i perdenti</small>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      backdrop.onclick = (e) => {
+        if (e.target === backdrop) backdrop.remove();
+      };
+      
+      document.body.appendChild(backdrop);
+    }
+
     // Wizard pilotato per la creazione delle fasi
-    function openPhaseWizard() {
+    function openPhaseWizard(branch = 'root') {
       const phases = config.phases || [];
       let wizardState = {
         step: 1,
         totalSteps: 3,
         phaseData: {
           phaseNumber: phases.length + 1,
+          branch: branch,
           name: '',
           type: 'groups',
           numGroups: 4,
@@ -5723,7 +5769,7 @@
         let buttons = [];
 
         if (wizardState.step === 1) {
-          // STEP 1: Nome, Tipo fase e ROUTING immediato
+          // STEP 1: Scelta di diramazione albero fasi
           
           // Calcola informazioni sulla fase precedente
           const prevPhaseInfo = (() => {
@@ -5733,11 +5779,12 @@
               const teamsToUse = approvedCount > 0 ? approvedCount : maxTeams;
               return {
                 isPrevious: false,
+                branch: 'root',
                 teamsIn: teamsToUse,
                 phaseName: '🎯 Iscritti',
                 qualified: teamsToUse,
                 eliminated: 0,
-                description: `Questo è il primo turno. ${teamsToUse} squadre iscritte/approvate inizieranno da qui.`
+                description: `${teamsToUse} squadre iscritte`
               };
             } else {
               const prevPhase = phases[wizardState.phaseData.phaseNumber - 2];
@@ -5757,30 +5804,37 @@
               
               return {
                 isPrevious: true,
-                teamsIn: qualified + eliminated,
+                branch: wizardState.phaseData.branch || 'qualified',
+                teamsIn: wizardState.phaseData.branch === 'qualified' ? qualified : eliminated,
                 phaseName: prevPhase.name || `Fase ${wizardState.phaseData.phaseNumber - 1}`,
                 qualified,
                 eliminated,
-                routing: {
-                  qualifiedGoTo: prevPhase.qualifiedGoTo || '(non definito)',
-                  eliminatedGoTo: prevPhase.eliminatedGoTo || '(non definito)'
-                },
-                description: `Dalla fase precedente arrivano:<br>✓ ${qualified} squadre qualificate<br>✗ ${eliminated} squadre eliminate/ripescate`
+                description: wizardState.phaseData.branch === 'qualified' 
+                  ? `${qualified} squadre qualificate da Fase ${wizardState.phaseData.phaseNumber - 1}`
+                  : `${eliminated} squadre eliminate/ripescate da Fase ${wizardState.phaseData.phaseNumber - 1}`
               };
             }
           })();
           
           bodyHtml = `
             <div style="font-size: 13px">
-              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Nome, Tipo e Routing</strong></p>
+              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Nuova Fase - Diramazione Albero</strong></p>
               
               ${prevPhaseInfo ? `
-              <div style="background: #ecf5ff; border: 1px solid #0078d4; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
-                <strong>📥 Fase Precedente</strong>
-                <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 2px; border-left: 3px solid #0078d4;">
-                  <strong>${escapeHtml(prevPhaseInfo.phaseName)}</strong>
-                  <div style="margin-top: 4px; font-size: 12px; color: #555;">
-                    ${prevPhaseInfo.description}
+              <div style="background: ${prevPhaseInfo.branch === 'qualified' ? '#ecf5ff' : '#fff3e0'}; border: 2px solid ${prevPhaseInfo.branch === 'qualified' ? '#0078d4' : '#ff9800'}; border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                  <span style="font-size: 20px;">${prevPhaseInfo.branch === 'qualified' ? '✓ RAMO QUALIFICATE' : '✗ RAMO ELIMINATE'}</span>
+                </div>
+                <div style="padding: 10px; background: white; border-radius: 4px; border-left: 4px solid ${prevPhaseInfo.branch === 'qualified' ? '#2ecc71' : '#ff9800'};">
+                  <strong style="font-size: 14px;">${escapeHtml(prevPhaseInfo.phaseName)}</strong>
+                  <div style="margin-top: 6px; color: #555; font-size: 12px;">
+                    📥 ${prevPhaseInfo.description}
+                  </div>
+                  <div style="margin-top: 6px; background: ${prevPhaseInfo.branch === 'qualified' ? '#e8f5e9' : '#fff0db'}; padding: 8px; border-radius: 2px; font-weight: bold;">
+                    ${prevPhaseInfo.branch === 'qualified' 
+                      ? `<span style="color: #2ecc71;">↳ ${prevPhaseInfo.qualified} squadre</span>`
+                      : `<span style="color: #ff9800;">↳ ${prevPhaseInfo.eliminated} squadre</span>`
+                    }
                   </div>
                 </div>
               </div>
@@ -5788,107 +5842,27 @@
               
               <div class="form-grid-modal" style="gap: 12px">
                 <div class="field" style="grid-column: 1 / -1">
-                  <label>Nome della fase</label>
-                  <input type="text" id="wizard-phaseName" placeholder="Es: Fase primaria a gironi" 
+                  <label>📝 Nome della fase in questo ramo</label>
+                  <input type="text" id="wizard-phaseName" placeholder="Es: Semifinale qualificate oppure Ripescaggio" 
                     value="${escapeHtml(wizardState.phaseData.name)}" style="width: 100%">
-                  <small style="color: #666">Descrivi il ruolo di questa fase nel torneo</small>
+                  <small style="color: #666">Es: se qualificate → "Semifinale A" | se eliminate → "Ripescaggio"</small>
                 </div>
                 
                 <div class="field" style="grid-column: 1 / -1">
-                  <label>Tipo di fase</label>
+                  <label>🏆 Tipo di fase</label>
                   <select id="wizard-phaseType" style="width: 100%">
                     <option value="groups" ${wizardState.phaseData.type === 'groups' ? 'selected' : ''}>
-                      🎯 Gironi - Squadre divise in gruppi, le migliori di ogni gruppo avanzano
+                      🎯 Gironi - Squadre divise in gruppi
                     </option>
                     <option value="knockout" ${wizardState.phaseData.type === 'knockout' ? 'selected' : ''}>
-                      🏆 Eliminazione Diretta (Castello) - Eliminazione progressiva fino ai migliori
+                      🏆 Eliminazione Diretta - Bracket singolo
                     </option>
                   </select>
-                  <small style="color: #666">Scegli come le squadre competono in questa fase</small>
+                  <small style="color: #666">In questo ramo, come competeranno le squadre?</small>
                 </div>
-                
-                ${prevPhaseInfo ? `
-                <div class="field" style="grid-column: 1 / -1; background: #f0f8ff; border: 1px solid #87ceeb; border-radius: 4px; padding: 10px; margin-top: 8px;">
-                  <div style="font-weight: bold; margin-bottom: 8px; color: #0078d4;">🎯 Routing delle Squadre in Ingresso</div>
-                  
-                  <div style="margin-bottom: 12px; padding: 8px; background: white; border-radius: 2px; border-left: 3px solid #2ecc71;">
-                    <strong style="color: #2ecc71;">✓ ${prevPhaseInfo.qualified} Squadre Qualificate</strong>
-                    <select id="wizard-qualifiedRoutingType" style="width: 100%; margin-top: 6px; padding: 6px;">
-                      <option value="continue">Continuano in questa fase (${escapeHtml(wizardState.phaseData.name || 'Fase attuale')})</option>
-                      <option value="next">Vanno alla fase successiva</option>
-                      <option value="semifinal">Vanno direttamente alle semifinali</option>
-                      <option value="final">Vanno direttamente alla finale</option>
-                      <option value="custom">Personalizzato...</option>
-                    </select>
-                    <textarea id="wizard-qualifiedGoTo" placeholder="Es: Fase 2 - Eliminazione Diretta" 
-                      style="width: 100%; height: 40px; margin-top: 6px; padding: 6px; border: 1px solid #ddd; border-radius: 2px; display: none;">
-${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
-                    <small style="color: #666; display: block; margin-top: 4px;">Scegli il percorso per i vincenti</small>
-                  </div>
-                  
-                  <div style="padding: 8px; background: white; border-radius: 2px; border-left: 3px solid #ff9800;">
-                    <strong style="color: #ff9800;">✗ ${prevPhaseInfo.eliminated} Squadre Eliminate/Ripescate</strong>
-                    <select id="wizard-eliminatedRoutingType" style="width: 100%; margin-top: 6px; padding: 6px;">
-                      <option value="repescage">Girone di ripescaggio</option>
-                      <option value="thirdplace">Gara per il 3° posto</option>
-                      <option value="eliminated">Eliminate dal torneo</option>
-                      <option value="next">Vanno alla fase successiva</option>
-                      <option value="custom">Personalizzato...</option>
-                    </select>
-                    <textarea id="wizard-eliminatedGoTo" placeholder="Es: Girone di ripescaggio poi fase finale" 
-                      style="width: 100%; height: 40px; margin-top: 6px; padding: 6px; border: 1px solid #ddd; border-radius: 2px; display: none;">
-${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
-                    <small style="color: #666; display: block; margin-top: 4px;">Scegli il percorso per i perdenti</small>
-                  </div>
-                </div>
-                ` : ''}
               </div>
             </div>
           `;
-          
-          // Aggiungi script per gestire select routing
-          setTimeout(() => {
-            const qualifiedSelect = document.getElementById('wizard-qualifiedRoutingType');
-            const qualifiedTextarea = document.getElementById('wizard-qualifiedGoTo');
-            const eliminatedSelect = document.getElementById('wizard-eliminatedRoutingType');
-            const eliminatedTextarea = document.getElementById('wizard-eliminatedGoTo');
-            
-            if (qualifiedSelect) {
-              qualifiedSelect.addEventListener('change', (e) => {
-                const isCustom = e.target.value === 'custom';
-                if (qualifiedTextarea) qualifiedTextarea.style.display = isCustom ? 'block' : 'none';
-                
-                // Imposta automaticamente il testo per opzioni standard
-                if (!isCustom && qualifiedTextarea) {
-                  const labels = {
-                    'continue': wizardState.phaseData.name || 'Questa fase',
-                    'next': 'Fase successiva',
-                    'semifinal': 'Semifinali',
-                    'final': 'Finale'
-                  };
-                  qualifiedTextarea.value = labels[e.target.value] || '';
-                }
-              });
-            }
-            
-            if (eliminatedSelect) {
-              eliminatedSelect.addEventListener('change', (e) => {
-                const isCustom = e.target.value === 'custom';
-                if (eliminatedTextarea) eliminatedTextarea.style.display = isCustom ? 'block' : 'none';
-                
-                // Imposta automaticamente il testo per opzioni standard
-                if (!isCustom && eliminatedTextarea) {
-                  const labels = {
-                    'repescage': 'Girone di ripescaggio',
-                    'thirdplace': 'Gara per il 3° posto',
-                    'eliminated': 'Eliminate dal torneo',
-                    'next': 'Fase successiva'
-                  };
-                  eliminatedTextarea.value = labels[e.target.value] || '';
-                }
-              });
-            }
-          }, 100);
           
           buttons = [
             { 
@@ -5897,16 +5871,6 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
               onClick: async () => {
                 wizardState.phaseData.name = document.getElementById('wizard-phaseName').value.trim();
                 wizardState.phaseData.type = document.getElementById('wizard-phaseType').value;
-                
-                // Salva il routing se presente (per fasi non la prima)
-                const qualifiedGoToEl = document.getElementById('wizard-qualifiedGoTo');
-                const eliminatedGoToEl = document.getElementById('wizard-eliminatedGoTo');
-                if (qualifiedGoToEl) {
-                  wizardState.phaseData.qualifiedGoTo = qualifiedGoToEl.value.trim();
-                }
-                if (eliminatedGoToEl) {
-                  wizardState.phaseData.eliminatedGoTo = eliminatedGoToEl.value.trim();
-                }
                 
                 if (!wizardState.phaseData.name) {
                   await showInfoDialog('Attenzione', 'Inserisci il nome della fase');
@@ -6155,8 +6119,8 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
     }
 
     function addPhase() {
-      // Apri il wizard pilotato invece di creare la fase direttamente
-      openPhaseWizard();
+      // Apri il selector di branch per scegliere quale ramo estendere
+      choosePhaseTreeBranch();
     }
 
     function removePhase(idx) {

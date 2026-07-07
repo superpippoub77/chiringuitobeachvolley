@@ -6392,7 +6392,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                 }
                 
                 // Crea la fase
-                config.phases = [...phases, {
+                const newPhase = {
                   phaseNumber: wizardState.phaseData.phaseNumber,
                   branch: wizardState.phaseData.branch,
                   name: wizardState.phaseData.name,
@@ -6404,11 +6404,20 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                   hasLosersPath: wizardState.phaseData.type === 'knockout' ? (wizardState.phaseData.hasLosersPath || false) : false,
                   qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
                   eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
-                }];
+                };
+                
+                config.phases = [...phases, newPhase];
                 
                 closeModal(true);
                 renderPhases();
-                await showInfoDialog('Successo', `Fase "${wizardState.phaseData.name}" creata con successo!\n\nNon dimenticare di salvare le modifiche.`);
+                
+                // Salva immediatamente nel JSON
+                try {
+                  await callApi('admin_update_config', 'POST', { phases: config.phases }, true);
+                  await showInfoDialog('✅ Successo', `Fase "${wizardState.phaseData.name}" creata e salvata con successo!`);
+                } catch (e) {
+                  await showInfoDialog('⚠️ Avvertimento', `Fase creata ma errore nel salvataggio:\n\n${e.message}\n\nRiprovare con il pulsante "Salva fasi".`);
+                }
               }
             }
           ];

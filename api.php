@@ -1645,8 +1645,36 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     $config = readConfig();
     $courts = $config['schedule']['courts'] ?? [];
     
+    // DEBUG: Log config structure
+    error_log('DEBUG buildGroupMatchesWithSchedule: Reading config');
+    error_log('  config keys: ' . implode(', ', array_keys($config)));
+    error_log('  has schedule: ' . (isset($config['schedule']) ? 'YES' : 'NO'));
+    error_log('  courts count: ' . count($courts));
+    
     if (empty($courts)) {
-        error_log('DEBUG buildGroupMatchesWithSchedule: No courts found, using buildGroupMatches');
+        error_log('DEBUG buildGroupMatchesWithSchedule: No courts found, using buildGroupMatches as fallback');
+        buildGroupMatches($state);
+        return;
+    }
+    
+    // Verifica che i courts abbiano la struttura corretta
+    $validCourts = 0;
+    $totalSlots = 0;
+    foreach ($courts as $idx => $court) {
+        $availCount = count($court['availability'] ?? []);
+        $slotCount = 0;
+        foreach ($court['availability'] ?? [] as $av) {
+            $slotCount += count($av['timeSlots'] ?? []);
+        }
+        error_log("  Court[$idx]: name=" . ($court['courtName'] ?? 'N/A') . ", availability=$availCount, timeSlots=$slotCount");
+        if ($availCount > 0) {
+            $validCourts++;
+            $totalSlots += $slotCount;
+        }
+    }
+    
+    if ($validCourts === 0 || $totalSlots === 0) {
+        error_log('DEBUG buildGroupMatchesWithSchedule: No valid courts or slots, using buildGroupMatches as fallback');
         buildGroupMatches($state);
         return;
     }
@@ -1671,10 +1699,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         }
     }
     
-    error_log('DEBUG buildGroupMatchesWithSchedule: courts=' . count($courts) . ', totalAvailableSlots=' . count($availableSlots));
+    error_log('DEBUG buildGroupMatchesWithSchedule: totalAvailableSlots=' . count($availableSlots));
     
     if (empty($availableSlots)) {
-        error_log('DEBUG buildGroupMatchesWithSchedule: No available slots found, using buildGroupMatches');
+        error_log('DEBUG buildGroupMatchesWithSchedule: No available slots found, using buildGroupMatches as fallback');
         buildGroupMatches($state);
         return;
     }
@@ -1714,8 +1742,8 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     foreach ($matches as &$match) {
         if ($slotIndex >= count($availableSlots)) {
-            error_log('DEBUG buildGroupMatchesWithSchedule: Ran out of slots at matchIndex=' . count($matches) . ' slotIndex=' . $slotIndex);
-            // Se finiscono gli slot, torna a buildGroupMatches
+            error_log('DEBUG buildGroupMatchesWithSchedule: Ran out of slots! matchIndex=' . array_key_last($matches) . ' totalMatches=' . count($matches) . ' slotIndex=' . $slotIndex . ' totalSlots=' . count($availableSlots));
+            error_log('  → Fallback: resetting matches without scheduling');
             $state['groupMatches'] = [];
             buildGroupMatches($state);
             return;
@@ -1738,7 +1766,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         }
     }
     
-    error_log('DEBUG buildGroupMatchesWithSchedule: Assigned all ' . count($matches) . ' matches to slots');
+    error_log('DEBUG buildGroupMatchesWithSchedule: ✅ Successfully assigned all ' . count($matches) . ' matches to slots');
     $state['groupMatches'] = $matches;
 }
 

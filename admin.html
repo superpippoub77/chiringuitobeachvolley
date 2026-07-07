@@ -3398,7 +3398,12 @@
       if (!confirmed) return;
       
       try {
-        if (!state || !state.groupMatches) {
+        console.log('DEBUG simulateMatchScores:');
+        console.log('  state:', state);
+        console.log('  state.groupMatches:', state?.groupMatches);
+        console.log('  match count:', state?.groupMatches?.length || 0);
+        
+        if (!state || !state.groupMatches || state.groupMatches.length === 0) {
           await showInfoDialog('Errore', 'Nessuna partita disponibile');
           return;
         }
@@ -3409,12 +3414,14 @@
           const score1 = Math.floor(Math.random() * 11) + 15;
           const score2 = Math.floor(Math.random() * 11) + 15;
           
+          console.log(`Saving match ${match.id}: ${score1} vs ${score2}`);
+          
           try {
             await callApi('admin_update_group_match', 'POST', {
               id: match.id,
               score1: score1,
               score2: score2,
-              time: match.time || ''
+              time: match.time || match.startTime || ''
             }, false); // false = no error dialog
             savedCount++;
           } catch (e) {
@@ -3422,9 +3429,11 @@
           }
         }
         
+        console.log(`simulateMatchScores completed: saved ${savedCount} matches`);
         await showInfoDialog('Successo', `✅ Punteggi simulati per ${savedCount} partite`);
         await refresh();
       } catch (e) {
+        console.error('simulateMatchScores error:', e);
         await showInfoDialog('Errore', 'Errore nella simulazione: ' + e.message);
       }
     }

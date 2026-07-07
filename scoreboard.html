@@ -799,54 +799,59 @@
       </div>
       <div class="form-grid" id="registrationForm">
         <input id="fName" placeholder="Nome squadra">
-        <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-          <h4 style="margin: 0 0 10px 0;">Giocatore 1 (Capitano)</h4>
-        </div>
-        <input id="fP1" placeholder="Nome completo">
-        <select id="fP1Level" style="padding: 8px;">
-          <option value="">Livello (opzionale)</option>
-          <option value="principiante">Principiante</option>
-          <option value="intermedio">Intermedio</option>
-          <option value="avanzato">Avanzato</option>
-          <option value="professionista">Professionista</option>
-        </select>
-        <input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)">
         
         <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-          <h4 style="margin: 0 0 10px 0;">Giocatore 2</h4>
+          <h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4>
         </div>
-        <input id="fP2" placeholder="Nome completo">
-        <select id="fP2Level" style="padding: 8px;">
-          <option value="">Livello (opzionale)</option>
-          <option value="principiante">Principiante</option>
-          <option value="intermedio">Intermedio</option>
-          <option value="avanzato">Avanzato</option>
-          <option value="professionista">Professionista</option>
-        </select>
-        <input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)">
-        <div style="grid-column: 1/-1;">
-          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-            <input type="checkbox" id="fP2Captain" style="width: auto;">
-            <span>Capitano</span>
+        
+        <div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+          <h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>
+          <input id="fP1" placeholder="Nome completo">
+          <select id="fP1Level" style="padding: 8px; margin-top: 8px;">
+            <option value="">Livello (opzionale)</option>
+            <option value="principiante">Principiante</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzato">Avanzato</option>
+            <option value="professionista">Professionista</option>
+          </select>
+          <input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;">
+            <span>👑 Capitano</span>
           </label>
         </div>
 
-        <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-          <h4 style="margin: 0 0 10px 0;">Giocatore 3 (opzionale)</h4>
+        <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+          <h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>
+          <input id="fP2" placeholder="Nome completo">
+          <select id="fP2Level" style="padding: 8px; margin-top: 8px;">
+            <option value="">Livello (opzionale)</option>
+            <option value="principiante">Principiante</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzato">Avanzato</option>
+            <option value="professionista">Professionista</option>
+          </select>
+          <input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;">
+            <span>👑 Capitano</span>
+          </label>
         </div>
-        <input id="fP3" placeholder="Nome completo (opzionale)">
-        <select id="fP3Level" style="padding: 8px;">
-          <option value="">Livello (opzionale)</option>
-          <option value="principiante">Principiante</option>
-          <option value="intermedio">Intermedio</option>
-          <option value="avanzato">Avanzato</option>
-          <option value="professionista">Professionista</option>
-        </select>
-        <input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)">
-        <div style="grid-column: 1/-1;">
-          <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-            <input type="checkbox" id="fP3Captain" style="width: auto;">
-            <span>Capitano</span>
+
+        <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+          <h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>
+          <input id="fP3" placeholder="Nome completo (opzionale)">
+          <select id="fP3Level" style="padding: 8px; margin-top: 8px;">
+            <option value="">Livello (opzionale)</option>
+            <option value="principiante">Principiante</option>
+            <option value="intermedio">Intermedio</option>
+            <option value="avanzato">Avanzato</option>
+            <option value="professionista">Professionista</option>
+          </select>
+          <input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="radio" name="captain" value="3" id="fP3Captain" style="width: auto;">
+            <span>👑 Capitano</span>
           </label>
         </div>
 
@@ -1381,14 +1386,17 @@
       }
 
       try {
+        // Determina quale giocatore è capitano (radio button selezionato)
+        const captainValue = document.querySelector('input[name="captain"]:checked')?.value || '1';
+        
         // Raccogli i dati dei giocatori con livello e immagine
         const playersData = [];
         
-        // Giocatore 1 (sempre capitano)
+        // Giocatore 1
         playersData.push({
           name: player1,
           level: document.getElementById('fP1Level').value || null,
-          isCaptain: true,
+          isCaptain: captainValue === '1',
           image: await getFileAsBase64('fP1Image') || null
         });
         
@@ -1396,7 +1404,7 @@
         playersData.push({
           name: player2,
           level: document.getElementById('fP2Level').value || null,
-          isCaptain: document.getElementById('fP2Captain').checked,
+          isCaptain: captainValue === '2',
           image: await getFileAsBase64('fP2Image') || null
         });
         
@@ -1405,7 +1413,7 @@
           playersData.push({
             name: player3,
             level: document.getElementById('fP3Level').value || null,
-            isCaptain: document.getElementById('fP3Captain').checked,
+            isCaptain: captainValue === '3',
             image: await getFileAsBase64('fP3Image') || null
           });
         }
@@ -1428,14 +1436,13 @@
         document.getElementById('fP2').value = '';
         document.getElementById('fP2Level').value = '';
         document.getElementById('fP2Image').value = '';
-        document.getElementById('fP2Captain').checked = false;
         document.getElementById('fP3').value = '';
         document.getElementById('fP3Level').value = '';
         document.getElementById('fP3Image').value = '';
-        document.getElementById('fP3Captain').checked = false;
         document.getElementById('fPhone').value = '';
         document.getElementById('fPrivacy').checked = false;
         document.getElementById('fCookies').checked = false;
+        document.getElementById('fP1Captain').checked = true; // Reset a giocatore 1 come capitano
         
         try {
           await loadState();

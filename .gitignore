@@ -15,6 +15,9 @@ data/uploads/
 data/updates/
 data/backups/
 
+# Multi-tenant instances (tenant-specific folders)
+beachmaster/
+
 # IDE
 .vscode/
 .idea/

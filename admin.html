@@ -607,6 +607,10 @@
           </ol>
         </div>
 
+        <div class="row" style="margin-bottom: 12px; gap: 8px">
+          <button class="btn btn-info" onclick="openBulkTimeSlotDialog()" style="flex: 1">⏰ Aggiungi fascia oraria a TUTTI i giorni</button>
+        </div>
+
         <div id="scheduleContainer" style="margin-top:10px"></div>
         <div class="row" style="margin-top:14px">
           <button class="btn btn-primary" onclick="addScheduleCourt()">+ Aggiungi campo</button>
@@ -5811,6 +5815,98 @@
       if (!config.schedule || !config.schedule.courts[courtIdx] || !config.schedule.courts[courtIdx].availability[dateIdx]) return;
       config.schedule.courts[courtIdx].availability[dateIdx].timeSlots.splice(slotIdx, 1);
       renderSchedule();
+    }
+
+    function openBulkTimeSlotDialog() {
+      // Verifica che ci siano campi e date configurati
+      const courts = config.schedule?.courts || [];
+      let totalDates = 0;
+      courts.forEach(court => {
+        totalDates += (court.availability || []).length;
+      });
+
+      if (totalDates === 0) {
+        showInfoDialog('Attenzione', 'Configura almeno un campo con una data prima di aggiungere fasce orarie bulk.');
+        return;
+      }
+
+      // Crea il dialog con due input time
+      const bodyHtml = `
+        <div style="padding: 12px 0">
+          <div style="margin-bottom: 12px">
+            <label style="display: block; margin-bottom: 6px; font-weight: bold">Orario Inizio</label>
+            <input type="time" id="bulkStartTime" value="19:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+          </div>
+          <div style="margin-bottom: 12px">
+            <label style="display: block; margin-bottom: 6px; font-weight: bold">Orario Fine</label>
+            <input type="time" id="bulkEndTime" value="20:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+          </div>
+          <div style="background: #e3f2fd; border-left: 3px solid #1976d2; padding: 10px; border-radius: 4px; font-size: 12px; color: #0d47a1">
+            <strong>ℹ️ Nota:</strong> La fascia oraria sarà aggiunta a <strong>${totalDates}</strong> data${totalDates !== 1 ? 'e' : ''} configurata${totalDates !== 1 ? 'e' : ''} in tutti i campi.
+          </div>
+        </div>
+      `;
+
+      openModal({
+        title: 'Aggiungi fascia oraria a TUTTI i giorni',
+        bodyHtml,
+        buttons: [
+          {
+            text: 'Annulla',
+            className: 'btn btn-secondary',
+            closeOnClick: true
+          },
+          {
+            text: 'Applica a Tutti i Giorni',
+            className: 'btn btn-primary',
+            closeOnClick: false,
+            onClick: () => applyBulkTimeSlot()
+          }
+        ],
+        onClose: () => {}
+      });
+    }
+
+    function applyBulkTimeSlot() {
+      const startTimeEl = document.getElementById('bulkStartTime');
+      const endTimeEl = document.getElementById('bulkEndTime');
+
+      if (!startTimeEl || !endTimeEl) return;
+
+      const startTime = startTimeEl.value.trim();
+      const endTime = endTimeEl.value.trim();
+
+      if (!startTime || !endTime) {
+        showInfoDialog('Attenzione', 'Inserisci sia l\'orario inizio che l\'orario fine.');
+        return;
+      }
+
+      // Validazione: end non deve essere <= start
+      const startMin = timeStringToMinutes(startTime);
+      const endMin = timeStringToMinutes(endTime);
+      if (endMin <= startMin) {
+        showInfoDialog('Errore', 'L\'orario fine deve essere successivo all\'orario inizio.');
+        return;
+      }
+
+      // Applica la fascia a tutti i giorni di tutti i campi
+      const courts = config.schedule?.courts || [];
+      let addedCount = 0;
+
+      courts.forEach(court => {
+        (court.availability || []).forEach(dateAvail => {
+          dateAvail.timeSlots = dateAvail.timeSlots || [];
+          dateAvail.timeSlots.push({
+            startTime: startTime,
+            endTime: endTime
+          });
+          addedCount++;
+        });
+      });
+
+      closeModal();
+      renderSchedule();
+      showInfoDialog('✅ Successo', `Fascia oraria ${startTime} - ${endTime} aggiunta a ${addedCount} giorno${addedCount !== 1 ? 'i' : ''}.`);
     }
 
     function syncScheduleFromForm() {

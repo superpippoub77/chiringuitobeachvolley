@@ -1375,8 +1375,9 @@ function validateScheduleForTournament(array $state): array {
     $numSets = (int)($tournament['numSets'] ?? 2);
     $matchDurationMinutes = $setupTimeMinutes + ($timePerSetMinutes * $numSets);
     
-    // Calcola numero totale di slot effettivi considerando la durata reale degli incontri
-    // Per ogni timeSlot, calcola quanti incontri ci stanno effettivamente
+    // ✅ CORRETTA: Calcola il numero TOTALE di match che possono stare negli slot
+    // Per ogni timeSlot, calcola quanti match ci stanno (fill capacity)
+    // Poi somma per tutti i timeSlot
     $totalSlots = 0;
     $slotDetails = []; // Per debugging
     
@@ -1387,22 +1388,27 @@ function validateScheduleForTournament(array $state): array {
                 $startTime = $timeSlot['startTime'] ?? '';
                 $endTime = $timeSlot['endTime'] ?? '';
                 
-                // Calcola differenza in minuti
+                // Calcola durata di questo timeSlot
                 if ($startTime && $endTime) {
                     $startMinutes = parseTimeToMinutes($startTime);
                     $endMinutes = parseTimeToMinutes($endTime);
                     $slotDurationMinutes = $endMinutes - $startMinutes;
                     
-                    // Calcola quanti incontri ci stanno in questo slot
-                    if ($slotDurationMinutes > 0) {
+                    // Calcola quanti incontri ci stanno in questo timeSlot
+                    if ($slotDurationMinutes > 0 && $matchDurationMinutes > 0) {
                         $matchesInSlot = (int)floor($slotDurationMinutes / $matchDurationMinutes);
-                        $totalSlots += max(1, $matchesInSlot); // Almeno 1 incontro per slot
+                        $matchesInSlot = max(1, $matchesInSlot); // Almeno 1 incontro per slot
+                        $totalSlots += $matchesInSlot;
+                        
                         $slotDetails[] = [
                             'date' => $date,
                             'startTime' => $startTime,
                             'endTime' => $endTime,
                             'slotDuration' => $slotDurationMinutes,
-                            'matchesInSlot' => $matchesInSlot
+                            'matchDuration' => $matchDurationMinutes,
+                            'matchesInSlot' => $matchesInSlot,
+                            'courtIdx' => $courtIdx,
+                            'courtName' => $court['courtName'] ?? 'Campo'
                         ];
                     }
                 }
@@ -1414,10 +1420,11 @@ function validateScheduleForTournament(array $state): array {
         return ['valid' => false, 'message' => 'Nessuna partita da programmare'];
     }
 
+    // ✅ Validazione: totalSlots rappresenta il numero di match che possono essere programmati
     if ($totalMatches > $totalSlots) {
         return [
             'valid' => false, 
-            'message' => "Slot insufficienti! Partite necessarie: {$totalMatches} | Slot effettivi disponibili: {$totalSlots}. Aggiungi più giorni o time range.",
+            'message' => "Slot insufficienti! Partite necessarie: {$totalMatches} | Slot effettivi disponibili: {$totalSlots}. Aggiungi più campi, giorni o fasce orarie.",
             'totalMatches' => $totalMatches,
             'totalSlots' => $totalSlots,
             'matchDurationMinutes' => $matchDurationMinutes,
@@ -1683,22 +1690,53 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         return;
     }
     
-    // Costruisci lista di slot disponibili da courts con indici
+    // Costruisci lista di slot disponibili CONSIDERANDO il fill capacity
+    // Se una fascia oraria può contenere N match, crea N "slot virtuali"
     $availableSlots = [];
+    
+    $tournament = $config['tournament'] ?? [];
+    $setupTimeMinutes = (int)($tournament['setupTimeMinutes'] ?? 5);
+    $timePerSetMinutes = (int)($tournament['timePerSetMinutes'] ?? 15);
+    $numSets = (int)($tournament['numSets'] ?? 2);
+    $matchDurationMinutes = $setupTimeMinutes + ($timePerSetMinutes * $numSets);
+    
     foreach ($courts as $courtIdx => $court) {
         foreach ($court['availability'] ?? [] as $dateIdx => $dateAvail) {
             $date = $dateAvail['date'];
             foreach ($dateAvail['timeSlots'] ?? [] as $slotIdx => $timeSlot) {
-                $availableSlots[] = [
-                    'courtIdx' => $courtIdx,
-                    'dateIdx' => $dateIdx,
-                    'slotIdx' => $slotIdx,
-                    'courtId' => $court['courtId'],
-                    'courtName' => $court['courtName'],
-                    'date' => $date,
-                    'startTime' => $timeSlot['startTime'],
-                    'endTime' => $timeSlot['endTime']
-                ];
+                // Calcola quanti match ci stanno in questo timeSlot
+                $startMinutes = parseTimeToMinutes($timeSlot['startTime']);
+                $endMinutes = parseTimeToMinutes($timeSlot['endTime']);
+                $slotDurationMinutes = $endMinutes - $startMinutes;
+                $matchesInSlot = max(1, (int)floor($slotDurationMinutes / $matchDurationMinutes));
+                
+                // Crea N sub-slot virtuali, uno per ogni match che può starci
+                for ($matchNum = 0; $matchNum < $matchesInSlot; $matchNum++) {
+                    // Calcola il tempo di inizio per questo specifico match all'interno dello slot
+                    $matchStartOffset = $matchNum * $matchDurationMinutes;
+                    $matchStart = $startMinutes + $matchStartOffset;
+                    $matchEnd = $matchStart + $matchDurationMinutes;
+                    
+                    // Converte i minuti in orario HH:MM
+                    $matchStartHour = (int)($matchStart / 60);
+                    $matchStartMin = $matchStart % 60;
+                    $matchEndHour = (int)($matchEnd / 60);
+                    $matchEndMin = $matchEnd % 60;
+                    $matchStartTime = sprintf('%02d:%02d', $matchStartHour, $matchStartMin);
+                    $matchEndTime = sprintf('%02d:%02d', $matchEndHour, $matchEndMin);
+                    
+                    $availableSlots[] = [
+                        'courtIdx' => $courtIdx,
+                        'dateIdx' => $dateIdx,
+                        'slotIdx' => $slotIdx,
+                        'matchNum' => $matchNum,  // Numero del match dentro lo slot (0-5 se ce ne stanno 6)
+                        'courtId' => $court['courtId'],
+                        'courtName' => $court['courtName'],
+                        'date' => $date,
+                        'startTime' => $matchStartTime,   // Orario calcolato per questo match
+                        'endTime' => $matchEndTime        // Orario calcolato per questo match
+                    ];
+                }
             }
         }
     }

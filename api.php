@@ -2843,6 +2843,80 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
 }
 
 /**
+ * Genera una fase generica (non solo gironi)
+ * POST body: { phaseIdx: 2, type: 'knockout' }
+ */
+if ($action === 'admin_generate_phase' && $method === 'POST') {
+    $body = json_decode(file_get_contents('php://input'), true) ?? [];
+    $phaseIdx = (int)($body['phaseIdx'] ?? 0);
+    $type = $body['type'] ?? '';
+    
+    if (!$phaseIdx || !$type) {
+        jsonResponse(400, ['ok' => false, 'error' => 'phaseIdx e type sono obbligatori']);
+    }
+    
+    withStateTransaction(function (&$state) use ($phaseIdx, $type) {
+        ensurePhases($state);
+        
+        $previousPhase = getPhase($state, $phaseIdx - 1);
+        if (!$previousPhase) {
+            jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non esiste']);
+        }
+        
+        if ($previousPhase['status'] !== 'completed') {
+            jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non è completata']);
+        }
+        
+        // Genera la fase in base al tipo
+        if ($type === 'knockout') {
+            // Estrai i team qualificati dalla fase precedente
+            $standings = computeStandings($state);
+            $qualifiedTeams = array_slice($standings, 0, (int)ceil(count($standings) / 2));
+            
+            // Crea i playoff/knockout
+            $knockoutMatches = [];
+            $teamsAdvance = (int)ceil(count($qualifiedTeams) / 2);
+            
+            // Crea bracket per knockout
+            for ($i = 0; $i < count($qualifiedTeams); $i += 2) {
+                $team1 = $qualifiedTeams[$i] ?? null;
+                $team2 = $qualifiedTeams[$i + 1] ?? null;
+                
+                if ($team1) {
+                    $knockoutMatches[] = [
+                        'id' => uid(),
+                        'team1' => $team1['teamId'] ?? null,
+                        'team2' => $team2['teamId'] ?? null,
+                        'team1Name' => $team1['name'] ?? 'TBD',
+                        'team2Name' => $team2['name'] ?? 'TBD',
+                        'score1' => null,
+                        'score2' => null,
+                        'status' => 'pending'
+                    ];
+                }
+            }
+            
+            $phaseName = 'Fase ' . $phaseIdx . ' - Knockout';
+            if ($phaseIdx === 3) $phaseName = 'Semifinale';
+            elseif ($phaseIdx === 4) $phaseName = 'Finale';
+            
+            initializePhase($state, $phaseIdx, $phaseName, 'knockout', [
+                'matches' => $knockoutMatches,
+                'metadata' => ['teamCount' => count($qualifiedTeams)]
+            ]);
+            
+            setPhaseStatus($state, $phaseIdx, 'active');
+            
+            return ['ok' => true, 'phaseName' => $phaseName, 'matchCount' => count($knockoutMatches)];
+        }
+        
+        jsonResponse(400, ['ok' => false, 'error' => 'Tipo fase non supportato: ' . $type]);
+    });
+    
+    jsonResponse(200, ['ok' => true, 'message' => 'Fase generata con successo']);
+}
+
+/**
  * Ottiene la fase corrente con i suoi dettagli
  */
 if ($action === 'admin_get_current_phase' && $method === 'GET') {

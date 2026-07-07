@@ -3000,6 +3000,53 @@
     }
 
     /**
+     * Genera una fase dal workflow tree
+     */
+    async function generatePhaseFromWorkflow(phaseIdx, type) {
+      try {
+        const response = await callApi('admin_generate_phase', 'POST', {
+          phaseIdx: phaseIdx,
+          type: type
+        }, true);
+        
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile generare la fase');
+          return;
+        }
+        
+        await showInfoDialog('✅ Fase Generata', `La fase ${phaseIdx} (${type}) è stata generata con successo`);
+        await loadPageGroups(); // Ricarica il workflow
+      } catch (e) {
+        console.error('Errore generatePhaseFromWorkflow:', e);
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    /**
+     * Completa una fase dal workflow tree
+     */
+    async function completePhaseFromWorkflow(phaseIdx) {
+      try {
+        if (!confirm('Sei sicuro di voler completare questa fase?')) {
+          return;
+        }
+        
+        const response = await callApi('admin_complete_phase', 'POST', {}, true);
+        
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile completare la fase');
+          return;
+        }
+        
+        await showInfoDialog('✅ Fase Completata', 'La fase è stata completata con successo');
+        await loadPageGroups(); // Ricarica il workflow
+      } catch (e) {
+        console.error('Errore completePhaseFromWorkflow:', e);
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    /**
      * Completa la fase corrente e fa avanzare a quella successiva
      */
     async function completePhase() {
@@ -6822,7 +6869,22 @@
                 padding: 12px;
                 text-align: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                position: relative;
               " class="bracket-stage-qualified" data-stage="${idx}">
+                <!-- Badge Status Fase -->
+                <div style="
+                  position: absolute;
+                  top: -10px;
+                  right: -10px;
+                  padding: 4px 8px;
+                  border-radius: 12px;
+                  font-size: 10px;
+                  font-weight: bold;
+                  ${phase.status === 'completed' ? 'background: #2ecc71; color: white' : phase.status === 'active' ? 'background: #ffc107; color: #333' : 'background: #ddd; color: #666'};
+                ">
+                  ${phase.status === 'completed' ? '✅ Completata' : phase.status === 'active' ? '⏱️ Attiva' : '⏳ In sospeso'}
+                </div>
+                
                 <div style="font-size: 10px; color: ${phase.type === 'finale' ? '#ff6b35' : '#666'}; margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px">
                   ${phaseTypeLabel}
                 </div>
@@ -6846,16 +6908,41 @@
               </div>
               ${phase.type !== 'finale' ? `
                 <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
-                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                    onclick="openPhaseWizard('qualified')">
-                    ✓ +Qualificate
-                  </button>
+                  ${phase.type !== 'knockout' ? `
+                    <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                      onclick="openPhaseWizard('qualified')">
+                      ✓ +Qualificate
+                    </button>
+                  ` : ''}
                   ${(phase.type === 'groups' && phase.hasRepescage) || (phase.type === 'knockout' && phase.hasLosersPath) ? `
                     <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
                       onclick="openPhaseWizard('eliminated')">
                       ✗ +Eliminate
                     </button>
                   ` : ''}
+                </div>
+                <!-- Pulsanti di azione fase -->
+                <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
+                  ${phase.status === 'pending' ? `
+                    ${phase.type === 'groups' ? `
+                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #0078d4; border: 1px solid #0078d4; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="generatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
+                        🔨 Genera
+                      </button>
+                    ` : `
+                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #0078d4; border: 1px solid #0078d4; color: white; cursor: pointer; border-radius: 4px; font-weight: bold; opacity: 0.6; cursor: not-allowed;" 
+                        disabled title="Completa la fase precedente">
+                        🔨 Genera
+                      </button>
+                    `}
+                  ` : phase.status === 'active' ? `
+                    <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                      onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
+                      ✅ Completa
+                    </button>
+                  ` : `
+                    <span style="font-size: 10px; padding: 5px 6px; color: #2ecc71; font-weight: bold">✓ Chiusa</span>
+                  `}
                 </div>
               ` : `
                 <div style="padding: 8px; background: #e8f5e9; border-radius: 4px; text-align: center; font-size: 12px; color: #2ecc71; font-weight: bold">

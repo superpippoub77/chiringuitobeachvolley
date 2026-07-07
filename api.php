@@ -2024,7 +2024,15 @@ function authToken(): ?string {
     return substr($auth, 7);
 }
 
-function validSession(string $token): bool {
+function validSession(string $token = ''): bool {
+    // Se il token non è fornito, leggi dall'Authorization header
+    if (empty($token)) {
+        $token = authToken() ?? '';
+        if (empty($token)) {
+            return false;
+        }
+    }
+    
     $sessions = readJsonFile(SESSION_FILE, ['tokens' => []]);
     
     // Supporta entrambi i formati: legacy (array di stringhe) e nuovo (array di oggetti)

@@ -109,4 +109,5 @@ Il numero di gironi non serve nelle impostazioni di base del torneo✅
 Nella creazione delle schedulazioni dei giorni dammi l apossiilità di un pulsante che consente di insiere da a ad una fascia oraria fissa dalle alle per tutti i giorni✅
 Nella generazione degli incontri per gironi cerca di ditribuire in modo corretto non è corretto che una suadra facci tutte di fila le partite mentre un altra aspetta✅ [COMPLETATO: Algoritmo time-aware implementato - Considera minuti effettivi tra partite, gap minimo 75 minuti]
 Gestione partite e orari: ordina le partite per data e orario nella visualizzazione (admin panel e public board) ✅ [COMPLETATO: Ordinamento per data/startTime in admin.html (renderMatches) e scoreboard.html (renderMatches)]
-Il sistema per aggiungere gli sponsor non funziona
+Il sistema per aggiungere gli sponsor non funziona ✅ [RISOLTO: validSession() mancava del parametro $token dall'Authorization header. Modificato per leggere automaticamente il token dall'header se non fornito]
+Inseriscmi il pulsante simula punteggi per il calendario che ha toirato fuori per testare la clsassifica

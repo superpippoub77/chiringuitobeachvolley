@@ -242,7 +242,14 @@
     "display": {
         "theme": "beachmaster"
     },
-    "sponsors": [],
+    "sponsors": [
+        {
+            "id": "s2",
+            "name": "Sponsor 2",
+            "repetitions": 2,
+            "logoFile": null
+        }
+    ],
     "payment": {
         "enabled": false,
         "costPerTeam": 0,

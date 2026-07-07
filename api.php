@@ -936,6 +936,89 @@ function shuffleArray(array $arr): array {
     return $copy;
 }
 
+/**
+ * Calcola il numero di squadre qualificate e eliminate da una fase
+ * @param array $phase - Configurazione della fase
+ * @param int $teamsIn - Numero di squadre in ingresso in questa fase
+ * @return array ['qualified' => int, 'eliminated' => int]
+ */
+function calculatePhaseTeams(array $phase, int $teamsIn): array {
+    if ($phase['type'] === 'groups') {
+        $numGroups = $phase['numGroups'] ?? 4;
+        $teamsAdvance = $phase['teamsAdvance'] ?? 2;
+        
+        // Squadre qualificate = numGroups * teamsAdvance
+        $qualified = $numGroups * $teamsAdvance;
+        
+        // Se teamsIn non è divisibile per numGroups, aggiustiamo
+        $teamsPerGroup = (int)ceil($teamsIn / $numGroups);
+        $totalTeamsInGroups = $numGroups * $teamsPerGroup;
+        
+        // Le eliminate sono il resto
+        $eliminated = max(0, $totalTeamsInGroups - $qualified);
+        
+        return [
+            'qualified' => min($qualified, $teamsIn),
+            'eliminated' => min($eliminated, $teamsIn)
+        ];
+    } elseif ($phase['type'] === 'knockout') {
+        $numTeams = $phase['numTeams'] ?? 8;
+        // Nel knockout, i vincitori passano alla fase successiva
+        $qualified = (int)ceil($numTeams / 2);
+        $eliminated = (int)floor($numTeams / 2);
+        
+        return [
+            'qualified' => $qualified,
+            'eliminated' => $eliminated
+        ];
+    }
+    
+    return ['qualified' => $teamsIn, 'eliminated' => 0];
+}
+
+/**
+ * Restituisce il numero di squadre che dovrebbe avere la fase successiva
+ * basandosi sulla fase precedente e sul branch (qualified o eliminated)
+ * @param array $phases - Array di tutte le fasi
+ * @param int $currentPhaseIdx - Indice della fase corrente
+ * @param string $branch - 'qualified' o 'eliminated'
+ * @param int $teamsIn - Numero di squadre nella fase corrente
+ * @return int numero di squadre per la fase successiva
+ */
+function getTeamsForNextPhase(array $phases, int $currentPhaseIdx, string $branch = 'qualified', int $teamsIn = 0): int {
+    if ($currentPhaseIdx >= count($phases) - 1 || $teamsIn === 0) {
+        return 0;
+    }
+    
+    $currentPhase = $phases[$currentPhaseIdx];
+    $teams = calculatePhaseTeams($currentPhase, $teamsIn);
+    
+    // Restituisci il numero di squadre del branch richiesto
+    if ($branch === 'qualified') {
+        return $teams['qualified'];
+    } else {
+        return $teams['eliminated'];
+    }
+}
+
+/**
+ * Calcola il numero di squadre totali per la prima fase
+ * @param array $config - Configurazione del torneo
+ * @param array $state - Stato del torneo
+ * @return int numero di squadre approvate
+ */
+function getInitialTeamsCount(array $config, array $state): int {
+    $approvedTeams = array_filter($state['teams'] ?? [], fn($t) => $t['approved'] ?? false);
+    $approvedCount = count($approvedTeams);
+    
+    // Se non ci sono squadre approvate, usa il maxTeams configurato
+    if ($approvedCount === 0) {
+        return $config['tournament']['maxTeams'] ?? 16;
+    }
+    
+    return $approvedCount;
+}
+
 function getTeamMap(array $state): array {
     $map = [];
     foreach ($state['teams'] as $team) {
@@ -3089,7 +3172,10 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             $phaseData = [
                 'phaseNumber' => $idx + 1,
                 'name' => trim((string)($phase['name'] ?? "Fase $idx")),
-                'type' => in_array($phase['type'] ?? '', ['groups', 'knockout']) ? $phase['type'] : 'groups'
+                'type' => in_array($phase['type'] ?? '', ['groups', 'knockout']) ? $phase['type'] : 'groups',
+                'branch' => in_array($phase['branch'] ?? 'root', ['root', 'qualified', 'eliminated']) ? $phase['branch'] : 'root',
+                'qualifiedGoTo' => trim((string)($phase['qualifiedGoTo'] ?? '')),
+                'eliminatedGoTo' => trim((string)($phase['eliminatedGoTo'] ?? ''))
             ];
             
             if ($phaseData['type'] === 'groups') {
@@ -3164,6 +3250,66 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     saveToHistory('Aggiornamento configurazione');
     
     jsonResponse(200, ['ok' => true, 'config' => $config]);
+}
+
+if ($action === 'admin_calculate_next_phase_teams' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $config = readConfig();
+        $state = readJsonFile(DATA_FILE, initialState());
+        
+        $phases = $config['phases'] ?? [];
+        $currentPhaseIdx = (int)($body['currentPhaseIdx'] ?? 0);
+        $branch = $body['branch'] ?? 'qualified'; // 'qualified' o 'eliminated'
+        
+        if ($currentPhaseIdx >= count($phases)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Fase non trovata']);
+            exit;
+        }
+        
+        // Se è la prima fase, calcola le squadre approvate
+        if ($currentPhaseIdx === 0) {
+            $teamsIn = getInitialTeamsCount($config, $state);
+        } else {
+            // Calcola le squadre dalla fase precedente
+            $prevPhase = $phases[$currentPhaseIdx - 1];
+            $prevTeamsIn = 0;
+            
+            if ($currentPhaseIdx === 1) {
+                $prevTeamsIn = getInitialTeamsCount($config, $state);
+            } else {
+                // Se è la terza fase, calcola dalla prima fase
+                $firstPhase = $phases[0];
+                $prevTeamsIn = getInitialTeamsCount($config, $state);
+                $prevTeamsOut = calculatePhaseTeams($firstPhase, $prevTeamsIn);
+                
+                if ($branch === 'qualified') {
+                    $prevTeamsIn = $prevTeamsOut['qualified'];
+                } else {
+                    $prevTeamsIn = $prevTeamsOut['eliminated'];
+                }
+            }
+            
+            $teamsIn = $prevTeamsIn;
+        }
+        
+        // Calcola i team per il ramo richiesto
+        $currentPhase = $phases[$currentPhaseIdx];
+        $teamStats = calculatePhaseTeams($currentPhase, $teamsIn);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'teamsIn' => $teamsIn,
+            'qualified' => $teamStats['qualified'],
+            'eliminated' => $teamStats['eliminated'],
+            'branch' => $branch,
+            'phaseIdx' => $currentPhaseIdx,
+            'phaseName' => $currentPhase['name'] ?? "Fase " . ($currentPhaseIdx + 1),
+            'message' => "Da questa fase: {$teamStats['qualified']} qualificate, {$teamStats['eliminated']} eliminate/ripescate"
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => $e->getMessage()]);
+    }
 }
 
 if ($action === 'admin_update_schedule' && $method === 'POST') {

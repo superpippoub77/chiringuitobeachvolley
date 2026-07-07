@@ -1160,6 +1160,43 @@
       return json;
     }
 
+    /**
+     * Calcola il numero di squadre che passano dalla fase precedente al ramo richiesto
+     * @param {number} phaseIdx - Indice della fase corrente
+     * @param {string} branch - 'qualified' o 'eliminated'
+     * @returns {Promise<object>} {qualified, eliminated, teamsIn, message}
+     */
+    async function calculateNextPhaseTeams(phaseIdx, branch = 'qualified') {
+      try {
+        const response = await callApi('admin_calculate_next_phase_teams', 'POST', {
+          currentPhaseIdx: phaseIdx,
+          branch: branch
+        }, true);
+        
+        if (response.ok) {
+          return response;
+        } else {
+          // Se fallisce, ritorna valori di default
+          return {
+            ok: false,
+            qualified: 0,
+            eliminated: 0,
+            teamsIn: 0,
+            message: 'Impossibile calcolare le squadre'
+          };
+        }
+      } catch (e) {
+        console.error('Error calculating next phase teams:', e);
+        return {
+          ok: false,
+          qualified: 0,
+          eliminated: 0,
+          teamsIn: 0,
+          message: 'Errore nel calcolo'
+        };
+      }
+    }
+
     function showPage(page, btn) {
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
       document.querySelector('#page-' + page).classList.remove('hidden');

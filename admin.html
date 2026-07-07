@@ -3422,7 +3422,7 @@
               score1: score1,
               score2: score2,
               time: match.time || match.startTime || ''
-            }, false); // false = no error dialog
+            }, true); // ✅ true = invia autenticazione
             savedCount++;
           } catch (e) {
             console.error('Errore salvataggio match:', e);

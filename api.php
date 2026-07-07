@@ -3275,6 +3275,79 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'config' => $config]);
 }
 
+if ($action === 'create_subtournament' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $parentPhaseNumber = (int)($body['parentPhaseNumber'] ?? 0);
+        $subtournamentData = $body['subtournamentData'] ?? [];
+        
+        if ($parentPhaseNumber <= 0 || empty($subtournamentData)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Dati sotto-torneo non validi']);
+            exit;
+        }
+        
+        // Crea il timestamp
+        $timestamp = date('Y-m-d_His');
+        $filename = "sub_tournament_{$parentPhaseNumber}_{$timestamp}.json";
+        $filepath = __DIR__ . '/data/subtournaments/' . $filename;
+        
+        // Crea la directory se non esiste
+        $dir = dirname($filepath);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+        
+        // Prepara i dati del sotto-torneo
+        $subTournament = [
+            'id' => bin2hex(random_bytes(16)),
+            'mainTournamentPhase' => $parentPhaseNumber,
+            'name' => mb_substr(trim((string)($subtournamentData['name'] ?? 'Sotto-Torneo')), 0, 100),
+            'selectedTeams' => array_map(fn($t) => [
+                'id' => $t['id'] ?? null,
+                'name' => $t['name'] ?? '',
+                'captain' => $t['captain'] ?? '',
+                'players' => $t['players'] ?? []
+            ], $subtournamentData['selectedTeams'] ?? []),
+            'createdAt' => $subtournamentData['createdAt'] ?? date('c'),
+            'tournament' => [
+                'name' => mb_substr(trim((string)($subtournamentData['tournament']['name'] ?? 'Sotto-Torneo')), 0, 100),
+                'maxTeams' => (int)($subtournamentData['tournament']['maxTeams'] ?? count($subtournamentData['selectedTeams'] ?? []))
+            ],
+            'phases' => $subtournamentData['phases'] ?? [],
+            'schedule' => [
+                'courts' => $subtournamentData['schedule']['courts'] ?? []
+            ],
+            'groups' => $subtournamentData['groups'] ?? [],
+            'knockouts' => $subtournamentData['knockouts'] ?? []
+        ];
+        
+        // Scrivi il file del sotto-torneo
+        writeJsonFile($filepath, $subTournament);
+        
+        // Aggiorna il config.json con il riferimento al sotto-torneo
+        $config = readConfig();
+        if (!isset($config['subtournaments'])) {
+            $config['subtournaments'] = [];
+        }
+        
+        $config['subtournaments'][] = [
+            'parentPhase' => $parentPhaseNumber,
+            'filename' => $filename,
+            'createdAt' => date('c')
+        ];
+        
+        writeConfig($config);
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'filename' => $filename,
+            'subtournament' => $subTournament
+        ]);
+    } catch (Exception $e) {
+        jsonResponse(500, ['ok' => false, 'error' => $e->getMessage()]);
+    }
+}
+
 if ($action === 'admin_calculate_next_phase_teams' && $method === 'POST') {
     try {
         $body = bodyJson();

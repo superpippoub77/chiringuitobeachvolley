@@ -6093,6 +6093,9 @@
                     <option value="knockout" ${wizardState.phaseData.type === 'knockout' ? 'selected' : ''}>
                       🏆 Eliminazione Diretta - Bracket singolo
                     </option>
+                    <option value="subtournament" ${wizardState.phaseData.type === 'subtournament' ? 'selected' : ''}>
+                      🎪 Sotto-Torneo - Seleziona squadre per un mini-torneo
+                    </option>
                   </select>
                   <small style="color: #666">In questo ramo, come competeranno le squadre?</small>
                 </div>
@@ -6111,6 +6114,14 @@
                 if (!wizardState.phaseData.name) {
                   await showInfoDialog('Attenzione', 'Inserisci il nome della fase');
                   return;
+                }
+                
+                // Aggiorna totalSteps in base al tipo
+                if (wizardState.phaseData.type === 'subtournament') {
+                  wizardState.totalSteps = 4; // Step 1: Nome, Step 2: Config, Step 3: Selezione, Step 4: Routing
+                  wizardState.phaseData.selectedTeams = []; // Array per squadre selezionate
+                } else {
+                  wizardState.totalSteps = 3; // Step 1: Nome, Step 2: Config, Step 3: Routing
                 }
                 
                 wizardState.step = 2;
@@ -6150,7 +6161,7 @@
                 </div>
               </div>
             `;
-          } else {
+          } else if (wizardState.phaseData.type === 'knockout') {
             // Calcola il suggerimento per numTeams
             let suggestedNumTeams = 4; // Default
             let suggestedReason = 'valore di default';
@@ -6220,6 +6231,27 @@
                 </div>
               </div>
             `;
+          } else if (wizardState.phaseData.type === 'subtournament') {
+            bodyHtml = `
+              <div style="font-size: 13px">
+                <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Configurazione Sotto-Torneo</strong></p>
+                
+                <div class="form-grid-modal" style="gap: 12px">
+                  <div class="field" style="grid-column: 1 / -1">
+                    <label>🎪 Nome del Sotto-Torneo</label>
+                    <input type="text" id="wizard-subtournamentName" placeholder="Es: Torneo Novizi, Mini Torneo A, ecc" 
+                      value="${wizardState.phaseData.subtournamentName || ''}" style="width: 100%; maxlength: 50">
+                    <small style="color: #666">Un nome descrittivo per questo mini-torneo</small>
+                  </div>
+                  
+                  <div class="field" style="grid-column: 1 / -1">
+                    <label>📊 Numero di squadre da selezionare</label>
+                    <input type="number" id="wizard-subtournamentTeamCount" min="2" max="32" value="${wizardState.phaseData.subtournamentTeamCount || 4}" style="width: 100%">
+                    <small style="color: #666">Quante squadre parteciperanno a questo sotto-torneo</small>
+                  </div>
+                </div>
+              </div>
+            `;
           }
           
           buttons = [
@@ -6240,12 +6272,110 @@
                   wizardState.phaseData.numGroups = Math.max(1, parseInt(document.getElementById('wizard-numGroups').value) || 4);
                   wizardState.phaseData.teamsAdvance = Math.max(1, parseInt(document.getElementById('wizard-teamsAdvance').value) || 2);
                   wizardState.phaseData.hasRepescage = document.getElementById('wizard-repescage').checked;
-                } else {
+                  wizardState.step = 3;
+                } else if (wizardState.phaseData.type === 'knockout') {
                   wizardState.phaseData.numTeams = parseInt(document.getElementById('wizard-numTeams').value) || 4;
                   wizardState.phaseData.hasLosersPath = document.getElementById('wizard-losersPath').checked;
+                  wizardState.step = 3;
+                } else if (wizardState.phaseData.type === 'subtournament') {
+                  wizardState.phaseData.subtournamentName = document.getElementById('wizard-subtournamentName').value.trim();
+                  wizardState.phaseData.subtournamentTeamCount = parseInt(document.getElementById('wizard-subtournamentTeamCount').value) || 4;
+                  
+                  if (!wizardState.phaseData.subtournamentName) {
+                    await showInfoDialog('Attenzione', 'Inserisci il nome del sotto-torneo');
+                    return;
+                  }
+                  
+                  wizardState.step = 3; // Step 3 per subtournament è selezione squadre
                 }
                 
-                wizardState.step = 3;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            }
+          ];
+        }
+        else if (wizardState.step === 3 && wizardState.phaseData.type === 'subtournament') {
+          // STEP 3 per SUBTOURNAMENT: Selezione Squadre
+          const allTeams = (state.teams || []).filter(t => t.approved === true);
+          const selectedTeams = wizardState.phaseData.selectedTeams || [];
+          const teamCount = wizardState.phaseData.subtournamentTeamCount || 4;
+          
+          const availableTeams = allTeams.filter(t => !selectedTeams.find(st => st.id === t.id));
+          const selectionProgress = `${selectedTeams.length}/${teamCount}`;
+          
+          bodyHtml = `
+            <div style="font-size: 13px">
+              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Selezione Squadre per "${escapeHtml(wizardState.phaseData.subtournamentName)}"</strong></p>
+              
+              <div style="background: #e8f5e9; border: 1px solid #2ecc71; border-radius: 4px; padding: 10px; margin-bottom: 12px">
+                <strong style="color: #2ecc71;">📊 Progresso Selezione: ${selectionProgress}</strong>
+                <div style="margin-top: 6px; font-size: 12px; color: #666">
+                  Seleziona ${teamCount} squadre da ${allTeams.length} disponibili
+                </div>
+                ${selectedTeams.length === teamCount ? `
+                  <div style="margin-top: 6px; background: #c8e6c9; padding: 6px; border-radius: 2px; border-left: 3px solid #2ecc71; color: #1b5e20">
+                    ✅ Selezione completata! Procedi al passo successivo.
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: 300px">
+                <!-- DISPONIBILI -->
+                <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column">
+                  <div style="background: #f5f5f5; padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold">
+                    📋 Squadre Disponibili (${availableTeams.length})
+                  </div>
+                  <div id="wizard-available-teams" style="flex: 1; overflow-y: auto; padding: 8px; background: #fafafa">
+                    ${availableTeams.map(t => `
+                      <div draggable="true" class="wizard-team-item" data-team-id="${t.id}" 
+                        style="background: white; border: 1px solid #ddd; padding: 8px; margin-bottom: 4px; border-radius: 2px; cursor: move; display: flex; align-items: center; gap: 8px">
+                        <input type="checkbox" class="team-checkbox" data-team-id="${t.id}" style="cursor: pointer">
+                        <span style="flex: 1">${escapeHtml(t.name)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+                
+                <!-- SELEZIONATI -->
+                <div style="border: 2px solid #2ecc71; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column">
+                  <div style="background: #e8f5e9; padding: 10px; border-bottom: 1px solid #2ecc71; font-weight: bold">
+                    ✓ Squadre Selezionate (${selectedTeams.length}/${teamCount})
+                  </div>
+                  <div id="wizard-selected-teams" style="flex: 1; overflow-y: auto; padding: 8px; background: #f1f8f5">
+                    ${selectedTeams.map(t => `
+                      <div draggable="true" class="wizard-team-item" data-team-id="${t.id}" 
+                        style="background: #c8e6c9; border: 1px solid #2ecc71; padding: 8px; margin-bottom: 4px; border-radius: 2px; cursor: move; display: flex; align-items: center; gap: 8px">
+                        <input type="checkbox" class="team-checkbox" data-team-id="${t.id}" checked style="cursor: pointer">
+                        <span style="flex: 1; color: #1b5e20">${escapeHtml(t.name)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          buttons = [
+            { 
+              text: '← Indietro', 
+              className: 'btn', 
+              onClick: async () => {
+                wizardState.step = 2;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            },
+            { 
+              text: 'Avanti →', 
+              className: 'btn btn-primary', 
+              onClick: async () => {
+                if (selectedTeams.length !== teamCount) {
+                  await showInfoDialog('Attenzione', `Seleziona esattamente ${teamCount} squadre. Ne hai selezionate ${selectedTeams.length}.`);
+                  return;
+                }
+                
+                wizardState.step = 4; // Passa al routing
                 closeModal(true);
                 openPhaseWizard.continue(wizardState);
               }
@@ -6422,12 +6552,238 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
             }
           ];
         }
+        else if (wizardState.step === 4 && wizardState.phaseData.type === 'subtournament') {
+          // STEP 4 per SUBTOURNAMENT: Routing Finale
+          bodyHtml = `
+            <div style="font-size: 13px">
+              <p style="color: #666; margin-bottom: 12px"><strong>Step ${wizardState.step}/${wizardState.totalSteps}: Routing Finale del Sotto-Torneo</strong></p>
+              
+              <div style="background: #e3f2fd; border: 1px solid #0078d4; border-radius: 4px; padding: 10px; margin-bottom: 12px">
+                <strong style="color: #0078d4;">📊 Riepilogo Sotto-Torneo:</strong>
+                <div style="margin-top: 6px; font-size: 12px; color: #333; background: white; padding: 8px; border-radius: 2px; border-left: 3px solid #0078d4;">
+                  <div>🎪 Nome: <strong>${escapeHtml(wizardState.phaseData.subtournamentName)}</strong></div>
+                  <div>👥 Squadre: <strong>${(wizardState.phaseData.selectedTeams || []).length}</strong></div>
+                </div>
+              </div>
+              
+              <div class="form-grid-modal" style="gap: 12px">
+                <div class="field" style="grid-column: 1 / -1">
+                  <label style="margin-bottom: 6px; display: block">
+                    <strong>Le squadre qualificate dal sotto-torneo cosa faranno?</strong>
+                  </label>
+                  <textarea id="wizard-qualifiedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
+                    placeholder="Es: Passeranno alla fase successiva oppure...">
+${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
+                  <small style="color: #666">Descrivi il percorso delle squadre qualificate</small>
+                </div>
+                
+                <div class="field" style="grid-column: 1 / -1">
+                  <label style="margin-bottom: 6px; display: block">
+                    <strong>Le squadre eliminate dal sotto-torneo cosa faranno?</strong>
+                  </label>
+                  <textarea id="wizard-eliminatedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
+                    placeholder="Es: Vengono eliminate dal torneo oppure continuano in...">
+${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
+                  <small style="color: #666">Descrivi il percorso delle squadre eliminate dal sotto-torneo</small>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          buttons = [
+            { 
+              text: '← Indietro', 
+              className: 'btn', 
+              onClick: async () => {
+                wizardState.step = 3;
+                closeModal(true);
+                openPhaseWizard.continue(wizardState);
+              }
+            },
+            { 
+              text: 'Crea Sotto-Torneo', 
+              className: 'btn btn-success', 
+              onClick: async () => {
+                wizardState.phaseData.qualifiedGoTo = document.getElementById('wizard-qualifiedGoTo').value.trim();
+                wizardState.phaseData.eliminatedGoTo = document.getElementById('wizard-eliminatedGoTo').value.trim();
+                
+                if (!wizardState.phaseData.qualifiedGoTo) {
+                  await showInfoDialog('Attenzione', 'Completa la descrizione: dove vanno le squadre qualificate dal sotto-torneo?');
+                  return;
+                }
+                
+                if (!wizardState.phaseData.eliminatedGoTo) {
+                  await showInfoDialog('Attenzione', 'Completa la descrizione: dove vanno le squadre eliminate dal sotto-torneo?');
+                  return;
+                }
+                
+                // Crea la fase per il subtournament
+                const newPhase = {
+                  phaseNumber: wizardState.phaseData.phaseNumber,
+                  branch: wizardState.phaseData.branch,
+                  name: wizardState.phaseData.name,
+                  type: 'subtournament',
+                  subtournamentName: wizardState.phaseData.subtournamentName,
+                  subtournamentTeamCount: wizardState.phaseData.subtournamentTeamCount,
+                  selectedTeams: wizardState.phaseData.selectedTeams,
+                  qualifiedGoTo: wizardState.phaseData.qualifiedGoTo,
+                  eliminatedGoTo: wizardState.phaseData.eliminatedGoTo
+                };
+                
+                config.phases = [...phases, newPhase];
+                
+                closeModal(true);
+                renderPhases();
+                
+                // Salva immediatamente nel JSON (fase principale + file subtournament)
+                try {
+                  // Salva la fase nel torneo principale
+                  await callApi('admin_update_config', 'POST', { phases: config.phases }, true);
+                  
+                  // Crea il file del sotto-torneo
+                  const subTournamentData = {
+                    mainTournamentPhase: wizardState.phaseData.phaseNumber,
+                    name: wizardState.phaseData.subtournamentName,
+                    selectedTeams: wizardState.phaseData.selectedTeams,
+                    createdAt: new Date().toISOString(),
+                    tournament: {
+                      name: config.tournament?.name || 'Sotto-Torneo',
+                      maxTeams: wizardState.phaseData.selectedTeams.length
+                    },
+                    phases: [],
+                    schedule: {
+                      courts: []
+                    },
+                    groups: [],
+                    knockouts: []
+                  };
+                  
+                  const subTournamentResult = await callApi('create_subtournament', 'POST', {
+                    parentPhaseNumber: wizardState.phaseData.phaseNumber,
+                    subtournamentData
+                  }, true);
+                  
+                  await showInfoDialog('✅ Successo', `Sotto-Torneo "${wizardState.phaseData.subtournamentName}" creato e salvato con successo!\n\nFile: ${subTournamentResult.filename}`);
+                } catch (e) {
+                  await showInfoDialog('⚠️ Avvertimento', `Sotto-Torneo creato ma errore nel salvataggio:\n\n${e.message}\n\nRiprovare con il pulsante "Salva fasi".`);
+                }
+              }
+            }
+          ];
+        }
 
         openModal({
           title: `Creazione Fase ${wizardState.phaseData.phaseNumber}`,
           bodyHtml,
           buttons,
           onClose: null
+        });
+        
+        // Setup drag-drop e checkbox per subtournament Step 3
+        if (wizardState.step === 3 && wizardState.phaseData.type === 'subtournament') {
+          setTimeout(() => {
+            setupSubtournamentDragDrop(wizardState);
+          }, 100);
+        }
+      }
+
+      // Funzione per setup drag-drop e checkbox nella selezione squadre
+      function setupSubtournamentDragDrop(wizardState) {
+        const availableContainer = document.getElementById('wizard-available-teams');
+        const selectedContainer = document.getElementById('wizard-selected-teams');
+        const teamCount = wizardState.phaseData.subtournamentTeamCount || 4;
+        
+        if (!availableContainer || !selectedContainer) return;
+        
+        // Setup drag-drop
+        let draggedElement = null;
+        
+        document.querySelectorAll('.wizard-team-item').forEach(item => {
+          item.addEventListener('dragstart', (e) => {
+            draggedElement = item;
+            item.style.opacity = '0.5';
+          });
+          
+          item.addEventListener('dragend', (e) => {
+            item.style.opacity = '1';
+            draggedElement = null;
+          });
+        });
+        
+        [availableContainer, selectedContainer].forEach(container => {
+          container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            container.style.background = '#f0f0f0';
+          });
+          
+          container.addEventListener('dragleave', (e) => {
+            container.style.background = container === availableContainer ? '#fafafa' : '#f1f8f5';
+          });
+          
+          container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            container.style.background = container === availableContainer ? '#fafafa' : '#f1f8f5';
+            
+            if (!draggedElement) return;
+            
+            const teamId = draggedElement.getAttribute('data-team-id');
+            const isMovingToSelected = container === selectedContainer;
+            const selectedTeams = wizardState.phaseData.selectedTeams || [];
+            const isAlreadySelected = selectedTeams.some(t => t.id === teamId);
+            
+            if (isMovingToSelected && selectedTeams.length >= teamCount && !isAlreadySelected) {
+              showInfoDialog('Attenzione', `Puoi selezionare massimo ${teamCount} squadre`);
+              return;
+            }
+            
+            if (isMovingToSelected && !isAlreadySelected) {
+              // Aggiungi alle selected
+              const allTeams = (state.teams || []).filter(t => t.approved === true);
+              const team = allTeams.find(t => t.id === teamId);
+              if (team) {
+                wizardState.phaseData.selectedTeams.push(team);
+              }
+            } else if (!isMovingToSelected && isAlreadySelected) {
+              // Rimuovi dalle selected
+              wizardState.phaseData.selectedTeams = selectedTeams.filter(t => t.id !== teamId);
+            }
+            
+            // Re-render
+            wizardState.step = 3;
+            closeModal(true);
+            openPhaseWizard.continue(wizardState);
+          });
+        });
+        
+        // Setup checkbox
+        document.querySelectorAll('.team-checkbox').forEach(checkbox => {
+          checkbox.addEventListener('change', (e) => {
+            const teamId = e.target.getAttribute('data-team-id');
+            const selectedTeams = wizardState.phaseData.selectedTeams || [];
+            const isChecked = e.target.checked;
+            const isAlreadySelected = selectedTeams.some(t => t.id === teamId);
+            
+            if (isChecked && !isAlreadySelected) {
+              if (selectedTeams.length >= teamCount) {
+                e.target.checked = false;
+                showInfoDialog('Attenzione', `Puoi selezionare massimo ${teamCount} squadre`);
+                return;
+              }
+              
+              const allTeams = (state.teams || []).filter(t => t.approved === true);
+              const team = allTeams.find(t => t.id === teamId);
+              if (team) {
+                wizardState.phaseData.selectedTeams.push(team);
+              }
+            } else if (!isChecked && isAlreadySelected) {
+              wizardState.phaseData.selectedTeams = selectedTeams.filter(t => t.id !== teamId);
+            }
+            
+            // Re-render
+            wizardState.step = 3;
+            closeModal(true);
+            openPhaseWizard.continue(wizardState);
+          });
         });
       }
 

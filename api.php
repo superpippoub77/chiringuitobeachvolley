@@ -2072,14 +2072,41 @@ if ($action === 'get_public' && $method === 'GET') {
 if ($action === 'register_team' && $method === 'POST') {
     $body = bodyJson();
     $name = trim((string)($body['name'] ?? ''));
-    $p1 = trim((string)($body['player1'] ?? ''));
-    $p2 = trim((string)($body['player2'] ?? ''));
-    $p3 = trim((string)($body['player3'] ?? ''));
     $category = 'Misto';
     $phone = trim((string)($body['phone'] ?? ''));
 
-    if ($name === '' || $p1 === '' || $p2 === '') {
+    // Supporta sia nuovo formato (players array) che vecchio formato (player1, player2, player3)
+    $playersData = [];
+    
+    if (!empty($body['players']) && is_array($body['players'])) {
+        // Nuovo formato con array di giocatori
+        $playersData = $body['players'];
+    } else {
+        // Vecchio formato per compatibilità
+        $p1 = trim((string)($body['player1'] ?? ''));
+        $p2 = trim((string)($body['player2'] ?? ''));
+        $p3 = trim((string)($body['player3'] ?? ''));
+        
+        if (!empty($p1)) {
+            $playersData[] = ['name' => $p1, 'isCaptain' => true, 'level' => null, 'image' => null];
+        }
+        if (!empty($p2)) {
+            $playersData[] = ['name' => $p2, 'isCaptain' => false, 'level' => null, 'image' => null];
+        }
+        if (!empty($p3)) {
+            $playersData[] = ['name' => $p3, 'isCaptain' => false, 'level' => null, 'image' => null];
+        }
+    }
+
+    if ($name === '' || count($playersData) < 2) {
         jsonResponse(422, ['ok' => false, 'error' => 'Compila nome squadra e almeno 2 giocatori']);
+    }
+
+    // Valida nomi giocatori
+    foreach ($playersData as $pd) {
+        if (empty($pd['name'])) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Tutti i giocatori devono avere un nome']);
+        }
     }
 
     // Leggi configurazione per email del gestore
@@ -2088,7 +2115,7 @@ if ($action === 'register_team' && $method === 'POST') {
 
     $emailResult = null;
 
-    withStateTransaction(function (&$state) use ($name, $p1, $p2, $p3, $category, $phone, $managerEmail, &$emailResult) {
+    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $managerEmail, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -2100,17 +2127,26 @@ if ($action === 'register_team' && $method === 'POST') {
         }
 
         $teamId = uid();
-        // Crea giocatori nel nuovo formato: {name, isCaptain}
-        // Primo giocatore è capitano per default
+        
+        // Normalizza giocatori nel formato interno
         $players = [];
-        if (!empty($p1)) {
-            $players[] = ['name' => $p1, 'isCaptain' => true];
-        }
-        if (!empty($p2)) {
-            $players[] = ['name' => $p2, 'isCaptain' => false];
-        }
-        if (!empty($p3)) {
-            $players[] = ['name' => $p3, 'isCaptain' => false];
+        foreach ($playersData as $pd) {
+            $player = [
+                'name' => trim((string)($pd['name'] ?? '')),
+                'isCaptain' => (bool)($pd['isCaptain'] ?? false),
+            ];
+            
+            // Aggiungi livello se presente
+            if (!empty($pd['level']) && is_string($pd['level'])) {
+                $player['level'] = $pd['level'];
+            }
+            
+            // Aggiungi immagine se presente (base64 o URL)
+            if (!empty($pd['image']) && is_string($pd['image'])) {
+                $player['image'] = $pd['image'];
+            }
+            
+            $players[] = $player;
         }
 
         $state['teams'][] = [
@@ -2129,6 +2165,16 @@ if ($action === 'register_team' && $method === 'POST') {
         
         if (!empty($managerEmail)) {
             $subject = '📋 Nuova iscrizione squadra al torneo';
+            
+            // Costruisci lista giocatori
+            $playersList = '';
+            foreach ($players as $p) {
+                $playersList .= '<div>• ' . htmlspecialchars($p['name']) . 
+                    ($p['isCaptain'] ? ' <span style="color: #e45a0a; font-weight: bold;">👑 Capitano</span>' : '') . 
+                    (isset($p['level']) && $p['level'] ? ' [' . htmlspecialchars($p['level']) . ']' : '') .
+                    '</div>';
+            }
+            
             $body = <<<HTML
 <html>
 <head>
@@ -2158,9 +2204,7 @@ if ($action === 'register_team' && $method === 'POST') {
             
             <div class="team-info">
                 <div class="label">Giocatori:</div>
-                <div>• {$p1}</div>
-                <div>• {$p2}</div>
-                <div>• {$p3}</div>
+                {$playersList}
             </div>
             
             <div class="team-info">

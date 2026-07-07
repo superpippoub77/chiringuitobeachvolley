@@ -5998,57 +5998,57 @@
         incomingTeams: teamsIn // Teams in ingresso dalla diramazione
       };
 
+      // Calcola informazioni sulla fase precedente - DISPONIBILE PER TUTTI GLI STEP
+      const prevPhaseInfo = (() => {
+        if (wizardState.phaseData.phaseNumber === 1) {
+          const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
+          const maxTeams = config.tournament?.maxTeams || 16;
+          const teamsToUse = approvedCount > 0 ? approvedCount : maxTeams;
+          return {
+            isPrevious: false,
+            branch: 'root',
+            teamsIn: teamsToUse,
+            phaseName: '🎯 Iscritti',
+            qualified: teamsToUse,
+            eliminated: 0,
+            description: `${teamsToUse} squadre iscritte`
+          };
+        } else {
+          const prevPhase = phases[wizardState.phaseData.phaseNumber - 2];
+          if (!prevPhase) return null;
+          
+          let qualified = 0, eliminated = 0;
+          if (prevPhase.type === 'groups') {
+            const numGroups = prevPhase.numGroups || 4;
+            const teamsPerGroup = prevPhase.teamsAdvance || 2;
+            qualified = numGroups * teamsPerGroup;
+            eliminated = Math.max(0, 12 - qualified);
+          } else {
+            const totalTeams = prevPhase.numTeams || 4;
+            qualified = Math.ceil(totalTeams / 2);
+            eliminated = Math.floor(totalTeams / 2);
+          }
+          
+          return {
+            isPrevious: true,
+            branch: wizardState.phaseData.branch || 'qualified',
+            teamsIn: wizardState.phaseData.branch === 'qualified' ? qualified : eliminated,
+            phaseName: prevPhase.name || `Fase ${wizardState.phaseData.phaseNumber - 1}`,
+            qualified,
+            eliminated,
+            description: wizardState.phaseData.branch === 'qualified' 
+              ? `${qualified} squadre qualificate da Fase ${wizardState.phaseData.phaseNumber - 1}`
+              : `${eliminated} squadre eliminate/ripescate da Fase ${wizardState.phaseData.phaseNumber - 1}`
+          };
+        }
+      })();
+
       function renderWizardStep() {
         let bodyHtml = '';
         let buttons = [];
 
         if (wizardState.step === 1) {
           // STEP 1: Scelta di diramazione albero fasi
-          
-          // Calcola informazioni sulla fase precedente
-          const prevPhaseInfo = (() => {
-            if (wizardState.phaseData.phaseNumber === 1) {
-              const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
-              const maxTeams = config.tournament?.maxTeams || 16;
-              const teamsToUse = approvedCount > 0 ? approvedCount : maxTeams;
-              return {
-                isPrevious: false,
-                branch: 'root',
-                teamsIn: teamsToUse,
-                phaseName: '🎯 Iscritti',
-                qualified: teamsToUse,
-                eliminated: 0,
-                description: `${teamsToUse} squadre iscritte`
-              };
-            } else {
-              const prevPhase = phases[wizardState.phaseData.phaseNumber - 2];
-              if (!prevPhase) return null;
-              
-              let qualified = 0, eliminated = 0;
-              if (prevPhase.type === 'groups') {
-                const numGroups = prevPhase.numGroups || 4;
-                const teamsPerGroup = prevPhase.teamsAdvance || 2;
-                qualified = numGroups * teamsPerGroup;
-                eliminated = Math.max(0, 12 - qualified);
-              } else {
-                const totalTeams = prevPhase.numTeams || 4;
-                qualified = Math.ceil(totalTeams / 2);
-                eliminated = Math.floor(totalTeams / 2);
-              }
-              
-              return {
-                isPrevious: true,
-                branch: wizardState.phaseData.branch || 'qualified',
-                teamsIn: wizardState.phaseData.branch === 'qualified' ? qualified : eliminated,
-                phaseName: prevPhase.name || `Fase ${wizardState.phaseData.phaseNumber - 1}`,
-                qualified,
-                eliminated,
-                description: wizardState.phaseData.branch === 'qualified' 
-                  ? `${qualified} squadre qualificate da Fase ${wizardState.phaseData.phaseNumber - 1}`
-                  : `${eliminated} squadre eliminate/ripescate da Fase ${wizardState.phaseData.phaseNumber - 1}`
-              };
-            }
-          })();
           
           bodyHtml = `
             <div style="font-size: 13px">

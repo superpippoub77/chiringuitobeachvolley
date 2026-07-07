@@ -6030,6 +6030,8 @@
       
       // CRITICAL: Salva lo schedule al backend affinché i dati siano persistiti
       // Questo è essenziale per generateGroups() che legge la config dal backend
+      console.log('🔄 AUTO-SAVE SCHEDULE dopo BULK');
+      console.log('   config.schedule.courts in memoria:', JSON.stringify(config.schedule.courts, null, 2));
       saveSchedule().catch(err => {
         console.error('⚠️ Auto-save della schedule fallita:', err);
         // Mostra comunque il messaggio di successo perché i dati sono in memoria
@@ -6075,7 +6077,7 @@
 
     async function saveSchedule() {
       try {
-        // Sincronizza prima i valori dal form
+        // Sincronizza prima i valori dal form (per update manuali)
         syncScheduleFromForm();
         
         if (!config.schedule || !config.schedule.courts || config.schedule.courts.length === 0) {
@@ -6085,20 +6087,21 @@
 
         console.log('📝 Saving schedule - Courts in memory:', config.schedule.courts);
 
-        // Leggi i valori dai form per ogni campo
+        // CRITICAL: Leggi direttamente dalla struttura in memoria, non dai form
+        // Questo assicura che i dati aggiunti dal bulk siano correttamente salvati
         const courts = [];
         config.schedule.courts.forEach((court, courtIdx) => {
-          const courtName = document.getElementById(`courtName-${courtIdx}`).value.trim() || court.courtName || 'Campo';
+          const courtName = court.courtName || 'Campo';
           const availability = [];
           
           (court.availability || []).forEach((dateAvail, dateIdx) => {
-            const date = document.getElementById(`courtDate-${courtIdx}-${dateIdx}`).value;
+            const date = dateAvail.date;
             if (!date) return; // Skip se non ha data
             
             const timeSlots = [];
             (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
-              const startTime = document.getElementById(`start-${courtIdx}-${dateIdx}-${slotIdx}`)?.value;
-              const endTime = document.getElementById(`end-${courtIdx}-${dateIdx}-${slotIdx}`)?.value;
+              const startTime = slot.startTime;
+              const endTime = slot.endTime;
               if (startTime && endTime) {
                 timeSlots.push({ startTime, endTime });
               }
@@ -6119,14 +6122,19 @@
         });
 
         console.log('📋 Courts to save:', courts);
-
+        
+        // DEBUG: Log il payload completo
+        const payload = { schedule: { courts } };
+        console.log('🔍 PAYLOAD PRE-API:', JSON.stringify(payload, null, 2));
+        
         if (courts.length === 0) {
           await showInfoDialog('Attenzione', 'Nessun campo con disponibilità configurata. Aggiungi almeno una data con fascia oraria.');
           return;
         }
 
         console.log('🔄 Calling admin_update_config...');
-        await callApi('admin_update_config', 'POST', { schedule: { courts } }, true);
+        const result = await callApi('admin_update_config', 'POST', payload, true);
+        console.log('✅ Save result:', result);
         config.schedule.courts = courts;
         console.log('✅ Schedule saved successfully');
         await showInfoDialog('Successo', `${courts.length} campo/i salvato/i con ${courts.reduce((sum, c) => sum + (c.availability || []).length, 0)} date totali`);

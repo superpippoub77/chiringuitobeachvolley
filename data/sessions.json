@@ -1,86 +1,17 @@
 {
     "tokens": [
-        "000ddb3f5319fa585ee09ada53d956b9fb0aa58b",
-        "3de8fd92c9f46ac9184658eb7315b0169aa57ab7",
-        "ab2ab760f2812517527283b4da9147c86c2e87a4",
-        "e8fcca86e5511097ea43293a49f6a73d3fdd787c",
-        "c37a231ccd134f8dceb01dc8dec6718acf31711c",
-        "af7011ee40fde6379d9225cd3cc7612ab18bec8e",
-        "9bdd7da5d3de4299ce087501168b036e74d44761",
-        "5aeea1d73746f91b27360b95e8b5f5f95d28b3b9",
-        "31a43fec73d049e5e5157fb1a401a93aa688dde1",
-        "ad2b6d2dac6c11d3902ff6fb552caba65107f9d3",
-        "bb98015d7acb4c1ba66ca300c61afcd041797c4e",
-        "ed8e91a7ba635c843658bd9049a2a39c517000d2",
-        "55d8ff6fd75ed8fef3368622e52851901915a5c4",
-        "7c4c61b34aaaab3f85981b00de720e559a1ace03",
-        "913c89ab28a56cae79f5391d25fafb84f17f3551",
-        "f0cb04470bf99d0ea10419cfc99f5a28f46146ae",
-        "18714dd019a2b6a29fb040738daa439d9c4b9346",
-        "94e19c6af6b62a4d656ab7b0b95caa4ec9f9c842",
-        "1ed97270f87908f6c9bd2ecc60e60ff7d920220d",
-        "f55fb076b1fd7f5f76c87c9e8a88994da9099dd7",
-        "c6ebf633db95e69c4cf787b6bece013cfa8bebad",
-        "17be01d02cde18d5adc1817e2f95cf60778e68df",
-        "2ba1625f186b26f91fcfe6e6d68128cf5757aba6",
-        "da35094c6e0897e6d824fd0d3d766c6cff083261",
-        "eadd28bddeb2952c65eeb9853cd080b4a167f485",
-        "90ef190534b9a7dfd309c93f4ddb26d4e656c6d1",
-        "3e83644e89954d5e033fe402efe218f677b8e2e4",
-        "ce42000db80070ccc1a68fc2794739c42d5d69a9",
-        "98e16355ad2941809cd013fab7398e208f4ce86f",
-        "3d0b3fb26b85e7f591a2a6511be14fc10dd594f9",
-        "f512b6d565490bc9c548bf23e615f6a6e639e199",
-        "c6aba208d56e6df817431933455413f54ce8d95b",
-        "2996d30774eb54ebe344a6be939b0b2a909f06af",
-        "fb516a4861576d3aa542ba430a7ebe5a020f5bf2",
-        "ba3cd88b7ae4e6bae87fc6d431f021b7e1bf75bf",
-        "0fb3c16125c22b5d1492944aa8ea4d2171c792cd",
-        "c861e8e8ee49b723efe7d5c3a0459270e3343abd",
-        "d8e9b5876acb7cc3eca76caf7789efe2f7c690eb",
-        "03c2e945b1ab1963198b4e34933d8d811d0c9c88",
-        "db298ce603cdbb0852ff3000641a8a1a4c645488",
+        "3862122851e8b601d10216dc7f929cdc",
         {
-            "token": "9faa60aed888b6647ca92bae7faf275d9c593441",
+            "token": "edd5b40ffa2da40e0cd3dd6b3b9523d273340fd4",
             "tournamentCode": "local",
             "email": "admin",
-            "createdAt": "2026-07-03 10:42:32"
+            "createdAt": "2026-07-07 20:07:37"
         },
         {
-            "token": "9b9bfdf1cad5a21d247502d0f5005a84b777ebe2",
+            "token": "9aa71f61ab7bf33068fa674b458a84df5ebeefd1",
             "tournamentCode": "local",
             "email": "admin",
-            "createdAt": "2026-07-06 21:16:12"
-        },
-        {
-            "token": "ccc9c876c7e63bc53b3157dbca30a09c13a8fad8",
-            "tournamentCode": "local",
-            "email": "admin",
-            "createdAt": "2026-07-07 12:12:38"
-        },
-        {
-            "token": "5a2b54feb52155217b41d11ed5ae8fe9a28a75de",
-            "tournamentCode": "local",
-            "email": "admin",
-            "createdAt": "2026-07-07 12:16:44"
-        },
-        {
-            "token": "90fd23af65a677be5ea1f22cb5fb9e86c71be97e",
-            "tournamentCode": "local",
-            "email": "admin",
-            "createdAt": "2026-07-07 19:02:37"
-        },
-        {
-            "token": "503f348a572252341d6b71724cc7f64c2fa7b0d3",
-            "tournamentCode": "local",
-            "email": "admin",
-            "createdAt": "2026-07-07 19:10:36"
-        },
-        {
-            "token": "885b3f09f118d87befb43bdfc4e06a48ddf169d4",
-            "tournamentCode": "local",
-            "email": "admin",
-            "createdAt": "2026-07-07 19:12:40"
+            "createdAt": "2026-07-07 20:08:28"
         }
     ]
 }

@@ -1651,6 +1651,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     error_log('  config keys: ' . implode(', ', array_keys($config)));
     error_log('  has schedule: ' . (isset($config['schedule']) ? 'YES' : 'NO'));
     error_log('  courts count: ' . count($courts));
+    error_log('  RAW CONFIG SCHEDULE: ' . json_encode($config['schedule'] ?? null, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     
     if (empty($courts)) {
         error_log('DEBUG buildGroupMatchesWithSchedule: No courts found, using buildGroupMatches as fallback');
@@ -1668,6 +1669,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             $slotCount += count($av['timeSlots'] ?? []);
         }
         error_log("  Court[$idx]: name=" . ($court['courtName'] ?? 'N/A') . ", availability=$availCount, timeSlots=$slotCount");
+        error_log("    Court[$idx] full data: " . json_encode($court, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         if ($availCount > 0) {
             $validCourts++;
             $totalSlots += $slotCount;
@@ -1676,6 +1678,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     if ($validCourts === 0 || $totalSlots === 0) {
         error_log('DEBUG buildGroupMatchesWithSchedule: No valid courts or slots, using buildGroupMatches as fallback');
+        error_log('  validCourts=' . $validCourts . ', totalSlots=' . $totalSlots);
         buildGroupMatches($state);
         return;
     }
@@ -1736,14 +1739,35 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
     
-    // Assegna slot alle partite in sequenza
-    $slotIndex = 0;
-    $matchesPerSlot = 1;
-    $currentSlotMatchCount = 0;
+    // SMART SCHEDULER: Pre-ordina partite per distribuire squadre intelligentemente
+    // Strategy: Round-robin scheduling per minimizzare consecutive matches per team
+    error_log('🎯 SMART SCHEDULER: Starting intelligent match reordering...');
     
+    // Raggruppa partite per girone e applica reordering
+    $matchesByGroup = [];
+    foreach ($matches as $match) {
+        $group = $match['group'];
+        if (!isset($matchesByGroup[$group])) {
+            $matchesByGroup[$group] = [];
+        }
+        $matchesByGroup[$group][] = $match;
+    }
+    
+    $reorderedMatches = [];
+    foreach ($matchesByGroup as $groupName => $groupMatches) {
+        error_log("  🎯 Reordering group $groupName (" . count($groupMatches) . " matches)");
+        
+        // Applica algoritmo di reordering: alterni le squadre il più possibile
+        $reordered = reorderMatchesForDistribution($groupMatches);
+        $reorderedMatches = array_merge($reorderedMatches, $reordered);
+    }
+    $matches = $reorderedMatches;
+    
+    // Assegna slot alle partite riordinate in sequenza
+    $slotIndex = 0;
     foreach ($matches as &$match) {
         if ($slotIndex >= count($availableSlots)) {
-            error_log('DEBUG buildGroupMatchesWithSchedule: Ran out of slots! matchIndex=' . array_key_last($matches) . ' totalMatches=' . count($matches) . ' slotIndex=' . $slotIndex . ' totalSlots=' . count($availableSlots));
+            error_log('DEBUG buildGroupMatchesWithSchedule: Ran out of slots!');
             error_log('  → Fallback: resetting matches without scheduling');
             $state['groupMatches'] = [];
             buildGroupMatches($state);
@@ -1760,15 +1784,81 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         $match['dateIdx'] = $slot['dateIdx'];
         $match['slotIdx'] = $slot['slotIdx'];
         
-        $currentSlotMatchCount++;
-        if ($currentSlotMatchCount >= $matchesPerSlot) {
-            $slotIndex++;
-            $currentSlotMatchCount = 0;
-        }
+        error_log("  ✅ Slot $slotIndex: {$match['team1Id']} vs {$match['team2Id']} @ {$slot['startTime']}");
+        $slotIndex++;
     }
     
-    error_log('DEBUG buildGroupMatchesWithSchedule: ✅ Successfully assigned all ' . count($matches) . ' matches to slots');
+    error_log('DEBUG buildGroupMatchesWithSchedule: ✅ Smart scheduled all ' . count($matches) . ' matches with intelligent reordering');
     $state['groupMatches'] = $matches;
+}
+
+/**
+ * Riordina partite per minimizzare consecutive matches della stessa squadra
+ * Utilizza un algoritmo greedy-simulated che cerca di distribuire equamente
+ */
+function reorderMatchesForDistribution(array $matches): array {
+    if (count($matches) <= 2) {
+        return $matches; // Troppo piccolo per riordinare
+    }
+    
+    error_log('    Reorder algorithm: Distributing ' . count($matches) . ' matches...');
+    
+    $reordered = [];
+    $remaining = $matches;
+    $teamLastUsed = []; // Traccia quando ogni squadra è stata usata per ultima
+    
+    while (!empty($remaining)) {
+        $bestMatchIdx = -1;
+        $bestScore = PHP_INT_MIN;
+        
+        // Trova la miglior partita da aggiungere tra quelle rimanenti
+        foreach ($remaining as $idx => $match) {
+            $team1 = $match['team1Id'];
+            $team2 = $match['team2Id'];
+            
+            // Calcola "freshness" - quanto tempo è passato dall'ultima volta che ogni squadra ha giocato
+            $team1LastUsed = $teamLastUsed[$team1] ?? -1000;
+            $team2LastUsed = $teamLastUsed[$team2] ?? -1000;
+            
+            // Score = minima distanza dall'ultimo uso (preferisci squadre che non hanno giocato di recente)
+            $score = min(
+                count($reordered) - $team1LastUsed,
+                count($reordered) - $team2LastUsed
+            );
+            
+            // Bonus se nessuna squadra ha giocato prima (all'inizio)
+            if (empty($reordered)) {
+                $score = 1000;
+            }
+            
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestMatchIdx = $idx;
+            }
+        }
+        
+        if ($bestMatchIdx === -1) {
+            // Fallback: prendi il primo disponibile
+            $bestMatchIdx = 0;
+        }
+        
+        // Aggiungi alla lista ordinata
+        $match = $remaining[$bestMatchIdx];
+        $reordered[] = $match;
+        
+        // Aggiorna ultimo uso per le squadre
+        $teamLastUsed[$match['team1Id']] = count($reordered) - 1;
+        $teamLastUsed[$match['team2Id']] = count($reordered) - 1;
+        
+        // Rimuovi dalla lista rimanente
+        unset($remaining[$bestMatchIdx]);
+        $remaining = array_values($remaining);
+        
+        error_log('      Position ' . count($reordered) . ': ' . substr($match['team1Id'], 0, 8) . ' vs ' . substr($match['team2Id'], 0, 8) . ' (score: ' . $bestScore . ')');
+    }
+    
+    error_log('    ✅ Reordering complete: ' . count($reordered) . ' matches');
+    return $reordered;
 }
 
 function simulateAll(array &$state): bool {
@@ -3389,10 +3479,16 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     }
     
     if (isset($body['schedule']) && is_array($body['schedule']['courts'] ?? null)) {
+        error_log('DEBUG admin_update_config SCHEDULE: Ricevuti ' . count($body['schedule']['courts']) . ' courts');
+        error_log('  RAW BODY SCHEDULE: ' . json_encode($body['schedule'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        
         $config['schedule']['courts'] = [];
         foreach ($body['schedule']['courts'] as $courtData) {
             $courtId = trim((string)($courtData['courtId'] ?? ''));
             $courtName = trim((string)($courtData['courtName'] ?? 'Campo'));
+            
+            error_log("  Processing court: $courtName, received courtId: '$courtId'");
+            error_log("    Court data: " . json_encode($courtData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
             
             $availability = [];
             foreach ($courtData['availability'] ?? [] as $dateAvail) {
@@ -3413,17 +3509,36 @@ if ($action === 'admin_update_config' && $method === 'POST') {
                         'date' => $date,
                         'timeSlots' => $timeSlots
                     ];
+                    error_log("      Added date $date with " . count($timeSlots) . " timeSlots");
                 }
             }
             
             if (count($availability) > 0) {
+                // CRITICAL: Genera courtId stabile se non fornito
+                // Usa un hash del courtName per consistenza tra i salvataggi
+                if (empty($courtId)) {
+                    $courtId = 'court-' . substr(md5($courtName), 0, 8);
+                    error_log("    No courtId provided, generated stable ID: $courtId");
+                }
+                
                 $config['schedule']['courts'][] = [
-                    'courtId' => $courtId ?: bin2hex(random_bytes(4)),
+                    'courtId' => $courtId,
                     'courtName' => $courtName ?: 'Campo',
                     'availability' => $availability
                 ];
+                error_log("    ✅ Court $courtName saved with " . count($availability) . " dates and courtId=$courtId");
+            } else {
+                error_log("    ⚠️ Court $courtName has no availability, skipping");
             }
         }
+        error_log('  FINAL: Saved ' . count($config['schedule']['courts']) . ' courts to config');
+        error_log('  FINAL CONFIG SCHEDULE (BEFORE writeConfig): ' . json_encode($config['schedule'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+    
+    // DEBUG: Log config prima di salvare
+    error_log('DEBUG admin_update_config: Writing config with ' . count($config['schedule']['courts'] ?? []) . ' courts');
+    foreach ($config['schedule']['courts'] ?? [] as $idx => $court) {
+        error_log("  Pre-save Court[$idx]: name={$court['courtName']}, courtId={$court['courtId']}, hasAvailability=" . (count($court['availability'] ?? []) > 0 ? 'YES' : 'NO'));
     }
     
     if (isset($body['phases']) && is_array($body['phases'])) {
@@ -3522,6 +3637,13 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     }
     
     writeConfig($config);
+    
+    // DEBUG: Verifica il file salvato
+    $savedConfig = readConfig();
+    error_log('DEBUG admin_update_config POST-SAVE: Verified ' . count($savedConfig['schedule']['courts'] ?? []) . ' courts');
+    foreach ($savedConfig['schedule']['courts'] ?? [] as $idx => $court) {
+        error_log("  Post-save Court[$idx]: name={$court['courtName']}, courtId={$court['courtId']}, availability=" . count($court['availability'] ?? []));
+    }
     
     // Aggiorna anche lo state con le nuove impostazioni da config
     $state = readJsonFile(DATA_FILE, initialState());

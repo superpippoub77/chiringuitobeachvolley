@@ -105,7 +105,8 @@
                             }
                         ]
                     }
-                ]
+                ],
+                "courtId": "court-0-08131118"
             },
             {
                 "courtName": "Campo 2",
@@ -197,7 +198,8 @@
                             }
                         ]
                     }
-                ]
+                ],
+                "courtId": "court-1-b32ca9a2"
             }
         ]
     },

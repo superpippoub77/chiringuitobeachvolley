@@ -5274,11 +5274,19 @@
         const availContainer = document.getElementById(`availDates-${courtIdx}`);
         let availHtml = '<p style="margin: 0 0 8px 0; font-size: 12px; color: #6b5d45"><strong>Date disponibili:</strong></p>';
         (court.availability || []).forEach((dateAvail, dateIdx) => {
-          availHtml += `<div style="background: #f3f3f3; padding: 8px; border-radius: 4px; margin-bottom: 8px">
+          // Assicura che la data sia sempre valida
+          const dateValue = dateAvail.date && dateAvail.date !== 'undefined' ? dateAvail.date : new Date().toISOString().split('T')[0];
+          const dateStatus = getDateSimpleStatus(dateValue, courtIdx, dateIdx);
+          const indicatorHtml = dateStatus.indicator ? `<span style="color: ${dateStatus.indicatorColor}; font-size: 14px; margin-left: 6px">${dateStatus.indicator}</span>` : '';
+          
+          availHtml += `<div style="background: ${dateStatus.bgColor}; padding: 10px; border-radius: 4px; margin-bottom: 8px; border-left: 3px solid ${dateStatus.indicatorColor || '#ddd'}">
             <div class="row" style="margin-bottom: 8px; justify-content: space-between; align-items: center">
-              <div>
-                <label style="font-size: 11px; color: #6b5d45">Data</label>
-                <input type="date" id="courtDate-${courtIdx}-${dateIdx}" value="${dateAvail.date || ''}" onchange="syncScheduleFromForm()">
+              <div style="display: flex; align-items: center">
+                <div>
+                  <label style="font-size: 11px; color: #6b5d45">Data</label>
+                  <input type="date" id="courtDate-${courtIdx}-${dateIdx}" value="${dateValue}" onchange="syncScheduleFromForm(); renderSchedule()" style="border: 1px solid #ccc; padding: 4px">
+                </div>
+                ${indicatorHtml}
               </div>
               <button class="btn btn-danger" style="align-self: flex-end" onclick="removeCourtDate(${courtIdx}, ${dateIdx})">Rimuovi</button>
             </div>
@@ -5306,6 +5314,7 @@
             const matchesInSlot = getMatchesInSlot(courtIdx, dateIdx, slotIdx);
             const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot);
             const indicatorHtml = slotStatus.indicator ? `<span style="color: ${slotStatus.indicatorColor}; font-size: 16px; margin-left: 4px">${slotStatus.indicator}</span>` : '';
+            const slotBoxes = renderSlotBoxes(effectiveSlots, matchesInSlot, slotStatus.isPast);
             
             slotsHtml += `<div class="row" style="margin-bottom: 6px; background: ${slotStatus.color}; padding: 8px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap; border-left: 3px solid ${slotStatus.indicatorColor || '#ddd'}">
               <div style="flex: 1; min-width: 100px">
@@ -5317,12 +5326,15 @@
                 <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
               </div>
               <button class="btn btn-danger" style="margin-left: 4px; padding: 6px 8px" onclick="removeCourtTimeSlot(${courtIdx}, ${dateIdx}, ${slotIdx})">-</button>
-              <div style="flex: 1; margin-top: 6px; background: white; padding: 8px; border-radius: 3px; font-size: 11px; min-width: 220px; display: flex; justify-content: space-between; align-items: center">
-                <div style="color: ${slotStatus.textColor}">
-                  <strong>Fascia:</strong> ${slotDuration}min ÷ ${matchDuration}min = <strong style="color: #2ecc71">${effectiveSlots}</strong> slot${effectiveSlots !== 1 ? 'i' : ''}
-                  ${matchesInSlot > 0 ? `<br><strong>Usati:</strong> ${matchesInSlot}/${effectiveSlots}` : ''}
+              <div style="flex: 1; margin-top: 6px; background: white; padding: 8px; border-radius: 3px; font-size: 11px; min-width: 220px">
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                  <div style="color: ${slotStatus.textColor}">
+                    <strong>Fascia:</strong> ${slotDuration}min ÷ ${matchDuration}min = <strong style="color: #2ecc71">${effectiveSlots}</strong> slot${effectiveSlots !== 1 ? 'i' : ''}
+                    ${matchesInSlot > 0 ? `<br><strong>Usati:</strong> ${matchesInSlot}/${effectiveSlots}` : ''}
+                  </div>
+                  ${indicatorHtml}
                 </div>
-                ${indicatorHtml}
+                ${slotBoxes}
               </div>
             </div>`;
           });
@@ -5339,21 +5351,115 @@
       return hours * 60 + minutes;
     }
 
-    // Conta le partite assegnate a uno slot specifico
-    function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
-      if (!state || !state.matches) return 0;
+    // Determina lo stato complessivo di una data considerando tutti i time slot
+    function getDateStatus(date, dateAvail, effectiveSlots) {
+      const today = new Date().toISOString().split('T')[0];
+      const isPast = date < today;
+      
+      if (isPast) {
+        return { color: '#e9e9e9', textColor: '#666', indicator: '●', indicatorColor: '#999' };
+      }
+      
+      // Calcola il totale delle partite assegnate a questa data
+      let totalMatches = 0;
+      let totalSlots = 0;
+      
+      (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
+        const startMinutes = timeStringToMinutes(slot.startTime || '19:30');
+        const endMinutes = timeStringToMinutes(slot.endTime || '20:30');
+        const slotDuration = endMinutes - startMinutes;
+        const slots = slotDuration > 0 ? Math.floor(slotDuration / effectiveSlots) : 0;
+        totalSlots += slots;
+        
+        totalMatches += getMatchesInSlot(0, 0, slotIdx); // Verrà calcolato meglio nel context
+      });
+      
+      if (totalMatches === 0) {
+        return { color: '#f3f3f3', textColor: '#6b5d45', indicator: null, indicatorColor: null };
+      }
+      
+      if (totalMatches >= totalSlots) {
+        // Tutti gli slot occupati
+        return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#dc3545' };
+      }
+      
+      // Slot parzialmente occupati
+      return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745' };
+    }
+
+    // Determina lo stato complessivo di una data (versione semplificata)
+    function getDateSimpleStatus(date, courtIdx, dateIdx) {
+      const today = new Date().toISOString().split('T')[0];
+      const isPast = date < today;
+      
+      if (isPast) {
+        return { bgColor: '#e9e9e9', textColor: '#666', indicator: '●', indicatorColor: '#999' };
+      }
+      
+      // Calcola il totale delle partite assegnate a questa data
+      let hasMatches = false;
+      let allSlotsFull = true;
+      let hasAvailableSpace = false;
       
       const court = config.schedule?.courts?.[courtIdx];
       const dateAvail = court?.availability?.[dateIdx];
-      const slot = dateAvail?.timeSlots?.[slotIdx];
       
-      if (!slot) return 0;
+      if (!dateAvail || !dateAvail.timeSlots) {
+        return { bgColor: '#f3f3f3', textColor: '#6b5d45', indicator: null, indicatorColor: null };
+      }
       
-      return state.matches.filter(match => 
-        match.scheduledCourt === court.courtId &&
-        match.scheduledDate === dateAvail.date &&
-        match.scheduledTimeSlot === slotIdx
-      ).length || 0;
+      dateAvail.timeSlots.forEach((slot, slotIdx) => {
+        const startMinutes = timeStringToMinutes(slot.startTime || '19:30');
+        const endMinutes = timeStringToMinutes(slot.endTime || '20:30');
+        const slotDuration = endMinutes - startMinutes;
+        const tournament = config.tournament || {};
+        const setupTime = (tournament.setupTimeMinutes || 5);
+        const timePerSet = (tournament.timePerSetMinutes || 15);
+        const numSets = (tournament.numSets || 2);
+        const matchDuration = setupTime + (timePerSet * numSets);
+        const effectiveSlots = slotDuration > 0 ? Math.floor(slotDuration / matchDuration) : 0;
+        
+        const matchesInSlot = getMatchesInSlot(courtIdx, dateIdx, slotIdx);
+        
+        if (matchesInSlot > 0) hasMatches = true;
+        if (matchesInSlot < effectiveSlots) hasAvailableSpace = true;
+        if (matchesInSlot < effectiveSlots) allSlotsFull = false;
+      });
+      
+      if (!hasMatches) {
+        return { bgColor: '#f3f3f3', textColor: '#6b5d45', indicator: null, indicatorColor: null };
+      }
+      
+      if (allSlotsFull) {
+        return { bgColor: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#dc3545' };
+      }
+      
+      return { bgColor: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745' };
+    }
+
+    // Genera HTML con i quadratini degli slot
+    function renderSlotBoxes(effectiveSlots, matchesInSlot, isPast) {
+      if (effectiveSlots === 0) return '';
+      
+      let boxesHtml = '<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px">';
+      
+      for (let i = 0; i < effectiveSlots; i++) {
+        let boxColor = '#28a745'; // Verde - libero
+        let boxTitle = `Slot ${i + 1} - Disponibile`;
+        
+        if (isPast) {
+          boxColor = '#999999'; // Grigio - passato
+          boxTitle = `Slot ${i + 1} - Giorno passato`;
+        } else if (i < matchesInSlot) {
+          boxColor = '#dc3545'; // Rosso - occupato
+          boxTitle = `Slot ${i + 1} - Occupato`;
+        }
+        
+        boxesHtml += `<div style="width: 20px; height: 20px; background: ${boxColor}; border: 1px solid ${boxColor === '#999999' ? '#666' : 'rgba(0,0,0,0.2)'}; border-radius: 2px; cursor: help; transition: all 0.2s ease" title="${boxTitle}" onmouseover="this.style.transform='scale(1.15)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"></div>`;
+      }
+      
+      boxesHtml += '</div>';
+      return boxesHtml;
     }
 
     // Determina lo stato dello slot (passato, pieno, parzialmente pieno)
@@ -5362,20 +5468,20 @@
       const isPast = date < today;
       
       if (isPast) {
-        return { color: '#d9d9d9', textColor: '#666', indicator: '●', indicatorColor: '#999', status: 'passato' };
+        return { color: '#d9d9d9', textColor: '#666', indicator: '●', indicatorColor: '#999', status: 'passato', isPast: true };
       }
       
       if (matchesInSlot === 0) {
-        return { color: '#f0f0f0', textColor: '#666', indicator: null, indicatorColor: null, status: 'libero' };
+        return { color: '#f0f0f0', textColor: '#666', indicator: null, indicatorColor: null, status: 'libero', isPast: false };
       }
       
       if (matchesInSlot >= effectiveSlots) {
         // Tutti gli slot occupati
-        return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#dc3545', status: 'pieno' };
+        return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#dc3545', status: 'pieno', isPast: false };
       }
       
       // Slot parzialmente occupati
-      return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745', status: 'parziale' };
+      return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745', status: 'parziale', isPast: false };
     }
 
     function addScheduleCourt() {

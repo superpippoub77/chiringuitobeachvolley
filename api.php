@@ -3200,6 +3200,10 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             $availability = [];
             foreach ($courtData['availability'] ?? [] as $dateAvail) {
                 $date = trim((string)($dateAvail['date'] ?? date('Y-m-d')));
+                // Sanitizza la data: se è "undefined" (stringa letterale), usa oggi
+                if ($date === 'undefined' || $date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                    $date = date('Y-m-d');
+                }
                 $timeSlots = [];
                 foreach ($dateAvail['timeSlots'] ?? [] as $slot) {
                     $timeSlots[] = [

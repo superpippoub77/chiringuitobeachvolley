@@ -107,4 +107,4 @@ Se i gironi sono stati creati ma le partite non sono ancora iniziate è possibil
 Consenti anche lo sbilanciamento in cui un girone pèuò avere più squadre quando il numero di squadre complessive non consente una divisione corretta✅
 Il numero di gironi non serve nelle impostazioni di base del torneo✅
 Nella creazione delle schedulazioni dei giorni dammi l apossiilità di un pulsante che consente di insiere da a ad una fascia oraria fissa dalle alle per tutti i giorni✅
-Nella generazione degli incontri per gironi cerca di ditribuire in modo corretto non è corretto che una suadra facci tutte di fila le partite mentre un altra aspetta✅ [COMPLETATO: Algoritmo di reordering intelligente implementato - minimizza gap consecutivi tra match della stessa squadra]
+Nella generazione degli incontri per gironi cerca di ditribuire in modo corretto non è corretto che una suadra facci tutte di fila le partite mentre un altra aspetta✅ [COMPLETATO: Algoritmo time-aware implementato - Considera minuti effettivi tra partite, gap minimo 75 minuti]

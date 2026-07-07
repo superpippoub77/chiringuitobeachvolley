@@ -5302,7 +5302,12 @@
             const slotDuration = endMinutes - startMinutes;
             const effectiveSlots = slotDuration > 0 ? Math.floor(slotDuration / matchDuration) : 0;
             
-            slotsHtml += `<div class="row" style="margin-bottom: 6px; background: #f0f0f0; padding: 6px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap">
+            // Calcola lo stato dello slot
+            const matchesInSlot = getMatchesInSlot(courtIdx, dateIdx, slotIdx);
+            const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot);
+            const indicatorHtml = slotStatus.indicator ? `<span style="color: ${slotStatus.indicatorColor}; font-size: 16px; margin-left: 4px">${slotStatus.indicator}</span>` : '';
+            
+            slotsHtml += `<div class="row" style="margin-bottom: 6px; background: ${slotStatus.color}; padding: 8px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap; border-left: 3px solid ${slotStatus.indicatorColor || '#ddd'}">
               <div style="flex: 1; min-width: 100px">
                 <label style="font-size: 10px; color: #6b5d45">Inizio</label>
                 <input type="time" id="start-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.startTime || '19:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
@@ -5312,8 +5317,12 @@
                 <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
               </div>
               <button class="btn btn-danger" style="margin-left: 4px; padding: 6px 8px" onclick="removeCourtTimeSlot(${courtIdx}, ${dateIdx}, ${slotIdx})">-</button>
-              <div style="flex: 1; margin-top: 6px; background: white; padding: 6px; border-radius: 3px; border-left: 3px solid #2ecc71; font-size: 11px; min-width: 200px">
-                <div style="color: #666">Fascia: <strong>${slotDuration}min</strong> ÷ ${matchDuration}min = <strong style="color: #2ecc71">${effectiveSlots}</strong> slot${effectiveSlots !== 1 ? 'i' : ''}</div>
+              <div style="flex: 1; margin-top: 6px; background: white; padding: 8px; border-radius: 3px; font-size: 11px; min-width: 220px; display: flex; justify-content: space-between; align-items: center">
+                <div style="color: ${slotStatus.textColor}">
+                  <strong>Fascia:</strong> ${slotDuration}min ÷ ${matchDuration}min = <strong style="color: #2ecc71">${effectiveSlots}</strong> slot${effectiveSlots !== 1 ? 'i' : ''}
+                  ${matchesInSlot > 0 ? `<br><strong>Usati:</strong> ${matchesInSlot}/${effectiveSlots}` : ''}
+                </div>
+                ${indicatorHtml}
               </div>
             </div>`;
           });
@@ -5328,6 +5337,45 @@
       const hours = parseInt(parts[0]) || 0;
       const minutes = parseInt(parts[1]) || 0;
       return hours * 60 + minutes;
+    }
+
+    // Conta le partite assegnate a uno slot specifico
+    function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
+      if (!state || !state.matches) return 0;
+      
+      const court = config.schedule?.courts?.[courtIdx];
+      const dateAvail = court?.availability?.[dateIdx];
+      const slot = dateAvail?.timeSlots?.[slotIdx];
+      
+      if (!slot) return 0;
+      
+      return state.matches.filter(match => 
+        match.scheduledCourt === court.courtId &&
+        match.scheduledDate === dateAvail.date &&
+        match.scheduledTimeSlot === slotIdx
+      ).length || 0;
+    }
+
+    // Determina lo stato dello slot (passato, pieno, parzialmente pieno)
+    function getSlotStatus(date, effectiveSlots, matchesInSlot) {
+      const today = new Date().toISOString().split('T')[0];
+      const isPast = date < today;
+      
+      if (isPast) {
+        return { color: '#d9d9d9', textColor: '#666', indicator: '●', indicatorColor: '#999', status: 'passato' };
+      }
+      
+      if (matchesInSlot === 0) {
+        return { color: '#f0f0f0', textColor: '#666', indicator: null, indicatorColor: null, status: 'libero' };
+      }
+      
+      if (matchesInSlot >= effectiveSlots) {
+        // Tutti gli slot occupati
+        return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#dc3545', status: 'pieno' };
+      }
+      
+      // Slot parzialmente occupati
+      return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745', status: 'parziale' };
     }
 
     function addScheduleCourt() {

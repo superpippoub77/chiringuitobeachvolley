@@ -1218,7 +1218,8 @@ function publicState(array $state): array {
                 'teams' => array_values(array_map(function ($id) use ($teamMap) {
                     return [
                         'id' => $id,
-                        'name' => $teamMap[$id]['name'] ?? 'N/D'
+                        'name' => $teamMap[$id]['name'] ?? 'N/D',
+                        'players' => $teamMap[$id]['players'] ?? []
                     ];
                 }, $g['teamIds']))
             ];

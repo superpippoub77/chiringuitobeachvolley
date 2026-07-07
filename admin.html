@@ -5116,7 +5116,28 @@
     // Valida il schedule in real-time
     function validateScheduleRealtimeHtml() {
       const requiredMatches = calculateRequiredMatches();
-      const availableSlots = calculateAvailableSlots();
+      const tournament = config.tournament || {};
+      const setupTime = (tournament.setupTimeMinutes || 5);
+      const timePerSet = (tournament.timePerSetMinutes || 15);
+      const numSets = (tournament.numSets || 2);
+      const matchDuration = setupTime + (timePerSet * numSets);
+      
+      // Calcola slot effettivi considerando la durata
+      let availableSlots = 0;
+      const sched = config.schedule || { courts: [] };
+      (sched.courts || []).forEach((court) => {
+        (court.availability || []).forEach((dateAvail) => {
+          (dateAvail.timeSlots || []).forEach((slot) => {
+            const startMin = timeStringToMinutes(slot.startTime || '19:30');
+            const endMin = timeStringToMinutes(slot.endTime || '20:30');
+            const duration = endMin - startMin;
+            if (duration > 0) {
+              availableSlots += Math.floor(duration / matchDuration);
+            }
+          });
+        });
+      });
+      
       const isValid = availableSlots >= requiredMatches && availableSlots > 0;
       
       if (requiredMatches === 0) {
@@ -5142,33 +5163,46 @@
             <strong style="color: ${textColor}; font-size: 14px">${icon} ${statusText}</strong>
             <span style="color: ${textColor}; font-weight: bold">Rapporto Slot/Partite</span>
           </div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 8px">
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 8px">
             <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
               <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${requiredMatches}</div>
               <div style="font-size: 11px; color: #666">Partite Richieste</div>
             </div>
             <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
               <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${availableSlots}</div>
-              <div style="font-size: 11px; color: #666">Slot Disponibili</div>
+              <div style="font-size: 11px; color: #666">Slot Effettivi</div>
             </div>
             <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
-              <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${availableSlots - requiredMatches}</div>
+              <div style="font-size: 14px; font-weight: bold; color: #666">${matchDuration}min</div>
+              <div style="font-size: 10px; color: #666">Durata Incontro</div>
+              <div style="font-size: 10px; color: #999; margin-top: 2px">${setupTime}+(${timePerSet}×${numSets})</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
+              <div style="font-size: 20px; font-weight: bold; color: ${textColor}">${Math.max(0, availableSlots - requiredMatches)}</div>
               <div style="font-size: 11px; color: #666">Slot Liberi</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.5); padding: 8px; border-radius: 3px; text-align: center">
+              <div style="font-size: 14px; font-weight: bold; color: #0078d4">${numSets}</div>
+              <div style="font-size: 11px; color: #666">Numero Set</div>
             </div>
           </div>
           ${!isValid ? `
             <div style="margin-top: 10px; padding: 8px; background: rgba(255,255,255,0.6); border-left: 3px solid ${borderColor}; border-radius: 2px">
               <strong style="color: ${textColor}">⚠️ Azione Richiesta:</strong>
               <div style="font-size: 12px; color: ${textColor}; margin-top: 4px">
-                Aggiungi <strong>${requiredMatches - availableSlots}</strong> slot per completare lo schedule.<br>
-                Aumenta i giorni oppure aggiungi più fasce orarie (time range).
+                Aggiungi almeno <strong>${requiredMatches - availableSlots}</strong> slot effettivi per completare lo schedule.<br>
+                Formula slot: (Fine - Inizio) ÷ ${matchDuration}min. Aumenta i giorni oppure le fasce orarie.
               </div>
             </div>
-          ` : ''}
+          ` : `
+            <div style="margin-top: 10px; font-size: 11px; color: #666">
+              Formula slot effettivi: (Fine - Inizio) ÷ ${matchDuration}min per fascia oraria
+            </div>
+          `}
         </div>
       `;
     }
-
+    
     function renderSchedule() {
       const c = document.getElementById('scheduleContainer');
       const sched = config.schedule || { courts: [] };
@@ -5178,10 +5212,43 @@
         document.getElementById('rescheduleBtn').style.display = 'none';
         return;
       }
-      
+
       document.getElementById('rescheduleBtn').style.display = (state.groupMatches || []).length > 0 ? 'inline-block' : 'none';
       
       let html = validateScheduleRealtimeHtml(); // Aggiungi validazione real-time
+      
+      // Calcola parametri incontro dalla config
+      const tournament = config.tournament || {};
+      const setupTime = (tournament.setupTimeMinutes || 5);
+      const timePerSet = (tournament.timePerSetMinutes || 15);
+      const numSets = (tournament.numSets || 2);
+      const matchDuration = setupTime + (timePerSet * numSets);
+      
+      html += `<div style="background: #fff9e6; border: 2px solid #ffc107; border-radius: 8px; padding: 12px; margin-top: 12px; margin-bottom: 12px">
+        <div style="font-size: 13px; color: #856404; font-weight: bold; margin-bottom: 8px">⏱️ Durata Incontro</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 12px; font-size: 12px">
+          <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #ff9800">
+            <div style="color: #666">Setup</div>
+            <div style="font-weight: bold; color: #ff9800; font-size: 14px">${setupTime} min</div>
+          </div>
+          <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #ff9800">
+            <div style="color: #666">Tempo per Set</div>
+            <div style="font-weight: bold; color: #ff9800; font-size: 14px">${timePerSet} min</div>
+          </div>
+          <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #0078d4">
+            <div style="color: #666">Numero Set</div>
+            <div style="font-weight: bold; color: #0078d4; font-size: 14px">${numSets}</div>
+          </div>
+          <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #2ecc71">
+            <div style="color: #666">Totale Incontro</div>
+            <div style="font-weight: bold; color: #2ecc71; font-size: 14px">${matchDuration} min</div>
+          </div>
+          <div style="background: #f0f0f0; padding: 8px; border-radius: 4px; border-left: 3px solid #666">
+            <div style="color: #666">Formula</div>
+            <div style="font-weight: bold; color: #333; font-size: 11px">${setupTime} + (${timePerSet} × ${numSets})</div>
+          </div>
+        </div>
+      </div>`;
       
       html += '<div style="margin-top: 12px">';
       sched.courts.forEach((court, courtIdx) => {
@@ -5189,7 +5256,7 @@
           <div class="row" style="justify-content: space-between; margin-bottom: 10px; align-items: center">
             <div>
               <strong>Campo</strong>
-              <input type="text" id="courtName-${courtIdx}" maxlength="50" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px">
+              <input type="text" id="courtName-${courtIdx}" maxlength="50" value="${escapeHtml(court.courtName || 'Campo ' + (courtIdx + 1))}" placeholder="Nome campo" style="margin-left: 6px; width: 150px" onchange="syncScheduleFromForm()">
             </div>
             <button class="btn btn-danger" onclick="removeScheduleCourt(${courtIdx})">Rimuovi campo</button>
           </div>
@@ -5211,7 +5278,7 @@
             <div class="row" style="margin-bottom: 8px; justify-content: space-between; align-items: center">
               <div>
                 <label style="font-size: 11px; color: #6b5d45">Data</label>
-                <input type="date" id="courtDate-${courtIdx}-${dateIdx}" value="${dateAvail.date || ''}">
+                <input type="date" id="courtDate-${courtIdx}-${dateIdx}" value="${dateAvail.date || ''}" onchange="syncScheduleFromForm()">
               </div>
               <button class="btn btn-danger" style="align-self: flex-end" onclick="removeCourtDate(${courtIdx}, ${dateIdx})">Rimuovi</button>
             </div>
@@ -5229,21 +5296,38 @@
           const slotsContainer = document.getElementById(`slots-${courtIdx}-${dateIdx}`);
           let slotsHtml = '';
           (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
-            slotsHtml += `<div class="row" style="margin-bottom: 6px; background: #f0f0f0; padding: 6px; border-radius: 3px; align-items: flex-end">
-              <div style="flex: 1">
+            // Calcola la durata della fascia e gli slot effettivi
+            const startMinutes = timeStringToMinutes(slot.startTime || '19:30');
+            const endMinutes = timeStringToMinutes(slot.endTime || '20:30');
+            const slotDuration = endMinutes - startMinutes;
+            const effectiveSlots = slotDuration > 0 ? Math.floor(slotDuration / matchDuration) : 0;
+            
+            slotsHtml += `<div class="row" style="margin-bottom: 6px; background: #f0f0f0; padding: 6px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap">
+              <div style="flex: 1; min-width: 100px">
                 <label style="font-size: 10px; color: #6b5d45">Inizio</label>
-                <input type="time" id="start-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.startTime || '19:30'}">
+                <input type="time" id="start-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.startTime || '19:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
               </div>
-              <div style="flex: 1; margin-left: 4px">
+              <div style="flex: 1; margin-left: 4px; min-width: 100px">
                 <label style="font-size: 10px; color: #6b5d45">Fine</label>
-                <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}">
+                <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
               </div>
               <button class="btn btn-danger" style="margin-left: 4px; padding: 6px 8px" onclick="removeCourtTimeSlot(${courtIdx}, ${dateIdx}, ${slotIdx})">-</button>
+              <div style="flex: 1; margin-top: 6px; background: white; padding: 6px; border-radius: 3px; border-left: 3px solid #2ecc71; font-size: 11px; min-width: 200px">
+                <div style="color: #666">Fascia: <strong>${slotDuration}min</strong> ÷ ${matchDuration}min = <strong style="color: #2ecc71">${effectiveSlots}</strong> slot${effectiveSlots !== 1 ? 'i' : ''}</div>
+              </div>
             </div>`;
           });
           slotsContainer.innerHTML = slotsHtml;
         });
       });
+    }
+
+    function timeStringToMinutes(timeStr) {
+      const parts = (timeStr || '').split(':');
+      if (parts.length !== 2) return 0;
+      const hours = parseInt(parts[0]) || 0;
+      const minutes = parseInt(parts[1]) || 0;
+      return hours * 60 + minutes;
     }
 
     function addScheduleCourt() {
@@ -5305,8 +5389,39 @@
       renderSchedule();
     }
 
+    function syncScheduleFromForm() {
+      // Sincronizza i valori dai form al config.schedule
+      config.schedule = config.schedule || { courts: [] };
+      
+      config.schedule.courts.forEach((court, courtIdx) => {
+        // Sincronizza court name
+        const courtNameEl = document.getElementById(`courtName-${courtIdx}`);
+        if (courtNameEl) {
+          court.courtName = courtNameEl.value.trim() || court.courtName;
+        }
+        
+        // Sincronizza date e time slots
+        (court.availability || []).forEach((dateAvail, dateIdx) => {
+          const dateEl = document.getElementById(`courtDate-${courtIdx}-${dateIdx}`);
+          if (dateEl) {
+            dateAvail.date = dateEl.value;
+          }
+          
+          (dateAvail.timeSlots || []).forEach((slot, slotIdx) => {
+            const startEl = document.getElementById(`start-${courtIdx}-${dateIdx}-${slotIdx}`);
+            const endEl = document.getElementById(`end-${courtIdx}-${dateIdx}-${slotIdx}`);
+            if (startEl) slot.startTime = startEl.value;
+            if (endEl) slot.endTime = endEl.value;
+          });
+        });
+      });
+    }
+
     async function saveSchedule() {
       try {
+        // Sincronizza prima i valori dal form
+        syncScheduleFromForm();
+        
         if (!config.schedule || !config.schedule.courts || config.schedule.courts.length === 0) {
           await showInfoDialog('Attenzione', 'Nessun campo configurato. Clicca "+ Aggiungi campo" prima di salvare.');
           return;

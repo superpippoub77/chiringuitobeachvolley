@@ -3243,6 +3243,123 @@ if ($action === 'admin_update_playoff_match' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+if ($action === 'admin_swap_knockout_teams' && $method === 'POST') {
+    $body = bodyJson();
+    $matchId = (string)($body['matchId'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 1);
+
+    withStateTransaction(function (&$state) use ($matchId, $phaseNumber) {
+        $found = false;
+        $result = ['team1Name' => '', 'team2Name' => ''];
+
+        // Cerca nell'old system playoff
+        if (!empty($state['playoff'])) {
+            $phases = ['quarterFinals', 'semiFinals', 'thirdPlace', 'final'];
+            foreach ($phases as $phase) {
+                if ($phase === 'thirdPlace' || $phase === 'final') {
+                    if ($state['playoff'][$phase] && $state['playoff'][$phase]['id'] === $matchId) {
+                        $m = &$state['playoff'][$phase];
+                        // Scambio squadre
+                        $tmp1 = $m['team1Id'];
+                        $m['team1Id'] = $m['team2Id'];
+                        $m['team2Id'] = $tmp1;
+                        
+                        $tmp2 = $m['team1Name'];
+                        $m['team1Name'] = $m['team2Name'];
+                        $m['team2Name'] = $tmp2;
+                        
+                        // Scambio anche gli score se non sono null
+                        $tmpScore = $m['score1'];
+                        $m['score1'] = $m['score2'];
+                        $m['score2'] = $tmpScore;
+                        
+                        $result['team1Name'] = $m['team1Name'];
+                        $result['team2Name'] = $m['team2Name'];
+                        $found = true;
+                        break;
+                    }
+                } else {
+                    foreach ($state['playoff'][$phase] as &$m) {
+                        if ($m['id'] !== $matchId) continue;
+                        // Scambio squadre
+                        $tmp1 = $m['team1Id'];
+                        $m['team1Id'] = $m['team2Id'];
+                        $m['team2Id'] = $tmp1;
+                        
+                        $tmp2 = $m['team1Name'];
+                        $m['team1Name'] = $m['team2Name'];
+                        $m['team2Name'] = $tmp2;
+                        
+                        // Scambio anche gli score se non sono null
+                        $tmpScore = $m['score1'];
+                        $m['score1'] = $m['score2'];
+                        $m['score2'] = $tmpScore;
+                        
+                        $result['team1Name'] = $m['team1Name'];
+                        $result['team2Name'] = $m['team2Name'];
+                        $found = true;
+                        break;
+                    }
+                    unset($m);
+                    if ($found) break;
+                }
+            }
+        }
+
+        // Cerca nel nuovo system phases
+        if (!$found && !empty($state['phases'])) {
+            foreach ($state['phases'] as &$phase) {
+                if ($phase['type'] !== 'knockout') continue;
+                if (!isset($phase['matches'])) continue;
+                
+                $matches = &$phase['matches'];
+                if (is_array($matches)) {
+                    $phaseRounds = ['quarterFinals', 'semiFinals', 'thirdPlace', 'final'];
+                    foreach ($phaseRounds as $round) {
+                        if (!isset($matches[$round])) continue;
+                        
+                        foreach ($matches[$round] as &$m) {
+                            if ($m['id'] !== $matchId) continue;
+                            
+                            // Scambio squadre
+                            $tmp1 = $m['team1Id'];
+                            $m['team1Id'] = $m['team2Id'];
+                            $m['team2Id'] = $tmp1;
+                            
+                            $tmp2 = $m['team1Name'];
+                            $m['team1Name'] = $m['team2Name'];
+                            $m['team2Name'] = $tmp2;
+                            
+                            // Scambio anche gli score se non sono null
+                            $tmpScore = $m['score1'];
+                            $m['score1'] = $m['score2'];
+                            $m['score2'] = $tmpScore;
+                            
+                            $result['team1Name'] = $m['team1Name'];
+                            $result['team2Name'] = $m['team2Name'];
+                            $found = true;
+                            break;
+                        }
+                        unset($m);
+                        if ($found) break;
+                    }
+                }
+                unset($phase);
+                if ($found) break;
+            }
+        }
+
+        if (!$found) {
+            jsonResponse(404, ['ok' => false, 'error' => 'Match knockout non trovato']);
+        }
+
+        error_log("✅ Squadre scambiate per match $matchId: " . $result['team1Name'] . " ↔ " . $result['team2Name']);
+        return array_merge(['ok' => true], $result);
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
 if ($action === 'admin_simulate_all' && $method === 'POST') {
     withStateTransaction(function (&$state) {
         if (!simulateAll($state)) {

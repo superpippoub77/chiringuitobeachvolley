@@ -701,6 +701,11 @@ function mergeState(array $existingState, array $newState): array {
         $merged['finalRanking'] = $existingState['finalRanking'];
     }
     
+    // 🔧 FIX: PRESERVA LE FASI CON TUTTI I MATCH E GRUPPI SALVATI!
+    if (isset($existingState['phases']) && is_array($existingState['phases'])) {
+        $merged['phases'] = $existingState['phases'];
+    }
+    
     // Preserva i metadata
     if (isset($existingState['meta']) && is_array($existingState['meta'])) {
         $merged['meta'] = array_merge($merged['meta'] ?? [], $existingState['meta']);

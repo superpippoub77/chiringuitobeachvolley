@@ -768,6 +768,15 @@ function ensurePhases(array &$state): void {
             unset($statePhase);
             
             if (!$existsInState) {
+                // 🔧 FIX: Preserva i match/groups dal state se già presenti (non sovrascrivere!)
+                $existingPhaseInState = null;
+                foreach ($state['phases'] as $p) {
+                    if (($p['phaseNumber'] ?? $p['phaseIdx'] ?? 0) === $phaseNumber) {
+                        $existingPhaseInState = $p;
+                        break;
+                    }
+                }
+                
                 // Aggiungi la fase da config allo state
                 $newPhase = [
                     'id' => 'phase-' . $phaseNumber . '-' . ($configPhase['type'] ?? 'groups'),
@@ -776,9 +785,10 @@ function ensurePhases(array &$state): void {
                     'name' => $configPhase['name'] ?? 'Fase ' . $phaseNumber,
                     'type' => $configPhase['type'] ?? 'groups',
                     'status' => $configPhase['status'] ?? 'pending',
-                    'groups' => $configPhase['groups'] ?? [],
-                    'matches' => $configPhase['matches'] ?? [],
-                    'standings' => $configPhase['standings'] ?? [],
+                    // 🔧 FIX: Preserva groups/matches dal state esistente, non da config
+                    'groups' => $existingPhaseInState['groups'] ?? $configPhase['groups'] ?? [],
+                    'matches' => $existingPhaseInState['matches'] ?? $configPhase['matches'] ?? [],
+                    'standings' => $existingPhaseInState['standings'] ?? $configPhase['standings'] ?? [],
                     'createdAt' => $configPhase['createdAt'] ?? gmdate('c'),
                     'metadata' => $configPhase['metadata'] ?? []
                 ];

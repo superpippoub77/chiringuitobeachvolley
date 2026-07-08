@@ -1119,15 +1119,31 @@
     }
 
     async function loadState() {
-      const r = await api('get_public');
-      state = r.data;
+      try {
+        // Carica lo stato completo (come in admin.html con admin_state)
+        const r = await api('admin_state');
+        state = r.data || {};
+        
+        console.log('📊 Stato caricato:', state);
+        console.log('📋 Gironi disponibili:', state.phases?.[0]?.groups?.length || 0);
+      } catch (e) {
+        console.error('❌ Errore caricamento stato admin:', e);
+        // Fallback al vecchio endpoint se admin_state non disponibile
+        try {
+          const r = await api('get_public');
+          state = r.data || {};
+        } catch (e2) {
+          console.error('❌ Errore caricamento get_public:', e2);
+          return;
+        }
+      }
       
       // Carica la configurazione
       try {
         const configData = await api('get_config');
         config = configData.config;
       } catch (e) {
-        console.warn('Errore caricamento config:', e);
+        console.warn('⚠️ Errore caricamento config:', e);
       }
       
       // Controlla se il torneo è configurato verificando il nome del torneo
@@ -1194,7 +1210,7 @@
       if (firstLoad) {
         firstLoad = false;
         // Se il torneo è iniziato (gironi creati), vai alle partite
-        if (state.groups && state.groups.length > 0) {
+        if ((state.phases?.[0]?.groups?.length || 0) > 0) {
           const matchesTab = document.querySelector('button[onclick="showTab(\'matches\', this)"]');
           if (matchesTab) showTab('matches', matchesTab);
         } else {
@@ -1278,18 +1294,23 @@
         return;
       }
       c.innerHTML = '<h3>Squadre confermate</h3>' + state.teams.map(t =>
-        `<div class="team-row"><div><strong>${esc(t.name)}</strong><div>${esc((t.players || []).filter(Boolean).join(' | '))}</div></div><div><span class="tag">Misto</span></div></div>`
+        `<div class="team-row"><div><strong>${esc(t.name)}</strong><div>${esc((t.players || []).map(p => typeof p === 'string' ? p : (p.name || '')).filter(Boolean).join(' | '))}</div></div><div><span class="tag">Misto</span></div></div>`
       ).join('');
     }
 
     function renderGroups() {
       const c = document.getElementById('page-groups');
-      if (!state.groups.length) {
+      
+      // I gironi sono in state.phases[0].groups
+      const groups = state.phases?.[0]?.groups || state.groups || [];
+      
+      if (!groups.length) {
         c.innerHTML = '<h3>Gironi</h3><div class="empty">Gironi non ancora pubblicati.</div>';
         return;
       }
-      c.innerHTML = '<h3>Gironi</h3><div class="group-grid">' + state.groups.map(g =>
-        `<div class="group"><h4 class="group-head">Girone ${g.name}</h4><ul>${g.teams.map(t => `<li>${esc(t.name)}</li>`).join('')}</ul></div>`
+      
+      c.innerHTML = '<h3>Gironi</h3><div class="group-grid">' + groups.map((g, idx) =>
+        `<div class="group"><h4 class="group-head">Girone ${String.fromCharCode(65 + idx)}</h4><ul>${(g || []).map(t => `<li>${esc(t.name)}</li>`).join('')}</ul></div>`
       ).join('') + '</div>';
     }
 

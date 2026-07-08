@@ -83,14 +83,32 @@
         "logoFile": "",
         "backgroundFile": ""
     },
-    "sponsors": [],
+    "sponsors": [
+        {
+            "id": "ua88lk6l",
+            "name": "Gessi",
+            "repetitions": 7,
+            "logoFile": null
+        }
+    ],
     "payment": {
         "enabled": false,
         "costPerTeam": 0,
         "currency": "EUR"
     },
     "notes": [],
-    "news": [],
+    "news": [
+        {
+            "id": "5ac65db9dd4227d5",
+            "title": "Inizio del torneo rimandati",
+            "content": "Test",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-08T22:37:25+00:00",
+            "updatedAt": "2026-07-08T22:37:25+00:00",
+            "publishedAt": "2026-07-08T22:37:25+00:00"
+        }
+    ],
     "autosave": {
         "enabled": false,
         "intervalSeconds": 30,

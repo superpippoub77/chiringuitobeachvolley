@@ -6015,8 +6015,19 @@
 
     async function renderSponsors() {
       const container = document.getElementById('sponsorsContainer');
-      const result = await callApi('admin_get_config', 'GET', null, true);
-      sponsors = result.config.sponsors || [];
+      
+      // Se sponsors è vuoto, carica dal server SOLO la prima volta
+      if (sponsors.length === 0) {
+        try {
+          console.log('📥 sponsors vuoto, caricando dal server...');
+          const result = await callApi('admin_get_config', 'GET', null, true);
+          sponsors = result.config?.sponsors || [];
+          console.log('✅ Sponsor caricati dal server:', sponsors);
+        } catch (e) {
+          console.error('❌ Errore nel caricamento sponsor dal server:', e);
+          sponsors = [];
+        }
+      }
       
       if (sponsors.length === 0) {
         container.innerHTML = '<p class="muted">Nessun sponsor aggiunto. Clicca "Aggiungi Sponsor" per iniziare.</p>';
@@ -6067,19 +6078,34 @@
     }
 
     function addSponsor() {
+      console.log('🎯 addSponsor() CHIAMATO');
+      console.log('📋 sponsors attuale:', sponsors);
+      
       // Genera ID random in JavaScript
       const id = Math.random().toString(36).substring(2, 10);
+      console.log('🆔 ID generato:', id);
+      
       sponsors.push({
         id: id,
         name: 'Nuovo Sponsor',
         repetitions: 1,
         logoFile: null
       });
+      
+      console.log('✅ Sponsor aggiunto. Nuovo array:', sponsors);
+      console.log('📊 Chiamando renderSponsors()...');
       renderSponsors();
+      console.log('✅ renderSponsors() completato');
     }
 
     async function saveSponsor() {
       try {
+        // Se nessuno sponsor, mostra errore
+        if (sponsors.length === 0) {
+          await showInfoDialog('Errore', 'Aggiungi almeno uno sponsor prima di salvare');
+          return;
+        }
+        
         // Raccogli i dati dai campi input
         const inputs = document.querySelectorAll('.sponsor-input');
         const updatedSponsors = {};
@@ -6108,20 +6134,26 @@
           .map(key => updatedSponsors[key])
           .filter(s => s && s.name); // Filtra solo sponsor con nome
         
-        // Se nessuno sponsor, usa il vecchio array
-        if (finalSponsors.length === 0 && sponsors.length > 0) {
+        // Se nessuno sponsor ha nome, aborta
+        if (finalSponsors.length === 0) {
           await showInfoDialog('Errore', 'Almeno uno sponsor deve avere un nome');
           return;
         }
         
+        console.log('📝 Salvando sponsor:', finalSponsors);
         const result = await callApi('admin_update_sponsors', 'POST', { sponsors: finalSponsors }, true);
-        sponsors = result.config?.sponsors || result.sponsors || [];
+        
+        if (!result || result.ok === false) {
+          throw new Error(result?.error || 'Errore sconosciuto dal server');
+        }
+        
+        sponsors = result.config?.sponsors || result.sponsors || finalSponsors;
         
         await showInfoDialog('Successo', '✅ Sponsor salvati con successo');
         await renderSponsors();
       } catch (e) {
         console.error('❌ Errore nel salvataggio sponsor:', e);
-        await showInfoDialog('Errore', 'Errore nel salvataggio: ' + e.message);
+        await showInfoDialog('Errore', 'Errore: ' + (e.message || JSON.stringify(e)));
       }
     }
 

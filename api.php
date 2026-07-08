@@ -2584,7 +2584,8 @@ if (str_starts_with($action, 'admin_')) {
 
 if ($action === 'admin_state' && $method === 'GET') {
     $state = readJsonFile(DATA_FILE, initialState());
-    jsonResponse(200, ['ok' => true, 'data' => array_merge(publicState($state), ['teamsAll' => $state['teams']])]);
+    // Per admin: ritorna LO STATO COMPLETO, non filtrato
+    jsonResponse(200, ['ok' => true, 'data' => $state]);
 }
 
 if ($action === 'admin_update_team' && $method === 'POST') {

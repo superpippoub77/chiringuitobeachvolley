@@ -3581,46 +3581,58 @@ if ($action === 'admin_update_group_match' && $method === 'POST') {
 
     withStateTransaction(function (&$state) use ($body, $id) {
         $found = false;
-        foreach ($state['groupMatches'] as &$m) {
-            if ($m['id'] !== $id) continue;
-            $found = true;
-            if (array_key_exists('score1', $body)) {
-                $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
-            }
-            if (array_key_exists('score2', $body)) {
-                $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
-            }
-            if (isset($body['time'])) {
-                $m['time'] = trim((string)$body['time']);
-            }
-            if (isset($body['day'])) {
-                $m['day'] = (int)$body['day'];
-            }
-            // Nuovi campi per gestione slot
-            if (isset($body['startTime'])) {
-                $m['startTime'] = $body['startTime'] === null ? null : (string)$body['startTime'];
-            }
-            if (isset($body['endTime'])) {
-                $m['endTime'] = $body['endTime'] === null ? null : (string)$body['endTime'];
-            }
-            if (isset($body['courtIdx'])) {
-                $m['courtIdx'] = $body['courtIdx'] === null ? null : (int)$body['courtIdx'];
-            }
-            if (isset($body['dateIdx'])) {
-                $m['dateIdx'] = $body['dateIdx'] === null ? null : (int)$body['dateIdx'];
-            }
-            if (isset($body['slotIdx'])) {
-                $m['slotIdx'] = $body['slotIdx'] === null ? null : (int)$body['slotIdx'];
-            }
-            if (isset($body['date'])) {
-                $m['date'] = $body['date'] === null ? null : (string)$body['date'];
-            }
-            if (isset($body['courtName'])) {
-                $m['courtName'] = $body['courtName'] === null ? null : (string)$body['courtName'];
-            }
-            break;
+        
+        // Ricerca globale: cerco in tutte le fasi
+        if (!isset($state['phases'])) {
+            $state['phases'] = [];
         }
-        unset($m);
+        
+        foreach ($state['phases'] as &$phase) {
+            $matches = &($phase['matches'] ?? []);
+            foreach ($matches as &$m) {
+                if ($m['id'] !== $id) continue;
+                
+                $found = true;
+                // Aggiorna i campi della partita
+                if (array_key_exists('score1', $body)) {
+                    $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
+                }
+                if (array_key_exists('score2', $body)) {
+                    $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
+                }
+                if (isset($body['time'])) {
+                    $m['time'] = trim((string)$body['time']);
+                }
+                if (isset($body['day'])) {
+                    $m['day'] = (int)$body['day'];
+                }
+                // Nuovi campi per gestione slot
+                if (isset($body['startTime'])) {
+                    $m['startTime'] = $body['startTime'] === null ? null : (string)$body['startTime'];
+                }
+                if (isset($body['endTime'])) {
+                    $m['endTime'] = $body['endTime'] === null ? null : (string)$body['endTime'];
+                }
+                if (isset($body['courtIdx'])) {
+                    $m['courtIdx'] = $body['courtIdx'] === null ? null : (int)$body['courtIdx'];
+                }
+                if (isset($body['dateIdx'])) {
+                    $m['dateIdx'] = $body['dateIdx'] === null ? null : (int)$body['dateIdx'];
+                }
+                if (isset($body['slotIdx'])) {
+                    $m['slotIdx'] = $body['slotIdx'] === null ? null : (int)$body['slotIdx'];
+                }
+                if (isset($body['date'])) {
+                    $m['date'] = $body['date'] === null ? null : (string)$body['date'];
+                }
+                if (isset($body['courtName'])) {
+                    $m['courtName'] = $body['courtName'] === null ? null : (string)$body['courtName'];
+                }
+                break 2; // Esci da entrambi i loop
+            }
+            unset($m);
+        }
+        unset($phase);
 
         if (!$found) {
             jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);

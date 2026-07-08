@@ -2874,7 +2874,7 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
         if ($type === 'groups') {
             // Per la prima fase, usa squadre approvate
             $approvedTeams = $state['teams'] ?? [];
-            $approvedTeams = array_filter($approvedTeams, function($t) { return $t['status'] === 'approved'; });
+            $approvedTeams = array_filter($approvedTeams, function($t) { return !empty($t['approved']); });
             $approvedTeams = array_values($approvedTeams);
             
             if (count($approvedTeams) === 0) {

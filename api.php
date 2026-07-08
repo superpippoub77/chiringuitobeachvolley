@@ -3173,17 +3173,8 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
     }
 
     $result = withStateTransaction(function (&$state) use ($teamName, $phaseNumber, $groupLabel) {
-        // Trova la fase
-        $phase = null;
-        $phaseIdx = null;
-        foreach ($state['phases'] ?? [] as $idx => &$p) {
-            if (($p['phaseNumber'] ?? null) === $phaseNumber) {
-                $phase = &$p;
-                $phaseIdx = $idx;
-                break;
-            }
-        }
-
+        // Usa la funzione helper per ottenere la fase
+        $phase = getPhase($state, $phaseNumber);
         if (!$phase) {
             return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
@@ -3232,6 +3223,9 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             'name' => $teamToMove['name'],
             'id' => $teamToMove['id'] ?? null
         ];
+
+        // Salva i gruppi modificati usando la funzione helper
+        setPhaseGroups($state, $phaseNumber, $phase['groups']);
 
         return ['ok' => true, 'message' => "Squadra spostata a Girone $groupLabel"];
     });

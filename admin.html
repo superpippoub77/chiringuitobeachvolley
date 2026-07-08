@@ -3314,12 +3314,36 @@
         return;
       }
 
-      // Calcola statistiche bilanciamento - usa group.teams (non teamIds)
-      const validGroups = (state.groups || []).filter(g => g);
+      // 🔧 FIX: Converte teamIds (dal backend) in team objects (per frontend)
+      const allTeams = state.teams || [];
+      const teamMap = {};
+      allTeams.forEach(team => {
+        teamMap[team.id] = team;
+      });
+      
+      // Converte cada girone: teamIds -> teams (oggetti)
+      const groupsWithTeams = state.groups.map(group => ({
+        ...group,
+        teams: (group.teamIds || []).map(id => teamMap[id]).filter(Boolean)
+      }));
+
+      // Calcola statistiche bilanciamento - usa group.teams (oggetti convertiti)
+      const validGroups = groupsWithTeams.filter(g => g);
       if (validGroups.length === 0) {
         c.innerHTML = '<p>Nessun girone valido.</p>';
         return;
       }
+      
+      // 🔧 FIX: Calcola squadre disponibili (non ancora assegnate ai gironi)
+      const assignedTeamIds = new Set();
+      validGroups.forEach(group => {
+        (group?.teamIds || []).forEach(id => {
+          assignedTeamIds.add(id);
+        });
+      });
+      
+      const availableTeams = allTeams.filter(team => !assignedTeamIds.has(team.id));
+      
       const groupSizes = validGroups.map(g => (g?.teams?.length || 0));
       const minSize = Math.min(...groupSizes);
       const maxSize = Math.max(...groupSizes);
@@ -3345,6 +3369,30 @@
       // HTML per modifica gironi con drag and drop
       let html = balanceStatusHtml;
       html += '<p class="muted">🖱️ Trascina le squadre tra i gironi per riequilibrare. Le partite verranno rigenerate automaticamente.</p>';
+      
+      // 🔧 FIX: Mostra sezione "Disponibili" se ci sono squadre non assegnate
+      if (availableTeams.length > 0) {
+        html += `<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+          <div class="group-drop-zone" data-group="AVAILABLE" style="border: 3px dashed #ff9800; border-radius: 8px; padding: 12px; background: #fff8e1; min-height: 300px; transition: all 0.3s ease">
+            <h4 style="margin: 0 0 12px 0; color: #e65100; display: flex; align-items: center; gap: 8px; justify-content: space-between">
+              <span style="display: flex; align-items: center; gap: 8px">
+                <span style="display: inline-block; width: 20px; height: 20px; background: #ff9800; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📦</span>
+                Disponibili
+              </span>
+              <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${availableTeams.length}</span>
+            </h4>
+            <div class="group-teams-container" style="display: flex; flex-direction: column; gap: 8px; min-height: 250px; padding: 8px; background: rgba(255, 255, 255, 0.7); border-radius: 4px">
+              ${availableTeams.map(team => `
+                <div class="draggable-team" draggable="true" data-team-id="${team.id}" data-team-name="${escapeHtml(team.name)}" data-current-group="AVAILABLE" style="background: white; border: 2px solid #ff9800; border-radius: 6px; padding: 10px; cursor: move; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05)">
+                  <strong style="display: block; color: #e65100">${escapeHtml(team.name)}</strong>
+                  <small style="color: #999">👥 ${(team.players || []).filter(Boolean).length} giocatori</small>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>`;
+      }
+      
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
       validGroups.forEach(group => {
@@ -3380,6 +3428,18 @@
       const teams = document.querySelectorAll('.draggable-team');
       const dropZones = document.querySelectorAll('.group-drop-zone');
 
+      // 🔧 FIX: Funzione helper per reset colori zona
+      function resetZoneStyle(zone) {
+        if (zone.dataset.group === 'AVAILABLE') {
+          zone.style.background = '#fff8e1';
+          zone.style.borderColor = '#ff9800';
+        } else {
+          zone.style.background = '#faf5f0';
+          zone.style.borderColor = '#8b7355';
+        }
+        zone.style.boxShadow = 'none';
+      }
+
       teams.forEach(team => {
         team.addEventListener('dragstart', function(e) {
           e.dataTransfer.effectAllowed = 'move';
@@ -3394,8 +3454,7 @@
           this.style.opacity = '1';
           this.style.transform = 'scale(1)';
           dropZones.forEach(zone => {
-            zone.style.background = '#faf5f0';
-            zone.style.borderColor = '#8b7355';
+            resetZoneStyle(zone);
           });
         });
       });
@@ -3411,18 +3470,14 @@
 
         zone.addEventListener('dragleave', function(e) {
           if (e.target === this) {
-            this.style.background = '#faf5f0';
-            this.style.borderColor = '#8b7355';
-            this.style.boxShadow = 'none';
+            resetZoneStyle(this);
           }
         });
 
         zone.addEventListener('drop', async function(e) {
           e.preventDefault();
           e.stopPropagation();
-          this.style.background = '#faf5f0';
-          this.style.borderColor = '#8b7355';
-          this.style.boxShadow = 'none';
+          resetZoneStyle(this);
 
           const teamId = e.dataTransfer.getData('teamId');
           const teamName = e.dataTransfer.getData('teamName');
@@ -3436,7 +3491,11 @@
           try {
             await callApi('admin_move_team_group', 'POST', { teamId, newGroup: toGroup }, true);
             await refresh();
-            await showInfoDialog('✅ Successo', `${teamName} spostata nel girone ${toGroup}`);
+            // 🔧 FIX: Messaggio corretto per "AVAILABLE"
+            const successMsg = toGroup === 'AVAILABLE' 
+              ? `${teamName} rimossa dai gironi e resa disponibile`
+              : `${teamName} spostata nel girone ${toGroup}`;
+            await showInfoDialog('✅ Successo', successMsg);
           } catch (e) {
             await showInfoDialog('❌ Errore', e.message);
           }
@@ -4738,7 +4797,7 @@
       draggedTeam = { name: teamName, phaseNumber: phaseNumberInt };
       event.currentTarget.style.opacity = '0.5';
       event.dataTransfer.effectAllowed = 'move';
-      console.log('🎯 Drag start:', { teamName, phaseNumber: phaseNumberInt });
+      console.log('🎯 Drag start:', { teamName, phaseNumber: phaseNumberInt, gironiDisponibili: state.groups?.length || 0 });
     }
 
     async function handleTeamDrop(event, phaseNumber, groupLabel) {
@@ -4755,7 +4814,7 @@
         return;
       }
 
-      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel, phaseNumber: phaseNumberInt });
+      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel, phaseNumber: phaseNumberInt, gironiDisponibili: state.groups?.length || 0 });
 
       try {
         // Chiama API per spostare squadra

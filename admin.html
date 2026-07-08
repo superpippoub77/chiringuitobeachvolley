@@ -4797,7 +4797,10 @@
       draggedTeam = { name: teamName, phaseNumber: phaseNumberInt };
       event.currentTarget.style.opacity = '0.5';
       event.dataTransfer.effectAllowed = 'move';
-      console.log('🎯 Drag start:', { teamName, phaseNumber: phaseNumberInt, gironiDisponibili: state.groups?.length || 0 });
+      // 🔧 FIX: Leggere i gironi dalla fase specifica, non da state.groups generale
+      const phaseData = (state.phases || []).find(p => p.phaseNumber === phaseNumberInt);
+      const groupCount = phaseData?.groups?.length || 0;
+      console.log('🎯 Drag start:', { teamName, phaseNumber: phaseNumberInt, gironiDisponibili: groupCount, faseNome: phaseData?.name });
     }
 
     async function handleTeamDrop(event, phaseNumber, groupLabel) {
@@ -4814,7 +4817,10 @@
         return;
       }
 
-      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel, phaseNumber: phaseNumberInt, gironiDisponibili: state.groups?.length || 0 });
+      // 🔧 FIX: Leggere i gironi dalla fase specifica, non da state.groups generale
+      const phaseDataDrop = (state.phases || []).find(p => p.phaseNumber === phaseNumberInt);
+      const groupCountDrop = phaseDataDrop?.groups?.length || 0;
+      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel, phaseNumber: phaseNumberInt, gironiDisponibili: groupCountDrop, faseNome: phaseDataDrop?.name });
 
       try {
         // Chiama API per spostare squadra

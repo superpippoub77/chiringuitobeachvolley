@@ -3247,97 +3247,84 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
     }
 
     $result = withStateTransaction(function (&$state) use ($teamName, $phaseNumber, $groupLabel) {
-        // 🔧 ACCESSO DIRETTO: Trova l'indice della fase per modificare per reference
         ensurePhases($state);
-        $phaseIdx = null;
-        foreach ($state['phases'] as $idx => $p) {
-            if (($p['phaseIdx'] ?? $p['phaseNumber'] ?? 0) === $phaseNumber) {
-                $phaseIdx = $idx;
-                break;
+        
+        // 🔧 FIX 1: Cerca la fase in modo efficiente
+        $phaseIdx = array_search($phaseNumber, array_column($state['phases'], 'phaseNumber'), true);
+        if ($phaseIdx === false) {
+            return ['ok' => false, 'error' => "Fase {$phaseNumber} non trovata"];
+        }
+
+        $currentPhase = &$state['phases'][$phaseIdx];
+
+        // 🔧 FIX 2: Sincronizzazione SOLO se la struttura è compatibile (entrambe hanno teamIds)
+        if ($phaseNumber === 1 && $currentPhase['type'] === 'groups' && empty($currentPhase['groups']) && !empty($state['groups'])) {
+            // Controlla che i gruppi in state['groups'] abbiano la struttura {name, teamIds}
+            $firstGroup = $state['groups'][0] ?? [];
+            if (isset($firstGroup['teamIds']) || isset($firstGroup['teams'])) {
+                // Struttura compatibile, copia
+                $currentPhase['groups'] = $state['groups'];
+                error_log('ℹ️ Sincronizzazione: groups da state a phase 1 (count=' . count($state['groups']) . ')');
             }
         }
 
-        if ($phaseIdx === null) {
-            return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
+        // 🔧 Assicurati che i gruppi abbiano la struttura corretta
+        if (empty($currentPhase['groups'])) {
+            return ['ok' => false, 'error' => 'Nessun girone trovato in questa fase'];
         }
 
-        // 🔧 REFERENCE ALLA FASE: Accedi per reference per modificare in place
-        $phase = &$state['phases'][$phaseIdx];
-
-        error_log('🔍 DEBUG admin_move_team_to_group START:');
-        error_log('   phaseNumber=' . $phaseNumber);
-        error_log('   phaseIdx=' . $phaseIdx);
-        error_log('   phase.type=' . ($phase['type'] ?? 'NULL'));
-        error_log('   phase.groups count=' . count($phase['groups'] ?? []));
-        error_log('   state.groups count=' . count($state['groups'] ?? []));
-
-        // Se è la fase 1 (gironi) e non ha gruppi, sincronizza da $state['groups']
-        if ($phaseNumber === 1 && $phase['type'] === 'groups' && empty($phase['groups']) && !empty($state['groups'])) {
-            $phase['groups'] = $state['groups'];
-            error_log('ℹ️ Sincronizzazione: groups da state a phase 1 (count=' . count($state['groups']) . ')');
-        }
-
-        // 🔧 FIX: Gestire correttamente la struttura {name, teamIds} dei gruppi
-        // Cerca la squadra nei gironi
+        // Mappa label → indice girone
         $groupLabels = [];
-        foreach ($phase['groups'] ?? [] as $idx => $group) {
-            // I gruppi hanno la struttura {name: 'A', teamIds: [...]}
-            $groupLabel_item = $group['name'] ?? null;
-            if ($groupLabel_item) {
-                $groupLabels[$groupLabel_item] = $idx;
+        foreach ($currentPhase['groups'] as $idx => $group) {
+            if (is_array($group) && isset($group['name'])) {
+                $groupLabels[$group['name']] = $idx;
             }
         }
 
-        error_log('🔍 Gironi disponibili (structure): ' . json_encode($phase['groups'], JSON_PRETTY_PRINT));
-        error_log('🔍 Gironi disponibili (labels): ' . json_encode(array_keys($groupLabels)));
-        error_log('🔍 Cercando girone: ' . $groupLabel);
-
-        // Valida che il girone di destinazione esista
+        // Valida girone di destinazione
         if (!isset($groupLabels[$groupLabel])) {
-            return ['ok' => false, 'error' => "Girone $groupLabel non esiste in questa fase. Gironi disponibili: " . implode(', ', array_keys($groupLabels))];
+            return ['ok' => false, 'error' => "Girone $groupLabel non trovato. Disponibili: " . implode(', ', array_keys($groupLabels))];
         }
 
+        // Trova e sposta la squadra
         $destGroupIdx = $groupLabels[$groupLabel];
-        $found = false;
         $foundTeamId = null;
 
-        // 🔧 FIX: Cercare per nome nelle liste di teamIds, non in array di squadre
-        // Rimuovi squadra da tutti i gironi
-        foreach ($phase['groups'] as $idx => &$group) {
-            // $group ha struttura {name, teamIds}
-            if (!isset($group['teamIds'])) {
+        for ($gidx = 0; $gidx < count($currentPhase['groups']); $gidx++) {
+            $group = &$currentPhase['groups'][$gidx];
+            
+            // Assicura che teamIds esista
+            if (!isset($group['teamIds']) || !is_array($group['teamIds'])) {
                 $group['teamIds'] = [];
             }
-            
-            // Cerca nella lista di team della fase
+
+            // Cerca il team per nome
             foreach ($state['teams'] as $team) {
                 if ($team['name'] === $teamName && in_array($team['id'], $group['teamIds'], true)) {
-                    // Trovata! Rimuovila da questo girone
+                    // Trovato! Rimuovi
                     $pos = array_search($team['id'], $group['teamIds'], true);
                     unset($group['teamIds'][$pos]);
-                    $group['teamIds'] = array_values($group['teamIds']);
-                    $found = true;
+                    $group['teamIds'] = array_values($group['teamIds']); // Reindicizza
                     $foundTeamId = $team['id'];
-                    break;
+                    break 2; // Esci da entrambi i loop
                 }
             }
-            if ($found) break;
         }
         unset($group);
 
-        if (!$found) {
-            return ['ok' => false, 'error' => "Squadra '$teamName' non trovata nella fase"];
+        if (!$foundTeamId) {
+            return ['ok' => false, 'error' => "Squadra '$teamName' non trovata in questa fase"];
         }
 
-        // Aggiungi squadra al girone di destinazione
-        if (!isset($phase['groups'][$destGroupIdx]['teamIds'])) {
-            $phase['groups'][$destGroupIdx]['teamIds'] = [];
+        // Aggiungi al girone di destinazione
+        if (!isset($currentPhase['groups'][$destGroupIdx]['teamIds'])) {
+            $currentPhase['groups'][$destGroupIdx]['teamIds'] = [];
         }
-        $phase['groups'][$destGroupIdx]['teamIds'][] = $foundTeamId;
-        
-        // Sincronizza anche back a $state['groups'] per compatibilità (fase 1)
+        $currentPhase['groups'][$destGroupIdx]['teamIds'][] = $foundTeamId;
+
+        // Sincronizza back a state['groups'] se è fase 1
         if ($phaseNumber === 1) {
-            $state['groups'] = $phase['groups'];
+            $state['groups'] = $currentPhase['groups'];
         }
 
         error_log('✅ Squadra ' . $teamName . ' spostata a Girone ' . $groupLabel);

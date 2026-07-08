@@ -4059,7 +4059,9 @@
         
         // Check calendario
         const schedule = config.schedule || {};
+        console.log('📅 config.schedule:', schedule);
         const hasSchedule = (schedule.courts || []).length > 0;
+        console.log('📅 hasSchedule:', hasSchedule, 'Courts length:', (schedule.courts || []).length);
         requirements.push({
           met: hasSchedule,
           icon: hasSchedule ? '✅' : '❌',
@@ -4072,6 +4074,7 @@
         });
 
         if (!hasTeams || !hasSchedule) allMet = false;
+        console.log('✅ Requirements built for groups:', requirements.length);
 
       } else if (phaseType === 'knockout') {
         title += `Knockout (Fase ${phaseNumber})`;
@@ -4109,9 +4112,11 @@
       }
 
       // Build modal body
+      console.log('🔨 Building modal body. Requirements count:', requirements.length);
       let body = '<div style="background: #f9f9f9; padding: 16px; border-radius: 6px">';
       
       requirements.forEach((req, idx) => {
+        console.log(`  📌 Requirement ${idx}:`, req.title, 'Met:', req.met);
         const bgColor = req.met ? '#f0f8f5' : '#fef4f0';
         const borderColor = req.met ? '#2ecc71' : '#ff6b6b';
         
@@ -4190,11 +4195,16 @@
       body += `<button class="btn btn-primary" onclick="closeModal()" style="width: 100%">Chiudi</button>`;
       body += '</div>';
 
+      console.log('🎬 Calling openModal with title:', title);
+      console.log('📄 Body length:', body.length, 'Preview:', body.substring(0, 100) + '...');
+      
       openModal({
         title: title,
         bodyHtml: body,
         buttons: []
       });
+      
+      console.log('✅ openModal called successfully');
     }
 
     function navigateToTab(tabId) {
@@ -5875,14 +5885,25 @@
     }
 
     function openModal({ title, bodyHtml, buttons, onClose }) {
+      console.log('🔓 openModal INSIDE - title:', title);
       const backdrop = document.getElementById('modalBackdrop');
       const modalTitle = document.getElementById('modalTitle');
       const modalBody = document.getElementById('modalBody');
       const modalFooter = document.getElementById('modalFooter');
       const closeBtn = document.getElementById('modalCloseBtn');
 
+      console.log('🔍 Modal elements:', { backdrop, modalTitle, modalBody, modalFooter, closeBtn });
+
+      if (!backdrop || !modalTitle || !modalBody) {
+        console.error('❌ ERRORE: Alcuni elementi della modal non trovati!');
+        return;
+      }
+
       modalTitle.textContent = title || 'Dialog';
       modalBody.innerHTML = bodyHtml || '';
+      console.log('📝 Modal title set:', title);
+      console.log('📝 Modal body set. HTML length:', (bodyHtml || '').length);
+      
       modalFooter.innerHTML = '';
       modalOnClose = onClose || null;
 
@@ -5902,6 +5923,7 @@
       });
 
       backdrop.classList.remove('hidden');
+      console.log('✅ Modal backdrop shown');
     }
 
     function closeModal(skipOnClose = false) {

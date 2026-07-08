@@ -3538,7 +3538,7 @@
       }
       
       // Leggi le partite dalla fase selezionata
-      const phase = state.phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
       let m = (phase && phase.matches) ? phase.matches : [];
       
       if (!m.length) {
@@ -4020,7 +4020,7 @@
         return;
       }
       
-      const phase = state.phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
       let m = (phase && phase.matches) ? phase.matches : [];
       
       if (!m.length) {
@@ -4072,7 +4072,7 @@
       
       // Cerca la fase in state
       const statePhases = state.phases || [];
-      const statePhase = statePhases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
       
       if (!statePhase) {
         container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata.</p>';
@@ -4277,14 +4277,18 @@
       const container = document.getElementById('phaseSelectorContainer');
       if (!container) return;
 
+      console.log('📋 renderPhaseSelector - config.phases:', phases);
+
       if (phases.length === 0) {
         container.innerHTML = '<p style="color: #999; font-size: 13px">Nessuna fase configurata. Crea una fase nella sezione "Fasi Torneo".</p>';
         return;
       }
 
       let html = '';
-      phases.forEach(phase => {
-        const isSelected = phase.phaseNumber === currentSelectedPhaseNumber;
+      phases.forEach((phase, idx) => {
+        const phaseNum = phase.phaseNumber || (idx + 1);
+        console.log(`  Fase ${idx}: phaseNumber=${phaseNum}, type=${phase.type}, name=${phase.name}`);
+        const isSelected = phaseNum === currentSelectedPhaseNumber;
         const typeLabel = phase.type === 'groups' ? '🎯 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo');
         const btnStyle = isSelected 
           ? 'background: #2196F3; color: white; border: 2px solid #1976D2' 
@@ -4292,8 +4296,8 @@
         
         html += `
           <button class="btn" style="${btnStyle}; flex: 1; min-width: 120px; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s" 
-            onclick="selectPhase(${phase.phaseNumber})">
-            <strong>Fase ${phase.phaseNumber}</strong><br>
+            onclick="selectPhase(${phaseNum})">
+            <strong>Fase ${phaseNum}</strong><br>
             <small>${typeLabel} - ${escapeHtml(phase.name)}</small>
           </button>
         `;
@@ -4303,6 +4307,8 @@
     }
 
     function selectPhase(phaseNumber) {
+      console.log('🎯 selectPhase called with phaseNumber:', phaseNumber);
+      console.log('   state.phases:', state.phases);
       currentSelectedPhaseNumber = phaseNumber;
       currentPhaseSubTab = 'groups'; // Reset al tab gironi quando cambia fase
       
@@ -4548,7 +4554,12 @@
       // IMPORTANTE: I dati reali sono in state.phases (dati generati)
       // config.phases ha solo i metadati
       const statePhases = state.phases || [];
-      const statePhase = statePhases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      console.log('📊 renderPhaseContent - state.phases:', statePhases);
+      console.log('📊 renderPhaseContent - currentSelectedPhaseNumber:', currentSelectedPhaseNumber);
+      
+      // currentSelectedPhaseNumber è 1-based (Fase 1, 2, 3...), ma phaseIdx è 1-based in state.phases
+      const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      console.log('📊 renderPhaseContent - found statePhase:', statePhase);
       
       const configPhases = config.phases || [];
       const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);

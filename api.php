@@ -2991,11 +2991,14 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
     $phaseIdx = (int)($body['phaseIdx'] ?? 0);
     $type = $body['type'] ?? '';
     
+    error_log("🚀 admin_generate_phase: phaseIdx=$phaseIdx, type=$type");
+    
     if (!$phaseIdx || !$type) {
         jsonResponse(400, ['ok' => false, 'error' => 'phaseIdx e type sono obbligatori']);
     }
     
     withStateTransaction(function (&$state) use ($phaseIdx, $type) {
+        error_log("📥 Dentro withStateTransaction callback");
         ensurePhases($state);
         
         // Solo per fasi successive alla prima, controlla che la fase precedente esista e sia completata
@@ -3021,9 +3024,19 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
                 jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
             }
             
-            // Leggi i parametri della fase (numGroups, teamsAdvance)
-            $phase = getPhase($state, $phaseIdx);
-            $numGroups = ($phase && !empty($phase['numGroups'])) ? (int)$phase['numGroups'] : 4;
+            // Leggi i parametri della fase da CONFIG (salvati dal wizard)
+            $config = readConfig();
+            $configPhases = $config['phases'] ?? [];
+            $configPhase = null;
+            foreach ($configPhases as $cp) {
+                if (($cp['phaseNumber'] ?? $cp['phaseIdx'] ?? null) === $phaseIdx) {
+                    $configPhase = $cp;
+                    break;
+                }
+            }
+            
+            $numGroups = ($configPhase && !empty($configPhase['numGroups'])) ? (int)$configPhase['numGroups'] : 4;
+            $teamsAdvance = ($configPhase && !empty($configPhase['teamsAdvance'])) ? (int)$configPhase['teamsAdvance'] : 2;
             
             // Distribuisci squadre nei gironi (round-robin snake draft)
             $groups = array_fill(0, $numGroups, []);
@@ -3084,6 +3097,8 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             
             setPhaseStatus($state, $phaseIdx, 'active');
             
+            error_log("✅ Fase gironi creata: phaseIdx=$phaseIdx, matches=" . count($groupMatches) . ", groups=" . count($groups));
+            
             return ['ok' => true, 'phaseName' => $phaseName, 'teamCount' => count($approvedTeams), 'matchCount' => count($groupMatches)];
         }
         
@@ -3131,6 +3146,8 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
         
         jsonResponse(400, ['ok' => false, 'error' => 'Tipo fase non supportato: ' . $type]);
     });
+    
+    error_log("✅ withStateTransaction completato, phases in state: " . count(readJsonFile(DATA_FILE, initialState())['phases'] ?? []));
     
     jsonResponse(200, ['ok' => true, 'message' => 'Fase generata con successo']);
 }

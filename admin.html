@@ -2804,7 +2804,7 @@
         const levelLabels = ['Amatore', 'Intermedio', 'Avanzato', 'Professionista', 'Top'];
         playersHtml += `
           <div style="border: 1px solid #e0e0e0; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: white">
-            <div style="display: grid; grid-template-columns: 60px 1fr 140px; gap: 8px; align-items: start">
+            <div style="display: grid; grid-template-columns: 60px 1fr 120px; gap: 8px; align-items: center">
               <div style="cursor: pointer; position: relative" onclick="document.getElementById('playerImage${i}').click()">
                 <img id="playerImagePreview${i}" src="${imageUrl}" style="width: 60px; height: 60px; border-radius: 4px; object-fit: cover; border: 2px solid #ddd; opacity: 0.8; hover: opacity: 1">
                 <input 
@@ -2835,9 +2835,8 @@
                   👨‍💼 Capitano
                 </label>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 6px">
-                <label style="font-size: 12px; font-weight: 600; color: #555">Livello giocatore</label>
-                <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 14px" onchange="updateTeamWeight()">
+              <div>
+                <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; width: 100%; cursor: pointer" onchange="updateTeamWeight()">
                   ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${playerLevel === l ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
                 </select>
               </div>

@@ -3819,23 +3819,32 @@
     }
 
     async function simulateMatchScores() {
-      // Genera punteggi casuali per tutte le partite
+      // Genera punteggi casuali per tutte le partite della fase corrente
       const confirmed = await showConfirmDialog('Simula Punteggi', 'Generare punteggi casuali per tutte le partite?');
       if (!confirmed) return;
       
       try {
-        console.log('DEBUG simulateMatchScores:');
-        console.log('  state:', state);
-        console.log('  state.groupMatches:', state?.groupMatches);
-        console.log('  match count:', state?.groupMatches?.length || 0);
+        // Leggi le partite dalla fase selezionata (stesso codice di renderMatches)
+        if (!state || !state.phases) {
+          await showInfoDialog('Errore', 'State non inizializzato');
+          return;
+        }
         
-        if (!state || !state.groupMatches || state.groupMatches.length === 0) {
-          await showInfoDialog('Errore', 'Nessuna partita disponibile');
+        const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+        const matches = (phase && phase.matches) ? phase.matches : [];
+        
+        console.log('DEBUG simulateMatchScores:');
+        console.log('  currentSelectedPhaseNumber:', currentSelectedPhaseNumber);
+        console.log('  phase:', phase);
+        console.log('  matches count:', matches.length);
+        
+        if (matches.length === 0) {
+          await showInfoDialog('Errore', 'Nessuna partita disponibile per questa fase');
           return;
         }
         
         let savedCount = 0;
-        for (const match of state.groupMatches) {
+        for (const match of matches) {
           // Genera punteggi casuali tra 15 e 25
           const score1 = Math.floor(Math.random() * 11) + 15;
           const score2 = Math.floor(Math.random() * 11) + 15;

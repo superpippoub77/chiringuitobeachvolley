@@ -2836,7 +2836,7 @@
                 </label>
               </div>
               <div>
-                <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; width: 100%; cursor: pointer" onchange="updateTeamWeight()">
+                <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; width: 100%; cursor: pointer; box-sizing: border-box" onchange="updateTeamWeight()">
                   ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${playerLevel === l ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
                 </select>
               </div>

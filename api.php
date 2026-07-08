@@ -2858,16 +2858,43 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
     withStateTransaction(function (&$state) use ($phaseIdx, $type) {
         ensurePhases($state);
         
-        $previousPhase = getPhase($state, $phaseIdx - 1);
-        if (!$previousPhase) {
-            jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non esiste']);
-        }
-        
-        if ($previousPhase['status'] !== 'completed') {
-            jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non è completata']);
+        // Solo per fasi successive alla prima, controlla che la fase precedente esista e sia completata
+        if ($phaseIdx > 1) {
+            $previousPhase = getPhase($state, $phaseIdx - 1);
+            if (!$previousPhase) {
+                jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non esiste']);
+            }
+            
+            if ($previousPhase['status'] !== 'completed') {
+                jsonResponse(400, ['ok' => false, 'error' => 'La fase precedente non è completata']);
+            }
         }
         
         // Genera la fase in base al tipo
+        if ($type === 'groups') {
+            // Per la prima fase, usa squadre approvate
+            $approvedTeams = $state['teams'] ?? [];
+            $approvedTeams = array_filter($approvedTeams, function($t) { return $t['status'] === 'approved'; });
+            $approvedTeams = array_values($approvedTeams);
+            
+            if (count($approvedTeams) === 0) {
+                jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
+            }
+            
+            // Crea matches placeholder per la fase di gironi
+            $groupMatches = [];
+            
+            $phaseName = 'Fase ' . $phaseIdx . ' - Gironi';
+            initializePhase($state, $phaseIdx, $phaseName, 'groups', [
+                'matches' => $groupMatches,
+                'metadata' => ['teamCount' => count($approvedTeams)]
+            ]);
+            
+            setPhaseStatus($state, $phaseIdx, 'active');
+            
+            return ['ok' => true, 'phaseName' => $phaseName, 'teamCount' => count($approvedTeams)];
+        }
+        
         if ($type === 'knockout') {
             // Estrai i team qualificati dalla fase precedente
             $standings = computeStandings($state);

@@ -572,8 +572,6 @@
         <button class="tab active" data-page="settings" onclick="showPage('settings', this)">Impostazioni</button>
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
-        <button class="tab" data-page="phases" onclick="showPage('phases', this)">Fasi torneo</button>
-        <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">📊 Gironi e Fasi</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
@@ -649,57 +647,6 @@
         </div>
       </div>
 
-      <div id="page-phases" class="card page hidden">
-        <h3>Configurazione Fasi Torneo</h3>
-        <p class="muted">Definisci la struttura del torneo: numero di fasi, tipo (gironi o eliminazione diretta), e parametri specifici per ogni fase.</p>
-        
-        <!-- Template Tornei Predefiniti -->
-        <div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 16px">
-          <h4 style="margin-top: 0; color: #856404; display: flex; align-items: center; gap: 8px">
-            <span>⚡ Template Tornei Brevettati</span>
-          </h4>
-          <p style="margin: 8px 0; font-size: 13px; color: #856404">Carica una configurazione predefinita di torneo con fasi e parametri già ottimizzati:</p>
-          <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 10px">
-            <button class="btn btn-primary" onclick="applyTournamentTemplate('4x3_repescage')">4 Gironi → Ripescaggio</button>
-            <button class="btn btn-primary" onclick="applyTournamentTemplate('2x6_top2')">2 Gironi → Top 2</button>
-            <button class="btn btn-primary" onclick="applyTournamentTemplate('3x4_top1')">3 Gironi → Top 1</button>
-            <button class="btn btn-primary" onclick="applyTournamentTemplate('1_knockout')">1 Girone → Knockout</button>
-            <button class="btn btn-primary" onclick="applyTournamentTemplate('pure_knockout')">Pure Knockout</button>
-          </div>
-        </div>
-        
-        <!-- Guida Workflow -->
-        <div style="background: #ecf5ff; border-left: 4px solid #0078d4; border-radius: 4px; padding: 12px; margin-bottom: 16px">
-          <h4 style="margin-top: 0; color: #003b6f; display: flex; align-items: center; gap: 8px">
-            <span>💡 Come Funziona il Workflow</span>
-          </h4>
-          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
-            <strong>Fase con Gironi:</strong> Le squadre vengono divise in gironi. Da ogni girone avanzano N squadre (es. le prime 2), 
-            il resto può avere un percorso distinto nella fase successiva (se ripescaggio abilitato).
-          </p>
-          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
-            <strong>Fase Eliminazione Diretta:</strong> Le squadre giocano in un torneo ad eliminazione (es. 16 → 8 semifinali → 4 semifinali → 2 finale). 
-            Avanzano solo i vincitori.
-          </p>
-          <p style="margin: 8px 0; font-size: 13px; color: #003b6f">
-            <strong>Collegamento Fasi:</strong> Le squadre che passano dalla fase precedente entrano in questa. Le squadre eliminate dalla fase precedente possono 
-            essere indirizzate a una fase distinta (ripescaggio), il cui tipo dipende dalla configurazione.
-          </p>
-          <div style="background: white; border-radius: 4px; padding: 8px; margin-top: 8px; font-size: 12px">
-            <strong>Esempio:</strong> 16 squadre → Fase 1 (4 gironi, top 1) → 4 squadre qualificate → Fase 2 (Semifinali 2v2) → Finale
-          </div>
-        </div>
-
-        <div class="row" style="margin-bottom: 14px">
-          <button class="btn btn-info" onclick="simulateTournament()" style="display: inline-block">🎬 Simula Torneo</button>
-        </div>
-
-        <div id="phasesContainer" style="margin-top:10px"></div>
-        <div class="row" style="margin-top:14px">
-          <button class="btn btn-primary" onclick="addPhase()" id="addPhaseBtn">+ Aggiungi fase</button>
-          <button class="btn btn-green" onclick="savePhases()" id="savePhasesBtn">Salva fasi</button>
-        </div>
-      </div>
 
       <div id="page-floweditor" class="card page hidden">
         <h3>🎨 Editor Visuale del Flusso Torneo</h3>
@@ -752,6 +699,13 @@
           <div id="phaseSelectorContainer" style="display: flex; flex-wrap: wrap; gap: 8px">
             <!-- Dinamicamente riempito da JavaScript -->
           </div>
+        </div>
+
+        <!-- Sub-Tabs per Gironi / Partite / Classifiche -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #ddd; padding-bottom: 8px">
+          <button id="subtab-groups" class="btn btn-primary" onclick="showPhaseSubTab('groups')" style="background: #2196F3; color: white">📊 Gironi</button>
+          <button id="subtab-matches" class="btn btn-info" onclick="showPhaseSubTab('matches')" style="background: #0277BD; color: white">🏆 Partite</button>
+          <button id="subtab-standings" class="btn btn-info" onclick="showPhaseSubTab('standings')" style="background: #0277BD; color: white">📈 Classifiche</button>
         </div>
         
         <!-- Content Area Dinamico -->
@@ -3979,6 +3933,94 @@
 
     // ===== GESTIONE FASI UNIFICATA =====
     let currentSelectedPhaseNumber = 1; // Fase selezionata attualmente
+    let currentPhaseSubTab = 'groups'; // Sottotab della fase: 'groups', 'matches', 'standings'
+
+    function showPhaseSubTab(tabName) {
+      currentPhaseSubTab = tabName;
+      
+      // Aggiorna visual dei bottoni
+      document.querySelectorAll('[id^="subtab-"]').forEach(btn => {
+        btn.style.background = btn.id === `subtab-${tabName}` ? '#2196F3' : '#0277BD';
+      });
+      
+      // Renderizza il contenuto del sottotab
+      renderPhaseContentForSubTab();
+    }
+
+    function renderPhaseContentForSubTab() {
+      const container = document.getElementById('phaseContentContainer');
+      if (!container) return;
+      
+      if (currentPhaseSubTab === 'groups') {
+        renderPhaseContent(); // Renderizza i gironi
+      } else if (currentPhaseSubTab === 'matches') {
+        renderMatchesInPhase(); // Renderizza partite della fase
+      } else if (currentPhaseSubTab === 'standings') {
+        renderPhaseStandings(); // Renderizza classifiche
+      }
+    }
+
+    function renderMatchesInPhase() {
+      const container = document.getElementById('phaseContentContainer');
+      if (!container || !state || !state.phases) {
+        container.innerHTML = '<p>Nessun dato disponibile.</p>';
+        return;
+      }
+      
+      const phase = state.phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      let m = (phase && phase.matches) ? phase.matches : [];
+      
+      if (!m.length) {
+        container.innerHTML = '<p style="color: #999; font-size: 14px">Nessuna partita per questa fase.</p>';
+        return;
+      }
+      
+      // Ordina per data e ora
+      m = m.slice().sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        const timeA = a.startTime || '00:00';
+        const timeB = b.startTime || '00:00';
+        
+        if (dateA !== dateB) {
+          return dateA.localeCompare(dateB);
+        }
+        return timeA.localeCompare(timeB);
+      });
+      
+      container.innerHTML = `
+      <div style="margin-bottom: 12px; display: flex; gap: 8px">
+        <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
+      </div>
+      <table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      ${m.map(match => `<tr>
+        <td>${match.groupName || match.group || '-'}</td>
+        <td>${escapeHtml(match.team1Name)}</td>
+        <td>
+          <input id="s1-${match.id}" type="number" min="0" style="width:60px" value="${match.score1 ?? ''}"> -
+          <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
+        </td>
+        <td>${escapeHtml(match.team2Name)}</td>
+        <td>${match.date ? formatDateIta(match.date) : '-'}</td>
+        <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.startTime || ''}"></td>
+        <td style="white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap">
+          <button class="btn btn-primary" onclick="saveMatch('${match.id}')" style="font-size: 12px; padding: 4px 8px">Salva</button>
+          <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>
+          <button class="btn btn-warning" onclick="clearMatchTime('${match.id}')" style="font-size: 12px; padding: 4px 8px">🗑️</button>
+          <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
+        </td>
+      </tr>`).join('')}
+      </tbody></table>`;
+    }
+
+    function renderPhaseStandings() {
+      const container = document.getElementById('phaseContentContainer');
+      if (!container) {
+        container.innerHTML = '<p>Classifiche non ancora implementate per questa fase.</p>';
+        return;
+      }
+      container.innerHTML = '<p style="color: #999; font-size: 14px; padding: 20px; text-align: center">📈 Le classifiche verranno implementate a breve</p>';
+    }
 
     function renderPhasesUI() {
       // Renderizza phase selector + content area
@@ -4018,8 +4060,15 @@
 
     function selectPhase(phaseNumber) {
       currentSelectedPhaseNumber = phaseNumber;
-      renderPhaseContent();
-      renderMatches(); // Aggiorna partite quando si seleziona una fase
+      currentPhaseSubTab = 'groups'; // Reset al tab gironi quando cambia fase
+      
+      // Aggiorna visual dei bottoni sotto-tab
+      document.querySelectorAll('[id^="subtab-"]').forEach(btn => {
+        btn.style.background = btn.id === 'subtab-groups' ? '#2196F3' : '#0277BD';
+      });
+      
+      // Renderizza il contenuto della fase con il sotto-tab selezionato
+      renderPhaseContentForSubTab();
     }
 
     function renderPhaseContent() {

@@ -3248,14 +3248,19 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             error_log('ℹ️ Sincronizzazione: groups da state a phase 1 (count=' . count($state['groups']) . ')');
         }
 
+        // 🔧 FIX: Gestire correttamente la struttura {name, teamIds} dei gruppi
         // Cerca la squadra nei gironi
-        $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         $groupLabels = [];
         foreach ($phase['groups'] ?? [] as $idx => $group) {
-            $groupLabels[$groupNames[$idx] ?? ('G' . ($idx + 1))] = $idx;
+            // I gruppi hanno la struttura {name: 'A', teamIds: [...]}
+            $groupLabel = $group['name'] ?? null;
+            if ($groupLabel) {
+                $groupLabels[$groupLabel] = $idx;
+            }
         }
 
-        error_log('🔍 Gironi disponibili: ' . json_encode(array_keys($groupLabels)));
+        error_log('🔍 Gironi disponibili (structure): ' . json_encode($phase['groups'], JSON_PRETTY_PRINT));
+        error_log('🔍 Gironi disponibili (labels): ' . json_encode(array_keys($groupLabels)));
         error_log('🔍 Cercando girone: ' . $groupLabel);
 
         // Valida che il girone di destinazione esista
@@ -3265,36 +3270,41 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
 
         $destGroupIdx = $groupLabels[$groupLabel];
         $found = false;
-        $teamToMove = null;
+        $foundTeamId = null;
 
-        // Rimuovi squadra da tutti i gironi e aggiungila a quello di destinazione
-        foreach ($phase['groups'] as $idx => $group) {
-            $phase['groups'][$idx] = array_values(array_filter(
-                $group,
-                function ($team) use ($teamName, &$found, &$teamToMove) {
-                    if ($team['name'] === $teamName) {
-                        $found = true;
-                        $teamToMove = $team;
-                        return false; // Rimuovi
-                    }
-                    return true;
+        // 🔧 FIX: Cercare per nome nelle liste di teamIds, non in array di squadre
+        // Rimuovi squadra da tutti i gironi
+        foreach ($phase['groups'] as $idx => &$group) {
+            // $group ha struttura {name, teamIds}
+            if (!isset($group['teamIds'])) {
+                $group['teamIds'] = [];
+            }
+            
+            // Cerca nella lista di team della fase
+            foreach ($state['teams'] as $team) {
+                if ($team['name'] === $teamName && in_array($team['id'], $group['teamIds'], true)) {
+                    // Trovata! Rimuovila da questo girone
+                    $pos = array_search($team['id'], $group['teamIds'], true);
+                    unset($group['teamIds'][$pos]);
+                    $group['teamIds'] = array_values($group['teamIds']);
+                    $found = true;
+                    $foundTeamId = $team['id'];
+                    break;
                 }
-            ));
+            }
+            if ($found) break;
         }
+        unset($group);
 
         if (!$found) {
             return ['ok' => false, 'error' => "Squadra '$teamName' non trovata nella fase"];
         }
 
-        if (!$teamToMove) {
-            return ['ok' => false, 'error' => "Impossibile recuperare i dati della squadra"];
-        }
-
         // Aggiungi squadra al girone di destinazione
-        $phase['groups'][$destGroupIdx][] = [
-            'name' => $teamToMove['name'],
-            'id' => $teamToMove['id'] ?? null
-        ];
+        if (!isset($phase['groups'][$destGroupIdx]['teamIds'])) {
+            $phase['groups'][$destGroupIdx]['teamIds'] = [];
+        }
+        $phase['groups'][$destGroupIdx]['teamIds'][] = $foundTeamId;
 
         // Salva i gruppi modificati usando la funzione helper
         setPhaseGroups($state, $phaseNumber, $phase['groups']);

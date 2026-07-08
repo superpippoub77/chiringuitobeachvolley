@@ -4733,10 +4733,12 @@
     window.groupsModified = false;
 
     function handleTeamDragStart(event, teamName, phaseNumber) {
-      draggedTeam = { name: teamName, phaseNumber: phaseNumber };
+      // Converti phaseNumber a int (arriva come stringa dal template literal)
+      const phaseNumberInt = parseInt(phaseNumber);
+      draggedTeam = { name: teamName, phaseNumber: phaseNumberInt };
       event.currentTarget.style.opacity = '0.5';
       event.dataTransfer.effectAllowed = 'move';
-      console.log('🎯 Drag start:', { teamName, phaseNumber });
+      console.log('🎯 Drag start:', { teamName, phaseNumber: phaseNumberInt });
     }
 
     async function handleTeamDrop(event, phaseNumber, groupLabel) {
@@ -4745,18 +4747,21 @@
       event.currentTarget.style.backgroundColor = 'white';
       event.currentTarget.style.borderColor = '#2196F3';
 
-      if (!draggedTeam.name || draggedTeam.phaseNumber !== phaseNumber) {
-        console.warn('⚠️ Drop non valido: squadra da fase diversa');
+      // Converti phaseNumber a int (arriva come stringa dal template literal)
+      const phaseNumberInt = parseInt(phaseNumber);
+      
+      if (!draggedTeam.name || draggedTeam.phaseNumber !== phaseNumberInt) {
+        console.warn('⚠️ Drop non valido: squadra da fase diversa', { draggedPhase: draggedTeam.phaseNumber, targetPhase: phaseNumberInt });
         return;
       }
 
-      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel });
+      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel, phaseNumber: phaseNumberInt });
 
       try {
         // Chiama API per spostare squadra
         const response = await callApi('admin_move_team_to_group', 'POST', {
           teamName: draggedTeam.name,
-          phaseNumber: phaseNumber,
+          phaseNumber: phaseNumberInt,
           groupLabel: groupLabel
         }, true);
 

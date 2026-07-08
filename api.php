@@ -3172,19 +3172,20 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
         return;
     }
 
-    withStateTransaction(function (&$state) use ($teamName, $phaseNumber, $groupLabel) {
+    $result = withStateTransaction(function (&$state) use ($teamName, $phaseNumber, $groupLabel) {
         // Trova la fase
         $phase = null;
-        foreach ($state['phases'] ?? [] as &$p) {
+        $phaseIdx = null;
+        foreach ($state['phases'] ?? [] as $idx => &$p) {
             if (($p['phaseNumber'] ?? null) === $phaseNumber) {
                 $phase = &$p;
+                $phaseIdx = $idx;
                 break;
             }
         }
 
         if (!$phase) {
-            jsonResponse(400, ['ok' => false, 'error' => "Fase $phaseNumber non trovata"]);
-            return;
+            return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
 
         // Cerca la squadra nei gironi
@@ -3196,20 +3197,21 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
 
         // Valida che il girone di destinazione esista
         if (!isset($groupLabels[$groupLabel])) {
-            jsonResponse(400, ['ok' => false, 'error' => "Girone $groupLabel non esiste in questa fase"]);
-            return;
+            return ['ok' => false, 'error' => "Girone $groupLabel non esiste in questa fase"];
         }
 
         $destGroupIdx = $groupLabels[$groupLabel];
         $found = false;
+        $teamToMove = null;
 
         // Rimuovi squadra da tutti i gironi e aggiungila a quello di destinazione
         foreach ($phase['groups'] as $idx => $group) {
             $phase['groups'][$idx] = array_values(array_filter(
                 $group,
-                function ($team) use ($teamName, &$found) {
+                function ($team) use ($teamName, &$found, &$teamToMove) {
                     if ($team['name'] === $teamName) {
                         $found = true;
+                        $teamToMove = $team;
                         return false; // Rimuovi
                     }
                     return true;
@@ -3218,31 +3220,26 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
         }
 
         if (!$found) {
-            jsonResponse(400, ['ok' => false, 'error' => "Squadra '$teamName' non trovata nella fase"]);
-            return;
-        }
-
-        // Aggiungi squadra al girone di destinazione
-        $teamToMove = null;
-        foreach ($state['teams'] ?? [] as $team) {
-            if ($team['name'] === $teamName) {
-                $teamToMove = $team;
-                break;
-            }
+            return ['ok' => false, 'error' => "Squadra '$teamName' non trovata nella fase"];
         }
 
         if (!$teamToMove) {
-            jsonResponse(400, ['ok' => false, 'error' => "Squadra '$teamName' non trovata nel sistema"]);
-            return;
+            return ['ok' => false, 'error' => "Impossibile recuperare i dati della squadra"];
         }
 
+        // Aggiungi squadra al girone di destinazione
         $phase['groups'][$destGroupIdx][] = [
             'name' => $teamToMove['name'],
-            'id' => $teamToMove['id']
+            'id' => $teamToMove['id'] ?? null
         ];
 
         return ['ok' => true, 'message' => "Squadra spostata a Girone $groupLabel"];
     });
+
+    if (!$result || !($result['ok'] ?? false)) {
+        jsonResponse(400, ['ok' => false, 'error' => $result['error'] ?? 'Errore sconosciuto']);
+        return;
+    }
 
     jsonResponse(200, ['ok' => true, 'message' => 'Squadra spostata con successo']);
 }
@@ -3259,7 +3256,7 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
         return;
     }
 
-    withStateTransaction(function (&$state) use ($phaseNumber) {
+    $result = withStateTransaction(function (&$state) use ($phaseNumber) {
         // Trova la fase
         $phase = null;
         $phaseIdx = null;
@@ -3272,21 +3269,18 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
         }
 
         if (!$phase) {
-            jsonResponse(400, ['ok' => false, 'error' => "Fase $phaseNumber non trovata"]);
-            return;
+            return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
 
         if ($phase['type'] !== 'groups') {
-            jsonResponse(400, ['ok' => false, 'error' => 'Ricalcolo disponibile solo per fasi a gironi']);
-            return;
+            return ['ok' => false, 'error' => 'Ricalcolo disponibile solo per fasi a gironi'];
         }
 
         // Estrai i gironi attuali dalla fase
         $currentGroups = $phase['groups'] ?? [];
         
         if (empty($currentGroups)) {
-            jsonResponse(400, ['ok' => false, 'error' => 'Nessun girone trovato nella fase']);
-            return;
+            return ['ok' => false, 'error' => 'Nessun girone trovato nella fase'];
         }
 
         // Rigenera le partite round-robin per i gironi attuali
@@ -3325,6 +3319,11 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
 
         return ['ok' => true, 'message' => 'Partite ricalcolate con successo', 'matchCount' => count($newGroupMatches)];
     });
+
+    if (!$result || !($result['ok'] ?? false)) {
+        jsonResponse(400, ['ok' => false, 'error' => $result['error'] ?? 'Errore sconosciuto']);
+        return;
+    }
 
     jsonResponse(200, ['ok' => true, 'message' => 'Partite ricalcolate e salvate con successo']);
 }
@@ -7003,7 +7002,7 @@ if ($action === 'admin_debug_teams' && $method === 'GET') {
 }
 
 // Tournament Flow Editor Endpoints
-const FLOW_FILE = __DIR__ . '/data/tournament-flow.json';
+define('FLOW_FILE', __DIR__ . '/data/tournament-flow.json');
 
 if ($action === 'admin_save_tournament_flow' && $method === 'POST') {
     if (!validSession()) jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);

@@ -4203,6 +4203,232 @@
       
       // Renderizza il contenuto della fase con il sotto-tab selezionato
       renderPhaseContentForSubTab();
+      
+      // Renderizza il pannello di modifica parametri
+      renderPhaseParametersPanel(phaseNumber);
+    }
+
+    function renderPhaseParametersPanel(phaseNumber) {
+      const phases = config.phases || [];
+      const phase = phases.find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return;
+
+      const container = document.getElementById('phaseContentContainer');
+      if (!container) return;
+
+      // Aggiungi il pannello di parametri IN ALTO nel container
+      let parametersHTML = `
+        <div id="phaseParametersPanel" style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 8px; padding: 14px; margin-bottom: 16px">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+            <h4 style="margin: 0; color: #e65100">⚙️ Parametri Fase ${phaseNumber}</h4>
+            <button class="btn btn-primary" onclick="openPhaseParametersDialog(${phaseNumber})" style="padding: 6px 12px; font-size: 12px">
+              ✎️ Modifica
+            </button>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; font-size: 13px">
+            <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #ff9800">
+              <div style="font-weight: bold; color: #e65100">📛 Nome</div>
+              <div style="color: #666">${escapeHtml(phase.name)}</div>
+            </div>
+            <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #2196F3">
+              <div style="font-weight: bold; color: #1565c0">📊 Tipo</div>
+              <div style="color: #666">${phase.type === 'groups' ? '📊 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo')}</div>
+            </div>
+            ${phase.type === 'groups' ? `
+              <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #4caf50">
+                <div style="font-weight: bold; color: #2e7d32">🎯 Gironi</div>
+                <div style="color: #666">${phase.numGroups || 0}</div>
+              </div>
+              <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #4caf50">
+                <div style="font-weight: bold; color: #2e7d32">✓ Passano</div>
+                <div style="color: #666">${phase.teamsAdvance || 0} per girone</div>
+              </div>
+              <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid ${phase.hasRepescage ? '#ff6f00' : '#ccc'}">
+                <div style="font-weight: bold; color: ${phase.hasRepescage ? '#e65100' : '#999'}">🔄 Ripescaggio</div>
+                <div style="color: #666">${phase.hasRepescage ? 'Sì' : 'No'}</div>
+              </div>
+            ` : (phase.type === 'knockout' ? `
+              <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid #ffc107">
+                <div style="font-weight: bold; color: #f57f17">👥 Squadre</div>
+                <div style="color: #666">${phase.numTeams || 0}</div>
+              </div>
+              <div style="background: white; padding: 8px; border-radius: 4px; border-left: 3px solid ${phase.hasLosersPath ? '#ff6f00' : '#ccc'}">
+                <div style="font-weight: bold; color: ${phase.hasLosersPath ? '#e65100' : '#999'}">🏆 Losers</div>
+                <div style="color: #666">${phase.hasLosersPath ? 'Sì' : 'No'}</div>
+              </div>
+            ` : '')}
+          </div>
+        </div>
+      `;
+
+      // Inserisci il pannello prima del contenuto attuale
+      const existingPanel = container.querySelector('#phaseParametersPanel');
+      if (existingPanel) {
+        existingPanel.outerHTML = parametersHTML;
+      } else {
+        container.insertAdjacentHTML('afterbegin', parametersHTML);
+      }
+    }
+
+    function openPhaseParametersDialog(phaseNumber) {
+      const phases = config.phases || [];
+      const phase = phases.find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return;
+
+      let formHTML = `
+        <div style="max-height: 60vh; overflow-y: auto">
+          <div class="field">
+            <label>Nome Fase</label>
+            <input type="text" id="editPhaseName" value="${escapeHtml(phase.name)}" maxlength="100" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+          </div>
+
+          <div class="field" style="margin-top: 12px">
+            <label>Tipo Fase</label>
+            <select id="editPhaseType" onchange="updatePhaseTypeFields()" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+              <option value="groups" ${phase.type === 'groups' ? 'selected' : ''}>📊 Gironi</option>
+              <option value="knockout" ${phase.type === 'knockout' ? 'selected' : ''}>🏆 Knockout</option>
+              <option value="subtournament" ${phase.type === 'subtournament' ? 'selected' : ''}>🎪 Sotto-Torneo</option>
+            </select>
+          </div>
+
+          <!-- CAMPI PER GIRONI -->
+          <div id="groupsFields" style="${phase.type === 'groups' ? '' : 'display: none'}; margin-top: 12px">
+            <div style="background: #f0f8ff; padding: 12px; border-radius: 4px; border-left: 4px solid #2196F3">
+              <div class="field">
+                <label>Numero Gironi</label>
+                <input type="number" id="editNumGroups" value="${phase.numGroups || 4}" min="1" max="8" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+
+              <div class="field" style="margin-top: 12px">
+                <label>Squadre che Passano per Girone</label>
+                <input type="number" id="editTeamsAdvance" value="${phase.teamsAdvance || 2}" min="1" max="10" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+
+              <div class="field" style="margin-top: 12px">
+                <label style="display: flex; gap: 8px; align-items: center">
+                  <input type="checkbox" id="editHasRepescage" ${phase.hasRepescage ? 'checked' : ''}>
+                  <span>Ha Girone di Ripescaggio per Eliminate</span>
+                </label>
+              </div>
+
+              <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
+                <strong>Qualificate vanno a:</strong> ${escapeHtml(phase.qualifiedGoTo || 'Non specificato')}
+              </div>
+              ${phase.eliminatedGoTo ? `
+                <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
+                  <strong>Eliminate vanno a:</strong> ${escapeHtml(phase.eliminatedGoTo)}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- CAMPI PER KNOCKOUT -->
+          <div id="knockoutFields" style="${phase.type === 'knockout' ? '' : 'display: none'}; margin-top: 12px">
+            <div style="background: #fff3e0; padding: 12px; border-radius: 4px; border-left: 4px solid #ff9800">
+              <div class="field">
+                <label>Numero Squadre</label>
+                <input type="number" id="editNumTeams" value="${phase.numTeams || 8}" min="2" max="64" step="2" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+
+              <div class="field" style="margin-top: 12px">
+                <label style="display: flex; gap: 8px; align-items: center">
+                  <input type="checkbox" id="editHasLosersPath" ${phase.hasLosersPath ? 'checked' : ''}>
+                  <span>Ha Losers Bracket (perdenti primo turno)</span>
+                </label>
+              </div>
+
+              <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
+                <strong>Qualificate vanno a:</strong> ${escapeHtml(phase.qualifiedGoTo || 'Non specificato')}
+              </div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 16px">
+            <label>Note della Fase</label>
+            <textarea id="editPhaseNotes" maxlength="500" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px; min-height: 60px">${escapeHtml(phase.notes || '')}</textarea>
+          </div>
+        </div>
+      `;
+
+      openModal({
+        title: 'Modifica Parametri Fase ' + phaseNumber,
+        bodyHtml: formHTML,
+        buttons: [
+          { 
+            text: '✅ Salva', 
+            className: 'btn btn-green',
+            onClick: () => savePhaseParameters(phaseNumber),
+            closeOnClick: false
+          },
+          { 
+            text: '✗ Annulla', 
+            className: 'btn btn-secondary',
+            closeOnClick: true
+          }
+        ]
+      });
+    }
+
+    function updatePhaseTypeFields() {
+      const phaseType = document.getElementById('editPhaseType')?.value;
+      const groupsFields = document.getElementById('groupsFields');
+      const knockoutFields = document.getElementById('knockoutFields');
+      
+      if (phaseType === 'groups') {
+        groupsFields.style.display = '';
+        knockoutFields.style.display = 'none';
+      } else if (phaseType === 'knockout') {
+        groupsFields.style.display = 'none';
+        knockoutFields.style.display = '';
+      } else {
+        groupsFields.style.display = 'none';
+        knockoutFields.style.display = 'none';
+      }
+    }
+
+    async function savePhaseParameters(phaseNumber) {
+      const name = document.getElementById('editPhaseName')?.value || '';
+      const type = document.getElementById('editPhaseType')?.value || 'groups';
+      
+      if (!name.trim()) {
+        await showInfoDialog('Errore', 'Inserisci il nome della fase');
+        return;
+      }
+
+      const updates = {
+        name: name,
+        type: type
+      };
+
+      if (type === 'groups') {
+        updates.numGroups = parseInt(document.getElementById('editNumGroups')?.value || 4);
+        updates.teamsAdvance = parseInt(document.getElementById('editTeamsAdvance')?.value || 2);
+        updates.hasRepescage = document.getElementById('editHasRepescage')?.checked || false;
+      } else if (type === 'knockout') {
+        updates.numTeams = parseInt(document.getElementById('editNumTeams')?.value || 8);
+        updates.hasLosersPath = document.getElementById('editHasLosersPath')?.checked || false;
+      }
+
+      updates.notes = document.getElementById('editPhaseNotes')?.value || '';
+
+      try {
+        const r = await callApi('admin_update_phase', 'POST', {
+          phaseNumber: phaseNumber,
+          ...updates
+        }, true);
+
+        config.phases = r.phases || config.phases;
+        
+        // Ricarica la visualizzazione
+        renderPhasesUI();
+        renderPhaseParametersPanel(phaseNumber);
+        
+        closeModal();
+        await showInfoDialog('Successo', 'Parametri fase aggiornati');
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     function renderPhaseContent() {

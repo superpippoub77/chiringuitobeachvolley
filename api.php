@@ -2932,6 +2932,56 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
 }
 
 /**
+ * Aggiorna i parametri di una fase configurata
+ * POST body: { phaseNumber: 1, name: "Fase 1", type: "groups", numGroups: 4, teamsAdvance: 2, hasRepescage: false, notes: "..." }
+ */
+if ($action === 'admin_update_phase' && $method === 'POST') {
+    validSession($token);
+    
+    $phaseNumber = (int)($data['phaseNumber'] ?? 0);
+    if ($phaseNumber <= 0) {
+        jsonResponse(400, ['error' => 'Phase number richiesto']);
+    }
+    
+    $config = readConfig();
+    $phases = $config['phases'] ?? [];
+    
+    // Cerca la fase da aggiornare
+    $phaseIdx = null;
+    foreach ($phases as $idx => $p) {
+        if ($p['phaseNumber'] === $phaseNumber) {
+            $phaseIdx = $idx;
+            break;
+        }
+    }
+    
+    if ($phaseIdx === null) {
+        jsonResponse(404, ['error' => 'Fase non trovata']);
+    }
+    
+    // Aggiorna i parametri
+    $phase = &$phases[$phaseIdx];
+    $phase['name'] = $data['name'] ?? $phase['name'];
+    $phase['type'] = $data['type'] ?? $phase['type'];
+    $phase['notes'] = $data['notes'] ?? '';
+    
+    // Parametri specifici per tipo
+    if ($phase['type'] === 'groups') {
+        $phase['numGroups'] = (int)($data['numGroups'] ?? $phase['numGroups'] ?? 4);
+        $phase['teamsAdvance'] = (int)($data['teamsAdvance'] ?? $phase['teamsAdvance'] ?? 2);
+        $phase['hasRepescage'] = (bool)($data['hasRepescage'] ?? false);
+    } elseif ($phase['type'] === 'knockout') {
+        $phase['numTeams'] = (int)($data['numTeams'] ?? $phase['numTeams'] ?? 8);
+        $phase['hasLosersPath'] = (bool)($data['hasLosersPath'] ?? false);
+    }
+    
+    $config['phases'] = $phases;
+    writeConfig($config);
+    
+    jsonResponse(200, ['ok' => true, 'phases' => $phases]);
+}
+
+/**
  * Genera una fase generica (non solo gironi)
  * POST body: { phaseIdx: 2, type: 'knockout' }
  */

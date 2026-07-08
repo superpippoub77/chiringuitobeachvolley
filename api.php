@@ -921,12 +921,17 @@ function getPhase(array &$state, int $phaseIdx): ?array {
  * Assegna automaticamente date e orari alle partite dai slot disponibili
  */
 function scheduleMatches(array &$state, array $matches): array {
+    error_log('🔧 scheduleMatches(): INIZIO - Matches totali: ' . count($matches));
+    
     $config = readConfig(); // Leggi da config.json
     $schedule = $config['schedule'] ?? [];
     $courts = $schedule['courts'] ?? [];
     
+    error_log('🔧 scheduleMatches(): Courts: ' . count($courts));
+    
     if (empty($courts)) {
         // Nessuna schedulazione disponibile, ritorna le partite senza date/orari
+        error_log('❌ scheduleMatches(): Nessun court configurato, skip scheduling');
         return $matches;
     }
     
@@ -937,18 +942,25 @@ function scheduleMatches(array &$state, array $matches): array {
     $numSets = (int)($config['tournament']['numSets'] ?? 1);
     $matchDuration = ($timePerSet * $numSets) + $setupTime; // Es: 25*1 + 5 = 30 minuti
     
+    error_log('🔧 scheduleMatches(): Match duration = ' . $matchDuration . ' min (setup=' . $setupTime . ', sets=' . $numSets . 'x' . $timePerSet . ')');
+    
     foreach ($courts as $courtIdx => $court) {
         $courtId = $court['courtId'] ?? ('court-' . ($courtIdx + 1));
         $courtName = $court['courtName'] ?? $courtId;
         $availability = $court['availability'] ?? [];
         
-        foreach ($availability as $avail) {
+        error_log('🔧 scheduleMatches(): Court ' . $courtIdx . ' (' . $courtName . ') - dates: ' . count($availability));
+        
+        foreach ($availability as $dateIdx => $avail) {
             $date = $avail['date'] ?? '';
             $timeSlots = $avail['timeSlots'] ?? [];
             
             if (empty($date)) continue;
             
-            foreach ($timeSlots as $slot) {
+            error_log('🔧 scheduleMatches():   Date ' . $dateIdx . ' (' . $date . ') - timeSlots: ' . count($timeSlots));
+            
+            $globalSlotIdx = 0; // 🔧 AGGIUNTO: contatore globale per slot unici
+            foreach ($timeSlots as $slotIdxInDate => $slot) {
                 $startStr = $slot['startTime'] ?? '';
                 $endStr = $slot['endTime'] ?? '';
                 
@@ -957,6 +969,7 @@ function scheduleMatches(array &$state, array $matches): array {
                 // Genera sotto-slot di matchDuration minuti ciascuno
                 $current = strtotime($startStr);
                 $slotEnd = strtotime($endStr);
+                $subSlotCount = 0;
                 
                 while ($current + ($matchDuration * 60) <= $slotEnd) {
                     $availableSlots[] = [
@@ -965,15 +978,25 @@ function scheduleMatches(array &$state, array $matches): array {
                         'endTime' => date('H:i', $current + ($matchDuration * 60)),
                         'courtId' => $courtId,
                         'courtName' => $courtName,
+                        'courtIdx' => $courtIdx,
+                        'dateIdx' => $dateIdx,
+                        'slotIdx' => $globalSlotIdx,  // 🔧 CORRETTO: usa contatore globale
                         'used' => false
                     ];
                     $current += ($matchDuration * 60);
+                    $globalSlotIdx++;  // 🔧 AGGIUNTO: incrementa per ogni sotto-slot
+                    $subSlotCount++;
                 }
+                
+                error_log('🔧 scheduleMatches():     TimeSlot ' . $slotIdxInDate . ' (' . $startStr . '-' . $endStr . ') generated ' . $subSlotCount . ' sub-slots');
             }
         }
     }
     
+    error_log('✅ scheduleMatches(): Total available slots: ' . count($availableSlots));
+    
     if (empty($availableSlots)) {
+        error_log('❌ scheduleMatches(): No available slots, returning matches without schedule');
         return $matches;
     }
     
@@ -987,9 +1010,11 @@ function scheduleMatches(array &$state, array $matches): array {
     });
     
     $slotIdx = 0;
+    $matchCount = 0;
     foreach ($matches as &$match) {
         if ($slotIdx >= count($availableSlots)) {
             // Se finiscono gli slot, ricomincia da capo
+            error_log('🔄 scheduleMatches(): Slot wrap-around at match ' . $matchCount);
             $slotIdx = 0;
         }
         
@@ -999,9 +1024,21 @@ function scheduleMatches(array &$state, array $matches): array {
         $match['endTime'] = $slot['endTime'];
         $match['courtId'] = $slot['courtId'];
         $match['courtName'] = $slot['courtName'];
+        // 🔧 AGGIUNTO: Assegna anche gli indici per il frontend
+        $match['courtIdx'] = $slot['courtIdx'];
+        $match['dateIdx'] = $slot['dateIdx'];
+        $match['slotIdx'] = $slot['slotIdx'];
+        
+        if ($matchCount < 5) {
+            error_log('🔧 scheduleMatches(): Match ' . $matchCount . ' assigned to courtIdx=' . $match['courtIdx'] . ', dateIdx=' . $match['dateIdx'] . ', slotIdx=' . $match['slotIdx'] . ' (date=' . $match['date'] . ', time=' . $match['startTime'] . ')');
+        }
         
         $slotIdx++;
+        $matchCount++;
     }
+    
+    error_log('✅ scheduleMatches(): COMPLETE - ' . $matchCount . ' matches scheduled');
+    
     
     return $matches;
 }
@@ -1596,11 +1633,11 @@ function publicState(array $state): array {
             return [
                 'matchId' => $m['id'],
                 'id' => $m['id'],
-                'group' => $m['group'],
-                'team1Id' => $m['team1Id'],
-                'team2Id' => $m['team2Id'],
-                'team1Name' => $teamMap[$m['team1Id']]['name'] ?? 'N/D',
-                'team2Name' => $teamMap[$m['team2Id']]['name'] ?? 'N/D',
+                'group' => $m['groupName'] ?? $m['group'] ?? '',
+                'team1Id' => $m['team1'] ?? $m['team1Id'] ?? null,
+                'team2Id' => $m['team2'] ?? $m['team2Id'] ?? null,
+                'team1Name' => ($teamMap[$m['team1'] ?? $m['team1Id'] ?? null]['name'] ?? null) ?? $m['team1Name'] ?? 'N/D',
+                'team2Name' => ($teamMap[$m['team2'] ?? $m['team2Id'] ?? null]['name'] ?? null) ?? $m['team2Name'] ?? 'N/D',
                 'score1' => $m['score1'],
                 'score2' => $m['score2'],
                 'date' => $m['date'] ?? null,
@@ -2719,6 +2756,63 @@ if ($action === 'admin_state' && $method === 'GET') {
         }
     }
     
+    // 🔧 SINCRONIZZAZIONE: Se groupMatches non ha courtIdx/dateIdx/slotIdx, copiali da phases[0].matches
+    if (!empty($state['groupMatches']) && !empty($state['phases'])) {
+        $firstPhase = $state['phases'][0] ?? null;
+        if ($firstPhase && isset($firstPhase['matches']) && is_array($firstPhase['matches'])) {
+            // Costruisci una mappa match ID → match
+            $matchMapById = [];
+            foreach ($firstPhase['matches'] as $idx => $match) {
+                $matchMapById[$match['id']] = $match;
+            }
+            
+            // Aggiorna groupMatches per ogni match
+            $syncCount = 0;
+            foreach ($state['groupMatches'] as $idx => &$gm) {
+                $sourceMatch = null;
+                $matchMethod = 'none';
+                
+                // Prova a trovare il match per ID
+                if (isset($matchMapById[$gm['id']])) {
+                    $sourceMatch = $matchMapById[$gm['id']];
+                    $matchMethod = 'by_id';
+                } 
+                // Se non trovato per ID, prova per POSIZIONE (fallback)
+                elseif (isset($firstPhase['matches'][$idx])) {
+                    $sourceMatch = $firstPhase['matches'][$idx];
+                    $matchMethod = 'by_position';
+                }
+                
+                // Copia i campi dal sourceMatch SEMPRE (non controllare se il campo esiste già)
+                if ($sourceMatch) {
+                    $old = ['courtIdx' => $gm['courtIdx'] ?? null, 'dateIdx' => $gm['dateIdx'] ?? null, 'slotIdx' => $gm['slotIdx'] ?? null];
+                    
+                    $gm['courtIdx'] = $sourceMatch['courtIdx'] ?? 0;
+                    $gm['dateIdx'] = $sourceMatch['dateIdx'] ?? 0;
+                    $gm['slotIdx'] = $sourceMatch['slotIdx'] ?? 0;
+                    
+                    $new = ['courtIdx' => $gm['courtIdx'], 'dateIdx' => $gm['dateIdx'], 'slotIdx' => $gm['slotIdx']];
+                    
+                    // Log se cambiano
+                    if ($old !== $new) {
+                        error_log('✅ Sincronizzato match[' . $idx . '] (' . $matchMethod . '): courtIdx=' . $new['courtIdx'] . ', dateIdx=' . $new['dateIdx'] . ', slotIdx=' . $new['slotIdx']);
+                        $syncCount++;
+                    }
+                }
+            }
+            unset($gm);
+            
+            error_log('🔄 admin_state: Sincronizzazione completata - ' . $syncCount . ' match aggiornati su ' . count($state['groupMatches']) . ' totali');
+        }
+    }
+    
+    // DEBUG: Verifica che state['groupMatches'] abbia i campi corretti
+    if (!empty($state['groupMatches'])) {
+        $firstMatch = $state['groupMatches'][0];
+        error_log('🔍 admin_state: First groupMatch has keys: ' . implode(', ', array_keys($firstMatch)));
+        error_log('🔍 admin_state: courtIdx=' . ($firstMatch['courtIdx'] ?? 'MISSING') . ', dateIdx=' . ($firstMatch['dateIdx'] ?? 'MISSING') . ', slotIdx=' . ($firstMatch['slotIdx'] ?? 'MISSING'));
+    }
+    
     // Per admin: ritorna LO STATO COMPLETO, non filtrato
     jsonResponse(200, ['ok' => true, 'data' => $state]);
 }
@@ -2842,20 +2936,32 @@ if ($action === 'admin_add_test_teams' && $method === 'POST') {
         $existingDummyCount = count(array_filter($state['teams'], fn($t) => ($t['dummy'] ?? false) === true));
         
         for ($i = 0; $i < $count; $i++) {
+            // Assegna livelli diversi per creare squadre di forza variabile
+            // Distribuisci livelli: 1-2 (deboli), 3-4 (medi), 5 (forti)
+            $playerLevels = [
+                rand(1, 2),  // Giocatore 1: 1-2 (debole)
+                rand(3, 4),  // Giocatore 2: 3-4 (medio)
+                rand(2, 5)   // Giocatore 3: 2-5 (vario)
+            ];
+            
+            // Determina il livello della squadra basato sulla media
+            $squadsLevel = (int)ceil(array_sum($playerLevels) / count($playerLevels));
+            
             $dummyTeam = [
                 'id' => uid(),
                 'name' => 'Test Team ' . ($existingDummyCount + $i + 1),
                 'category' => 'Misto',
                 'players' => [
-                    ['name' => 'Bot 1', 'isCaptain' => false],
-                    ['name' => 'Bot 2', 'isCaptain' => false],
-                    ['name' => 'Bot 3', 'isCaptain' => false]
+                    ['name' => 'Bot 1', 'isCaptain' => false, 'level' => $playerLevels[0]],
+                    ['name' => 'Bot 2', 'isCaptain' => false, 'level' => $playerLevels[1]],
+                    ['name' => 'Bot 3', 'isCaptain' => false, 'level' => $playerLevels[2]]
                 ],
                 'phone' => '',
                 'paid' => true,
                 'approved' => true,
                 'kitDelivered' => false,
                 'dummy' => true,
+                'skillLevel' => $squadsLevel,  // Livello squadra (1-5)
                 'createdAt' => gmdate('c')
             ];
             $state['teams'][] = $dummyTeam;
@@ -2971,25 +3077,36 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         
         // Aggiungi squadre fittive SE NON RAGGIUNGE IL MINIMO DI 4
         $minTeams = 4;
+        $dummyCounter = 0;
         while (count($approved) < $minTeams && count($approved) < $maxTeams) {
+            // Assegna livelli diversi per creare squadre di forza variabile
+            $playerLevels = [
+                rand(1, 2),  // Giocatore 1: 1-2 (debole)
+                rand(3, 4),  // Giocatore 2: 3-4 (medio)
+                rand(2, 5)   // Giocatore 3: 2-5 (vario)
+            ];
+            $squadsLevel = (int)ceil(array_sum($playerLevels) / count($playerLevels));
+            
             $dummyTeam = [
                 'id' => uid(),
                 'name' => generateDummyTeamName(count($approved)),
                 'category' => 'Misto',
                 'players' => [
-                    ['name' => 'Bot 1', 'isCaptain' => false],
-                    ['name' => 'Bot 2', 'isCaptain' => false],
-                    ['name' => 'Bot 3', 'isCaptain' => false]
+                    ['name' => 'Bot 1', 'isCaptain' => false, 'level' => $playerLevels[0]],
+                    ['name' => 'Bot 2', 'isCaptain' => false, 'level' => $playerLevels[1]],
+                    ['name' => 'Bot 3', 'isCaptain' => false, 'level' => $playerLevels[2]]
                 ],
                 'phone' => '',
                 'paid' => true,
                 'approved' => true,
                 'dummy' => true,
+                'skillLevel' => $squadsLevel,
                 'createdAt' => gmdate('c')
             ];
             $state['teams'][] = $dummyTeam;
             $approved[] = $dummyTeam;
-            error_log('DEBUG: Aggiunta squadra fittizia ' . $dummyTeam['name'] . ', ora approved=' . count($approved));
+            $dummyCounter++;
+            error_log('DEBUG: Aggiunta squadra fittizia ' . $dummyTeam['name'] . ' (level=' . $squadsLevel . '), ora approved=' . count($approved));
         }
         
         // ORA fai il check (dopo aver aggiunto le dummy)
@@ -3066,6 +3183,74 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true]);
+}
+
+/**
+ * Sincronizza i campi slotIdx, dateIdx, courtIdx da phases[0].matches a groupMatches
+ * POST endpoint (no params needed)
+ */
+if ($action === 'admin_sync_group_matches_slots' && $method === 'POST') {
+    validSession($token);
+    
+    $result = withStateTransaction(function (&$state) {
+        $phaseMatches = $state['phases'][0]['matches'] ?? [];
+        $groupMatches = &$state['groupMatches'];
+        
+        $syncedCount = 0;
+        
+        // Per ogni match in groupMatches, trova il corrispondente in phases[0].matches
+        foreach ($groupMatches as &$gm) {
+            // Cerca per ID prima
+            $phaseMatch = null;
+            foreach ($phaseMatches as $pm) {
+                if ($pm['id'] === $gm['id']) {
+                    $phaseMatch = $pm;
+                    break;
+                }
+            }
+            
+            // Se non trovato per ID, cerca per (date, startTime, courtId, team1, team2)
+            if (!$phaseMatch) {
+                foreach ($phaseMatches as $pm) {
+                    if (
+                        ($pm['date'] ?? '') === ($gm['date'] ?? '') &&
+                        ($pm['startTime'] ?? '') === ($gm['startTime'] ?? '') &&
+                        ($pm['courtId'] ?? '') === ($gm['courtId'] ?? '') &&
+                        ($pm['team1'] ?? '') === ($gm['team1'] ?? '') &&
+                        ($pm['team2'] ?? '') === ($gm['team2'] ?? '')
+                    ) {
+                        $phaseMatch = $pm;
+                        break;
+                    }
+                }
+            }
+            
+            // Copia i campi slot se trovato
+            if ($phaseMatch) {
+                $gm['courtIdx'] = $phaseMatch['courtIdx'] ?? 0;
+                $gm['dateIdx'] = $phaseMatch['dateIdx'] ?? 0;
+                $gm['slotIdx'] = $phaseMatch['slotIdx'] ?? 0;
+                $syncedCount++;
+                error_log("✅ Sincronizzato match {$gm['id']}: courtIdx={$gm['courtIdx']}, dateIdx={$gm['dateIdx']}, slotIdx={$gm['slotIdx']}");
+            } else {
+                error_log("⚠️  Match {$gm['id']} non trovato in phases[0].matches");
+            }
+        }
+        
+        error_log("🔄 admin_sync_group_matches_slots: Sincronizzati $syncedCount match su " . count($groupMatches) . " totali");
+        
+        return [
+            'ok' => true,
+            'syncedCount' => $syncedCount,
+            'totalMatches' => count($groupMatches)
+        ];
+    });
+    
+    if (!($result['ok'] ?? false)) {
+        jsonResponse(422, $result);
+    }
+    
+    jsonResponse(200, $result);
 }
 
 /**

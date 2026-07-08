@@ -9,7 +9,7 @@
         "numSets": 1,
         "winScore": 21,
         "maxScore": 25,
-        "timePerSetMinutes": 35,
+        "timePerSetMinutes": 25,
         "setupTimeMinutes": 5,
         "maxTimeoutsPerSet": 2,
         "registrationsClosed": false,
@@ -25,7 +25,7 @@
                         "date": "2026-07-13",
                         "timeSlots": [
                             {
-                                "startTime": "19:30",
+                                "startTime": "22:30",
                                 "endTime": "23:30"
                             }
                         ]

@@ -629,7 +629,6 @@
         <button class="tab active" data-page="settings" onclick="showPage('settings', this)">Impostazioni</button>
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
-        <button class="tab" data-page="fasi-torneo" onclick="showPage('fasi-torneo', this)">📋 Fasi Torneo</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">📊 Gironi e Fasi</button>
         <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
@@ -706,40 +705,7 @@
         </div>
       </div>
 
-      <div id="page-fasi-torneo" class="card page hidden">
-        <h3>📋 Fasi Torneo</h3>
-        <p class="muted">Configura le fasi del torneo prima di generarle. Ogni fase può essere di tipo gironi, knockout o sottotorneo.</p>
-        
-        <div style="background: #e8f5e9; border-left: 4px solid #2f6a23; border-radius: 4px; padding: 12px; margin-bottom: 16px">
-          <h4 style="margin-top: 0; color: #1b5e20; display: flex; align-items: center; gap: 8px">
-            <span>ℹ️ Come Iniziare</span>
-          </h4>
-          <ol style="margin: 8px 0; padding-left: 20px; font-size: 14px; color: #1b5e20">
-            <li>Clicca <strong>"➕ Nuova Fase"</strong> nel tab <strong>"Gironi e Fasi"</strong></li>
-            <li>Usa la <strong>procedura guidata (Wizard)</strong> per configurare la fase passo-passo</li>
-            <li>Scegli il tipo (Gironi, Knockout, Sottotorneo)</li>
-            <li>Imposta i parametri (numero gironi, squadre che passano, ecc)</li>
-            <li>Clicca <strong>"Genera"</strong> per creare la fase</li>
-            <li>Il workflow tree si aggiornerà automaticamente</li>
-          </ol>
-        </div>
 
-        <!-- Preview delle fasi configurate -->
-        <div id="phasesConfigurationContainer" style="margin-top: 20px">
-          <h4>Fasi Configurate</h4>
-          <p style="color: #999; font-size: 13px">Le fasi appariranno qui man mano che le crei.</p>
-        </div>
-
-        <!-- Pulsante di navigazione -->
-        <div class="row" style="margin-top: 20px; gap: 8px">
-          <button class="btn btn-green" onclick="navigateToPhases()">
-            ➕ Vai a "Gironi e Fasi" per Creare Nuova Fase
-          </button>
-          <button class="btn btn-info" onclick="loadPhasesConfigurationUI()">
-            🔄 Ricarica Configurazione Fasi
-          </button>
-        </div>
-      </div>
 
       <div id="page-floweditor" class="card page hidden">
         <h3>🎨 Editor Visuale del Flusso Torneo</h3>
@@ -3431,7 +3397,8 @@
         
         balanceStatusHtml = `<div style="background: ${imbalance === 1 ? '#e3f2fd' : '#fff3cd'}; border-left: 4px solid ${imbalance === 1 ? '#2196f3' : '#ffc107'}; padding: 8px; margin-bottom: 12px; border-radius: 2px; font-size: 13px">
           ${statusMsg}
-          ${imbalance > 1 ? `<br><button class="btn btn-warning" onclick="rebalanceGroups()" style="margin-top: 8px; font-size: 12px">🔄 Riequilibra Gironi</button>` : ''}
+          ${imbalance > 1 ? `<br><button class="btn btn-warning" onclick="rebalanceGroups()" style="margin-top: 8px; margin-right: 8px; font-size: 12px">🔄 Riequilibra Gironi</button>` : ''}
+          <button class="btn btn-info" onclick="syncGroupMatchesSlots()" style="margin-top: 8px; font-size: 12px">🔗 Sincronizza Slot</button>
         </div>`;
       }
 
@@ -3662,6 +3629,27 @@
         await showInfoDialog('✅ Gironi Riequilibrati', `${movementCount} squadre spostate.\n\nNuova distribuzione: ${distribution} squadre per girone\n\nLe partite sono state rigenerate automaticamente.`);
       } catch (e) {
         await showInfoDialog('❌ Errore', 'Non è stato possibile riequilibrare i gironi: ' + e.message);
+      }
+    }
+
+    async function syncGroupMatchesSlots() {
+      try {
+        const result = await callApi('admin_sync_group_matches_slots', 'POST', {}, true);
+        
+        if (!result.ok) {
+          await showInfoDialog('❌ Errore Sincronizzazione', result.error || 'Errore durante la sincronizzazione');
+          return;
+        }
+        
+        // Ricarica lo stato dal backend per ottenere i dati aggiornati
+        await refresh();
+        
+        await showInfoDialog(
+          '✅ Sincronizzazione Completata',
+          `Sincronizzati ${result.syncedCount} match su ${result.totalMatches} totali.\n\nGli indici degli slot sono stati copiati dalle fasi ai match dei gironi.`
+        );
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Non è stato possibile sincronizzare i match: ' + e.message);
       }
     }
 
@@ -7503,6 +7491,18 @@
               <button class="btn btn-danger" style="align-self: flex-end" onclick="removeCourtDate(${courtIdx}, ${dateIdx})">Rimuovi</button>
             </div>
             
+            <div style="background: white; padding: 8px; border-radius: 3px; margin-bottom: 8px; font-size: 12px; border: 1px solid #ddd">
+              <div style="font-weight: bold; color: #333; margin-bottom: 4px">📊 Riepilogo Giornata:</div>
+              <div style="display: flex; justify-content: space-between; align-items: center">
+                <div>
+                  <span style="color: #666">Slot Occupati:</span>
+                  <span style="font-weight: bold; color: #dc3545; font-size: 14px; margin-left: 4px">${getTotalMatchesForDate(courtIdx, dateIdx)}</span>
+                  <span style="color: #666">su</span>
+                  <span style="font-weight: bold; color: #28a745; font-size: 14px; margin-left: 4px">${getTotalAvailableSlotsForDate(courtIdx, dateIdx)}</span>
+                </div>
+              </div>
+            </div>
+            
             <div id="slots-${courtIdx}-${dateIdx}"></div>
             <button class="btn btn-primary" style="width: 100%; margin-top: 6px; font-size: 12px" onclick="addCourtTimeSlot(${courtIdx}, ${dateIdx})">+ Fascia oraria</button>
           </div>`;
@@ -7524,9 +7524,10 @@
             
             // Calcola lo stato dello slot
             const matchesInSlot = getMatchesInSlot(courtIdx, dateIdx, slotIdx);
+            const totalOccupiedSlotsOnDate = getTotalMatchesForDate(courtIdx, dateIdx);
             const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot);
             const indicatorHtml = slotStatus.indicator ? `<span style="color: ${slotStatus.indicatorColor}; font-size: 16px; margin-left: 4px">${slotStatus.indicator}</span>` : '';
-            const slotBoxes = renderSlotBoxes(effectiveSlots, matchesInSlot, slotStatus.isPast);
+            const slotBoxes = renderSlotBoxes(effectiveSlots, totalOccupiedSlotsOnDate, slotStatus.isPast, courtIdx, dateIdx, slotIdx);
             
             slotsHtml += `<div class="row" style="margin-bottom: 6px; background: ${slotStatus.color}; padding: 8px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap; border-left: 3px solid ${slotStatus.indicatorColor || '#ddd'}">
               <div style="flex: 1; min-width: 100px">
@@ -7558,16 +7559,34 @@
     // Conta il numero di partite assegnate a uno slot specifico
     function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
       if (!state || !state.groupMatches || !Array.isArray(state.groupMatches)) {
+        console.warn('🔴 getMatchesInSlot: state.groupMatches non trovato o non è array');
         return 0;
       }
       
       // Conta le partite che corrispondono a court, date, e slot
       let count = 0;
-      state.groupMatches.forEach(match => {
+      state.groupMatches.forEach((match, idx) => {
+        // Log solo per i primi 3 match per debug
+        if (idx < 3 && courtIdx === 0 && dateIdx === 0) {
+          console.log('🔍 Match ' + idx + ':', {
+            id: match.id,
+            courtIdx: match.courtIdx,
+            dateIdx: match.dateIdx,
+            slotIdx: match.slotIdx,
+            searching: 'courtIdx=' + courtIdx + ', dateIdx=' + dateIdx + ', slotIdx=' + slotIdx,
+            match: match
+          });
+        }
+        
         if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === slotIdx) {
           count++;
         }
       });
+      
+      if (courtIdx === 0 && dateIdx === 0 && slotIdx < 3) {
+        console.log('📊 getMatchesInSlot(court=' + courtIdx + ', date=' + dateIdx + ', slot=' + slotIdx + ') = ' + count);
+      }
+      
       return count;
     }
 
@@ -7613,6 +7632,51 @@
       
       // Slot parzialmente occupati
       return { color: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745' };
+    }
+
+    // Conta slot totali occupati per una data specifica
+    function getTotalMatchesForDate(courtIdx, dateIdx) {
+      if (!state || !state.groupMatches || !Array.isArray(state.groupMatches)) {
+        return 0;
+      }
+      
+      // Conta gli SLOT UNICI occupati, non i match totali
+      // (perché attualmente slotIdx può essere duplicato tra gironi diversi)
+      const uniqueSlots = new Set();
+      state.groupMatches.forEach((match) => {
+        if (match.courtIdx === courtIdx && match.dateIdx === dateIdx) {
+          uniqueSlots.add(match.slotIdx);
+        }
+      });
+      
+      return uniqueSlots.size;
+    }
+    
+    // Conta slot totali disponibili per una data specifica
+    function getTotalAvailableSlotsForDate(courtIdx, dateIdx) {
+      const court = config.schedule?.courts?.[courtIdx];
+      const dateAvail = court?.availability?.[dateIdx];
+      
+      if (!dateAvail || !dateAvail.timeSlots) {
+        return 0;
+      }
+      
+      let totalSlots = 0;
+      const tournament = config.tournament || {};
+      const setupTime = (tournament.setupTimeMinutes || 5);
+      const timePerSet = (tournament.timePerSetMinutes || 25);
+      const numSets = (tournament.numSets || 1);
+      const matchDuration = setupTime + (timePerSet * numSets);
+      
+      dateAvail.timeSlots.forEach((slot) => {
+        const startMinutes = timeStringToMinutes(slot.startTime || '19:30');
+        const endMinutes = timeStringToMinutes(slot.endTime || '20:30');
+        const slotDuration = endMinutes - startMinutes;
+        const effectiveSlots = slotDuration > 0 ? Math.floor(slotDuration / matchDuration) : 0;
+        totalSlots += effectiveSlots;
+      });
+      
+      return totalSlots;
     }
 
     // Determina lo stato complessivo di una data (versione semplificata)
@@ -7665,25 +7729,39 @@
       return { bgColor: '#fff3cd', textColor: '#856404', indicator: '●', indicatorColor: '#28a745' };
     }
 
-    // Genera HTML con i quadratini degli slot
-    function renderSlotBoxes(effectiveSlots, matchesInSlot, isPast) {
+    // Genera HTML con i quadratini degli slot - Mostra orari nei tooltip
+    function renderSlotBoxes(effectiveSlots, totalOccupiedSlots, isPast, courtIdx, dateIdx, slotIdx) {
       if (effectiveSlots === 0) return '';
-      
+
       let boxesHtml = '<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px">';
       
       for (let i = 0; i < effectiveSlots; i++) {
+        // Recupera l'orario per QUESTO box (che corrisponde a slotIdx = i)
+        let boxTimeStr = 'N/A';
+        if (state && state.groupMatches && Array.isArray(state.groupMatches)) {
+          for (let match of state.groupMatches) {
+            if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === i) {
+              boxTimeStr = match.startTime;
+              break;
+            }
+          }
+        }
+        
         let boxColor = '#28a745'; // Verde - libero
-        let boxTitle = `Slot ${i + 1} - Disponibile`;
+        let boxTitle = `Slot ${i} - Disponibile`;
+        let textColor = '#fff';
+        let fontWeight = 'normal';
         
         if (isPast) {
           boxColor = '#999999'; // Grigio - passato
-          boxTitle = `Slot ${i + 1} - Giorno passato`;
-        } else if (i < matchesInSlot) {
+          boxTitle = `Slot ${i} - Giorno passato`;
+        } else if (i < totalOccupiedSlots) {
           boxColor = '#dc3545'; // Rosso - occupato
-          boxTitle = `Slot ${i + 1} - Occupato`;
+          boxTitle = `Slot ${i} - Ore ${boxTimeStr}`;
+          fontWeight = 'bold';
         }
         
-        boxesHtml += `<div style="width: 20px; height: 20px; background: ${boxColor}; border: 1px solid ${boxColor === '#999999' ? '#666' : 'rgba(0,0,0,0.2)'}; border-radius: 2px; cursor: help; transition: all 0.2s ease" title="${boxTitle}" onmouseover="this.style.transform='scale(1.15)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'"></div>`;
+        boxesHtml += `<div style="width: 24px; height: 24px; background: ${boxColor}; border: 1px solid ${boxColor === '#999999' ? '#666' : 'rgba(0,0,0,0.2)'}; border-radius: 2px; cursor: help; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: ${fontWeight}; color: ${textColor}" title="${boxTitle}" onmouseover="this.style.transform='scale(1.15)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">${i}</div>`;
       }
       
       boxesHtml += '</div>';

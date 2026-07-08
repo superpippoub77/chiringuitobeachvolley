@@ -3885,17 +3885,62 @@
         html += renderGroupsHTML();
         html += '<div style="margin-top: 16px" id="groupsContainer"></div>'; // Legacy support
       } else if (phase.phaseNumber === 1) {
-        html += '<div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-top: 12px">';
-        html += '<strong>⚠️ Prerequisiti non soddisfatti:</strong>';
-        html += '<ul style="margin: 8px 0; font-size: 13px">';
-        html += '<li id="missingTeams">✗ Registra almeno una squadra nella sezione Squadre</li>';
-        html += '<li id="missingSchedule">✗ Configura campi e disponibilità nella sezione Giorni e Fasce</li>';
-        html += '</ul>';
+        // ZONE AZIONI PRINCIPALE
+        html += '<div style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 2px solid #673ab7; border-radius: 8px; padding: 16px; margin-bottom: 16px">';
+        html += '<h4 style="margin: 0 0 12px 0; color: #673ab7">🎯 Genera Gironi</h4>';
+        
+        // Check prerequisiti
+        const hasTeams = (state?.teams || []).filter(t => t.approved).length >= 1;
+        const schedule = config.schedule || {};
+        const hasSchedule = (schedule.courts || []).length > 0;
+        
+        html += '<div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px">';
+        html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">';
+        
+        // Prerequisito 1: Squadre
+        html += `<div style="border-left: 4px solid ${hasTeams ? '#2ecc71' : '#ff9800'}; padding-left: 10px">
+          <div style="font-weight: bold; color: ${hasTeams ? '#2ecc71' : '#ff6f00'}">
+            ${hasTeams ? '✓' : '✗'} Squadre
+          </div>
+          <div style="font-size: 12px; color: #666">
+            ${hasTeams ? 'Squadre iscritte: OK' : 'Registra almeno 1 squadra'}
+          </div>
+        </div>`;
+        
+        // Prerequisito 2: Schedule
+        html += `<div style="border-left: 4px solid ${hasSchedule ? '#2ecc71' : '#ff9800'}; padding-left: 10px">
+          <div style="font-weight: bold; color: ${hasSchedule ? '#2ecc71' : '#ff6f00'}">
+            ${hasSchedule ? '✓' : '✗'} Calendario
+          </div>
+          <div style="font-size: 12px; color: #666">
+            ${hasSchedule ? 'Campi configurati: OK' : 'Vai a Calendario e aggiungi campi/orari'}
+          </div>
+        </div>`;
+        
         html += '</div>';
-        html += '<div class="row" style="margin-top: 12px">';
-        html += `<button class="btn btn-primary" onclick="generateGroups()" id="generateGroupsBtn">Genera gironi (solo approvate)</button>`;
         html += '</div>';
-        html += `<p class="muted" style="margin-top:10px">Squadre approvate: <strong id="approvedCountDisplay">0</strong>/4 minime richieste.</p>`;
+        
+        // Pulsante azione
+        const canGenerate = hasTeams && hasSchedule;
+        const btnStyle = canGenerate 
+          ? 'background: #2196F3; color: white; cursor: pointer; border: none'
+          : 'background: #ccc; color: #666; cursor: not-allowed; border: none; opacity: 0.6';
+        
+        html += `<div class="row">
+          <button class="btn" style="${btnStyle}; flex: 1; padding: 14px; font-size: 14px; font-weight: bold; border-radius: 4px" 
+            onclick="generateGroups()" 
+            ${canGenerate ? '' : 'disabled'} 
+            id="generateGroupsBtn">
+            🎯 Genera Gironi (solo approvate)
+          </button>
+        </div>`;
+        
+        html += `<p class="muted" style="margin-top: 12px; font-size: 12px">
+          📊 Squadre approvate: <strong id="approvedCountDisplay">0</strong> | 
+          ⚙️ Campi: <strong>${(schedule.courts || []).length}</strong>
+        </p>`;
+        
+        html += '</div>';
       } else {
         html += '<p style="color: #999; font-size: 13px">Gironi per fasi successive non ancora implementati. Sarà supportato presto.</p>';
       }

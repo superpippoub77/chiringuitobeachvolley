@@ -1259,11 +1259,16 @@
           phaseType: badge.dataset.phaseType
         });
       }
-      if (badge && badge.dataset.phaseStatus === 'pending') {
+      // Usa fallback 'pending' se status è undefined
+      const badgeStatus = badge?.dataset.phaseStatus || 'pending';
+      console.log('✅ badgeStatus finale:', badgeStatus);
+      if (badge && badgeStatus === 'pending') {
         const phaseNumber = parseInt(badge.dataset.phaseNumber, 10);
         const phaseType = badge.dataset.phaseType;
         console.log('✅ Chiamando showPhaseRequirements con:', phaseNumber, phaseType);
         showPhaseRequirements(phaseNumber, phaseType);
+      } else if (badge) {
+        console.log('⚠️ Badge status non è pending:', badgeStatus);
       }
     });
 
@@ -1299,6 +1304,14 @@
       try {
         const r = await callApi('admin_get_config', 'GET', null, true);
         config = r.config;
+        
+        // Normalizza le fasi per assicurare che abbiano sempre uno status
+        if (config.phases && Array.isArray(config.phases)) {
+          config.phases = config.phases.map(phase => ({
+            ...phase,
+            status: phase.status || 'pending'
+          }));
+        }
         
         // Apply the saved theme immediately
         const currentTheme = config.display?.theme || 'beachmaster';
@@ -7494,12 +7507,12 @@
                   font-size: 10px;
                   font-weight: bold;
                   ${phase.status === 'completed' ? 'background: #2ecc71; color: white' : phase.status === 'active' ? 'background: #ffc107; color: #333' : 'background: #ddd; color: #666; cursor: pointer'};
-                  ${phase.status === 'pending' ? 'border: 1px solid #999; transition: all 0.2s' : ''}
+                  ${(phase.status || 'pending') === 'pending' ? 'border: 1px solid #999; transition: all 0.2s' : ''}
                 "
                 data-phase-number="${phase.phaseNumber}"
                 data-phase-type="${phase.type}"
-                data-phase-status="${phase.status}"
-                title="${phase.status === 'pending' ? 'Clicca per vedere cosa manca' : ''}">
+                data-phase-status="${phase.status || 'pending'}"
+                title="${(phase.status || 'pending') === 'pending' ? 'Clicca per vedere cosa manca' : ''}">
                   ${phase.status === 'completed' ? '✅ Completata' : phase.status === 'active' ? '⏱️ Attiva' : '⏳ In sospeso'}
                 </div>
                 
@@ -7983,6 +7996,7 @@
           branch: branch,
           name: phaseName,
           type: 'knockout',
+          status: 'pending',
           numTeams: currentTeams,
           hasLosersPath: (currentTeams === numTeams) ? hasLosersPath : false, // Solo il primo round ha losers
           wildcardTeams: 0, // Sarà calcolato dal backend
@@ -8001,6 +8015,7 @@
         branch: branch,
         name: `${baseName} - Fine`,
         type: 'finale',
+        status: 'pending',
         qualifiedGoTo: 'Torneo Concluso',
         eliminatedGoTo: null
       };
@@ -8570,6 +8585,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                     branch: wizardState.phaseData.branch,
                     name: wizardState.phaseData.name,
                     type: wizardState.phaseData.type,
+                    status: 'pending',
                     numGroups: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.numGroups : undefined,
                     teamsAdvance: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.teamsAdvance : undefined,
                     hasRepescage: wizardState.phaseData.type === 'groups' ? wizardState.phaseData.hasRepescage : false,
@@ -8672,6 +8688,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                   branch: wizardState.phaseData.branch,
                   name: wizardState.phaseData.name,
                   type: 'subtournament',
+                  status: 'pending',
                   subtournamentName: wizardState.phaseData.subtournamentName,
                   subtournamentTeamCount: wizardState.phaseData.subtournamentTeamCount,
                   selectedTeams: wizardState.phaseData.selectedTeams,

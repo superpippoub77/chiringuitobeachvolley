@@ -744,12 +744,56 @@ function randomInt(int $min, int $max): int {
  */
 function ensurePhases(array &$state): void {
     if (!isset($state['phases']) || !is_array($state['phases'])) {
-        // Migra da vecchia struttura se necessario
+        $state['phases'] = [];
+    }
+    
+    // Sincronizza le fasi da config.json
+    $config = readConfig();
+    $configPhases = $config['phases'] ?? [];
+    
+    if (!empty($configPhases)) {
+        // Converti le fasi da config (basate su phaseNumber) a state (basate su phaseIdx)
+        foreach ($configPhases as $configPhase) {
+            $phaseNumber = $configPhase['phaseNumber'] ?? 0;
+            if ($phaseNumber <= 0) continue;
+            
+            // Verifica se esiste già nello state
+            $existsInState = false;
+            foreach ($state['phases'] as &$statePhase) {
+                if (($statePhase['phaseNumber'] ?? $statePhase['phaseIdx'] ?? 0) === $phaseNumber) {
+                    $existsInState = true;
+                    break;
+                }
+            }
+            unset($statePhase);
+            
+            if (!$existsInState) {
+                // Aggiungi la fase da config allo state
+                $state['phases'][] = [
+                    'id' => 'phase-' . $phaseNumber . '-' . ($configPhase['type'] ?? 'groups'),
+                    'phaseIdx' => $phaseNumber,
+                    'phaseNumber' => $phaseNumber,
+                    'name' => $configPhase['name'] ?? 'Fase ' . $phaseNumber,
+                    'type' => $configPhase['type'] ?? 'groups',
+                    'status' => $configPhase['status'] ?? 'pending',
+                    'groups' => $configPhase['groups'] ?? [],
+                    'matches' => $configPhase['matches'] ?? [],
+                    'standings' => $configPhase['standings'] ?? [],
+                    'createdAt' => $configPhase['createdAt'] ?? gmdate('c'),
+                    'metadata' => $configPhase['metadata'] ?? []
+                ];
+            }
+        }
+    }
+    
+    // Se ancora non ci sono fasi, prova a migrare da vecchia struttura
+    if (empty($state['phases'])) {
         if (!empty($state['groups']) || !empty($state['groupMatches'])) {
             $state['phases'] = [
                 [
                     'id' => 'phase-1-groups',
                     'phaseIdx' => 1,
+                    'phaseNumber' => 1,
                     'name' => 'Fase 1 - Gironi',
                     'type' => 'groups',
                     'status' => !empty($state['groups']) ? 'active' : 'pending',
@@ -761,6 +805,7 @@ function ensurePhases(array &$state): void {
                 [
                     'id' => 'phase-2-knockout',
                     'phaseIdx' => 2,
+                    'phaseNumber' => 2,
                     'name' => 'Fase 2 - Playoff',
                     'type' => 'knockout',
                     'status' => 'pending',
@@ -769,15 +814,11 @@ function ensurePhases(array &$state): void {
                     'createdAt' => null
                 ]
             ];
-            $state['currentPhaseIdx'] = 1;
-        } else {
-            $state['phases'] = [];
-            $state['currentPhaseIdx'] = 0;
         }
     }
     
     if (!isset($state['currentPhaseIdx'])) {
-        $state['currentPhaseIdx'] = 1;
+        $state['currentPhaseIdx'] = !empty($state['phases']) ? 1 : 0;
     }
 }
 
@@ -2584,6 +2625,8 @@ if (str_starts_with($action, 'admin_')) {
 
 if ($action === 'admin_state' && $method === 'GET') {
     $state = readJsonFile(DATA_FILE, initialState());
+    // Sincronizza le fasi da config.json se non esistono
+    ensurePhases($state);
     // Per admin: ritorna LO STATO COMPLETO, non filtrato
     jsonResponse(200, ['ok' => true, 'data' => $state]);
 }

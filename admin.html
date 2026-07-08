@@ -4210,8 +4210,11 @@
 
     function renderPhaseParametersPanel(phaseNumber) {
       const phases = config.phases || [];
-      const phase = phases.find(p => p.phaseNumber === phaseNumber);
-      if (!phase) return;
+      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      if (!phase) {
+        console.warn('❌ Fase non trovata con phaseNumber/phaseIdx:', phaseNumber);
+        return;
+      }
 
       const container = document.getElementById('phaseContentContainer');
       if (!container) return;
@@ -4273,7 +4276,7 @@
 
     function openPhaseParametersDialog(phaseNumber) {
       const phases = config.phases || [];
-      const phase = phases.find(p => p.phaseNumber === phaseNumber);
+      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
       if (!phase) return;
 
       let formHTML = `
@@ -4556,7 +4559,7 @@
       console.log('🚀 showPhaseRequirements CHIAMATA:', { phaseNumber, phaseType });
       const phases = config.phases || [];
       console.log('📋 config.phases:', phases);
-      const phase = phases.find(p => p.phaseNumber === phaseNumber);
+      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
       
       if (!phase) {
         console.error('❌ ERRORE: Fase non trovata con phaseNumber=', phaseNumber);
@@ -4610,7 +4613,7 @@
         title += `Knockout (Fase ${phaseNumber})`;
         
         // Check fase precedente
-        const prevPhase = phases.find(p => p.phaseNumber === phaseNumber - 1);
+        const prevPhase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber - 1);
         const prevHasGroups = prevPhase && prevPhase.type === 'groups' ? (state?.groups?.length > 0) : true;
         const hasPrevPhase = phaseNumber === 1 ? true : prevPhase && prevHasGroups;
         

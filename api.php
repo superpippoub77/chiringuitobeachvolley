@@ -892,6 +892,7 @@ function initializePhase(array &$state, int $phaseIdx, string $name, string $typ
     $phase = [
         'id' => 'phase-' . $phaseIdx . '-' . $type,
         'phaseIdx' => $phaseIdx,
+        'phaseNumber' => $phaseIdx,  // Alias per coerenza con frontend
         'name' => $name,
         'type' => $type,
         'status' => 'pending',

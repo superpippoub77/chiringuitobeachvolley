@@ -2578,7 +2578,7 @@
         c.innerHTML = '<p>Dati non caricati. Ricaricare la pagina.</p>';
         return;
       }
-      const all = state.teamsAll || [];
+      const all = state.teams || [];
       c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
     }
 
@@ -2640,7 +2640,7 @@
 
     async function removeAllTestTeams() {
       try {
-        const testTeams = (state.teamsAll || []).filter(t => t.dummy === true);
+        const testTeams = (state.teams || []).filter(t => t.dummy === true);
         
         if (testTeams.length === 0) {
           await showInfoDialog('ℹ️ Info', 'Non ci sono squadre fittizie da rimuovere.');
@@ -2664,7 +2664,7 @@
     }
 
     async function approveAllTeams() {
-      const unapproved = (state.teamsAll || []).filter(t => !t.approved && !t.dummy);
+      const unapproved = (state.teams || []).filter(t => !t.approved && !t.dummy);
       if (unapproved.length === 0) {
         await showInfoDialog('ℹ️ Info', 'Tutte le squadre sono già approvate!');
         return;
@@ -2682,7 +2682,7 @@
     }
 
     async function payAllTeams() {
-      const unpaid = (state.teamsAll || []).filter(t => !t.paid && t.approved);
+      const unpaid = (state.teams || []).filter(t => !t.paid && t.approved);
       if (unpaid.length === 0) {
         await showInfoDialog('ℹ️ Info', 'Tutti i pagamenti sono già registrati!');
         return;
@@ -2711,7 +2711,7 @@
     }
 
     async function openTeamDialog(teamId) {
-      const team = (state.teamsAll || []).find(t => t.id === teamId);
+      const team = (state.teams || []).find(t => t.id === teamId);
       if (!team) return;
       const started = isTournamentStarted();
       const isDummy = team.dummy === true;
@@ -5546,7 +5546,7 @@
         
         // Resetta lo state globale completamente
         state = {
-          teamsAll: [],
+          teams: [],
           pendingCount: 0,
           groups: [],
           groupMatches: [],

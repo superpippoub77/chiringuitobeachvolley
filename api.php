@@ -2881,18 +2881,67 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
                 jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
             }
             
-            // Crea matches placeholder per la fase di gironi
+            // Leggi i parametri della fase (numGroups, teamsAdvance)
+            $phase = getPhase($state, $phaseIdx);
+            $numGroups = ($phase && !empty($phase['numGroups'])) ? (int)$phase['numGroups'] : 4;
+            
+            // Distribuisci squadre nei gironi (round-robin snake draft)
+            $groups = array_fill(0, $numGroups, []);
+            $teamIdx = 0;
+            
+            // Snake draft: prima passata da sinistra a destra, seconda da destra a sinistra
+            for ($round = 0; $round < ceil(count($approvedTeams) / $numGroups); $round++) {
+                if ($round % 2 === 0) {
+                    // Sinistra a destra
+                    for ($g = 0; $g < $numGroups && $teamIdx < count($approvedTeams); $g++) {
+                        $groups[$g][] = $approvedTeams[$teamIdx++];
+                    }
+                } else {
+                    // Destra a sinistra
+                    for ($g = $numGroups - 1; $g >= 0 && $teamIdx < count($approvedTeams); $g--) {
+                        $groups[$g][] = $approvedTeams[$teamIdx++];
+                    }
+                }
+            }
+            
+            // Genera le partite round-robin per ogni girone
             $groupMatches = [];
+            $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            
+            foreach ($groups as $gIdx => $groupTeams) {
+                if (empty($groupTeams)) continue;
+                
+                $groupName = $groupNames[$gIdx] ?? ('G' . ($gIdx + 1));
+                
+                // Round-robin: ogni squadra gioca con tutte le altre una volta
+                for ($i = 0; $i < count($groupTeams); $i++) {
+                    for ($j = $i + 1; $j < count($groupTeams); $j++) {
+                        $groupMatches[] = [
+                            'id' => uid(),
+                            'groupName' => $groupName,
+                            'team1' => $groupTeams[$i]['id'] ?? $groupTeams[$i]['teamId'] ?? null,
+                            'team2' => $groupTeams[$j]['id'] ?? $groupTeams[$j]['teamId'] ?? null,
+                            'team1Name' => $groupTeams[$i]['name'] ?? 'TBD',
+                            'team2Name' => $groupTeams[$j]['name'] ?? 'TBD',
+                            'score1' => null,
+                            'score2' => null,
+                            'status' => 'pending',
+                            'sets' => []
+                        ];
+                    }
+                }
+            }
             
             $phaseName = 'Fase ' . $phaseIdx . ' - Gironi';
             initializePhase($state, $phaseIdx, $phaseName, 'groups', [
                 'matches' => $groupMatches,
-                'metadata' => ['teamCount' => count($approvedTeams)]
+                'groups' => $groups,
+                'metadata' => ['teamCount' => count($approvedTeams), 'numGroups' => $numGroups]
             ]);
             
             setPhaseStatus($state, $phaseIdx, 'active');
             
-            return ['ok' => true, 'phaseName' => $phaseName, 'teamCount' => count($approvedTeams)];
+            return ['ok' => true, 'phaseName' => $phaseName, 'teamCount' => count($approvedTeams), 'matchCount' => count($groupMatches)];
         }
         
         if ($type === 'knockout') {

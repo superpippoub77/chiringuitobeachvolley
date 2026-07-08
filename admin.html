@@ -4644,6 +4644,17 @@
       }
       console.log('✅ GIRONI: Trovati', phaseData.groups.length, 'gironi');
 
+      // Funzione per calcolare peso medio squadra
+      function getTeamWeight(teamName) {
+        const team = (state.teams || []).find(t => t.name === teamName);
+        if (!team) return 0;
+        const players = team.players || [];
+        const validPlayers = players.filter(p => p && p.level !== undefined);
+        return validPlayers.length > 0 
+          ? validPlayers.reduce((sum, p) => sum + (p.level || 0), 0) / validPlayers.length 
+          : 0;
+      }
+
       let html = `<div>
         <h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phaseData.name)}</h4>`;
       
@@ -4657,21 +4668,35 @@
       const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       phaseData.groups.forEach((group, idx) => {
         const groupLabel = groupNames[idx] || ('G' + (idx + 1));
-        html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 12px">
+        html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 12px; min-height: 200px" 
+                      id="group-${idx}" 
+                      data-group-idx="${idx}" 
+                      data-group-label="${groupLabel}"
+                      ondragover="event.preventDefault(); event.currentTarget.style.backgroundColor='#e3f2fd'; event.currentTarget.style.borderColor='#1976d2'" 
+                      ondragleave="event.currentTarget.style.backgroundColor='white'; event.currentTarget.style.borderColor='#2196F3'" 
+                      ondrop="handleTeamDrop(event, '${phaseData.phaseNumber}', '${groupLabel}')">
           <h5 style="margin: 0 0 10px 0; color: #2196F3">⚽ Girone ${groupLabel}</h5>
           <table style="width: 100%; font-size: 12px; border-collapse: collapse">
             <thead>
               <tr style="background: #e3f2fd">
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">#</th>
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 80px">Peso Medio</th>
               </tr>
             </thead>
             <tbody>`;
         
         group.forEach((team, teamIdx) => {
-          html += `<tr style="border-bottom: 1px solid #eee">
+          const weight = getTeamWeight(team.name);
+          html += `<tr style="border-bottom: 1px solid #eee; cursor: move; transition: all 0.2s" 
+                       draggable="true" 
+                       ondragstart="handleTeamDragStart(event, '${escapeHtml(team.name)}', '${phaseData.phaseNumber}')"
+                       ondragend="event.currentTarget.style.opacity='1'"
+                       onmouseover="event.currentTarget.style.backgroundColor='#f5f5f5'"
+                       onmouseout="event.currentTarget.style.backgroundColor='transparent'">
             <td style="padding: 8px">${teamIdx + 1}</td>
             <td style="padding: 8px">${escapeHtml(team.name)}</td>
+            <td style="padding: 8px; text-align: center"><strong>${weight.toFixed(1)}</strong></td>
           </tr>`;
         });
         
@@ -4679,7 +4704,100 @@
       });
 
       html += '</div>';
+      
+      // Aggiungi pulsante SAVE se ci sono modifiche non salvate
+      if (window.groupsModified) {
+        html += `<div style="position: fixed; bottom: 30px; right: 30px; z-index: 1000">
+          <button onclick="saveGroupsAndRegenerateMatches('${phaseData.phaseNumber}')" style="
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transition: all 0.3s
+          " onmouseover="this.style.background='#45a049'" onmouseout="this.style.background='#4CAF50'">
+            💾 SALVA GIRONI E RICALCOLA PARTITE
+          </button>
+        </div>`;
+      }
+      
       container.innerHTML = html;
+    }
+
+    // Gestione Drag & Drop Squadre
+    let draggedTeam = { name: null, phaseNumber: null };
+    window.groupsModified = false;
+
+    function handleTeamDragStart(event, teamName, phaseNumber) {
+      draggedTeam = { name: teamName, phaseNumber: phaseNumber };
+      event.currentTarget.style.opacity = '0.5';
+      event.dataTransfer.effectAllowed = 'move';
+      console.log('🎯 Drag start:', { teamName, phaseNumber });
+    }
+
+    async function handleTeamDrop(event, phaseNumber, groupLabel) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.style.backgroundColor = 'white';
+      event.currentTarget.style.borderColor = '#2196F3';
+
+      if (!draggedTeam.name || draggedTeam.phaseNumber !== phaseNumber) {
+        console.warn('⚠️ Drop non valido: squadra da fase diversa');
+        return;
+      }
+
+      console.log('🎯 Drop:', { teamName: draggedTeam.name, groupLabel });
+
+      try {
+        // Chiama API per spostare squadra
+        const response = await callApi('admin_move_team_to_group', 'POST', {
+          teamName: draggedTeam.name,
+          phaseNumber: phaseNumber,
+          groupLabel: groupLabel
+        }, true);
+
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile spostare la squadra');
+          return;
+        }
+
+        console.log('✅ Squadra spostata con successo');
+        window.groupsModified = true; // Flag per mostrare pulsante SAVE
+        await refresh();
+        renderPhases();
+      } catch (e) {
+        console.error('Errore handleTeamDrop:', e);
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function saveGroupsAndRegenerateMatches(phaseNumber) {
+      console.log('💾 Salvataggio gironi e ricalcolo partite per fase:', phaseNumber);
+      
+      try {
+        // Chiama API per ricalcolare le partite
+        const response = await callApi('admin_regenerate_phase_matches', 'POST', {
+          phaseNumber: parseInt(phaseNumber)
+        }, true);
+
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile ricalcolare le partite');
+          return;
+        }
+
+        console.log('✅ Partite ricalcolate con successo');
+        window.groupsModified = false; // Reset flag
+        await showInfoDialog('✅ Salvato', 'Gironi salvati e partite ricalcolate con successo!');
+        await refresh();
+        renderPhases();
+      } catch (e) {
+        console.error('Errore saveGroupsAndRegenerateMatches:', e);
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     function showPhaseRequirements(phaseNumber, phaseType) {

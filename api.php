@@ -3023,6 +3023,8 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
     $phase['name'] = $data['name'] ?? $phase['name'];
     $phase['type'] = $data['type'] ?? $phase['type'];
     $phase['notes'] = $data['notes'] ?? '';
+    $phase['qualifiedGoTo'] = $data['qualifiedGoTo'] ?? '';
+    $phase['eliminatedGoTo'] = $data['eliminatedGoTo'] ?? '';
     
     // Parametri specifici per tipo
     if ($phase['type'] === 'groups') {

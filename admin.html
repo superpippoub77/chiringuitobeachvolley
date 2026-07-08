@@ -4522,14 +4522,15 @@
                 </label>
               </div>
 
-              <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
-                <strong>Qualificate vanno a:</strong> ${escapeHtml(phase.qualifiedGoTo || 'Non specificato')}
+              <div class="field" style="margin-top: 12px">
+                <label>Qualificate vanno a:</label>
+                <input type="text" id="editQualifiedGoTo" value="${escapeHtml(phase.qualifiedGoTo || '')}" maxlength="100" placeholder="es. Fase 2" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
               </div>
-              ${phase.eliminatedGoTo ? `
-                <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
-                  <strong>Eliminate vanno a:</strong> ${escapeHtml(phase.eliminatedGoTo)}
-                </div>
-              ` : ''}
+
+              <div class="field" style="margin-top: 12px">
+                <label>Eliminate vanno a:</label>
+                <input type="text" id="editEliminatedGoTo" value="${escapeHtml(phase.eliminatedGoTo || '')}" maxlength="100" placeholder="es. Ripescaggio" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
             </div>
           </div>
 
@@ -4615,9 +4616,12 @@
         updates.numGroups = parseInt(document.getElementById('editNumGroups')?.value || 4);
         updates.teamsAdvance = parseInt(document.getElementById('editTeamsAdvance')?.value || 2);
         updates.hasRepescage = document.getElementById('editHasRepescage')?.checked || false;
+        updates.qualifiedGoTo = document.getElementById('editQualifiedGoTo')?.value || '';
+        updates.eliminatedGoTo = document.getElementById('editEliminatedGoTo')?.value || '';
       } else if (type === 'knockout') {
         updates.numTeams = parseInt(document.getElementById('editNumTeams')?.value || 8);
         updates.hasLosersPath = document.getElementById('editHasLosersPath')?.checked || false;
+        updates.qualifiedGoTo = document.getElementById('editQualifiedGoTo')?.value || '';
       }
 
       updates.notes = document.getElementById('editPhaseNotes')?.value || '';

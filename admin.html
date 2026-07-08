@@ -1229,8 +1229,8 @@
         loadPhaseStatus();
       } else if (page === 'matches') {
         // Se non c'è una fase selezionata, seleziona la prima
-        if (!currentSelectedPhaseNumber && config.phases && config.phases.length > 0) {
-          currentSelectedPhaseNumber = config.phases[0].phaseNumber;
+        if (!currentSelectedPhaseNumber && state.phases && state.phases.length > 0) {
+          currentSelectedPhaseNumber = state.phases[0].phaseIdx;
         }
         renderMatches();
       }
@@ -3531,7 +3531,7 @@
       }
       
       // Leggi le partite dalla fase selezionata
-      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber);
+      const phase = state.phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
       let m = (phase && phase.matches) ? phase.matches : [];
       
       if (!m.length) {
@@ -3574,8 +3574,8 @@
           <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
         </td>
         <td>${escapeHtml(match.team2Name)}</td>
-        <td>${formatDateIta(match.dayDate)}</td>
-        <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.time}"></td>
+        <td>${match.date ? formatDateIta(match.date) : '-'}</td>
+        <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.startTime || ''}"></td>
         <td style="white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap">
           <button class="btn btn-primary" onclick="saveMatch('${match.id}')" style="font-size: 12px; padding: 4px 8px">Salva</button>
           <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>
@@ -4024,7 +4024,7 @@
 
     function renderPhaseContent() {
       const phases = config.phases || [];
-      const phase = phases.find(p => p.phaseNumber === currentSelectedPhaseNumber);
+      const phase = phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
       const container = document.getElementById('phaseContentContainer');
       
       if (!container || !phase) {

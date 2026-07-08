@@ -795,6 +795,95 @@ function getPhase(array &$state, int $phaseIdx): ?array {
 }
 
 /**
+ * Assegna automaticamente date e orari alle partite dai slot disponibili
+ */
+function scheduleMatches(array &$state, array $matches): array {
+    $config = readConfig(); // Leggi da config.json
+    $schedule = $config['schedule'] ?? [];
+    $courts = $schedule['courts'] ?? [];
+    
+    if (empty($courts)) {
+        // Nessuna schedulazione disponibile, ritorna le partite senza date/orari
+        return $matches;
+    }
+    
+    // Costruisci una lista di slot disponibili (court, date, startTime, endTime)
+    $availableSlots = [];
+    $timePerSet = (int)($config['tournament']['timePerSetMinutes'] ?? 25);
+    $setupTime = (int)($config['tournament']['setupTimeMinutes'] ?? 5);
+    $numSets = (int)($config['tournament']['numSets'] ?? 1);
+    $matchDuration = ($timePerSet * $numSets) + $setupTime; // Es: 25*1 + 5 = 30 minuti
+    
+    foreach ($courts as $courtIdx => $court) {
+        $courtId = $court['courtId'] ?? ('court-' . ($courtIdx + 1));
+        $courtName = $court['courtName'] ?? $courtId;
+        $availability = $court['availability'] ?? [];
+        
+        foreach ($availability as $avail) {
+            $date = $avail['date'] ?? '';
+            $timeSlots = $avail['timeSlots'] ?? [];
+            
+            if (empty($date)) continue;
+            
+            foreach ($timeSlots as $slot) {
+                $startStr = $slot['startTime'] ?? '';
+                $endStr = $slot['endTime'] ?? '';
+                
+                if (empty($startStr) || empty($endStr)) continue;
+                
+                // Genera sotto-slot di matchDuration minuti ciascuno
+                $current = strtotime($startStr);
+                $slotEnd = strtotime($endStr);
+                
+                while ($current + ($matchDuration * 60) <= $slotEnd) {
+                    $availableSlots[] = [
+                        'date' => $date,
+                        'startTime' => date('H:i', $current),
+                        'endTime' => date('H:i', $current + ($matchDuration * 60)),
+                        'courtId' => $courtId,
+                        'courtName' => $courtName,
+                        'used' => false
+                    ];
+                    $current += ($matchDuration * 60);
+                }
+            }
+        }
+    }
+    
+    if (empty($availableSlots)) {
+        return $matches;
+    }
+    
+    // Ordina i match per girone/group per evitare che squadre dello stesso girone giochino
+    // tutte insieme. Poi assegna gli slot disponibili in sequenza.
+    usort($matches, function($a, $b) {
+        $groupCmp = strcmp($a['groupName'] ?? '', $b['groupName'] ?? '');
+        if ($groupCmp !== 0) return $groupCmp;
+        // Ordina anche per team per consistenza
+        return strcmp($a['team1'] ?? '', $b['team1'] ?? '');
+    });
+    
+    $slotIdx = 0;
+    foreach ($matches as &$match) {
+        if ($slotIdx >= count($availableSlots)) {
+            // Se finiscono gli slot, ricomincia da capo
+            $slotIdx = 0;
+        }
+        
+        $slot = $availableSlots[$slotIdx];
+        $match['date'] = $slot['date'];
+        $match['startTime'] = $slot['startTime'];
+        $match['endTime'] = $slot['endTime'];
+        $match['courtId'] = $slot['courtId'];
+        $match['courtName'] = $slot['courtName'];
+        
+        $slotIdx++;
+    }
+    
+    return $matches;
+}
+
+/**
  * Inizializza una nuova fase
  */
 function initializePhase(array &$state, int $phaseIdx, string $name, string $type, array $config = []): array {
@@ -2931,6 +3020,9 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
                     }
                 }
             }
+            
+            // Assegna automaticamente date e orari alle partite
+            $groupMatches = scheduleMatches($state, $groupMatches);
             
             $phaseName = 'Fase ' . $phaseIdx . ' - Gironi';
             initializePhase($state, $phaseIdx, $phaseName, 'groups', [

@@ -25,6 +25,36 @@
             "email": "admin",
             "createdAt": "2026-07-07 20:20:18"
         },
-        "18e0e217d228494f2f2da9d9554a162f3d0cf1abb57a45dafab3376c65188f93"
+        "18e0e217d228494f2f2da9d9554a162f3d0cf1abb57a45dafab3376c65188f93",
+        {
+            "token": "0a3eb51a804fc458de26a640d8d3e12c4a02b0d6",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-08 18:00:18"
+        },
+        {
+            "token": "8cc4d1fa99e00cca04a27e2001dbb0faa99882f0",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-08 18:00:58"
+        },
+        {
+            "token": "175a0243113b6e20bbadea99271a5071e216daf8",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-08 18:05:14"
+        },
+        {
+            "token": "b50e02318427790ec5ca6260b9ba3ed49d7883c0",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-08 18:06:37"
+        },
+        {
+            "token": "c9804248bae084196e1dcb0d649111be3cc98502",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-08 18:51:52"
+        }
     ]
 }

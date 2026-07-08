@@ -4263,8 +4263,11 @@
       statePhase.groups.forEach((group, groupIdx) => {
         const groupLabel = groupNames[groupIdx] || ('G' + (groupIdx + 1));
         
+        // Gestisci sia il formato nuovo {label, teams} che il vecchio (array diretto)
+        const groupTeams = group.teams || group;
+        
         // Calcola statistiche per ogni squadra
-        const standings = group.map(team => {
+        const standings = groupTeams.map(team => {
           const teamMatches = (statePhase.matches || []).filter(m => 
             (m.team1 === team.id || m.team2 === team.id) && m.groupName === groupLabel
           );
@@ -4810,9 +4813,11 @@
       </div>`;
 
       // Renderizza ogni girone
-      const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       phaseData.groups.forEach((group, idx) => {
-        const groupLabel = groupNames[idx] || ('G' + (idx + 1));
+        // Supporta entrambi i formati: nuovo (con label e teams) e vecchio (array diretto)
+        const groupLabel = group.label || group.groupName || ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][idx] || ('G' + (idx + 1));
+        const groupTeams = group.teams || (Array.isArray(group) ? group : []);
+        
         html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 12px; min-height: 200px" 
                       id="group-${idx}" 
                       data-group-idx="${idx}" 
@@ -4831,19 +4836,23 @@
             </thead>
             <tbody>`;
         
-        group.forEach((team, teamIdx) => {
-          const weight = getTeamWeight(team.name);
-          html += `<tr style="border-bottom: 1px solid #eee; cursor: move; transition: all 0.2s" 
-                       draggable="true" 
-                       ondragstart="handleTeamDragStart(event, '${escapeHtml(team.name)}', '${phaseData.phaseNumber}')"
-                       ondragend="event.currentTarget.style.opacity='1'"
-                       onmouseover="event.currentTarget.style.backgroundColor='#f5f5f5'"
-                       onmouseout="event.currentTarget.style.backgroundColor='transparent'">
-            <td style="padding: 8px">${teamIdx + 1}</td>
-            <td style="padding: 8px">${escapeHtml(team.name)}</td>
-            <td style="padding: 8px; text-align: center"><strong>${weight.toFixed(1)}</strong></td>
-          </tr>`;
-        });
+        if (Array.isArray(groupTeams) && groupTeams.length > 0) {
+          groupTeams.forEach((team, teamIdx) => {
+            const weight = getTeamWeight(team.name);
+            html += `<tr style="border-bottom: 1px solid #eee; cursor: move; transition: all 0.2s" 
+                         draggable="true" 
+                         ondragstart="handleTeamDragStart(event, '${escapeHtml(team.name)}', '${phaseData.phaseNumber}')"
+                         ondragend="event.currentTarget.style.opacity='1'"
+                         onmouseover="event.currentTarget.style.backgroundColor='#f5f5f5'"
+                         onmouseout="event.currentTarget.style.backgroundColor='transparent'">
+              <td style="padding: 8px">${teamIdx + 1}</td>
+              <td style="padding: 8px">${escapeHtml(team.name)}</td>
+              <td style="padding: 8px; text-align: center"><strong>${weight.toFixed(1)}</strong></td>
+            </tr>`;
+          });
+        } else {
+          html += `<tr><td colspan="3" style="padding: 8px; text-align: center; color: #999">Nessuna squadra</td></tr>`;
+        }
         
         html += `</tbody></table></div>`;
       });

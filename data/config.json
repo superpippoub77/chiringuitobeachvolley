@@ -1,255 +1,89 @@
 {
     "tournament": {
-        "name": "Test Knockout Losers",
+        "name": "aaa",
         "maxTeams": 16,
         "maxPlayersPerTeam": 3,
         "maxPlayersOnCourt": 2,
         "maxSubstitutions": 0,
         "numGroups": 0,
-        "numSets": 2,
-        "winScore": 25,
+        "numSets": 1,
+        "winScore": 21,
         "maxScore": 25,
         "timePerSetMinutes": 35,
         "setupTimeMinutes": 5,
-        "maxTimeoutsPerSet": 2
+        "maxTimeoutsPerSet": 2,
+        "registrationsClosed": false,
+        "registrationDeadline": ""
     },
     "schedule": {
         "courts": [
             {
+                "courtId": "court-1783537091369-0",
                 "courtName": "Campo 1",
                 "availability": [
                     {
-                        "date": "2026-07-10",
+                        "date": "2026-07-13",
                         "timeSlots": [
                             {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
-                            {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
+                                "startTime": "19:30",
+                                "endTime": "23:30"
                             }
                         ]
                     },
                     {
-                        "date": "2026-07-11",
+                        "date": "2026-07-14",
                         "timeSlots": [
                             {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
-                            {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
+                                "startTime": "19:30",
+                                "endTime": "23:30"
                             }
                         ]
                     },
                     {
-                        "date": "2026-07-12",
+                        "date": "2026-07-15",
                         "timeSlots": [
                             {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
+                                "startTime": "19:30",
+                                "endTime": "23:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-16",
+                        "timeSlots": [
                             {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
+                                "startTime": "19:30",
+                                "endTime": "23:30"
                             }
                         ]
                     }
-                ],
-                "courtId": "court-0-08131118"
-            },
-            {
-                "courtName": "Campo 2",
-                "availability": [
-                    {
-                        "date": "2026-07-10",
-                        "timeSlots": [
-                            {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
-                            {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-11",
-                        "timeSlots": [
-                            {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
-                            {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-12",
-                        "timeSlots": [
-                            {
-                                "startTime": "09:00",
-                                "endTime": "10:00"
-                            },
-                            {
-                                "startTime": "10:15",
-                                "endTime": "11:15"
-                            },
-                            {
-                                "startTime": "11:30",
-                                "endTime": "12:30"
-                            },
-                            {
-                                "startTime": "14:00",
-                                "endTime": "15:00"
-                            },
-                            {
-                                "startTime": "15:15",
-                                "endTime": "16:15"
-                            },
-                            {
-                                "startTime": "16:30",
-                                "endTime": "17:30"
-                            }
-                        ]
-                    }
-                ],
-                "courtId": "court-1-b32ca9a2"
+                ]
             }
         ]
     },
     "phases": [
         {
             "phaseNumber": 1,
-            "name": "Gironi Preliminari",
+            "name": "a",
             "type": "groups",
             "branch": "root",
-            "qualifiedGoTo": "Winners Bracket",
-            "eliminatedGoTo": "Losers Bracket",
-            "numGroups": 2,
+            "qualifiedGoTo": "sa",
+            "eliminatedGoTo": "sa",
+            "numGroups": 4,
             "teamsAdvance": 2,
-            "hasRepescage": false
-        },
-        {
-            "phaseNumber": 2,
-            "name": "Winners Bracket",
-            "type": "knockout",
-            "branch": "qualified",
-            "qualifiedGoTo": "Finale",
-            "eliminatedGoTo": "Losers Bracket 2",
-            "numTeams": 4,
-            "hasLosersPath": false
-        },
-        {
-            "phaseNumber": 3,
-            "name": "Losers Bracket",
-            "type": "knockout",
-            "branch": "eliminated",
-            "qualifiedGoTo": "Losers Bracket 2",
-            "eliminatedGoTo": "Fine torneo",
-            "numTeams": 4,
-            "hasLosersPath": true
+            "hasRepescage": true
         }
     ],
     "contact": {
-        "managerEmail": "admin@test.com"
+        "managerEmail": ""
     },
     "display": {
-        "theme": "beachmaster"
+        "theme": "chiringuito",
+        "customThemes": [],
+        "logoFile": "",
+        "backgroundFile": ""
     },
-    "sponsors": [
-        {
-            "id": "s2",
-            "name": "Sponsor 2",
-            "repetitions": 2,
-            "logoFile": null
-        }
-    ],
+    "sponsors": [],
     "payment": {
         "enabled": false,
         "costPerTeam": 0,
@@ -277,6 +111,6 @@
     },
     "security": {
         "encryptionEnabled": false,
-        "encryptionPassword": "TestPassword123"
+        "encryptionPassword": ""
     }
 }

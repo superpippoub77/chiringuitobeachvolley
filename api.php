@@ -769,7 +769,7 @@ function ensurePhases(array &$state): void {
             
             if (!$existsInState) {
                 // Aggiungi la fase da config allo state
-                $state['phases'][] = [
+                $newPhase = [
                     'id' => 'phase-' . $phaseNumber . '-' . ($configPhase['type'] ?? 'groups'),
                     'phaseIdx' => $phaseNumber,
                     'phaseNumber' => $phaseNumber,
@@ -782,6 +782,19 @@ function ensurePhases(array &$state): void {
                     'createdAt' => $configPhase['createdAt'] ?? gmdate('c'),
                     'metadata' => $configPhase['metadata'] ?? []
                 ];
+                
+                // Se è fase 1 e non ha gruppi ma $state ha groups, sincronizza
+                if ($phaseNumber === 1 && empty($newPhase['groups']) && !empty($state['groups'])) {
+                    $newPhase['groups'] = $state['groups'];
+                    error_log('ℹ️ ensurePhases: Sincronizzazione groups a fase 1 da state');
+                }
+                // Se è fase 1 e non ha matches ma $state ha groupMatches, sincronizza
+                if ($phaseNumber === 1 && empty($newPhase['matches']) && !empty($state['groupMatches'])) {
+                    $newPhase['matches'] = $state['groupMatches'];
+                    error_log('ℹ️ ensurePhases: Sincronizzazione groupMatches a fase 1 da state');
+                }
+                
+                $state['phases'][] = $newPhase;
             }
         }
     }
@@ -814,6 +827,7 @@ function ensurePhases(array &$state): void {
                     'createdAt' => null
                 ]
             ];
+            error_log('ℹ️ ensurePhases: Migrazione da vecchia struttura completata');
         }
     }
     
@@ -3222,10 +3236,16 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
 
+        error_log('🔍 DEBUG admin_move_team_to_group START:');
+        error_log('   phaseNumber=' . $phaseNumber);
+        error_log('   phase.type=' . ($phase['type'] ?? 'NULL'));
+        error_log('   phase.groups count=' . count($phase['groups'] ?? []));
+        error_log('   state.groups count=' . count($state['groups'] ?? []));
+
         // Se è la fase 1 (gironi) e non ha gruppi, sincronizza da $state['groups']
         if ($phaseNumber === 1 && $phase['type'] === 'groups' && empty($phase['groups']) && !empty($state['groups'])) {
             $phase['groups'] = $state['groups'];
-            error_log('ℹ️ Sincronizzazione: groups da state a phase 1');
+            error_log('ℹ️ Sincronizzazione: groups da state a phase 1 (count=' . count($state['groups']) . ')');
         }
 
         // Cerca la squadra nei gironi
@@ -3235,7 +3255,8 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             $groupLabels[$groupNames[$idx] ?? ('G' . ($idx + 1))] = $idx;
         }
 
-        error_log('🔍 admin_move_team_to_group DEBUG: phaseNumber=' . $phaseNumber . ', groupLabels=' . json_encode(array_keys($groupLabels)) . ', searching for groupLabel=' . $groupLabel);
+        error_log('🔍 Gironi disponibili: ' . json_encode(array_keys($groupLabels)));
+        error_log('🔍 Cercando girone: ' . $groupLabel);
 
         // Valida che il girone di destinazione esista
         if (!isset($groupLabels[$groupLabel])) {

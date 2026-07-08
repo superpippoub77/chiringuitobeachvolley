@@ -3222,6 +3222,12 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
 
+        // Se è la fase 1 (gironi) e non ha gruppi, sincronizza da $state['groups']
+        if ($phaseNumber === 1 && $phase['type'] === 'groups' && empty($phase['groups']) && !empty($state['groups'])) {
+            $phase['groups'] = $state['groups'];
+            error_log('ℹ️ Sincronizzazione: groups da state a phase 1');
+        }
+
         // Cerca la squadra nei gironi
         $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         $groupLabels = [];
@@ -3229,9 +3235,11 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             $groupLabels[$groupNames[$idx] ?? ('G' . ($idx + 1))] = $idx;
         }
 
+        error_log('🔍 admin_move_team_to_group DEBUG: phaseNumber=' . $phaseNumber . ', groupLabels=' . json_encode(array_keys($groupLabels)) . ', searching for groupLabel=' . $groupLabel);
+
         // Valida che il girone di destinazione esista
         if (!isset($groupLabels[$groupLabel])) {
-            return ['ok' => false, 'error' => "Girone $groupLabel non esiste in questa fase"];
+            return ['ok' => false, 'error' => "Girone $groupLabel non esiste in questa fase. Gironi disponibili: " . implode(', ', array_keys($groupLabels))];
         }
 
         $destGroupIdx = $groupLabels[$groupLabel];
@@ -3269,6 +3277,11 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
 
         // Salva i gruppi modificati usando la funzione helper
         setPhaseGroups($state, $phaseNumber, $phase['groups']);
+        
+        // Sincronizza anche back a $state['groups'] per compatibilità
+        if ($phaseNumber === 1) {
+            $state['groups'] = $phase['groups'];
+        }
 
         return ['ok' => true, 'message' => "Squadra spostata a Girone $groupLabel"];
     });

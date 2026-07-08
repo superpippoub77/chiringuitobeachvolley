@@ -1656,7 +1656,8 @@ function publicState(array $state): array {
         'standings' => computeStandings($state),
         'playoff' => playoffView($state),
         'finalRanking' => $state['finalRanking'],
-        'meta' => $state['meta']
+        'meta' => $state['meta'],
+        'phases' => $state['phases'] ?? []
     ];
 }
 

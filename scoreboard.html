@@ -791,6 +791,13 @@
       <button class="tab" onclick="showTab('ranking', this)">Ranking finale</button>
     </nav>
 
+    <!-- Tab globali per Scoreboard -->
+    <nav style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap">
+      <a href="#" onclick="showPhase('iscrizione'); return false;" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 Iscrizione</a>
+      <a href="#" onclick="showPhase('teams'); return false;" style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 Squadre</a>
+      <a href="#" onclick="showPhase('groups'); return false;" style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
+    </nav>
+
     <section class="page active" id="page-iscrizione">
       <h3>Registrazione squadra</h3>
       <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
@@ -917,6 +924,7 @@
     let state = null;
     let config = null;
     let tournamentStartDate = new Date('2026-07-14T19:30:00'); // Default fallback
+    let firstLoad = true; // Track first page load
     
     // Timer state per gestire i timer di tutte le partite
     const timerState = {
@@ -1120,22 +1128,15 @@
 
     async function loadState() {
       try {
-        // Carica lo stato completo (come in admin.html con admin_state)
-        const r = await api('admin_state');
+        // Carica dati pubblici che ora includono i phases
+        const r = await api('get_public');
         state = r.data || {};
         
         console.log('📊 Stato caricato:', state);
         console.log('📋 Gironi disponibili:', state.phases?.[0]?.groups?.length || 0);
       } catch (e) {
-        console.error('❌ Errore caricamento stato admin:', e);
-        // Fallback al vecchio endpoint se admin_state non disponibile
-        try {
-          const r = await api('get_public');
-          state = r.data || {};
-        } catch (e2) {
-          console.error('❌ Errore caricamento get_public:', e2);
-          return;
-        }
+        console.error('❌ Errore caricamento get_public:', e);
+        return;
       }
       
       // Carica la configurazione
@@ -1177,28 +1178,6 @@
         const now = new Date();
         const deadline = new Date(registrationDeadline);
         isDeadlineExpired = now > deadline;
-      }
-      
-      const closedNotice = document.getElementById('closedNotice');
-      const submitBtn = document.getElementById('submitBtn');
-      const registrationForm = document.getElementById('registrationForm');
-      
-      if (registrationsClosed || isDeadlineExpired) {
-        if (closedNotice) closedNotice.classList.remove('hidden');
-        if (submitBtn) {
-          submitBtn.disabled = true;
-          submitBtn.style.opacity = '0.5';
-          submitBtn.style.cursor = 'not-allowed';
-        }
-        if (registrationForm) registrationForm.style.opacity = '0.6';
-      } else {
-        if (closedNotice) closedNotice.classList.add('hidden');
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.style.opacity = '1';
-          submitBtn.style.cursor = 'pointer';
-        }
-        if (registrationForm) registrationForm.style.opacity = '1';
       }
       
       // Aggiorna hero section con dati dal config
@@ -1252,124 +1231,393 @@
       document.getElementById('statGroups').textContent = state.groups.length;
       document.getElementById('statMatches').textContent = state.groupMatches.length;
 
-      // Controlla se le iscrizioni sono chiuse
-      const maxTeams = 16;
-      const totalTeams = state.teams.length + state.pendingCount;
-      const isClosed = totalTeams >= maxTeams;
-
-      const form = document.getElementById('registrationForm');
-      const submitBtn = document.getElementById('submitBtn');
-      const closedNotice = document.getElementById('closedNotice');
-
-      if (isClosed) {
-        form.style.opacity = '0.5';
-        form.style.pointerEvents = 'none';
-        submitBtn.disabled = true;
-        submitBtn.style.opacity = '0.5';
-        closedNotice.classList.remove('hidden');
-        const inputs = form.querySelectorAll('input');
-        inputs.forEach(inp => inp.disabled = true);
-      } else {
-        form.style.opacity = '1';
-        form.style.pointerEvents = 'auto';
-        submitBtn.disabled = false;
-        submitBtn.style.opacity = '1';
-        closedNotice.classList.add('hidden');
-        const inputs = form.querySelectorAll('input');
-        inputs.forEach(inp => inp.disabled = false);
-      }
-
       renderTeams();
       renderGroups();
-      renderMatches();
-      renderStandings();
       renderPlayoff();
       renderRanking();
+      renderIscrizione();
+      
+      // Mostra per default la sezione Iscrizioni
+      showPhase('iscrizione');
     }
 
     function renderTeams() {
       const c = document.getElementById('page-teams');
       if (!state.teams.length) {
-        c.innerHTML = '<h3>Squadre confermate</h3><div class="empty">Nessuna squadra confermata.</div>';
+        c.innerHTML = '<h3>### Gestione squadre</h3><p>Totale: <strong>0</strong> | In attesa: <strong>0</strong></p>';
         return;
       }
-      c.innerHTML = '<h3>Squadre confermate</h3>' + state.teams.map(t =>
-        `<div class="team-row"><div><strong>${esc(t.name)}</strong><div>${esc((t.players || []).map(p => typeof p === 'string' ? p : (p.name || '')).filter(Boolean).join(' | '))}</div></div><div><span class="tag">Misto</span></div></div>`
-      ).join('');
+      
+      const totalTeams = state.teams.length;
+      const waitingTeams = state.teams.filter(t => !t.approved).length;
+      
+      let html = '<h3>### Gestione squadre</h3>';
+      html += `<p>Totale: <strong>${totalTeams}</strong> | In attesa: <strong>${waitingTeams}</strong></p>`;
+      html += state.teams.map(t => {
+        let playersHtml = (t.players || [])
+          .map(p => {
+            const name = typeof p === 'string' ? p : (p.name || '');
+            const level = typeof p === 'string' ? null : (p.level || p.skillLevel);
+            const isCap = typeof p === 'string' ? false : (p.isCaptain || false);
+            if (!name) return '';
+            const capIcon = isCap ? ' 👨‍💼' : '';
+            const levelIcon = level ? ` ⭐${level}` : '';
+            return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
+          })
+          .filter(Boolean)
+          .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
+        
+        // Crea HTML per le immagini dei giocatori
+        let playersImages = (t.players || [])
+          .map((p, idx) => {
+            if (typeof p === 'string') return '';
+            const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+            const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
+            return `<img src="${imgUrl}" title="${title}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; cursor: pointer">`;
+          })
+          .filter(Boolean)
+          .join('');
+        
+        const weight = getTeamWeight(t);
+        const weightColor = getWeightColor(weight);
+        
+        return `<div class="team" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa">
+          <div class="team-info">
+            <strong>${esc(t.name)}</strong>
+            <small>${playersHtml}</small>
+            ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
+          </div>
+          <div class="chips" style="margin-top: 8px">
+            ${t.dummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
+            <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ ${weight}</span>
+            <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? 'Confermato' : 'In attesa'}</span>
+            <span class="badge ${t.paid ? 'ok' : 'no'}">${t.paid ? 'Pagato' : 'Non pagato'}</span>
+          </div>
+        </div>`;
+      }).join('');
+      
+      c.innerHTML = html;
+    }
+    
+    function getTeamWeight(team) {
+      if (!team.players || !Array.isArray(team.players)) return '—';
+      const skillLevels = team.players
+        .map(p => typeof p === 'string' ? null : p.skillLevel)
+        .filter(s => s && !isNaN(s))
+        .map(Number);
+      if (skillLevels.length === 0) return '—';
+      const avg = (skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length).toFixed(1);
+      return isNaN(avg) ? '—' : avg;
+    }
+
+    function renderIscrizione() {
+      const c = document.getElementById('page-iscrizione');
+      let html = '<h3>📝 Iscrizione e Squadre</h3>';
+      
+      // Form di iscrizione
+      html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 24px">';
+      html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
+      html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Il torneo è solo misto. Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';
+      html += '<div id="closedNotice2" class="closed-notice hidden" style="background: #ffebee; color: #c62828; padding: 8px; border-radius: 4px; margin-bottom: 12px">🚫 Le iscrizioni al torneo sono chiuse</div>';
+      html += '<div class="form-grid" id="registrationForm2">';
+      html += '<input id="fName" placeholder="Nome squadra">';
+      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4></div>';
+      html += '<div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>';
+      html += '<input id="fP1" placeholder="Nome completo">';
+      html += '<select id="fP1Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+      html += '<input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+      html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;"><span>👑 Capitano</span></label>';
+      html += '</div>';
+      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>';
+      html += '<input id="fP2" placeholder="Nome completo">';
+      html += '<select id="fP2Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+      html += '<input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+      html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;"><span>👑 Capitano</span></label>';
+      html += '</div>';
+      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>';
+      html += '<input id="fP3" placeholder="Nome completo (opzionale)">';
+      html += '<select id="fP3Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+      html += '<input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+      html += '</div>';
+      html += '<div style="grid-column: 1/-1; margin-top: 10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
+      html += '</div></div>';
+      
+      // Lista squadre
+      html += '<div style="border-top: 3px solid #ddd; padding-top: 16px; margin-top: 24px">';
+      html += '<h4>Squadre Iscritte (Total: ' + state.teams.length + ')</h4>';
+      if (state.teams.length === 0) {
+        html += '<p style="color: #999">Nessuna squadra ancora iscritta</p>';
+      } else {
+        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px">';
+        state.teams.forEach(t => {
+          let playersHtml = (t.players || [])
+            .map(p => {
+              const name = typeof p === 'string' ? p : (p.name || '');
+              const level = typeof p === 'string' ? null : (p.level || p.skillLevel);
+              const isCap = typeof p === 'string' ? false : (p.isCaptain || false);
+              if (!name) return '';
+              const capIcon = isCap ? ' 👨‍💼' : '';
+              const levelIcon = level ? ` ⭐${level}` : '';
+              return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
+            })
+            .filter(Boolean)
+            .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
+          
+          let playersImages = (t.players || [])
+            .map((p, idx) => {
+              if (typeof p === 'string') return '';
+              const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+              const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
+              return `<img src="${imgUrl}" title="${title}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #8b7355">`;
+            })
+            .filter(Boolean)
+            .join('');
+          
+          const weight = getTeamWeight(t);
+          const weightColor = getWeightColor(weight);
+          
+          html += `<div style="border: 1px solid #d8c39f; border-radius: 6px; padding: 12px; background: #faf5f0">
+            <strong style="color: #6b5d45">${esc(t.name)}</strong>
+            <small style="display: block; color: #999; margin-top: 4px">${playersHtml}</small>
+            ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap">${playersImages}</div>` : ''}
+            <div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; font-size: 11px">
+              ${t.dummy ? '<span style="background: #d8c39f; color: #1d1a13; padding: 2px 6px; border-radius: 3px">Fittizia</span>' : ''}
+              <span style="background: ${weightColor}; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px">⚖️ ${weight}</span>
+              <span style="background: ${t.approved ? '#27ae60' : '#e67e22'}; color: white; padding: 2px 6px; border-radius: 3px">${t.approved ? 'Confermato' : 'In attesa'}</span>
+              <span style="background: ${t.paid ? '#27ae60' : '#e67e22'}; color: white; padding: 2px 6px; border-radius: 3px">${t.paid ? 'Pagato' : 'Non pagato'}</span>
+            </div>
+          </div>`;
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+      
+      c.innerHTML = html;
+      
+      // Aggiorna lo stato del form
+      const maxTeams = 16;
+      const totalTeams = state.teams.length + state.pendingCount;
+      const isClosed = totalTeams >= maxTeams;
+      const form = document.getElementById('registrationForm2');
+      const submitBtn = document.getElementById('submitBtn');
+      const closedNotice = document.getElementById('closedNotice2');
+      
+      if (form && submitBtn) {
+        if (isClosed) {
+          form.style.opacity = '0.5';
+          form.style.pointerEvents = 'none';
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          if (closedNotice) closedNotice.classList.remove('hidden');
+          const inputs = form.querySelectorAll('input, select');
+          inputs.forEach(inp => inp.disabled = true);
+        } else {
+          form.style.opacity = '1';
+          form.style.pointerEvents = 'auto';
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          if (closedNotice) closedNotice.classList.add('hidden');
+          const inputs = form.querySelectorAll('input, select');
+          inputs.forEach(inp => inp.disabled = false);
+        }
+      }
+    }
+    
+    function getWeightColor(weight) {
+      if (weight === '—') return '#999';
+      const w = parseFloat(weight);
+      if (isNaN(w)) return '#999';
+      if (w >= 4) return '#c41c3b';
+      if (w >= 3) return '#e67e22';
+      if (w >= 2) return '#f39c12';
+      return '#27ae60';
+    }
+
+    function showPhase(phase) {
+      const sections = document.querySelectorAll('section.page');
+      sections.forEach(s => s.style.display = 'none');
+      const target = document.getElementById(`page-${phase}`);
+      if (target) target.style.display = 'block';
+    }
+
+    function showGironiTab(tab) {
+      // Mostra/nasconde le sezioni dentro page-groups
+      const groupsContainer = document.getElementById('page-groups');
+      if (!groupsContainer) return;
+      
+      const groupsView = groupsContainer.querySelector('[data-view="groups"]');
+      const matchesView = groupsContainer.querySelector('[data-view="matches"]');
+      const standingsView = groupsContainer.querySelector('[data-view="standings"]');
+      
+      if (groupsView) groupsView.style.display = tab === 'groups' ? 'block' : 'none';
+      if (matchesView) matchesView.style.display = tab === 'matches' ? 'block' : 'none';
+      if (standingsView) standingsView.style.display = tab === 'standings' ? 'block' : 'none';
+      
+      // Evidenzia il tab attivo
+      const tabs = groupsContainer.querySelectorAll('[data-tab]');
+      tabs.forEach(t => {
+        if (t.dataset.tab === tab) {
+          t.style.color = '#2e5d1f';
+          t.style.fontWeight = 'bold';
+          t.style.background = '#e8f5e9';
+        } else {
+          t.style.color = '#666';
+          t.style.fontWeight = 'normal';
+          t.style.background = 'transparent';
+        }
+      });
     }
 
     function renderGroups() {
       const c = document.getElementById('page-groups');
-      
-      // I gironi sono in state.phases[0].groups
       const groups = state.phases?.[0]?.groups || state.groups || [];
       
       if (!groups.length) {
-        c.innerHTML = '<h3>Gironi</h3><div class="empty">Gironi non ancora pubblicati.</div>';
+        c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
         return;
       }
       
-      c.innerHTML = '<h3>Gironi</h3><div class="group-grid">' + groups.map((g, idx) =>
-        `<div class="group"><h4 class="group-head">Girone ${String.fromCharCode(65 + idx)}</h4><ul>${(g || []).map(t => `<li>${esc(t.name)}</li>`).join('')}</ul></div>`
-      ).join('') + '</div>';
+      let html = '<h3>### 📊 Gironi e Fasi</h3>';
+      
+      // Tab interni per Gironi/Partite/Classifiche
+      html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 16px; flex-wrap: wrap">';
+      html += '<a href="#" onclick="showGironiTab(\'groups\'); return false;" data-tab="groups" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'#e8f5e9\'">📊 Gironi</a>';
+      html += '<a href="#" onclick="showGironiTab(\'matches\'); return false;" data-tab="matches" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">🏆 Partite</a>';
+      html += '<a href="#" onclick="showGironiTab(\'standings\'); return false;" data-tab="standings" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">📈 Classifiche</a>';
+      html += '</div>';
+      
+      // CONTENITORE GIRONI
+      html += '<div data-view="groups">';
+      html += '<h4 style="margin-top: 20px; margin-bottom: 12px">#### 📌 Fase 1 - Gironi</h4>';
+      html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
+      
+      groups.forEach((g, idx) => {
+        const groupName = String.fromCharCode(65 + idx);
+        const teamCount = (g || []).length;
+        
+        html += `<div style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0">
+          <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
+              Girone ${groupName}
+            </span>
+            <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${teamCount}</span>
+          </h4>
+          <div style="display: flex; flex-direction: column; gap: 8px">`;
+        
+        (g || []).forEach(team => {
+          let playersHtml = (team.players || [])
+            .map(p => {
+              const name = typeof p === 'string' ? p : (p.name || '');
+              const level = typeof p === 'string' ? null : (p.level || p.skillLevel);
+              const isCap = typeof p === 'string' ? false : (p.isCaptain || false);
+              if (!name) return '';
+              const capIcon = isCap ? ' 👨‍💼' : '';
+              const levelIcon = level ? ` ⭐${level}` : '';
+              return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
+            })
+            .filter(Boolean)
+            .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
+          
+          let playersImages = (team.players || [])
+            .map((p, pidx) => {
+              if (typeof p === 'string') return '';
+              const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+              const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') + (p.level ? ` [Livello ${p.level}]` : '') : `Giocatore ${pidx + 1}`;
+              return `<img src="${imgUrl}" title="${title}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #8b7355; cursor: pointer">`;
+            })
+            .filter(Boolean)
+            .join('');
+          
+          const weight = getTeamWeight(team);
+          const weightColor = getWeightColor(weight);
+          
+          html += `<div style="background: white; border: 1px solid #d8c39f; border-radius: 6px; padding: 10px">
+            <strong style="color: #6b5d45">${esc(team.name)}</strong>
+            <small style="display: block; color: #999; margin-top: 4px">${playersHtml}</small>
+            ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap">${playersImages}</div>` : ''}
+            <div style="margin-top: 6px; display: flex; gap: 4px; flex-wrap: wrap">
+              <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold; font-size: 11px; padding: 2px 6px; border-radius: 3px">⚖️ ${weight}</span>
+            </div>
+          </div>`;
+        });
+        
+        html += `</div></div>`;
+      });
+      
+      html += '</div></div>';
+      
+      // CONTENITORE PARTITE (renderMatches lo popola)
+      html += '<div data-view="matches" style="display:none" id="gironi-matches-content"></div>';
+      
+      // CONTENITORE CLASSIFICHE (renderStandings lo popola)
+      html += '<div data-view="standings" style="display:none" id="gironi-standings-content"></div>';
+      
+      c.innerHTML = html;
+      
+      // Popola partite e classifiche
+      renderGironiMatches();
+      renderGironiStandings();
     }
 
-    function renderMatches() {
-      const c = document.getElementById('page-matches');
+    function renderGironiMatches() {
+      const c = document.getElementById('gironi-matches-content');
       if (!state.groupMatches.length) {
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
         return;
       }
 
-      // Ordina per data e ora
       let matches = state.groupMatches.slice().sort((a, b) => {
-        // Prova prima con 'date' (nuovo formato), poi con 'dayDate' (vecchio formato)
         const dateA = a.date || a.dayDate || '';
         const dateB = b.date || b.dayDate || '';
-        
-        // Prova prima con 'startTime' (nuovo formato), poi con 'time' (vecchio formato)
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
         const timeA = a.startTime || a.time || '00:00';
         const timeB = b.startTime || b.time || '00:00';
-        
-        if (dateA !== dateB) {
-          return dateA.localeCompare(dateB); // Ordine alfabetico (YYYY-MM-DD)
-        }
-        return timeA.localeCompare(timeB); // Ordine alfabetico (HH:MM)
+        return timeA.localeCompare(timeB);
       });
 
       function getMatchStatus(m) {
-        // If both scores are null/undefined: not started (gray)
         if ((m.score1 === null || m.score1 === undefined) && (m.score2 === null || m.score2 === undefined)) {
           return { status: 'pending', label: 'Da giocare', class: 'status-pending' };
         }
-        // If both scores are set: concluded (red)
         if (m.score1 !== null && m.score1 !== undefined && m.score2 !== null && m.score2 !== undefined) {
           return { status: 'concluded', label: 'Conclusa', class: 'status-concluded' };
         }
-        // If only one or partially filled: online (green blinking)
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th><th>⏱️ Timer</th></tr></thead><tbody>${matches.map(m => {
+      c.innerHTML = `<h3>🏆 Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
-        const timer = timerState.get(m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`);
-        const matchId = m.matchId || `match-${m.group}-${m.team1Name}-${m.team2Name}`;
-        const savedDuration = m.duration ? formatTime(m.duration) : null;
-        const timerDisplay = savedDuration ? `<span style="color: #2e5d1f; font-weight: bold;">${savedDuration}</span>` : `<span id="timer-${matchId}" style="font-family: monospace; font-weight: bold; color: #666;">00:00:00</span>`;
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
           <td>${formatDateIta(m.dayDate)} ${esc(m.time)}</td>
-          <td>${m.group}</td>
+          <td>${m.group || m.groupName}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
-          <td style="text-align: center">
-            ${timerDisplay}
-            <button class="btn" style="padding: 4px 8px; font-size: 12px; margin-left: 8px" onclick="openTimerModal('${matchId}', '${esc(m.team1Name)}', '${esc(m.team2Name)}')">
-              🎯 Gestisci
-            </button>
-          </td>
         </tr>`;
       }).join('')}</tbody></table>`;
+    }
+
+    function renderGironiStandings() {
+      const c = document.getElementById('gironi-standings-content');
+      if (!state.standings || !state.standings.length) {
+        c.innerHTML = '<h3>📈 Classifiche</h3><p>Classifiche non ancora disponibili.</p>';
+        return;
+      }
+
+      let html = '<h3>📈 Classifiche Gironi</h3>';
+      state.standings.forEach((standing, idx) => {
+        const groupName = String.fromCharCode(65 + idx);
+        html += `<h4>Girone ${groupName}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>V</th><th>S</th><th>Pt</th></tr></thead><tbody>`;
+        (standing.teams || []).forEach((t, pos) => {
+          html += `<tr><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.wins || 0}</td><td>${t.losses || 0}</td><td>${t.points || 0}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+      });
+      c.innerHTML = html;
     }
 
     function renderStandings() {

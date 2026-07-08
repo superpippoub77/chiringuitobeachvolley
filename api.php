@@ -3097,6 +3097,28 @@ if ($action === 'admin_update_group_match' && $method === 'POST') {
             if (isset($body['day'])) {
                 $m['day'] = (int)$body['day'];
             }
+            // Nuovi campi per gestione slot
+            if (isset($body['startTime'])) {
+                $m['startTime'] = $body['startTime'] === null ? null : (string)$body['startTime'];
+            }
+            if (isset($body['endTime'])) {
+                $m['endTime'] = $body['endTime'] === null ? null : (string)$body['endTime'];
+            }
+            if (isset($body['courtIdx'])) {
+                $m['courtIdx'] = $body['courtIdx'] === null ? null : (int)$body['courtIdx'];
+            }
+            if (isset($body['dateIdx'])) {
+                $m['dateIdx'] = $body['dateIdx'] === null ? null : (int)$body['dateIdx'];
+            }
+            if (isset($body['slotIdx'])) {
+                $m['slotIdx'] = $body['slotIdx'] === null ? null : (int)$body['slotIdx'];
+            }
+            if (isset($body['date'])) {
+                $m['date'] = $body['date'] === null ? null : (string)$body['date'];
+            }
+            if (isset($body['courtName'])) {
+                $m['courtName'] = $body['courtName'] === null ? null : (string)$body['courtName'];
+            }
             break;
         }
         unset($m);

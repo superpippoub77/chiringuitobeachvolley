@@ -543,10 +543,8 @@
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">Fasi torneo</button>
         <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
-        <button class="tab" data-page="groups" onclick="showPage('groups', this)">Gironi</button>
-        <button class="tab" data-page="standings" onclick="showPage('standings', this)">Classifiche</button>
+        <button class="tab" data-page="phases" onclick="showPage('phases', this)">📊 Gironi e Fasi</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
-        <button class="tab" data-page="playoff" onclick="showPage('playoff', this)">Playoff</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
@@ -714,75 +712,26 @@
         </div>
       </div>
 
-      <div id="page-groups" class="card page hidden">
-        <h3>Gestione gironi</h3>
+      <div id="page-phases" class="card page hidden">
+        <h3>📊 Gironi e Fasi</h3>
         
-        <!-- Stato Fase Corrente -->
-        <div id="phaseStatusContainer" style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 2px solid #673ab7; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: none">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px">
-            <div>
-              <h4 style="margin: 0 0 8px 0; color: #673ab7; font-size: 14px">📌 Fase Corrente</h4>
-              <div id="currentPhaseInfo" style="background: white; padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.6">
-                <div><strong>Nome:</strong> <span id="currentPhaseName">-</span></div>
-                <div><strong>Stato:</strong> <span id="currentPhaseStatus">-</span></div>
-                <div><strong>Gironi:</strong> <span id="currentPhaseGroups">-</span></div>
-                <div><strong>Squadre Avanzate:</strong> <span id="currentPhaseAdvanced">-</span></div>
-              </div>
-            </div>
-            <div>
-              <h4 style="margin: 0 0 8px 0; color: #673ab7; font-size: 14px">➜ Prossima Fase</h4>
-              <div id="nextPhaseInfo" style="background: white; padding: 10px; border-radius: 4px; font-size: 13px; line-height: 1.6">
-                <div id="nextPhaseContent">Nessuna fase successiva</div>
-              </div>
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px; justify-content: center">
-            <button class="btn btn-success" onclick="completePhase()" id="completePhaseBtn" style="display: none">✅ Completa Fase Corrente</button>
-            <button class="btn btn-info" onclick="loadPhaseStatus()" style="padding: 6px 12px; font-size: 12px">🔄 Aggiorna Status</button>
+        <!-- Phase Selector -->
+        <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 16px">
+          <p style="margin: 0 0 10px 0; font-weight: bold; color: #333">Seleziona Fase:</p>
+          <div id="phaseSelectorContainer" style="display: flex; flex-wrap: wrap; gap: 8px">
+            <!-- Dinamicamente riempito da JavaScript -->
           </div>
         </div>
         
-        <div id="groupsWarning" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px; display: none">
-          <strong>⚠️ Prerequisiti non soddisfatti:</strong>
-          <ul style="margin: 8px 0; font-size: 13px;">
-            <li id="missingPhases">✗ Definisci almeno una fase di tipo "Gironi" nella sezione Fasi Torneo</li>
-            <li id="missingTeams" style="display: none">✗ Registra almeno una squadra nella sezione Squadre</li>
-            <li id="missingSchedule" style="display: none">✗ Configura campi e disponibilità nella sezione Giorni e Fasce</li>
-          </ul>
+        <!-- Content Area Dinamico -->
+        <div id="phaseContentContainer" style="margin-top: 16px">
+          <!-- Dinamicamente riempito in base alla fase selezionata -->
         </div>
-        <div class="row">
-          <button class="btn btn-primary" onclick="generateGroups()" id="generateGroupsBtn" disabled>Genera gironi (solo approvate)</button>
-        </div>
-        <p class="muted" style="margin-top:10px">Squadre approvate: <strong id="approvedCountDisplay">0</strong>/4 minime richieste. Se non hai abbastanza squadre approvate per raggiungere il massimo, saranno aggiunte automaticamente squadre fittizie.</p>
-        <div id="groupsContainer" style="margin-top:10px"></div>
-      </div>
-
-      <div id="page-standings" class="card page hidden">
-        <h3>Classifiche gironi</h3>
-        <p class="muted">Posizionamento basato su: Punti vittoria > Differenza set > Differenza punti</p>
-        <div class="row" style="margin-bottom: 14px">
-          <button class="btn btn-primary" onclick="showPlayoffPreview()">📊 Anteprima Playoff</button>
-        </div>
-        <div id="standingsContainer" style="margin-top:14px"></div>
       </div>
 
       <div id="page-matches" class="card page hidden">
         <h3>Gestione partite e orari</h3>
         <div id="matchesContainer"></div>
-      </div>
-
-      <div id="page-playoff" class="card page hidden">
-        <h3>Gestione playoff</h3>
-        <div id="playoffWarning" style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 12px; display: none">
-          <strong>⚠️ Prerequisiti non soddisfatti:</strong>
-          <ul style="margin: 8px 0; font-size: 13px;">
-            <li id="missingGroups">✗ Genera prima i gironi nella sezione Gironi</li>
-          </ul>
-        </div>
-        <div class="row">
-          <button class="btn btn-primary" onclick="createPlayoff()" id="createPlayoffBtn" disabled>Crea playoff</button>
-        </div>
-        <div id="playoffContainer" style="margin-top:10px"></div>
       </div>
 
       <div id="page-sponsors" class="card page hidden">
@@ -1294,10 +1243,8 @@
       renderTeams();
       renderSchedule();
       renderPhases();
-      renderGroups();
-      renderStandings();
+      renderPhasesUI();
       renderMatches();
-      renderPlayoff();
       updateButtonStates();
       
       // Se è specificato un tab nell'URL, aprilo automaticamente
@@ -3473,8 +3420,6 @@
         // Aggiorna lo state da backend per sincronizzazione completa
         await refresh();
         
-        renderGroups();
-        
         const distribution = state.groups.map(g => g.teamIds.length).join(', ');
         await showInfoDialog('✅ Gironi Riequilibrati', `${movementCount} squadre spostate.\n\nNuova distribuzione: ${distribution} squadre per girone\n\nLe partite sono state rigenerate automaticamente.`);
       } catch (e) {
@@ -3533,12 +3478,152 @@
         <td>${escapeHtml(match.team2Name)}</td>
         <td>${formatDateIta(match.dayDate)}</td>
         <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.time}"></td>
-        <td>
-          <button class="btn btn-primary" onclick="saveMatch('${match.id}')">Salva</button>
-          <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="margin-left: 4px">Tabellone</button>
+        <td style="white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap">
+          <button class="btn btn-primary" onclick="saveMatch('${match.id}')" style="font-size: 12px; padding: 4px 8px">Salva</button>
+          <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>
+          <button class="btn btn-warning" onclick="clearMatchTime('${match.id}')" style="font-size: 12px; padding: 4px 8px">🗑️</button>
+          <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
         </td>
       </tr>`).join('')}
       </tbody></table>`;
+    }
+
+    async function clearMatchTime(matchId) {
+      const confirmed = await showConfirmDialog('Cancella Orario', 'Sei sicuro di voler cancellare l\'orario di questa partita?');
+      if (!confirmed) return;
+      
+      try {
+        await callApi('admin_update_group_match', 'POST', {
+          id: matchId,
+          time: '',
+          startTime: null,
+          endTime: null,
+          courtIdx: null,
+          dateIdx: null,
+          slotIdx: null
+        }, true);
+        await refresh();
+        await showInfoDialog('✅ Successo', 'Orario cancellato. La partita sarà non programmata.');
+      } catch (e) {
+        await showInfoDialog('❌ Errore', e.message);
+      }
+    }
+
+    async function openSlotPicker(matchId) {
+      const match = (state.groupMatches || []).find(m => m.id === matchId);
+      if (!match) {
+        await showInfoDialog('Errore', 'Partita non trovata');
+        return;
+      }
+
+      // Calcola gli slot disponibili dalla configurazione
+      const availableSlots = calculateAvailableSlots();
+      
+      if (availableSlots.length === 0) {
+        await showInfoDialog('⚠️ Nessuno slot disponibile', 'Non sono stati configurati campi, date o time range nella sezione Calendario.\n\nVai a Calendario per aggiungere la schedule.');
+        return;
+      }
+
+      // Crea la dialog
+      let slotHtml = `
+        <div style="font-size: 13px">
+          <p style="margin-bottom: 12px"><strong>${escapeHtml(match.team1Name)} vs ${escapeHtml(match.team2Name)}</strong></p>
+          <p style="color: #666; margin-bottom: 12px">Seleziona uno slot disponibile per questa partita:</p>
+          
+          <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; max-height: 400px; overflow-y: auto">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; padding: 12px">
+      `;
+
+      availableSlots.forEach((slot, idx) => {
+        slotHtml += `
+          <button style="background: white; border: 2px solid #ddd; border-radius: 4px; padding: 12px; cursor: pointer; transition: all 0.2s; text-align: left"
+            onmouseover="this.style.borderColor='#2196F3'; this.style.boxShadow='0 2px 8px rgba(33,150,243,0.2)'"
+            onmouseout="this.style.borderColor='#ddd'; this.style.boxShadow='none'"
+            onclick="selectSlotForMatch('${matchId}', ${idx})">
+            <div style="font-weight: bold; color: #1976d2; margin-bottom: 6px">📅 ${slot.dateLabel}</div>
+            <div style="color: #666; font-size: 12px; margin-bottom: 4px">
+              🕐 ${slot.startTime} - ${slot.endTime}
+            </div>
+            <div style="color: #999; font-size: 11px">
+              🏟️ ${slot.courtLabel}
+            </div>
+          </button>
+        `;
+      });
+
+      slotHtml += `
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd">
+            <button class="btn btn-primary" onclick="clearModal()">Chiudi</button>
+          </div>
+        </div>
+      `;
+
+      openModal({
+        title: '📅 Seleziona Slot Disponibile',
+        body: slotHtml,
+        buttons: [] // I pulsanti sono già nella dialog
+      });
+    }
+
+    function calculateAvailableSlots() {
+      const slots = [];
+      const schedule = config.schedule || {};
+      const courts = schedule.courts || [];
+      
+      courts.forEach((court, courtIdx) => {
+        const availability = court.availability || [];
+        availability.forEach((av, dateIdx) => {
+          const timeSlots = av.timeSlots || [];
+          timeSlots.forEach((ts, slotIdx) => {
+            slots.push({
+              courtIdx: courtIdx,
+              dateIdx: dateIdx,
+              slotIdx: slotIdx,
+              courtLabel: court.name || `Campo ${courtIdx + 1}`,
+              dateLabel: formatDateIta(av.date),
+              startTime: ts.startTime || '00:00',
+              endTime: ts.endTime || '00:00',
+              date: av.date,
+              timeSlot: ts
+            });
+          });
+        });
+      });
+
+      return slots;
+    }
+
+    async function selectSlotForMatch(matchId, slotIndex) {
+      const slots = calculateAvailableSlots();
+      const slot = slots[slotIndex];
+      
+      if (!slot) {
+        await showInfoDialog('❌ Errore', 'Slot non trovato');
+        return;
+      }
+
+      try {
+        await callApi('admin_update_group_match', 'POST', {
+          id: matchId,
+          time: `${slot.startTime} - ${slot.endTime}`,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          courtIdx: slot.courtIdx,
+          dateIdx: slot.dateIdx,
+          slotIdx: slot.slotIdx,
+          date: slot.date,
+          courtName: slot.courtLabel
+        }, true);
+        
+        closeModal(true);
+        await refresh();
+        await showInfoDialog('✅ Successo', `Partita programmata per:\n📅 ${slot.dateLabel}\n🕐 ${slot.startTime}\n🏟️ ${slot.courtLabel}`);
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Errore nel salvataggio: ' + e.message);
+      }
     }
 
     function openScoreboard(matchId) {
@@ -3702,6 +3787,252 @@
         }, true);
         await refresh();
       } catch (e) { await showInfoDialog('Errore', e.message); }
+    }
+
+    // ===== GESTIONE FASI UNIFICATA =====
+    let currentSelectedPhaseNumber = 1; // Fase selezionata attualmente
+
+    function renderPhasesUI() {
+      // Renderizza phase selector + content area
+      renderPhaseSelector();
+      renderPhaseContent();
+    }
+
+    function renderPhaseSelector() {
+      const phases = config.phases || [];
+      const container = document.getElementById('phaseSelectorContainer');
+      if (!container) return;
+
+      if (phases.length === 0) {
+        container.innerHTML = '<p style="color: #999; font-size: 13px">Nessuna fase configurata. Crea una fase nella sezione "Fasi Torneo".</p>';
+        return;
+      }
+
+      let html = '';
+      phases.forEach(phase => {
+        const isSelected = phase.phaseNumber === currentSelectedPhaseNumber;
+        const typeLabel = phase.type === 'groups' ? '🎯 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo');
+        const btnStyle = isSelected 
+          ? 'background: #2196F3; color: white; border: 2px solid #1976D2' 
+          : 'background: white; color: #333; border: 1px solid #ddd';
+        
+        html += `
+          <button class="btn" style="${btnStyle}; flex: 1; min-width: 120px; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s" 
+            onclick="selectPhase(${phase.phaseNumber})">
+            <strong>Fase ${phase.phaseNumber}</strong><br>
+            <small>${typeLabel} - ${escapeHtml(phase.name)}</small>
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function selectPhase(phaseNumber) {
+      currentSelectedPhaseNumber = phaseNumber;
+      renderPhaseContent();
+    }
+
+    function renderPhaseContent() {
+      const phases = config.phases || [];
+      const phase = phases.find(p => p.phaseNumber === currentSelectedPhaseNumber);
+      const container = document.getElementById('phaseContentContainer');
+      
+      if (!container || !phase) {
+        if (container) container.innerHTML = '<p>Fase non trovata.</p>';
+        return;
+      }
+
+      // Determina se i dati della fase sono disponibili nello state
+      const stateKey = `phase${phase.phaseNumber}`;
+      const phaseState = state[stateKey];
+
+      if (phase.type === 'groups') {
+        renderPhaseGroups(phase, phaseState, container);
+      } else if (phase.type === 'knockout') {
+        renderPhaseKnockout(phase, phaseState, container);
+      } else if (phase.type === 'subtournament') {
+        renderPhaseSubtournament(phase, phaseState, container);
+      } else {
+        container.innerHTML = `<p>Tipo di fase non riconosciuto: ${phase.type}</p>`;
+      }
+    }
+
+    function renderPhaseGroups(phase, phaseState, container) {
+      // Per adesso, usa la logica già esistente per i gironi
+      // In futuro potrebbe supportare multiple fasi di gironi
+      
+      let html = '<div>';
+      html += `<h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
+      html += `<p class="muted">${escapeHtml(phase.qualifiedGoTo || 'Nessuna descrizione')}</p>`;
+
+      // Mostra info su qualificate ed eliminate
+      if (phase.qualifiedGoTo || phase.eliminatedGoTo) {
+        html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 12px; font-size: 13px">';
+        if (phase.qualifiedGoTo) {
+          html += `<div><strong style="color: #2ecc71">✓ Qualificate:</strong> ${escapeHtml(phase.qualifiedGoTo)}</div>`;
+        }
+        if (phase.eliminatedGoTo) {
+          html += `<div style="margin-top: 6px"><strong style="color: #ff9800">✗ Eliminate:</strong> ${escapeHtml(phase.eliminatedGoTo)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      // Se è la prima fase (phaseNumber === 1) e i gruppi sono già generati in state.groups
+      if (phase.phaseNumber === 1 && state && state.groups && state.groups.length > 0) {
+        html += '<h5 style="margin-top: 16px; color: #666">Gironi Generati:</h5>';
+        // Usa renderGroups logic ma all'interno di questo HTML
+        html += renderGroupsHTML();
+        html += '<div style="margin-top: 16px" id="groupsContainer"></div>'; // Legacy support
+      } else if (phase.phaseNumber === 1) {
+        html += '<div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 12px; margin-top: 12px">';
+        html += '<strong>⚠️ Prerequisiti non soddisfatti:</strong>';
+        html += '<ul style="margin: 8px 0; font-size: 13px">';
+        html += '<li id="missingTeams">✗ Registra almeno una squadra nella sezione Squadre</li>';
+        html += '<li id="missingSchedule">✗ Configura campi e disponibilità nella sezione Giorni e Fasce</li>';
+        html += '</ul>';
+        html += '</div>';
+        html += '<div class="row" style="margin-top: 12px">';
+        html += `<button class="btn btn-primary" onclick="generateGroups()" id="generateGroupsBtn">Genera gironi (solo approvate)</button>`;
+        html += '</div>';
+        html += `<p class="muted" style="margin-top:10px">Squadre approvate: <strong id="approvedCountDisplay">0</strong>/4 minime richieste.</p>`;
+      } else {
+        html += '<p style="color: #999; font-size: 13px">Gironi per fasi successive non ancora implementati. Sarà supportato presto.</p>';
+      }
+
+      html += '</div>';
+      container.innerHTML = html;
+
+      // Se è la prima fase, renderizza di nuovo per il drag-drop
+      if (phase.phaseNumber === 1 && state && state.groups && state.groups.length > 0) {
+        setTimeout(() => renderGroups(), 100);
+      }
+    }
+
+    function renderGroupsHTML() {
+      // Ritorna solo l'HTML dei gironi, usato da renderPhaseGroups
+      const groups = state && state.groups ? state.groups : [];
+      if (groups.length === 0) return '';
+
+      // Statistiche bilanciamento
+      const validGroups = groups.filter(g => g);
+      if (validGroups.length === 0) return '';
+      
+      const groupSizes = validGroups.map(g => (g?.teams?.length || 0));
+      const minSize = Math.min(...groupSizes);
+      const maxSize = Math.max(...groupSizes);
+      const isBalanced = minSize === maxSize;
+      
+      let html = '';
+      if (isBalanced) {
+        html += `<div style="background: #e8f5e9; border-left: 4px solid #2ecc71; padding: 8px; margin-bottom: 12px; border-radius: 2px; font-size: 13px">
+          ✅ <strong>Gironi bilanciati:</strong> ${groupSizes.join(' - ')} squadre per girone
+        </div>`;
+      } else {
+        const imbalance = maxSize - minSize;
+        html += `<div style="background: ${imbalance === 1 ? '#e3f2fd' : '#fff3cd'}; border-left: 4px solid ${imbalance === 1 ? '#2196f3' : '#ffc107'}; padding: 8px; margin-bottom: 12px; border-radius: 2px; font-size: 13px">
+          ${imbalance === 1 ? '✅' : '⚠️'} <strong>Distribuzione:</strong> ${groupSizes.join(' - ')} squadre per girone
+        </div>`;
+      }
+      html += '<p class="muted">🖱️ Trascina le squadre tra i gironi per riequilibrare.</p>';
+
+      return html;
+    }
+
+    function renderPhaseKnockout(phase, phaseState, container) {
+      // Renderizza il bracket ad albero per la fase knockout
+      let html = '<div>';
+      html += `<h4 style="color: #ff9800; margin-bottom: 12px">🏆 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
+      html += `<p class="muted">${escapeHtml(phase.qualifiedGoTo || 'Nessuna descrizione')}</p>`;
+
+      // Mostra info su qualificate ed eliminate
+      if (phase.qualifiedGoTo || phase.eliminatedGoTo) {
+        html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 12px; font-size: 13px">';
+        if (phase.qualifiedGoTo) {
+          html += `<div><strong style="color: #2ecc71">✓ Vincitori:</strong> ${escapeHtml(phase.qualifiedGoTo)}</div>`;
+        }
+        if (phase.eliminatedGoTo) {
+          html += `<div style="margin-top: 6px"><strong style="color: #ff9800">✗ Perdenti:</strong> ${escapeHtml(phase.eliminatedGoTo)}</div>`;
+        }
+        html += '</div>';
+      }
+
+      if (phase.phaseNumber === 1 && state && state.playoff) {
+        // Renderizza il playoff come bracket
+        html += '<div id="bracketContent"></div>';
+      } else {
+        html += '<p style="color: #999; font-size: 13px">Bracket non ancora generato. Completa la fase precedente.</p>';
+      }
+
+      html += '</div>';
+      container.innerHTML = html;
+
+      // Se è la prima fase knockout, renderizza il bracket
+      if (phase.phaseNumber === 1 && state && state.playoff) {
+        setTimeout(() => {
+          // Renderizza il bracket nel bracketContent
+          const bracketDiv = document.getElementById('bracketContent');
+          if (bracketDiv) {
+            const p = state.playoff || {};
+            let bracketHtml = '<div class="bracket" style="margin-top: 16px">';
+
+            // Quarti di finale
+            if (p.quarterFinals && p.quarterFinals.length > 0) {
+              bracketHtml += '<div class="bracket-column"><div class="bracket-title">QUARTI</div>';
+              p.quarterFinals.forEach(m => {
+                bracketHtml += renderBracketMatch(m, 'quarterFinals');
+              });
+              bracketHtml += '</div>';
+            }
+
+            // Semifinali
+            if (p.semiFinals && p.semiFinals.length > 0) {
+              bracketHtml += '<div class="bracket-column"><div class="bracket-title">SEMIFINALI</div>';
+              p.semiFinals.forEach(m => {
+                bracketHtml += renderBracketMatch(m, 'semiFinals');
+              });
+              bracketHtml += '</div>';
+            }
+
+            // Finale 3° posto
+            if (p.thirdPlace) {
+              bracketHtml += '<div class="bracket-column"><div class="bracket-title">3° POSTO</div>';
+              bracketHtml += renderBracketMatch(p.thirdPlace, 'thirdPlace');
+              bracketHtml += '</div>';
+            }
+
+            // Finale
+            if (p.final) {
+              bracketHtml += '<div class="bracket-column"><div class="bracket-title">FINALE</div>';
+              bracketHtml += renderBracketMatch(p.final, 'final');
+              bracketHtml += '</div>';
+            }
+
+            bracketHtml += '</div>';
+            bracketDiv.innerHTML = bracketHtml;
+          }
+        }, 100);
+      }
+    }
+
+    function renderPhaseSubtournament(phase, phaseState, container) {
+      let html = '<div>';
+      html += `<h4 style="color: #9c27b0; margin-bottom: 12px">🎪 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
+      html += `<p class="muted">Sotto-torneo: <strong>${escapeHtml(phase.subtournamentName || 'N/A')}</strong></p>`;
+      
+      if (phase.selectedTeams && phase.selectedTeams.length > 0) {
+        html += `<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin: 12px 0; font-size: 13px">`;
+        html += `<strong>Squadre partecipanti (${phase.selectedTeams.length}):</strong>`;
+        html += `<ul style="margin: 8px 0; padding-left: 20px">`;
+        phase.selectedTeams.forEach(t => {
+          html += `<li>${escapeHtml(t.name || t)}</li>`;
+        });
+        html += `</ul></div>`;
+      }
+
+      html += `<p style="color: #999; font-size: 13px">Gestione sotto-torneo non ancora implementata in questa sezione.</p>`;
+      html += '</div>';
+      container.innerHTML = html;
     }
 
     async function simulateAll() {
@@ -7879,15 +8210,20 @@ ${wizardState.phaseData.qualifiedGoTo || ''}</textarea>
                   <small style="color: #666">Descrivi il percorso delle squadre qualificate</small>
                 </div>
                 
-                ${wizardState.phaseData.hasRepescage || (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath) ? `
+                ${(wizardState.phaseData.hasRepescage || wizardState.phaseData.type === 'knockout') ? `
                 <div class="field" style="grid-column: 1 / -1">
                   <label style="margin-bottom: 6px; display: block">
-                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : (wizardState.phaseData.type === 'knockout' && wizardState.phaseData.hasLosersPath ? 'del losers bracket' : '')} cosa faranno?</strong>
+                    <strong>Le squadre ${wizardState.phaseData.hasRepescage ? 'del ripescaggio' : 'eliminate/perdenti'} cosa faranno?</strong>
                   </label>
                   <textarea id="wizard-eliminatedGoTo" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 4px" 
-                    placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Continuano nel losers bracket...'}">
+                    placeholder="${wizardState.phaseData.hasRepescage ? 'Es: Girone di ripescaggio, poi alla fase successiva...' : 'Es: Losers Bracket, oppure escluse dal torneo...'}">
 ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
-                  <small style="color: #666">Descrivi il percorso delle squadre ${wizardState.phaseData.hasRepescage ? 'ripescate' : 'del losers bracket'}</small>
+                  <small style="color: #666">Descrivi il percorso delle squadre ${wizardState.phaseData.hasRepescage ? 'ripescate' : 'eliminate'}</small>
+                  ${wizardState.phaseData.type === 'knockout' && !wizardState.phaseData.hasLosersPath ? `
+                    <div style="margin-top: 6px; background: #fff9e6; border: 1px solid #ff9800; border-radius: 2px; padding: 6px; color: #856404; font-size: 12px; border-left: 3px solid #ff9800;">
+                      💡 <strong>Nota:</strong> Se non hai abilitato il Losers Bracket, le squadre qui descritte verranno escluse. Usa questa sezione per documentare il loro percorso.
+                    </div>
+                  ` : ''}
                 </div>
                 ` : `
                 <div style="background: #fff3cd; border: 1px solid #ff9800; border-radius: 4px; padding: 10px; color: #856404;">
@@ -7895,6 +8231,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
                   <small>Le ${eliminatedCount} squadre eliminate verranno escluse dal torneo. Non è necessario specificare una destinazione.</small>
                 </div>
                 `}
+              
               
               </div>
             </div>

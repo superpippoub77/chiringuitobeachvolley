@@ -2182,9 +2182,9 @@
             maxPlayersPerTeam: Math.max(1, Math.min(12, maxPlayersPerTeamVal)),
             maxPlayersOnCourt: Math.max(1, Math.min(6, maxPlayersOnCourtVal)),
             maxSubstitutions: Math.max(0, maxSubstitutionsVal),
-            numSets: parseInt(document.getElementById('cfg-numSets').value) || 2,
+            numSets: parseInt(document.getElementById('cfg-numSets').value) || 1,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
-            timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 0,
+            timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 25,
             setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
             maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
             registrationsClosed: document.getElementById('cfg-registrationsClosed').checked,
@@ -6531,8 +6531,8 @@
       // Calcola parametri incontro dalla config
       const tournament = config.tournament || {};
       const setupTime = (tournament.setupTimeMinutes || 5);
-      const timePerSet = (tournament.timePerSetMinutes || 15);
-      const numSets = (tournament.numSets || 2);
+      const timePerSet = (tournament.timePerSetMinutes || 25);
+      const numSets = (tournament.numSets || 1);
       const matchDuration = setupTime + (timePerSet * numSets);
       
       html += `<div style="background: #fff9e6; border: 2px solid #ffc107; border-radius: 8px; padding: 12px; margin-top: 12px; margin-bottom: 12px">
@@ -6741,8 +6741,8 @@
         const slotDuration = endMinutes - startMinutes;
         const tournament = config.tournament || {};
         const setupTime = (tournament.setupTimeMinutes || 5);
-        const timePerSet = (tournament.timePerSetMinutes || 15);
-        const numSets = (tournament.numSets || 2);
+        const timePerSet = (tournament.timePerSetMinutes || 25);
+        const numSets = (tournament.numSets || 1);
         const matchDuration = setupTime + (timePerSet * numSets);
         const effectiveSlots = slotDuration > 0 ? Math.floor(slotDuration / matchDuration) : 0;
         

@@ -1249,10 +1249,20 @@
 
     // Global event listener per i badge di fase
     document.addEventListener('click', function(e) {
+      console.log('🔍 Click rilevato su:', e.target, 'Classe:', e.target.className);
       const badge = e.target.closest('.phase-status-badge');
+      console.log('🎯 Badge trovato:', badge);
+      if (badge) {
+        console.log('📊 Badge data:', {
+          status: badge.dataset.phaseStatus,
+          phaseNumber: badge.dataset.phaseNumber,
+          phaseType: badge.dataset.phaseType
+        });
+      }
       if (badge && badge.dataset.phaseStatus === 'pending') {
         const phaseNumber = parseInt(badge.dataset.phaseNumber, 10);
         const phaseType = badge.dataset.phaseType;
+        console.log('✅ Chiamando showPhaseRequirements con:', phaseNumber, phaseType);
         showPhaseRequirements(phaseNumber, phaseType);
       }
     });
@@ -1306,6 +1316,7 @@
             <button class="settings-subtab-btn" onclick="showSettingsTab('display', this)">🎨 Visualizzazione</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('advanced', this)">📦 Avanzate</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('jsoneditor', this)">💾 JSON Editor</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('debug', this)">🐛 Debug</button>
           </div>
 
           <!-- TAB 1: TORNEO -->
@@ -1687,6 +1698,29 @@
               
               <div style="background: #fff8e1; border-left: 4px solid #ff9800; padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 12px">
                 <strong>⚠️ Attenzione:</strong> Modifica i JSON con cautela. Errori di sintassi possono danneggiare il torneo. I file vengono salvati con backup automatico.
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-tab-content" id="settings-debug" style="display: none;">
+            <div class="card" style="background: #f5f5f5; padding: 12px">
+              <h4 style="margin-top: 0">🐛 Debug Panel</h4>
+              <p class="muted">Visualizza informazioni di debug e log della console</p>
+              
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-bottom: 12px; max-height: 500px; overflow-y: auto; font-family: 'Monaco', 'Courier New', monospace; font-size: 11px; line-height: 1.4; color: #333">
+                <div id="debugConsole" style="white-space: pre-wrap; word-break: break-word">
+                  <div style="color: #999">// Console di debug - I messaggi verranno mostrati qui</div>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px">
+                <button class="btn" style="background: #2196F3; color: white" onclick="debugShowPhases()">📋 Mostra Fasi</button>
+                <button class="btn" style="background: #4caf50; color: white" onclick="debugShowConfig()">⚙️ Mostra Config</button>
+                <button class="btn" style="background: #ff9800; color: white" onclick="debugClearConsole()">🗑️ Pulisci Console</button>
+              </div>
+              
+              <div style="background: #fff8e1; border-left: 4px solid #ff9800; padding: 10px; border-radius: 4px; font-size: 12px">
+                <strong>💡 Info:</strong> Apri la console del browser (F12) per vedere i log dettagliati. Usa i pulsanti qui per visualizzare state, config e fasi.
               </div>
             </div>
           </div>
@@ -3976,10 +4010,17 @@
     }
 
     function showPhaseRequirements(phaseNumber, phaseType) {
+      console.log('🚀 showPhaseRequirements CHIAMATA:', { phaseNumber, phaseType });
       const phases = config.phases || [];
+      console.log('📋 config.phases:', phases);
       const phase = phases.find(p => p.phaseNumber === phaseNumber);
       
-      if (!phase) return;
+      if (!phase) {
+        console.error('❌ ERRORE: Fase non trovata con phaseNumber=', phaseNumber);
+        return;
+      }
+
+      console.log('✅ Fase trovata:', phase);
 
       let title = '📋 Requisiti Fase - ';
       let requirements = [];
@@ -3991,6 +4032,7 @@
         // Check squadre
         const approvedTeams = (state?.teams || []).filter(t => t.approved);
         const hasTeams = approvedTeams.length >= 1;
+        console.log('✅ Squadre approvate trovate:', approvedTeams.length);
         requirements.push({
           met: hasTeams,
           icon: hasTeams ? '✅' : '❌',
@@ -9299,6 +9341,53 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       setTimeout(() => {
         statusDiv.style.display = 'none';
       }, 5000);
+    }
+
+    // ========== DEBUG FUNCTIONS ==========
+    
+    function debugLog(message) {
+      const debugConsole = document.getElementById('debugConsole');
+      if (debugConsole) {
+        const timestamp = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.style.color = '#666';
+        line.style.marginBottom = '4px';
+        line.textContent = `[${timestamp}] ${message}`;
+        debugConsole.appendChild(line);
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+      }
+      console.log('🔍 DEBUG:', message);
+    }
+
+    function debugShowPhases() {
+      const phases = config.phases || [];
+      debugLog('📋 FASI CONFIGURATE:');
+      phases.forEach((phase, idx) => {
+        debugLog(`  Fase ${phase.phaseNumber}: ${phase.type} - "${phase.name}" - Status: ${phase.status}`);
+      });
+      if (phases.length === 0) {
+        debugLog('  ⚠️ Nessuna fase configurata');
+      }
+      console.log('📋 Fasi complete:', phases);
+    }
+
+    function debugShowConfig() {
+      debugLog('⚙️ CONFIGURAZIONE COMPLETA:');
+      debugLog('Torneo: ' + (config.tournamentName || '(vuoto)'));
+      debugLog('Squadre: ' + (config.maxTeams || '(vuoto)'));
+      debugLog('Campi: ' + ((config.schedule?.courts || []).length));
+      debugLog('Squadre approvate: ' + ((state?.teams || []).filter(t => t.approved).length));
+      debugLog('Gironi generati: ' + ((state?.groups || []).length > 0 ? 'Sì' : 'No'));
+      console.log('⚙️ Config completa:', config);
+      console.log('📊 State completa:', state);
+    }
+
+    function debugClearConsole() {
+      const debugConsole = document.getElementById('debugConsole');
+      if (debugConsole) {
+        debugConsole.innerHTML = '<div style="color: #999">// Console pulita</div>';
+        debugLog('✅ Console azzerata');
+      }
     }
   </script>
 </body>

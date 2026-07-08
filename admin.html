@@ -1237,7 +1237,7 @@
       } else if (page === 'matches') {
         // Se non c'è una fase selezionata, seleziona la prima
         if (!currentSelectedPhaseNumber && state.phases && state.phases.length > 0) {
-          currentSelectedPhaseNumber = state.phases[0].phaseIdx;
+          currentSelectedPhaseNumber = state.phases[0].phaseNumber; // 🔧 FIX: usa phaseNumber, non phaseIdx
         }
         renderMatches();
       }
@@ -3665,6 +3665,7 @@
       try {
         await callApi('admin_update_group_match', 'POST', {
           id: matchId,
+          phaseNumber: currentSelectedPhaseNumber,
           time: '',
           startTime: null,
           endTime: null,
@@ -3778,6 +3779,7 @@
       try {
         await callApi('admin_update_group_match', 'POST', {
           id: matchId,
+          phaseNumber: currentSelectedPhaseNumber,
           time: `${slot.startTime} - ${slot.endTime}`,
           startTime: slot.startTime,
           endTime: slot.endTime,
@@ -3807,6 +3809,7 @@
       try {
         await callApi('admin_update_group_match', 'POST', {
           id,
+          phaseNumber: currentSelectedPhaseNumber,
           score1: score1 === '' ? null : Number(score1),
           score2: score2 === '' ? null : Number(score2),
           time
@@ -3850,6 +3853,7 @@
           
           try {
             await callApi('admin_update_group_match', 'POST', {
+              phaseNumber: currentSelectedPhaseNumber,
               id: match.id,
               score1: score1,
               score2: score2,

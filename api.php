@@ -3590,67 +3590,83 @@ if ($action === 'admin_move_team_group' && $method === 'POST') {
 if ($action === 'admin_update_group_match' && $method === 'POST') {
     $body = bodyJson();
     $id = (string)($body['id'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
 
-    withStateTransaction(function (&$state) use ($body, $id) {
-        $found = false;
+    if( $phaseNumber < 1 || !$id ) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Parametri non validi di PhaseNumber o Match ID']);
+        return;
+    }
+
+    withStateTransaction(function (&$state) use ($body, $id, $phaseNumber) {
+        // 🔧 FIX: Accedi alla fase PER REFERENCE direttamente da $state['phases']
+        ensurePhases($state);
         
-        // Ricerca globale: cerco in tutte le fasi
-        if (!isset($state['phases'])) {
-            $state['phases'] = [];
+        $phaseIdx = array_search(
+            $phaseNumber,
+            array_column($state['phases'], 'phaseNumber'),
+            true
+        );
+
+        if ($phaseIdx === false) {
+            return ['ok' => false, 'error' => "Fase {$phaseNumber} non trovata"];
+        }
+
+        $currentPhase = &$state['phases'][$phaseIdx];
+
+        if (empty($currentPhase['matches'])) {
+            return ['ok' => false, 'error' => "Nessuna partita trovata in fase {$phaseNumber}"];
         }
         
-        foreach ($state['phases'] as &$phase) {
-            if (!isset($phase['matches'])) {
-                continue;
+        // Ricerca e aggiorna il match per reference
+        $matchFound = false;
+        foreach ($currentPhase['matches'] as &$m) {
+            if ($m['id'] !== $id) continue;
+            
+            $matchFound = true;
+            
+            // Aggiorna i campi della partita
+            if (array_key_exists('score1', $body)) {
+                $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
+            }
+            if (array_key_exists('score2', $body)) {
+                $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
+            }
+            if (isset($body['time'])) {
+                $m['time'] = trim((string)$body['time']);
+            }
+            if (isset($body['day'])) {
+                $m['day'] = (int)$body['day'];
+            }
+            // Nuovi campi per gestione slot
+            if (isset($body['startTime'])) {
+                $m['startTime'] = $body['startTime'] === null ? null : (string)$body['startTime'];
+            }
+            if (isset($body['endTime'])) {
+                $m['endTime'] = $body['endTime'] === null ? null : (string)$body['endTime'];
+            }
+            if (isset($body['courtIdx'])) {
+                $m['courtIdx'] = $body['courtIdx'] === null ? null : (int)$body['courtIdx'];
+            }
+            if (isset($body['dateIdx'])) {
+                $m['dateIdx'] = $body['dateIdx'] === null ? null : (int)$body['dateIdx'];
+            }
+            if (isset($body['slotIdx'])) {
+                $m['slotIdx'] = $body['slotIdx'] === null ? null : (int)$body['slotIdx'];
+            }
+            if (isset($body['date'])) {
+                $m['date'] = $body['date'] === null ? null : (string)$body['date'];
+            }
+            if (isset($body['courtName'])) {
+                $m['courtName'] = $body['courtName'] === null ? null : (string)$body['courtName'];
             }
             
-            foreach ($phase['matches'] as &$m) {
-                if ($m['id'] !== $id) continue;
-                
-                $found = true;
-                // Aggiorna i campi della partita
-                if (array_key_exists('score1', $body)) {
-                    $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
-                }
-                if (array_key_exists('score2', $body)) {
-                    $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
-                }
-                if (isset($body['time'])) {
-                    $m['time'] = trim((string)$body['time']);
-                }
-                if (isset($body['day'])) {
-                    $m['day'] = (int)$body['day'];
-                }
-                // Nuovi campi per gestione slot
-                if (isset($body['startTime'])) {
-                    $m['startTime'] = $body['startTime'] === null ? null : (string)$body['startTime'];
-                }
-                if (isset($body['endTime'])) {
-                    $m['endTime'] = $body['endTime'] === null ? null : (string)$body['endTime'];
-                }
-                if (isset($body['courtIdx'])) {
-                    $m['courtIdx'] = $body['courtIdx'] === null ? null : (int)$body['courtIdx'];
-                }
-                if (isset($body['dateIdx'])) {
-                    $m['dateIdx'] = $body['dateIdx'] === null ? null : (int)$body['dateIdx'];
-                }
-                if (isset($body['slotIdx'])) {
-                    $m['slotIdx'] = $body['slotIdx'] === null ? null : (int)$body['slotIdx'];
-                }
-                if (isset($body['date'])) {
-                    $m['date'] = $body['date'] === null ? null : (string)$body['date'];
-                }
-                if (isset($body['courtName'])) {
-                    $m['courtName'] = $body['courtName'] === null ? null : (string)$body['courtName'];
-                }
-                break 2; // Esci da entrambi i loop
-            }
-            unset($m);
+            error_log("✅ Match {$id} aggiornato in fase {$phaseNumber}");
+            break;
         }
-        unset($phase);
+        unset($m);
 
-        if (!$found) {
-            jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+        if (!$matchFound) {
+            return ['ok' => false, 'error' => "Match {$id} non trovato in fase {$phaseNumber}"];
         }
 
         return ['ok' => true];

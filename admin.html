@@ -4068,11 +4068,121 @@
 
     function renderPhaseStandings() {
       const container = document.getElementById('phaseContentContainer');
-      if (!container) {
-        container.innerHTML = '<p>Classifiche non ancora implementate per questa fase.</p>';
+      if (!container) return;
+      
+      // Cerca la fase in state
+      const statePhases = state.phases || [];
+      const statePhase = statePhases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      
+      if (!statePhase) {
+        container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata.</p>';
         return;
       }
-      container.innerHTML = '<p style="color: #999; font-size: 14px; padding: 20px; text-align: center">📈 Le classifiche verranno implementate a breve</p>';
+      
+      if (statePhase.type !== 'groups') {
+        container.innerHTML = '<p style="color: #999">📈 Classifiche disponibili solo per fasi a gironi.</p>';
+        return;
+      }
+      
+      if (!statePhase.groups || statePhase.groups.length === 0) {
+        container.innerHTML = '<p style="color: #999">Nessun girone disponibile.</p>';
+        return;
+      }
+
+      let html = `<div><h4 style="margin-bottom: 16px">📈 Classifiche</h4>`;
+
+      const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      
+      statePhase.groups.forEach((group, groupIdx) => {
+        const groupLabel = groupNames[groupIdx] || ('G' + (groupIdx + 1));
+        
+        // Calcola statistiche per ogni squadra
+        const standings = group.map(team => {
+          const teamMatches = (statePhase.matches || []).filter(m => 
+            (m.team1 === team.id || m.team2 === team.id) && m.groupName === groupLabel
+          );
+          
+          let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0;
+          
+          teamMatches.forEach(m => {
+            const isTeam1 = m.team1 === team.id;
+            const score1 = m.score1 ?? 0;
+            const score2 = m.score2 ?? 0;
+            
+            if (isTeam1) {
+              setsWon += score1 || 0;
+              setsLost += score2 || 0;
+              pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
+              pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+              
+              if ((score1 || 0) > (score2 || 0)) points += 3;
+              else if ((score1 || 0) === (score2 || 0)) points += 1;
+            } else {
+              setsWon += score2 || 0;
+              setsLost += score1 || 0;
+              pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+              pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
+              
+              if ((score2 || 0) > (score1 || 0)) points += 3;
+              else if ((score2 || 0) === (score1 || 0)) points += 1;
+            }
+          });
+          
+          return {
+            name: team.name,
+            matches: teamMatches.length,
+            points,
+            setsWon,
+            setsLost,
+            pointsFor,
+            pointsAgainst,
+            setsDiff: setsWon - setsLost,
+            pointsDiff: pointsFor - pointsAgainst
+          };
+        });
+
+        // Ordina per: punti descending, differenza set descending, differenza punti descending
+        standings.sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.setsDiff !== a.setsDiff) return b.setsDiff - a.setsDiff;
+          return b.pointsDiff - a.pointsDiff;
+        });
+
+        html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 16px">
+          <h5 style="margin: 0 0 10px 0; color: #2196F3">📊 Girone ${groupLabel}</h5>
+          <table style="width: 100%; font-size: 12px; border-collapse: collapse">
+            <thead>
+              <tr style="background: #e3f2fd">
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">#</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Part</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Pts</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Set</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Punt</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        
+        standings.forEach((row, idx) => {
+          html += `<tr style="border-bottom: 1px solid #eee; background: ${idx === 0 ? '#c8e6c9' : ''}">
+            <td style="padding: 8px; font-weight: bold; color: #2196F3">${idx + 1}</td>
+            <td style="padding: 8px">${escapeHtml(row.name)}</td>
+            <td style="padding: 8px; text-align: center">${row.matches}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f">${row.points}</td>
+            <td style="padding: 8px; text-align: center">${row.setsWon}-${row.setsLost}</td>
+            <td style="padding: 8px; text-align: center">${row.pointsFor}-${row.pointsAgainst}</td>
+          </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+      });
+
+      html += `<div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-top: 16px; font-size: 12px">
+        <strong>Legenda:</strong><br>
+        Part = Partite | Pts = Punti classifica (V=3, P=1) | Set = Set vinti-persi | Punt = Punti set vinti-subiti
+      </div></div>`;
+
+      container.innerHTML = html;
     }
 
     function navigateToPhases() {
@@ -4435,125 +4545,87 @@
     }
 
     function renderPhaseContent() {
-      const phases = config.phases || [];
-      const phase = phases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      // IMPORTANTE: I dati reali sono in state.phases (dati generati)
+      // config.phases ha solo i metadati
+      const statePhases = state.phases || [];
+      const statePhase = statePhases.find(p => p.phaseIdx === currentSelectedPhaseNumber);
+      
+      const configPhases = config.phases || [];
+      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);
+      
       const container = document.getElementById('phaseContentContainer');
       
-      if (!container || !phase) {
-        if (container) container.innerHTML = '<p>Fase non trovata.</p>';
+      if (!container) {
+        return;
+      }
+      
+      // Se non c'è nemmeno in config, la fase non esiste
+      if (!configPhase) {
+        container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata in configurazione.</p>';
+        return;
+      }
+      
+      // Se non c'è in state, la fase non è stata generata
+      if (!statePhase) {
+        container.innerHTML = `<p style="color: #ff9800">⚠️ Fase ${currentSelectedPhaseNumber} non è stata ancora generata. Vai al tab "Fasi Torneo" e genera i dati.</p>`;
         return;
       }
 
-      // Determina se i dati della fase sono disponibili nello state
-      const stateKey = `phase${phase.phaseNumber}`;
-      const phaseState = state[stateKey];
-
-      if (phase.type === 'groups') {
-        renderPhaseGroups(phase, phaseState, container);
-      } else if (phase.type === 'knockout') {
-        renderPhaseKnockout(phase, phaseState, container);
-      } else if (phase.type === 'subtournament') {
-        renderPhaseSubtournament(phase, phaseState, container);
+      // Usa statePhase per i dati reali
+      if (statePhase.type === 'groups') {
+        renderPhaseGroups(statePhase, container);
+      } else if (statePhase.type === 'knockout') {
+        renderPhaseKnockout(statePhase, container);
+      } else if (statePhase.type === 'subtournament') {
+        renderPhaseSubtournament(statePhase, container);
       } else {
-        container.innerHTML = `<p>Tipo di fase non riconosciuto: ${phase.type}</p>`;
+        container.innerHTML = `<p>Tipo di fase non riconosciuto: ${statePhase.type}</p>`;
       }
     }
 
-    function renderPhaseGroups(phase, phaseState, container) {
-      // Per adesso, usa la logica già esistente per i gironi
-      // In futuro potrebbe supportare multiple fasi di gironi
+    function renderPhaseGroups(phaseData, container) {
+      // phaseData viene da state.phases e contiene i dati effettivi
+      if (!phaseData.groups || phaseData.groups.length === 0) {
+        container.innerHTML = '<p style="color: #999">Nessun girone disponibile per questa fase.</p>';
+        return;
+      }
+
+      let html = `<div>
+        <h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phaseData.name)}</h4>`;
       
-      let html = '<div>';
-      html += `<h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
-      html += `<p class="muted">${escapeHtml(phase.qualifiedGoTo || 'Nessuna descrizione')}</p>`;
+      // Mostra numero di squadre e gironi
+      html += `<div style="background: #f0f8ff; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
+        <div>📊 <strong>${phaseData.groups.length}</strong> gironi</div>
+        <div>👥 <strong>${phaseData.metadata?.teamCount || 0}</strong> squadre</div>
+      </div>`;
 
-      // Mostra info su qualificate ed eliminate
-      if (phase.qualifiedGoTo || phase.eliminatedGoTo) {
-        html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 12px; font-size: 13px">';
-        if (phase.qualifiedGoTo) {
-          html += `<div><strong style="color: #2ecc71">✓ Qualificate:</strong> ${escapeHtml(phase.qualifiedGoTo)}</div>`;
-        }
-        if (phase.eliminatedGoTo) {
-          html += `<div style="margin-top: 6px"><strong style="color: #ff9800">✗ Eliminate:</strong> ${escapeHtml(phase.eliminatedGoTo)}</div>`;
-        }
-        html += '</div>';
-      }
-
-      // Se è la prima fase (phaseNumber === 1) e i gruppi sono già generati in state.groups
-      if (phase.phaseNumber === 1 && state && state.groups && state.groups.length > 0) {
-        html += '<h5 style="margin-top: 16px; color: #666">Gironi Generati:</h5>';
-        // Usa renderGroups logic ma all'interno di questo HTML
-        html += renderGroupsHTML();
-        html += '<div style="margin-top: 16px" id="groupsContainer"></div>'; // Legacy support
-      } else if (phase.phaseNumber === 1) {
-        // ZONE AZIONI PRINCIPALE
-        html += '<div style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 2px solid #673ab7; border-radius: 8px; padding: 16px; margin-bottom: 16px">';
-        html += '<h4 style="margin: 0 0 12px 0; color: #673ab7">🎯 Genera Gironi</h4>';
+      // Renderizza ogni girone
+      const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      phaseData.groups.forEach((group, idx) => {
+        const groupLabel = groupNames[idx] || ('G' + (idx + 1));
+        html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 12px">
+          <h5 style="margin: 0 0 10px 0; color: #2196F3">⚽ Girone ${groupLabel}</h5>
+          <table style="width: 100%; font-size: 12px; border-collapse: collapse">
+            <thead>
+              <tr style="background: #e3f2fd">
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">#</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th>
+              </tr>
+            </thead>
+            <tbody>`;
         
-        // Check prerequisiti
-        const hasTeams = (state?.teams || []).filter(t => t.approved).length >= 1;
-        const schedule = config.schedule || {};
-        const hasSchedule = (schedule.courts || []).length > 0;
+        group.forEach((team, teamIdx) => {
+          html += `<tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 8px">${teamIdx + 1}</td>
+            <td style="padding: 8px">${escapeHtml(team.name)}</td>
+          </tr>`;
+        });
         
-        html += '<div style="background: white; padding: 12px; border-radius: 4px; margin-bottom: 12px; font-size: 13px">';
-        html += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">';
-        
-        // Prerequisito 1: Squadre
-        html += `<div style="border-left: 4px solid ${hasTeams ? '#2ecc71' : '#ff9800'}; padding-left: 10px">
-          <div style="font-weight: bold; color: ${hasTeams ? '#2ecc71' : '#ff6f00'}">
-            ${hasTeams ? '✓' : '✗'} Squadre
-          </div>
-          <div style="font-size: 12px; color: #666">
-            ${hasTeams ? 'Squadre iscritte: OK' : 'Registra almeno 1 squadra'}
-          </div>
-        </div>`;
-        
-        // Prerequisito 2: Schedule
-        html += `<div style="border-left: 4px solid ${hasSchedule ? '#2ecc71' : '#ff9800'}; padding-left: 10px">
-          <div style="font-weight: bold; color: ${hasSchedule ? '#2ecc71' : '#ff6f00'}">
-            ${hasSchedule ? '✓' : '✗'} Calendario
-          </div>
-          <div style="font-size: 12px; color: #666">
-            ${hasSchedule ? 'Campi configurati: OK' : 'Vai a Calendario e aggiungi campi/orari'}
-          </div>
-        </div>`;
-        
-        html += '</div>';
-        html += '</div>';
-        
-        // Pulsante azione
-        const canGenerate = hasTeams && hasSchedule;
-        const btnStyle = canGenerate 
-          ? 'background: #2196F3; color: white; cursor: pointer; border: none'
-          : 'background: #ccc; color: #666; cursor: not-allowed; border: none; opacity: 0.6';
-        
-        html += `<div class="row">
-          <button class="btn" style="${btnStyle}; flex: 1; padding: 14px; font-size: 14px; font-weight: bold; border-radius: 4px" 
-            onclick="generateGroups()" 
-            ${canGenerate ? '' : 'disabled'} 
-            id="generateGroupsBtn">
-            🎯 Genera Gironi (solo approvate)
-          </button>
-        </div>`;
-        
-        html += `<p class="muted" style="margin-top: 12px; font-size: 12px">
-          📊 Squadre approvate: <strong id="approvedCountDisplay">0</strong> | 
-          ⚙️ Campi: <strong>${(schedule.courts || []).length}</strong>
-        </p>`;
-        
-        html += '</div>';
-      } else {
-        html += '<p style="color: #999; font-size: 13px">Gironi per fasi successive non ancora implementati. Sarà supportato presto.</p>';
-      }
+        html += `</tbody></table></div>`;
+      });
 
       html += '</div>';
       container.innerHTML = html;
-
-      // Se è la prima fase, renderizza di nuovo per il drag-drop
-      if (phase.phaseNumber === 1 && state && state.groups && state.groups.length > 0) {
-        setTimeout(() => renderGroups(), 100);
-      }
-    }
 
     function showPhaseRequirements(phaseNumber, phaseType) {
       console.log('🚀 showPhaseRequirements CHIAMATA:', { phaseNumber, phaseType });
@@ -4777,11 +4849,59 @@
       return html;
     }
 
-    function renderPhaseKnockout(phase, phaseState, container) {
+    function renderPhaseKnockout(phaseData, container) {
       // Renderizza il bracket ad albero per la fase knockout
-      let html = '<div>';
-      html += `<h4 style="color: #ff9800; margin-bottom: 12px">🏆 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
-      html += `<p class="muted">${escapeHtml(phase.qualifiedGoTo || 'Nessuna descrizione')}</p>`;
+      if (!phaseData.matches || phaseData.matches.length === 0) {
+        container.innerHTML = '<p style="color: #999">Nessuna partita di knockout disponibile.</p>';
+        return;
+      }
+
+      let html = `<div>
+        <h4 style="color: #ff9800; margin-bottom: 12px">🏆 ${escapeHtml(phaseData.name)}</h4>
+        <div style="background: #fff3e0; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
+          <div>🏆 <strong>${phaseData.matches.length}</strong> partite in questa fase</div>
+        </div>
+      `;
+
+      // Raggruppa partite per turno
+      const matchesByRound = {};
+      phaseData.matches.forEach(match => {
+        const round = match.round || 'Turno non definito';
+        if (!matchesByRound[round]) {
+          matchesByRound[round] = [];
+        }
+        matchesByRound[round].push(match);
+      });
+
+      // Mostra partite per turno
+      Object.keys(matchesByRound).forEach(round => {
+        html += `<div style="margin-bottom: 16px">
+          <h5 style="color: #ff9800; margin-bottom: 8px">🔹 ${round}</h5>
+          <table style="width: 100%; font-size: 12px; border-collapse: collapse">
+            <thead>
+              <tr style="background: #fff3e0">
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 1</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Score</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 2</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Data</th>
+              </tr>
+            </thead>
+            <tbody>`;
+        
+        matchesByRound[round].forEach(match => {
+          html += `<tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 8px">${escapeHtml(match.team1Name)}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px">${escapeHtml(match.team2Name)}</td>
+            <td style="padding: 8px; text-align: center; font-size: 11px">${match.date ? formatDateIta(match.date) : '-'}</td>
+          </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
 
       // Mostra info su qualificate ed eliminate
       if (phase.qualifiedGoTo || phase.eliminatedGoTo) {
@@ -4856,22 +4976,42 @@
       }
     }
 
-    function renderPhaseSubtournament(phase, phaseState, container) {
-      let html = '<div>';
-      html += `<h4 style="color: #9c27b0; margin-bottom: 12px">🎪 ${escapeHtml(phase.name)} (Fase ${phase.phaseNumber})</h4>`;
-      html += `<p class="muted">Sotto-torneo: <strong>${escapeHtml(phase.subtournamentName || 'N/A')}</strong></p>`;
+    function renderPhaseSubtournament(phaseData, container) {
+      let html = `<div>
+        <h4 style="color: #9c27b0; margin-bottom: 12px">🎪 ${escapeHtml(phaseData.name)}</h4>`;
       
-      if (phase.selectedTeams && phase.selectedTeams.length > 0) {
-        html += `<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin: 12px 0; font-size: 13px">`;
-        html += `<strong>Squadre partecipanti (${phase.selectedTeams.length}):</strong>`;
-        html += `<ul style="margin: 8px 0; padding-left: 20px">`;
-        phase.selectedTeams.forEach(t => {
-          html += `<li>${escapeHtml(t.name || t)}</li>`;
+      if (!phaseData.matches || phaseData.matches.length === 0) {
+        html += `<p style="color: #999">Nessuna partita nel sotto-torneo.</p>`;
+      } else {
+        html += `<div style="background: #f3e5f5; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
+          <div>🎪 <strong>${phaseData.matches.length}</strong> partite in questa fase</div>
+          ${phaseData.metadata?.teamCount ? `<div>👥 <strong>${phaseData.metadata.teamCount}</strong> squadre</div>` : ''}
+        </div>`;
+
+        // Mostra partite
+        html += `<table style="width: 100%; font-size: 12px; border-collapse: collapse">
+          <thead>
+            <tr style="background: #f3e5f5">
+              <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 1</th>
+              <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Score</th>
+              <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 2</th>
+              <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Data</th>
+            </tr>
+          </thead>
+          <tbody>`;
+        
+        phaseData.matches.forEach(match => {
+          html += `<tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 8px">${escapeHtml(match.team1Name)}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px">${escapeHtml(match.team2Name)}</td>
+            <td style="padding: 8px; text-align: center; font-size: 11px">${match.date ? formatDateIta(match.date) : '-'}</td>
+          </tr>`;
         });
-        html += `</ul></div>`;
+
+        html += `</tbody></table>`;
       }
 
-      html += `<p style="color: #999; font-size: 13px">Gestione sotto-torneo non ancora implementata in questa sezione.</p>`;
       html += '</div>';
       container.innerHTML = html;
     }

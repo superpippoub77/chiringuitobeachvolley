@@ -842,7 +842,7 @@ function ensurePhases(array &$state): void {
 function getPhase(array &$state, int $phaseIdx): ?array {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if ($phase['phaseIdx'] === $phaseIdx) {
+        if (($phase['phaseIdx'] ?? $phase['phaseNumber'] ?? 0) === $phaseIdx) {
             return $phase;
         }
     }
@@ -3232,14 +3232,26 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
     }
 
     $result = withStateTransaction(function (&$state) use ($teamName, $phaseNumber, $groupLabel) {
-        // Usa la funzione helper per ottenere la fase
-        $phase = getPhase($state, $phaseNumber);
-        if (!$phase) {
+        // 🔧 ACCESSO DIRETTO: Trova l'indice della fase per modificare per reference
+        ensurePhases($state);
+        $phaseIdx = null;
+        foreach ($state['phases'] as $idx => $p) {
+            if (($p['phaseIdx'] ?? $p['phaseNumber'] ?? 0) === $phaseNumber) {
+                $phaseIdx = $idx;
+                break;
+            }
+        }
+
+        if ($phaseIdx === null) {
             return ['ok' => false, 'error' => "Fase $phaseNumber non trovata"];
         }
 
+        // 🔧 REFERENCE ALLA FASE: Accedi per reference per modificare in place
+        $phase = &$state['phases'][$phaseIdx];
+
         error_log('🔍 DEBUG admin_move_team_to_group START:');
         error_log('   phaseNumber=' . $phaseNumber);
+        error_log('   phaseIdx=' . $phaseIdx);
         error_log('   phase.type=' . ($phase['type'] ?? 'NULL'));
         error_log('   phase.groups count=' . count($phase['groups'] ?? []));
         error_log('   state.groups count=' . count($state['groups'] ?? []));
@@ -3255,9 +3267,9 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
         $groupLabels = [];
         foreach ($phase['groups'] ?? [] as $idx => $group) {
             // I gruppi hanno la struttura {name: 'A', teamIds: [...]}
-            $groupLabel = $group['name'] ?? null;
-            if ($groupLabel) {
-                $groupLabels[$groupLabel] = $idx;
+            $groupLabel_item = $group['name'] ?? null;
+            if ($groupLabel_item) {
+                $groupLabels[$groupLabel_item] = $idx;
             }
         }
 
@@ -3307,15 +3319,13 @@ if ($action === 'admin_move_team_to_group' && $method === 'POST') {
             $phase['groups'][$destGroupIdx]['teamIds'] = [];
         }
         $phase['groups'][$destGroupIdx]['teamIds'][] = $foundTeamId;
-
-        // Salva i gruppi modificati usando la funzione helper
-        setPhaseGroups($state, $phaseNumber, $phase['groups']);
         
-        // Sincronizza anche back a $state['groups'] per compatibilità
+        // Sincronizza anche back a $state['groups'] per compatibilità (fase 1)
         if ($phaseNumber === 1) {
             $state['groups'] = $phase['groups'];
         }
 
+        error_log('✅ Squadra ' . $teamName . ' spostata a Girone ' . $groupLabel);
         return ['ok' => true, 'message' => "Squadra spostata a Girone $groupLabel"];
     });
 

@@ -3588,8 +3588,11 @@ if ($action === 'admin_update_group_match' && $method === 'POST') {
         }
         
         foreach ($state['phases'] as &$phase) {
-            $matches = &($phase['matches'] ?? []);
-            foreach ($matches as &$m) {
+            if (!isset($phase['matches'])) {
+                continue;
+            }
+            
+            foreach ($phase['matches'] as &$m) {
                 if ($m['id'] !== $id) continue;
                 
                 $found = true;

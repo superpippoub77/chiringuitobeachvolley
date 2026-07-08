@@ -572,7 +572,9 @@
         <button class="tab active" data-page="settings" onclick="showPage('settings', this)">Impostazioni</button>
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
+        <button class="tab" data-page="fasi-torneo" onclick="showPage('fasi-torneo', this)">📋 Fasi Torneo</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">📊 Gironi e Fasi</button>
+        <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
         <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
@@ -647,6 +649,40 @@
         </div>
       </div>
 
+      <div id="page-fasi-torneo" class="card page hidden">
+        <h3>📋 Fasi Torneo</h3>
+        <p class="muted">Configura le fasi del torneo prima di generarle. Ogni fase può essere di tipo gironi, knockout o sottotorneo.</p>
+        
+        <div style="background: #e8f5e9; border-left: 4px solid #2f6a23; border-radius: 4px; padding: 12px; margin-bottom: 16px">
+          <h4 style="margin-top: 0; color: #1b5e20; display: flex; align-items: center; gap: 8px">
+            <span>ℹ️ Come Iniziare</span>
+          </h4>
+          <ol style="margin: 8px 0; padding-left: 20px; font-size: 14px; color: #1b5e20">
+            <li>Clicca <strong>"➕ Nuova Fase"</strong> nel tab <strong>"Gironi e Fasi"</strong></li>
+            <li>Usa la <strong>procedura guidata (Wizard)</strong> per configurare la fase passo-passo</li>
+            <li>Scegli il tipo (Gironi, Knockout, Sottotorneo)</li>
+            <li>Imposta i parametri (numero gironi, squadre che passano, ecc)</li>
+            <li>Clicca <strong>"Genera"</strong> per creare la fase</li>
+            <li>Il workflow tree si aggiornerà automaticamente</li>
+          </ol>
+        </div>
+
+        <!-- Preview delle fasi configurate -->
+        <div id="phasesConfigurationContainer" style="margin-top: 20px">
+          <h4>Fasi Configurate</h4>
+          <p style="color: #999; font-size: 13px">Le fasi appariranno qui man mano che le crei.</p>
+        </div>
+
+        <!-- Pulsante di navigazione -->
+        <div class="row" style="margin-top: 20px; gap: 8px">
+          <button class="btn btn-green" onclick="navigateToPhases()">
+            ➕ Vai a "Gironi e Fasi" per Creare Nuova Fase
+          </button>
+          <button class="btn btn-info" onclick="loadPhasesConfigurationUI()">
+            🔄 Ricarica Configurazione Fasi
+          </button>
+        </div>
+      </div>
 
       <div id="page-floweditor" class="card page hidden">
         <h3>🎨 Editor Visuale del Flusso Torneo</h3>
@@ -693,9 +729,21 @@
       <div id="page-phases" class="card page hidden">
         <h3>📊 Gironi e Fasi</h3>
         
+        <!-- Workflow Tree - Visualizzazione ad Albero delle Fasi -->
+        <div id="workflowTreeContainer" style="margin-bottom: 20px">
+          <!-- Dinamicamente riempito da JavaScript -->
+        </div>
+
+        <!-- Pulsante Nuova Fase -->
+        <div style="margin-bottom: 16px">
+          <button class="btn btn-green" onclick="openPhaseWizard('root')" style="font-size: 14px; padding: 10px 16px">
+            ➕ Nuova Fase
+          </button>
+        </div>
+
         <!-- Phase Selector -->
         <div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 16px">
-          <p style="margin: 0 0 10px 0; font-weight: bold; color: #333">Seleziona Fase:</p>
+          <p style="margin: 0 0 10px 0; font-weight: bold; color: #333">Seleziona Fase per Gestire:</p>
           <div id="phaseSelectorContainer" style="display: flex; flex-wrap: wrap; gap: 8px">
             <!-- Dinamicamente riempito da JavaScript -->
           </div>
@@ -1181,6 +1229,11 @@
         renderNews();
       } else if (page === 'groups') {
         loadPhaseStatus();
+      } else if (page === 'fasi-torneo') {
+        loadPhasesConfigurationUI();
+      } else if (page === 'phases') {
+        renderPhasesUI();
+        renderWorkflowTreeDisplay();
       } else if (page === 'matches') {
         // Se non c'è una fase selezionata, seleziona la prima
         if (!currentSelectedPhaseNumber && state.phases && state.phases.length > 0) {
@@ -4022,10 +4075,91 @@
       container.innerHTML = '<p style="color: #999; font-size: 14px; padding: 20px; text-align: center">📈 Le classifiche verranno implementate a breve</p>';
     }
 
+    function navigateToPhases() {
+      // Naviga al tab "Gironi e Fasi"
+      const phasesBtn = document.querySelector('[data-page="phases"]');
+      if (phasesBtn) {
+        showPage('phases', phasesBtn);
+      }
+    }
+
+    function loadPhasesConfigurationUI() {
+      // Mostra l'elenco delle fasi configurate nel tab "Fasi Torneo"
+      const container = document.getElementById('phasesConfigurationContainer');
+      if (!container) return;
+
+      const phases = config.phases || [];
+      
+      if (phases.length === 0) {
+        container.innerHTML = `
+          <h4>Fasi Configurate</h4>
+          <p style="color: #999; font-size: 13px; padding: 20px; text-align: center">
+            ❌ Nessuna fase creata ancora. Clicca il pulsante verde per iniziare!
+          </p>
+        `;
+        return;
+      }
+
+      let html = `
+        <h4>Fasi Configurate (${phases.length})</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-top: 12px">
+      `;
+
+      phases.forEach((phase, idx) => {
+        const typeLabel = phase.type === 'groups' ? '📊 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo');
+        const statusColor = phase.status === 'completed' ? '#2ecc71' : (phase.status === 'active' ? '#ffc107' : '#ddd');
+        const statusLabel = phase.status === 'completed' ? '✅ Completata' : (phase.status === 'active' ? '⏱️ Attiva' : '⏳ In sospeso');
+        
+        let details = '';
+        if (phase.type === 'groups') {
+          details = `
+            <div style="font-size: 12px; color: #666; margin-top: 8px">
+              <div>📊 Gironi: ${phase.numGroups || '?'}</div>
+              <div>✓ Passano: ${phase.teamsAdvance || '?'} per girone</div>
+              ${phase.hasRepescage ? '<div>🔄 Ha ripescaggio</div>' : ''}
+            </div>
+          `;
+        } else if (phase.type === 'knockout') {
+          details = `
+            <div style="font-size: 12px; color: #666; margin-top: 8px">
+              <div>🏆 Squadre: ${phase.numTeams || '?'}</div>
+              ${phase.hasLosersPath ? '<div>🔄 Ha losers bracket</div>' : ''}
+            </div>
+          `;
+        }
+
+        html += `
+          <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1)">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px">
+              <div>
+                <div style="font-weight: bold; font-size: 14px">${typeLabel}</div>
+                <div style="font-size: 12px; color: #666">${escapeHtml(phase.name)}</div>
+              </div>
+              <div style="background: ${statusColor}; color: ${statusColor === '#ddd' ? '#333' : 'white'}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold">
+                ${statusLabel}
+              </div>
+            </div>
+            ${details}
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
     function renderPhasesUI() {
+      // Renderizza workflow tree (albero delle fasi)
+      renderWorkflowTreeDisplay();
       // Renderizza phase selector + content area
       renderPhaseSelector();
       renderPhaseContent();
+    }
+
+    function renderWorkflowTreeDisplay() {
+      const container = document.getElementById('workflowTreeContainer');
+      if (!container) return;
+      container.innerHTML = renderPhaseWorkflowTree();
     }
 
     function renderPhaseSelector() {

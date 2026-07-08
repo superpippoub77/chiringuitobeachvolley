@@ -4020,8 +4020,16 @@
         return;
       }
       
+      console.log('🏆 PARTITE QUERY: ricerca partite per fase:', {
+        selectedPhaseNumber: currentSelectedPhaseNumber,
+        statePhases: state.phases.map(p => ({ phaseIdx: p.phaseIdx, phaseNumber: p.phaseNumber, name: p.name, type: p.type }))
+      });
+      
       const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      console.log('🔍 PARTITE: fase trovata?', phase ? '✅ Sì' : '❌ No', phase);
+      
       let m = (phase && phase.matches) ? phase.matches : [];
+      console.log('📋 PARTITE: trovate', m.length, 'partite:\n', m);
       
       if (!m.length) {
         container.innerHTML = '<p style="color: #999; font-size: 14px">Nessuna partita per questa fase.</p>';
@@ -4072,12 +4080,21 @@
       
       // Cerca la fase in state
       const statePhases = state.phases || [];
+      console.log('📈 CLASSIFICHE QUERY: ricerca classifiche per fase:', {
+        selectedPhaseNumber: currentSelectedPhaseNumber,
+        statePhases: statePhases.map(p => ({ phaseIdx: p.phaseIdx, phaseNumber: p.phaseNumber, name: p.name, type: p.type, matchCount: p.matches?.length, groupCount: p.groups?.length }))
+      });
+      
       const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      console.log('🔍 CLASSIFICHE: fase trovata?', statePhase ? '✅ Sì' : '❌ No', statePhase);
       
       if (!statePhase) {
+        console.log('❌ CLASSIFICHE: Fase non trovata nel state');
         container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata.</p>';
         return;
       }
+      
+      console.log('📊 CLASSIFICHE: Fase è tipo:', statePhase.type, '| Gironi:', statePhase.groups?.length);
       
       if (statePhase.type !== 'groups') {
         container.innerHTML = '<p style="color: #999">📈 Classifiche disponibili solo per fasi a gironi.</p>';
@@ -4559,7 +4576,14 @@
       
       // currentSelectedPhaseNumber è 1-based (Fase 1, 2, 3...), ma phaseIdx è 1-based in state.phases
       const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
-      console.log('📊 renderPhaseContent - found statePhase:', statePhase);
+      console.log('� RICERCA FASE:', {
+        searchingFor: currentSelectedPhaseNumber,
+        matchType: 'phaseNumber OR phaseIdx',
+        found: statePhase ? '✅ SÌ' : '❌ NO',
+        availablePhases: statePhases.map(p => ({ idx: p.phaseIdx, num: p.phaseNumber, name: p.name })),
+        resultPhase: statePhase
+      });
+      console.log('�📊 renderPhaseContent - found statePhase:', statePhase);
       
       const configPhases = config.phases || [];
       const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);
@@ -4596,10 +4620,20 @@
 
     function renderPhaseGroups(phaseData, container) {
       // phaseData viene da state.phases e contiene i dati effettivi
+      console.log('📊 GIRONI QUERY: cercando gironi per fase:', {
+        phaseIdx: phaseData.phaseIdx,
+        phaseNumber: phaseData.phaseNumber,
+        phaseName: phaseData.name,
+        groupCount: phaseData.groups?.length,
+        teamCount: phaseData.metadata?.teamCount,
+        groups: phaseData.groups
+      });
       if (!phaseData.groups || phaseData.groups.length === 0) {
+        console.log('⚠️ GIRONI: Nessun girone disponibile');
         container.innerHTML = '<p style="color: #999">Nessun girone disponibile per questa fase.</p>';
         return;
       }
+      console.log('✅ GIRONI: Trovati', phaseData.groups.length, 'gironi');
 
       let html = `<div>
         <h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phaseData.name)}</h4>`;

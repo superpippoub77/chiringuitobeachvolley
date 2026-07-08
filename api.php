@@ -3024,19 +3024,24 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
                 jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
             }
             
-            // Leggi i parametri della fase da CONFIG (salvati dal wizard)
+            // Leggi i parametri della fase da CONFIG usando phaseNumber (join key)
             $config = readConfig();
             $configPhases = $config['phases'] ?? [];
             $configPhase = null;
             foreach ($configPhases as $cp) {
-                if (($cp['phaseNumber'] ?? $cp['phaseIdx'] ?? null) === $phaseIdx) {
+                // Join su phaseNumber: il valore ricevuto ($phaseIdx) corrisponde a phaseNumber in config
+                if (($cp['phaseNumber'] ?? null) === $phaseIdx) {
                     $configPhase = $cp;
                     break;
                 }
             }
             
-            $numGroups = ($configPhase && !empty($configPhase['numGroups'])) ? (int)$configPhase['numGroups'] : 4;
-            $teamsAdvance = ($configPhase && !empty($configPhase['teamsAdvance'])) ? (int)$configPhase['teamsAdvance'] : 2;
+            if (!$configPhase) {
+                jsonResponse(400, ['ok' => false, 'error' => "Fase $phaseIdx non trovata nella configurazione"]);
+            }
+            
+            $numGroups = !empty($configPhase['numGroups']) ? (int)$configPhase['numGroups'] : 4;
+            $teamsAdvance = !empty($configPhase['teamsAdvance']) ? (int)$configPhase['teamsAdvance'] : 2;
             
             // Distribuisci squadre nei gironi (round-robin snake draft)
             $groups = array_fill(0, $numGroups, []);

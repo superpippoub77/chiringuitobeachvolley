@@ -3052,15 +3052,24 @@
      */
     async function generatePhaseFromWorkflow(phaseIdx, type) {
       try {
+        console.log('🚀 Inizio generazione fase:', { phaseIdx, type });
         const response = await callApi('admin_generate_phase', 'POST', {
           phaseIdx: phaseIdx,
           type: type
         }, true);
         
+        console.log('📥 Risposta API:', response);
+        
         if (!response.ok) {
           await showInfoDialog('Errore', response.error || 'Non è stato possibile generare la fase');
           return;
         }
+        
+        console.log('✅ Fase generata lato server, ora ricarico i dati...');
+        
+        // CRITICO: Ricarica tournament.json dal server
+        await refresh();
+        console.log('✅ Dati ricaricati! state.phases:', state.phases);
         
         await showInfoDialog('✅ Fase Generata', `La fase ${phaseIdx} (${type}) è stata generata con successo`);
         renderPhases(); // Ricarica il workflow

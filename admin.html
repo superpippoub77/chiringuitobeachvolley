@@ -3050,7 +3050,7 @@
         }
         
         await showInfoDialog('✅ Fase Generata', `La fase ${phaseIdx} (${type}) è stata generata con successo`);
-        await loadPageGroups(); // Ricarica il workflow
+        renderPhases(); // Ricarica il workflow
       } catch (e) {
         console.error('Errore generatePhaseFromWorkflow:', e);
         await showInfoDialog('Errore', e.message);
@@ -3074,7 +3074,7 @@
         }
         
         await showInfoDialog('✅ Fase Completata', 'La fase è stata completata con successo');
-        await loadPageGroups(); // Ricarica il workflow
+        renderPhases(); // Ricarica il workflow
       } catch (e) {
         console.error('Errore completePhaseFromWorkflow:', e);
         await showInfoDialog('Errore', e.message);

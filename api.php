@@ -3510,6 +3510,8 @@ if ($action === 'admin_move_team_group' && $method === 'POST') {
     $newGroup = (string)($body['newGroup'] ?? '');
 
     withStateTransaction(function (&$state) use ($teamId, $newGroup) {
+        // 🔧 FIX: Gestisci il gruppo speciale "AVAILABLE" per rimuovere da gironi
+        
         // Trova il girone attuale
         $currentGroup = null;
         $currentGroupIdx = null;
@@ -3530,6 +3532,14 @@ if ($action === 'admin_move_team_group' && $method === 'POST') {
 
         if ($currentGroup === $newGroup) {
             jsonResponse(400, ['ok' => false, 'error' => 'La squadra è già in questo girone']);
+        }
+
+        // 🔧 FIX: Se destinazione è "AVAILABLE", la squadra viene rimossa dai gironi
+        if ($newGroup === 'AVAILABLE') {
+            // La squadra è già stata rimossa dal girone precedente sopra
+            // Non fare nulla di ulteriore - la squadra è ora "disponibile"
+            buildGroupMatches($state);
+            return ['ok' => true];
         }
 
         // Aggiunge squadra al nuovo girone

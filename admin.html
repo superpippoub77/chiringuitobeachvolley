@@ -1227,6 +1227,12 @@
         renderNews();
       } else if (page === 'groups') {
         loadPhaseStatus();
+      } else if (page === 'matches') {
+        // Se non c'è una fase selezionata, seleziona la prima
+        if (!currentSelectedPhaseNumber && config.phases && config.phases.length > 0) {
+          currentSelectedPhaseNumber = config.phases[0].phaseNumber;
+        }
+        renderMatches();
       }
     }
 
@@ -3518,14 +3524,18 @@
     function renderMatches() {
       const c = document.getElementById('matchesContainer');
       if (!c) return; // Guard: container non trovato
-      if (!state) {
-        console.warn('⚠️ renderMatches: state non inizializzato');
+      if (!state || !state.phases) {
+        console.warn('⚠️ renderMatches: state o phases non inizializzato');
         c.innerHTML = '<p>Partite non disponibili. Ricaricare la pagina.</p>';
         return;
       }
-      let m = state.groupMatches || [];
+      
+      // Leggi le partite dalla fase selezionata
+      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber);
+      let m = (phase && phase.matches) ? phase.matches : [];
+      
       if (!m.length) {
-        c.innerHTML = '<p>Nessuna partita.</p>';
+        c.innerHTML = '<p>Nessuna partita per questa fase.</p>';
         return;
       }
       
@@ -3546,7 +3556,7 @@
       });
       
       // DEBUG: Log first few matches to inspect data
-      console.log('renderMatches: Total matches=' + m.length);
+      console.log('renderMatches: Fase=' + currentSelectedPhaseNumber + ', Total matches=' + m.length);
       if (m.length > 0) {
         console.log('First match:', m[0]);
       }
@@ -3557,7 +3567,7 @@
       </div>
       <table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr>
-        <td>${match.group}</td>
+        <td>${match.groupName || match.group || '-'}</td>
         <td>${escapeHtml(match.team1Name)}</td>
         <td>
           <input id="s1-${match.id}" type="number" min="0" style="width:60px" value="${match.score1 ?? ''}"> -
@@ -4009,6 +4019,7 @@
     function selectPhase(phaseNumber) {
       currentSelectedPhaseNumber = phaseNumber;
       renderPhaseContent();
+      renderMatches(); // Aggiorna partite quando si seleziona una fase
     }
 
     function renderPhaseContent() {

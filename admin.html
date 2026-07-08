@@ -509,6 +509,17 @@
       .row {
         flex-direction: column;
       }
+
+      .phase-status-badge[data-phase-status="pending"] {
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .phase-status-badge[data-phase-status="pending"]:hover {
+        background-color: #999 !important;
+        box-shadow: 0 0 8px rgba(0,0,0,0.3) !important;
+        transform: scale(1.05);
+      }
     }
   </style>
 </head>
@@ -1234,6 +1245,16 @@
       localStorage.removeItem('adminToken');
       localStorage.removeItem('tournamentCode');
       location.reload();
+    });
+
+    // Global event listener per i badge di fase
+    document.addEventListener('click', function(e) {
+      const badge = e.target.closest('.phase-status-badge');
+      if (badge && badge.dataset.phaseStatus === 'pending') {
+        const phaseNumber = parseInt(badge.dataset.phaseNumber, 10);
+        const phaseType = badge.dataset.phaseType;
+        showPhaseRequirements(phaseNumber, phaseType);
+      }
     });
 
     async function refresh() {
@@ -7422,7 +7443,7 @@
                 position: relative;
               " class="bracket-stage-qualified" data-stage="${idx}">
                 <!-- Badge Status Fase -->
-                <div style="
+                <div class="phase-status-badge" style="
                   position: absolute;
                   top: -10px;
                   right: -10px;
@@ -7431,9 +7452,11 @@
                   font-size: 10px;
                   font-weight: bold;
                   ${phase.status === 'completed' ? 'background: #2ecc71; color: white' : phase.status === 'active' ? 'background: #ffc107; color: #333' : 'background: #ddd; color: #666; cursor: pointer'};
-                  ${phase.status === 'pending' ? 'border: 1px solid #999; transition: all 0.2s; box-shadow: 0 0 4px rgba(0,0,0,0.1)' : ''}
+                  ${phase.status === 'pending' ? 'border: 1px solid #999; transition: all 0.2s' : ''}
                 "
-                ${phase.status === 'pending' ? `onclick="showPhaseRequirements(${phase.phaseNumber}, '${phase.type}')" onmouseover="this.style.background='#ccc'; this.style.boxShadow='0 0 6px rgba(0,0,0,0.2)'" onmouseout="this.style.background='#ddd'; this.style.boxShadow='0 0 4px rgba(0,0,0,0.1)'"` : ''}
+                data-phase-number="${phase.phaseNumber}"
+                data-phase-type="${phase.type}"
+                data-phase-status="${phase.status}"
                 title="${phase.status === 'pending' ? 'Clicca per vedere cosa manca' : ''}">
                   ${phase.status === 'completed' ? '✅ Completata' : phase.status === 'active' ? '⏱️ Attiva' : '⏳ In sospeso'}
                 </div>

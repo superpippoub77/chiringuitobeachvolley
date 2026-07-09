@@ -1537,6 +1537,8 @@
               <div class="row" style="margin-top: 12px; gap: 8px">
                 <button class="btn btn-primary" onclick="saveEmailConfig()" style="flex: 1">💾 Salva Configurazione Email</button>
                 <button class="btn btn-info" onclick="testEmailConfiguration()" style="flex: 1">🧪 Testa Configurazione</button>
+                <button class="btn btn-secondary" onclick="showEmailDiagnostics()" style="flex: 1">🔍 Diagnostica</button>
+                <button class="btn btn-secondary" onclick="showEmailLog()" style="flex: 1">📋 Log</button>
               </div>
               
               <div id="emailConfigStatus" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none"></div>
@@ -2419,11 +2421,73 @@
         } else {
           await showInfoDialog(
             '❌ Errore Configurazione',
-            `Errore durante il test della configurazione email:\n\n${testResult.error || 'Errore sconosciuto'}\n\nVerifica i parametri SMTP e riprovare.`
+            `Errore durante il test della configurazione email:\n\n${testResult.error || 'Errore sconosciuto'}\n\nDettagli:\n${testResult.details?.smtpError || testResult.details?.error || 'Nessun dettaglio disponibile'}\n\nVerifica i parametri SMTP e riprovare.`
           );
         }
       } catch (e) {
         await showInfoDialog('❌ Errore Test', 'Errore durante il test: ' + e.message);
+      }
+    }
+
+    async function showEmailDiagnostics() {
+      // ✅ NUOVA FUNZIONE: Mostra la diagnostica completa della configurazione email
+      try {
+        const result = await callApi('admin_email_diagnostics', 'GET', null, true);
+        
+        if (!result.ok) {
+          await showInfoDialog('❌ Errore', 'Errore durante il recupero della diagnostica');
+          return;
+        }
+        
+        const diag = result.diagnostics;
+        let message = '📧 DIAGNOSTICA EMAIL SMTP\n\n';
+        
+        message += '🔧 PHPMailer:\n';
+        message += (diag.phpmailer.installed ? '✅' : '❌') + ' Installato\n\n';
+        
+        message += '⚙️  Configurazione:\n';
+        message += (diag.config.enabled ? '✅' : '❌') + ' Abilitata\n';
+        message += '  Host: ' + (diag.config.host || '❌ MANCA') + '\n';
+        message += '  Porta: ' + diag.config.port + '\n';
+        message += '  Username: ' + (diag.config.username || '❌ MANCA') + '\n';
+        message += '  Password: ' + (diag.config.hasPassword ? '✅ Presente' : '❌ MANCA') + '\n';
+        message += '  Secure: ' + diag.config.secure + '\n\n';
+        
+        message += '✓ Validazione:\n';
+        message += (diag.validation.hostProvided ? '✅' : '❌') + ' Host fornito\n';
+        message += (diag.validation.usernameProvided ? '✅' : '❌') + ' Username fornito\n';
+        message += (diag.validation.passwordProvided ? '✅' : '❌') + ' Password fornita\n';
+        message += (diag.validation.allRequired ? '✅' : '❌') + ' Tutti i campi obbligatori\n\n';
+        
+        message += '📋 File Log:\n';
+        message += (diag.logFile.exists ? '✅' : '❌') + ' Email log esiste\n';
+        
+        await showInfoDialog('📧 Diagnostica Email', message);
+        
+      } catch (e) {
+        console.error('Error getting diagnostics:', e);
+        await showInfoDialog('❌ Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function showEmailLog() {
+      // ✅ NUOVA FUNZIONE: Mostra gli ultimi entry del log email
+      try {
+        const result = await callApi('admin_email_log', 'GET', null, true);
+        
+        if (!result.ok || !result.logLines || result.logLines.length === 0) {
+          await showInfoDialog('📋 Email Log', 'Nessuno entry trovato nel log email.');
+          return;
+        }
+        
+        let message = '📋 ULTIMI ENTRY EMAIL LOG\n\n';
+        message += result.logLines.join('\n\n');
+        
+        await showInfoDialog('📋 Email Log', message);
+        
+      } catch (e) {
+        console.error('Error getting email log:', e);
+        await showInfoDialog('❌ Errore', 'Errore: ' + e.message);
       }
     }
 

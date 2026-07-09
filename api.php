@@ -295,17 +295,33 @@ function sendEmailViaPHPMailer(string $to, string $subject, string $body, string
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
             return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to, 'method' => 'PHPMailer'];
         } else {
-            $logMessage = date('Y-m-d H:i:s') . " - FAILED (PHPMailer): " . $mail->ErrorInfo . "\n";
+            $errorInfo = $mail->ErrorInfo;
+            $logMessage = date('Y-m-d H:i:s') . " - FAILED (PHPMailer): " . $errorInfo . "\n";
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-            // Salva nella coda
+            
+            // ✅ MIGLIORATO: Ritorna l'errore vero di PHPMailer, non 'in coda'
+            // Salva comunque nella coda come fallback
             saveEmailToQueue($to, $subject, $body, $from);
-            return ['success' => false, 'error' => 'Email in coda - verifica tra poco', 'to' => $to, 'queue' => true];
+            
+            return [
+                'success' => false,
+                'error' => 'Errore SMTP: ' . $errorInfo,
+                'to' => $to,
+                'queue' => true,
+                'smtpError' => $errorInfo
+            ];
         }
         
     } catch (\Exception $e) {
-        $logMessage = date('Y-m-d H:i:s') . " - EXCEPTION (PHPMailer): " . $e->getMessage() . "\n";
+        $errorMsg = $e->getMessage();
+        $logMessage = date('Y-m-d H:i:s') . " - EXCEPTION (PHPMailer): " . $errorMsg . "\n";
         @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-        return null; // Prova fallback
+        
+        return [
+            'success' => false,
+            'error' => 'Eccezione: ' . $errorMsg,
+            'exception' => $errorMsg
+        ];
     }
 }
 
@@ -5528,17 +5544,128 @@ if ($action === 'admin_test_email_config' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Email di test non valida']);
     }
     
+    // Leggi config attuale per diagnostica
+    $config = readConfig();
+    $emailConfig = $config['email'] ?? [];
+    
+    $diagnostics = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'enabled' => (bool)($emailConfig['enabled'] ?? false),
+        'hasPHPMailer' => file_exists(__DIR__ . '/vendor/autoload.php'),
+        'configComplete' => !empty($emailConfig['host']) && !empty($emailConfig['username']) && !empty($emailConfig['password']),
+        'host' => $emailConfig['host'] ?? null,
+        'port' => $emailConfig['port'] ?? null,
+        'secure' => $emailConfig['secure'] ?? null
+    ];
+    
+    // Validazione preliminare
+    if (!$diagnostics['enabled']) {
+        jsonResponse(422, [
+            'ok' => false,
+            'error' => 'Email non abilitata - abilita prima di testare',
+            'diagnostics' => $diagnostics
+        ]);
+    }
+    
+    if (!$diagnostics['configComplete']) {
+        jsonResponse(422, [
+            'ok' => false,
+            'error' => 'Configurazione SMTP incompleta - compila tutti i campi obbligatori',
+            'diagnostics' => $diagnostics
+        ]);
+    }
+    
     // Invia email di test
     $subject = '[BeachMaster] Test Email Configuration';
-    $body = '<h2>Email Configuration Test</h2><p>Se ricevi questo messaggio, la configurazione email è corretta!</p><p>Timestamp: ' . date('Y-m-d H:i:s') . '</p>';
+    $testBody = '<h2>🧪 Test Email Configuration</h2>';
+    $testBody .= '<p>Se ricevi questo messaggio, la configurazione email è corretta!</p>';
+    $testBody .= '<p><strong>Timestamp:</strong> ' . date('Y-m-d H:i:s') . '</p>';
     
-    $result = sendEmail($testEmail, $subject, $body);
+    error_log("📧 admin_test_email_config: Tentativo invio a $testEmail");
+    $result = sendEmail($testEmail, $subject, $testBody);
+    error_log("📧 admin_test_email_config: Risultato - success=" . ($result['success'] ? 'true' : 'false') . ", error=" . ($result['error'] ?? 'none'));
     
     if ($result['success']) {
-        jsonResponse(200, ['ok' => true, 'message' => 'Email di test inviata con successo!']);
+        $diagnostics['sendResult'] = 'SUCCESS';
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Email di test inviata con successo!',
+            'diagnostics' => $diagnostics
+        ]);
     } else {
-        jsonResponse(422, ['ok' => false, 'error' => 'Errore durante l\'invio: ' . ($result['error'] ?? 'Errore sconosciuto'), 'details' => $result]);
+        $diagnostics['sendResult'] = 'FAILED';
+        $diagnostics['errorMessage'] = $result['error'] ?? 'Errore sconosciuto';
+        
+        // Aggiungi dettagli dell'eccezione se disponibili
+        if (isset($result['exception'])) {
+            $diagnostics['exceptionDetails'] = $result['exception'];
+        }
+        
+        jsonResponse(422, [
+            'ok' => false,
+            'error' => 'Errore durante l\'invio: ' . ($result['error'] ?? 'Errore sconosciuto'),
+            'details' => $result,
+            'diagnostics' => $diagnostics
+        ]);
     }
+}
+
+/**
+ * ✅ Diagnostica completa configurazione email - per debugging
+ */
+if ($action === 'admin_email_diagnostics' && $method === 'GET') {
+    validSession();
+    
+    $config = readConfig();
+    $emailConfig = $config['email'] ?? [];
+    
+    $diagnostics = [
+        'phpmailer' => [
+            'installed' => file_exists(__DIR__ . '/vendor/autoload.php'),
+            'path' => __DIR__ . '/vendor/autoload.php'
+        ],
+        'config' => [
+            'enabled' => (bool)($emailConfig['enabled'] ?? false),
+            'host' => $emailConfig['host'] ?? '',
+            'port' => $emailConfig['port'] ?? 587,
+            'username' => $emailConfig['username'] ?? '',
+            'hasPassword' => !empty($emailConfig['password']),
+            'fromEmail' => $emailConfig['fromEmail'] ?? '',
+            'fromName' => $emailConfig['fromName'] ?? '',
+            'secure' => $emailConfig['secure'] ?? 'tls',
+            'timeout' => $emailConfig['timeout'] ?? 10
+        ],
+        'validation' => [
+            'hostProvided' => !empty($emailConfig['host']),
+            'usernameProvided' => !empty($emailConfig['username']),
+            'passwordProvided' => !empty($emailConfig['password']),
+            'allRequired' => !empty($emailConfig['host']) && !empty($emailConfig['username']) && !empty($emailConfig['password'])
+        ],
+        'logFile' => [
+            'exists' => file_exists(__DIR__ . '/data/email.log'),
+            'path' => __DIR__ . '/data/email.log'
+        ]
+    ];
+    
+    jsonResponse(200, ['ok' => true, 'diagnostics' => $diagnostics]);
+}
+
+/**
+ * ✅ Leggi ultimi entry del log email
+ */
+if ($action === 'admin_email_log' && $method === 'GET') {
+    validSession();
+    
+    $logFile = __DIR__ . '/data/email.log';
+    $lines = [];
+    
+    if (file_exists($logFile)) {
+        $content = file_get_contents($logFile);
+        $lines = array_filter(array_reverse(preg_split('/\n/', $content)));
+        $lines = array_slice($lines, 0, 20); // Ultimi 20 entry
+    }
+    
+    jsonResponse(200, ['ok' => true, 'logLines' => $lines, 'exists' => file_exists($logFile)]);
 }
 
 if ($action === 'admin_set_encryption_password' && $method === 'POST') {

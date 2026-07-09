@@ -7150,7 +7150,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
     }
     
     $tournamentCode = generateGUID();
-    $beachmasterDir = __DIR__ . '/beachmaster';
+    $beachmasterDir = __DIR__ ;
     $tournamentDir = $beachmasterDir . '/' . $tournamentCode;
     
     error_log("📌 create_tournament: tournamentCode=$tournamentCode, dir=$tournamentDir");

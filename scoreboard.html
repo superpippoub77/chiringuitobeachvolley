@@ -1589,11 +1589,13 @@
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>🏆 Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
+      c.innerHTML = `<h3>🏆 Calendario partite</h3><table><thead><tr><th></th><th>Quando</th><th>Fase</th><th>Girone</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
+        const phaseName = m.phaseName || 'Fase 1 - Gironi';
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
           <td>${formatDateIta(m.dayDate)} ${esc(m.time)}</td>
+          <td>${esc(phaseName)}</td>
           <td>${m.group || m.groupName}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>

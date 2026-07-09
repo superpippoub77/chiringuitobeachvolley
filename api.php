@@ -1604,6 +1604,18 @@ function publicState(array $state): array {
         ];
     }
     
+    // Crea una mappa matchId -> phaseInfo per recuperare fase e nome
+    $matchPhaseMap = [];
+    foreach ($state['phases'] ?? [] as $phase) {
+        foreach ($phase['matches'] ?? [] as $m) {
+            $matchPhaseMap[$m['id']] = [
+                'phaseId' => $phase['id'],
+                'phaseIdx' => $phase['phaseIdx'],
+                'phaseName' => $phase['name']
+            ];
+        }
+    }
+    
     return [
         'settings' => $state['settings'],
         'teams' => array_values(array_map(function ($t) {
@@ -1629,7 +1641,8 @@ function publicState(array $state): array {
                 }, $g['teamIds']))
             ];
         }, $state['groups'])),
-        'groupMatches' => array_values(array_map(function ($m) use ($teamMap) {
+        'groupMatches' => array_values(array_map(function ($m) use ($teamMap, $matchPhaseMap) {
+            $phaseInfo = $matchPhaseMap[$m['id']] ?? ['phaseId' => null, 'phaseIdx' => 1, 'phaseName' => 'Fase 1 - Gironi'];
             return [
                 'matchId' => $m['id'],
                 'id' => $m['id'],
@@ -1650,7 +1663,10 @@ function publicState(array $state): array {
                 'time' => !empty($m['startTime']) && !empty($m['endTime']) ? ($m['startTime'] . ' - ' . $m['endTime']) : '',  // Formato leggibile
                 'dateIdx' => $m['dateIdx'] ?? null,  // Indice della data
                 'slotIdx' => $m['slotIdx'] ?? null,  // Indice dello slot
-                'duration' => $m['duration'] ?? null
+                'duration' => $m['duration'] ?? null,
+                'phaseId' => $phaseInfo['phaseId'],
+                'phaseIdx' => $phaseInfo['phaseIdx'],
+                'phaseName' => $phaseInfo['phaseName']
             ];
         }, $state['groupMatches'])),
         'standings' => computeStandings($state),

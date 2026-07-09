@@ -1615,7 +1615,13 @@ function publicState(array $state): array {
         'playoff' => playoffView($state),
         'finalRanking' => computeFinalRanking($state),
         'meta' => $state['meta'],
-        'phases' => $state['phases'] ?? []
+        'phases' => array_map(function ($phase, $idx) use ($state) {
+            // ✅ Aggiungi standings al primo phase (gironi) per compatibilità con frontend
+            if ($idx === 0) {
+                $phase['standings'] = computeStandings($state);
+            }
+            return $phase;
+        }, $state['phases'] ?? [], array_keys($state['phases'] ?? []))
     ];
 }
 

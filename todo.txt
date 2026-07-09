@@ -117,4 +117,4 @@ In partite e classifica posso cambiare un orario o cancellarlo e prenderlo dagli
 Consenti nella fase castello di spostare eventualmente le squadre degli incontri nel caso in cui la compinazione non vada bene sempre con drag and drop (switch)✅ [COMPLETATO: Drag and drop per scambiare team1 ↔ team2 negli incontri knockout, pulsante ⇅ per il switch, endpoint API admin_swap_knockout_teams]
 Senza fare troppo casino è possibile aggiungere un overlay con saving o laoding quando ci sono dei processi in atto di salvataggio o richiesta affichè l'utente non posssa schiacciare altro?✅
 Eliminare in tournament.json le cose superflue✅
-Inserire la current phase in tournament.json
+Inserire la current phase in tournament.json ✅

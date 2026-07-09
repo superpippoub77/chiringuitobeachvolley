@@ -1226,10 +1226,14 @@
     }
 
     function renderAll() {
+      // ✅ REFACTORED: Leggi da phases[0] invece di campi obsoleti
+      const groupsCount = state.phases?.[0]?.groups?.length || 0;
+      const groupMatchesCount = state.phases?.[0]?.matches?.length || 0;
+      
       document.getElementById('statTeams').textContent = state.teams.length;
-      document.getElementById('statPending').textContent = state.pendingCount;
-      document.getElementById('statGroups').textContent = state.groups.length;
-      document.getElementById('statMatches').textContent = state.groupMatches.length;
+      document.getElementById('statPending').textContent = state.pendingCount || 0;
+      document.getElementById('statGroups').textContent = groupsCount;
+      document.getElementById('statMatches').textContent = groupMatchesCount;
 
       renderTeams();
       renderGroups();
@@ -1473,7 +1477,8 @@
 
     function renderGroups() {
       const c = document.getElementById('page-groups');
-      const groups = state.phases?.[0]?.groups || state.groups || [];
+      // ✅ REFACTORED: Leggi gruppi da phases[0].groups
+      const groups = state.phases?.[0]?.groups || [];
       
       if (!groups.length) {
         c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
@@ -1565,12 +1570,15 @@
 
     function renderGironiMatches() {
       const c = document.getElementById('gironi-matches-content');
-      if (!state.groupMatches.length) {
+      // ✅ REFACTORED: Leggi partite da phases[0].matches
+      const groupMatches = state.phases?.[0]?.matches || [];
+      
+      if (!groupMatches.length) {
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
         return;
       }
 
-      let matches = state.groupMatches.slice().sort((a, b) => {
+      let matches = groupMatches.slice().sort((a, b) => {
         const dateA = a.date || a.dayDate || '';
         const dateB = b.date || b.dayDate || '';
         if (dateA !== dateB) return dateA.localeCompare(dateB);
@@ -1602,16 +1610,23 @@
         </tr>`;
       }).join('')}</tbody></table>`;
     }
+          <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+    }
 
     function renderGironiStandings() {
       const c = document.getElementById('gironi-standings-content');
-      if (!state.standings || !state.standings.length) {
+      // ✅ REFACTORED: Leggi classifiche da phases[0].standings
+      const standings = state.phases?.[0]?.standings || [];
+      
+      if (!standings.length) {
         c.innerHTML = '<h3>📈 Classifiche</h3><p>Classifiche non ancora disponibili.</p>';
         return;
       }
 
       let html = '<h3>📈 Classifiche Gironi</h3>';
-      state.standings.forEach((standing, idx) => {
+      standings.forEach((standing, idx) => {
         html += `<h4>Girone ${standing.group}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>G</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>`;
         (standing.rows || []).forEach((t, pos) => {
           html += `<tr><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.played || 0}</td><td>${t.won || 0}</td><td>${t.lost || 0}</td><td>${t.points || 0}</td><td>${t.scored || 0}</td><td>${t.conceded || 0}</td><td>${t.diff || 0}</td></tr>`;
@@ -1623,11 +1638,14 @@
 
     function renderStandings() {
       const c = document.getElementById('page-standings');
-      if (!state.standings.length) {
+      // ✅ REFACTORED: Leggi classifiche da phases[0].standings
+      const standings = state.phases?.[0]?.standings || [];
+      
+      if (!standings.length) {
         c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
         return;
       }
-      c.innerHTML = '<h3>Classifiche gironi</h3>' + state.standings.map(s =>
+      c.innerHTML = '<h3>Classifiche gironi</h3>' + standings.map(s =>
         `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) =>
           `<tr><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td>${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
         ).join('')}</tbody></table>`
@@ -1643,22 +1661,47 @@
 
     function renderPlayoff() {
       const c = document.getElementById('page-playoff');
-      const p = state.playoff || {};
-      const html =
-        playoffTable('Quarti', p.quarterFinals || []) +
-        playoffTable('Semifinali', p.semiFinals || []) +
-        playoffTable('Finale 3 posto', p.thirdPlace ? [p.thirdPlace] : []) +
-        playoffTable('Finale', p.final ? [p.final] : []);
-      c.innerHTML = '<h3>Fase finale</h3>' + (html || '<div class="empty">Fase finale non ancora generata.</div>');
+      // ✅ REFACTORED: Leggi partite da phases[1+] invece di state.playoff
+      const playoffPhases = state.phases?.slice(1) || [];
+      
+      if (!playoffPhases.length) {
+        c.innerHTML = '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
+        return;
+      }
+      
+      let html = '<h3>Fase finale</h3>';
+      playoffPhases.forEach(phase => {
+        const matches = phase.matches || [];
+        if (!matches.length) return;
+        
+        html += `<h4>${phase.name || 'Fase ' + (phase.phaseNumber || '?')}</h4>`;
+        html += '<table><thead><tr><th>Match</th><th>Squadra 1</th><th>Squadra 2</th><th>Risultato</th></tr></thead><tbody>';
+        
+        matches.forEach(m => {
+          html += `<tr>
+            <td>${m.label || m.type || 'Match'}</td>
+            <td>${esc(m.team1Name || '-')}</td>
+            <td>${esc(m.team2Name || '-')}</td>
+            <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+          </tr>`;
+        });
+        
+        html += '</tbody></table>';
+      });
+      
+      c.innerHTML = html || '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
     }
 
     function renderRanking() {
       const c = document.getElementById('page-ranking');
-      if (!state.finalRanking.length) {
+      // ✅ REFACTORED: Leggi ranking finale da meta o calcola dalle fasi
+      const finalRanking = state.meta?.finalRanking || [];
+      
+      if (!finalRanking.length) {
         c.innerHTML = '<h3>Ranking finale</h3><div class="empty">Ranking finale non disponibile.</div>';
         return;
       }
-      c.innerHTML = `<h3>Classifica finale</h3><table><thead><tr><th>Posizione</th><th>Squadra</th></tr></thead><tbody>${state.finalRanking.map(r =>
+      c.innerHTML = `<h3>Classifica finale</h3><table><thead><tr><th>Posizione</th><th>Squadra</th></tr></thead><tbody>${finalRanking.map(r =>
         `<tr><td class="${r.position === 1 ? 'rank-1' : r.position === 2 ? 'rank-2' : r.position === 3 ? 'rank-3' : ''}">${r.position}</td><td>${esc(r.name)}</td></tr>`
       ).join('')}</tbody></table>`;
     }

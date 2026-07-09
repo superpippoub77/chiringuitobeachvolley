@@ -591,6 +591,8 @@
       letter-spacing: 0.5px;
     }
   </style>
+  <!-- PDF Generation Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -4026,6 +4028,141 @@
       }
     }
 
+    async function downloadScoutPDF() {
+      // Raccoglie partite e crea PDF scout per la stampa
+      try {
+        if (!state || !state.phases) {
+          await showInfoDialog('Errore', 'State non inizializzato');
+          return;
+        }
+        
+        const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+        if (!phase || !phase.matches) {
+          await showInfoDialog('Errore', 'Nessuna partita disponibile per questa fase');
+          return;
+        }
+
+        const matches = phase.matches.slice().sort((a, b) => {
+          const dateA = a.date || '';
+          const dateB = b.date || '';
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+          const timeA = a.startTime || '00:00';
+          const timeB = b.startTime || '00:00';
+          return timeA.localeCompare(timeB);
+        });
+
+        // Raccogli dati torneo
+        const tournamentName = config.tournamentName || 'Torneo Beach Volley';
+        const currentDate = new Date().toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' });
+        
+        // Crea HTML per il PDF
+        let htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; width: 100%; background: white; color: black">
+          <!-- HEADER -->
+          <div style="text-align: center; border-bottom: 3px solid #333; padding-bottom: 15px; margin-bottom: 20px">
+            <h1 style="margin: 0; font-size: 24px; color: #1d1a13">${escapeHtml(tournamentName)}</h1>
+            <h2 style="margin: 5px 0; font-size: 16px; color: #666">${escapeHtml(phase.name)}</h2>
+            <p style="margin: 5px 0; font-size: 12px; color: #888">Generato: ${currentDate}</p>
+          </div>
+
+          <!-- SCOUT TABLE -->
+          <div style="margin-bottom: 20px">
+            <h3 style="margin-bottom: 15px; font-size: 14px; border-bottom: 2px solid #2196F3; padding-bottom: 5px">📋 SCOUT PARTITE</h3>
+        `;
+
+        matches.forEach((match, idx) => {
+          const team1 = escapeHtml(match.team1Name || 'Squadra 1');
+          const team2 = escapeHtml(match.team2Name || 'Squadra 2');
+          const groupName = match.groupName || match.group || '-';
+          const matchDate = match.date ? formatDateIta(match.date) : '-';
+          const matchTime = match.startTime || '--:--';
+          const court = match.courtName || '-';
+
+          htmlContent += `
+            <div style="page-break-inside: avoid; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; background: #f9f9f9; border-radius: 4px">
+              <!-- Match Info -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; font-size: 11px; color: #666">
+                <div><strong>Girone:</strong> ${groupName}</div>
+                <div><strong>Data:</strong> ${matchDate}</div>
+                <div><strong>Ora:</strong> ${matchTime}</div>
+                <div><strong>Campo:</strong> ${court}</div>
+              </div>
+
+              <!-- Match Score Box -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+                <!-- Team 1 -->
+                <div style="flex: 1; text-align: center">
+                  <div style="font-weight: bold; font-size: 13px; margin-bottom: 8px">${team1}</div>
+                  <div style="display: flex; gap: 10px; justify-content: center; align-items: center">
+                    <div style="border: 2px solid #333; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold">_</div>
+                  </div>
+                </div>
+
+                <!-- VS -->
+                <div style="width: 40px; text-align: center; font-weight: bold; color: #d32f2f; font-size: 12px">vs</div>
+
+                <!-- Team 2 -->
+                <div style="flex: 1; text-align: center">
+                  <div style="font-weight: bold; font-size: 13px; margin-bottom: 8px">${team2}</div>
+                  <div style="display: flex; gap: 10px; justify-content: center; align-items: center">
+                    <div style="border: 2px solid #333; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold">_</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notes -->
+              <div style="font-size: 10px; color: #999; text-align: center; padding-top: 8px; border-top: 1px dashed #ddd">
+                Note: ___________________________________________________________________________
+              </div>
+            </div>
+          `;
+        });
+
+        htmlContent += `
+            </div>
+            <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 15px">
+              Foglio scout generato automaticamente - Utilizzare una matita per compilare i punteggi
+            </div>
+          </div>
+        `;
+
+        // Opzioni per html2pdf
+        const opt = {
+          margin: 10,
+          filename: `Scout_${currentSelectedPhaseNumber}_${new Date().getTime()}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+        };
+
+        // Crea elemento temporaneo e genera PDF
+        const element = document.createElement('div');
+        element.innerHTML = htmlContent;
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        // Genera PDF usando html2pdf
+        html2pdf()
+          .set(opt)
+          .from(element)
+          .save()
+          .then(() => {
+            document.body.removeChild(element);
+            console.log('✅ Scout PDF scaricato con successo');
+          })
+          .catch(err => {
+            document.body.removeChild(element);
+            console.error('❌ Errore generazione PDF:', err);
+            showInfoDialog('Errore', 'Errore nella generazione del PDF: ' + err.message);
+          });
+
+      } catch (e) {
+        console.error('downloadScoutPDF error:', e);
+        await showInfoDialog('Errore', 'Errore download scout: ' + e.message);
+      }
+    }
+
+
     async function createPlayoff() {
       try {
         await callApi('admin_create_playoff', 'POST', {}, true);
@@ -4282,6 +4419,7 @@
       container.innerHTML = `
       <div style="margin-bottom: 12px; display: flex; gap: 8px">
         <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
+        <button class="btn btn-info" onclick="downloadScoutPDF()">📄 Scarica Scout PDF</button>
       </div>
       <table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr>

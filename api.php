@@ -3436,10 +3436,22 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             // Assegna automaticamente date e orari alle partite
             $groupMatches = scheduleMatches($state, $groupMatches);
             
+            // Converte $groups dal formato squadre al formato corretto [['name' => 'A', 'teamIds' => [...]]]
+            $groupsFormatted = [];
+            $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+            foreach ($groups as $gIdx => $groupTeams) {
+                $groupName = $groupNames[$gIdx] ?? ('G' . ($gIdx + 1));
+                $teamIds = array_map(fn($t) => $t['id'] ?? $t['teamId'], $groupTeams);
+                $groupsFormatted[] = [
+                    'name' => $groupName,
+                    'teamIds' => $teamIds
+                ];
+            }
+            
             $phaseName = 'Fase ' . $phaseIdx . ' - Gironi';
             initializePhase($state, $phaseIdx, $phaseName, 'groups', [
                 'matches' => $groupMatches,
-                'groups' => $groups,
+                'groups' => $groupsFormatted,
                 'metadata' => ['teamCount' => count($approvedTeams), 'numGroups' => $numGroups]
             ]);
             

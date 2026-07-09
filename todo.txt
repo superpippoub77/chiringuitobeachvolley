@@ -118,3 +118,6 @@ Consenti nella fase castello di spostare eventualmente le squadre degli incontri
 Senza fare troppo casino è possibile aggiungere un overlay con saving o laoding quando ci sono dei processi in atto di salvataggio o richiesta affichè l'utente non posssa schiacciare altro?✅
 Eliminare in tournament.json le cose superflue✅
 Inserire la current phase in tournament.json ✅
+Mi potresti inserire nella pagina di amministrazione sotto Seleziona Fase per Gestire: un flag che indica quale è la fase corrente se spuntato "currentPhaseIdx": in torunament.json ✅
+Quando crea un nuovo torneo aggiunge nuoamente beachmaster/<codice> esempio beachmaster/beachmaster/CB5E9DD1977C/ non va bene ✅ [RISOLTO: Migliorato filtro di copyDirectory, aggiunta funzione ricorsiva removeDirectoryRecursive per eliminare cartelle annidate, validazione doppia per beachmaster/beachmaster]
+Quando crea un nuovo torneo il tournament deve esser vuoto e nella configurazione i parmatri vuoti

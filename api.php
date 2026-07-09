@@ -2943,6 +2943,34 @@ if ($action === 'admin_state' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'data' => $state]);
 }
 
+if ($action === 'admin_set_current_phase' && $method === 'POST') {
+    $body = bodyJson();
+    $phaseIdx = (int)($body['phaseIdx'] ?? 0);
+    
+    if ($phaseIdx < 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Phase index invalido']);
+    }
+    
+    $result = withStateTransaction(function (&$state) use ($phaseIdx) {
+        $maxPhaseIdx = count($state['phases'] ?? []);
+        
+        // Validazione: la fase deve esistere
+        if ($phaseIdx > $maxPhaseIdx) {
+            return [
+                'ok' => false,
+                'error' => "Fase $phaseIdx non trovata (max: $maxPhaseIdx)"
+            ];
+        }
+        
+        $state['currentPhaseIdx'] = $phaseIdx;
+        error_log("✅ admin_set_current_phase: impostato currentPhaseIdx = $phaseIdx");
+        
+        return ['ok' => true, 'currentPhaseIdx' => $phaseIdx];
+    });
+    
+    jsonResponse(200, $result);
+}
+
 if ($action === 'admin_update_team' && $method === 'POST') {
     $body = bodyJson();
     $id = (string)($body['id'] ?? '');
@@ -6780,14 +6808,18 @@ function copyDirectory(string $src, string $dst): bool {
     if (!is_dir($src)) return false;
     if (!is_dir($dst)) mkdir($dst, 0755, true);
     
+    // ✅ Cartelle e file da escludere da TUTTE le copie
+    $excludeDirs = ['.', '..', '.git', 'node_modules', 'beachmaster', '.github', 'vendor'];
+    $excludeFiles = ['.gitignore', '.gitattributes'];
+    
     // Usa PHP puro per la copia (più affidabile)
     $dir = @opendir($src);
     if (!$dir) return false;
     
     $count = 0;
     while (($file = readdir($dir)) !== false) {
-        // Esclusioni
-        if ($file === '.' || $file === '..' || $file === '.git' || $file === 'node_modules' || $file === 'beachmaster') {
+        // Esclusioni per directory e file
+        if (in_array($file, $excludeDirs, true) || in_array($file, $excludeFiles, true)) {
             continue;
         }
         
@@ -6813,6 +6845,41 @@ function copyDirectory(string $src, string $dst): bool {
     closedir($dir);
     
     error_log("✅ copyDirectory: copied $count files from $src to $dst");
+    return true;
+}
+
+/**
+ * ✅ Rimuove ricorsivamente una directory e tutto il suo contenuto
+ */
+function removeDirectoryRecursive(string $path): bool {
+    if (!is_dir($path)) {
+        return false;
+    }
+    
+    $items = @scandir($path);
+    if ($items === false) {
+        return false;
+    }
+    
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+        
+        $itemPath = $path . '/' . $item;
+        
+        try {
+            if (is_dir($itemPath)) {
+                removeDirectoryRecursive($itemPath);
+            } else {
+                @unlink($itemPath);
+            }
+        } catch (Throwable $e) {
+            error_log("removeDirectoryRecursive error: " . $e->getMessage());
+        }
+    }
+    
+    @rmdir($path);
     return true;
 }
 
@@ -6889,8 +6956,22 @@ if ($action === 'create_tournament' && $method === 'POST') {
     // Pulisci: rimuovi la cartella beachmaster se è stata copiata per errore
     $beachmasterInTournament = $tournamentDir . '/beachmaster';
     if (is_dir($beachmasterInTournament)) {
-        error_log("⚠️  ALERT: Trovata cartella beachmaster nel torneo! Rimuovo...");
-        shell_exec("rm -rf " . escapeshellarg($beachmasterInTournament) . " 2>/dev/null");
+        error_log("⚠️ ALERT: Trovata cartella beachmaster nel torneo! Rimuovo ricorsivamente...");
+        removeDirectoryRecursive($beachmasterInTournament);
+        error_log("✅ Cartella beachmaster rimossa");
+    }
+    
+    // Verifica che NON ci siano directory beachmaster annidate
+    $doubleNested = $tournamentDir . '/beachmaster/beachmaster';
+    if (is_dir($doubleNested)) {
+        error_log("⚠️ CRITICAL: Trovata doppia nidificazione beachmaster/beachmaster! Rimuovo...");
+        removeDirectoryRecursive($doubleNested);
+        // Verifica se anche la prima beachmaster è ora vuota
+        $firstNested = $tournamentDir . '/beachmaster';
+        if (is_dir($firstNested) && count(array_diff(scandir($firstNested), ['.', '..'])) === 0) {
+            rmdir($firstNested);
+        }
+        error_log("✅ Doppia nidificazione rimossa");
     }
     
     // Nel torneo copiato: gestisci i file HTML

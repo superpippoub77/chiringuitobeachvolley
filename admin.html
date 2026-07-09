@@ -1491,12 +1491,12 @@
             <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
               <div style="margin-bottom: 12px">
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: bold">
-                  <input type="checkbox" id="emailEnabled" ${config.email?.enabled ? 'checked' : ''}>
+                  <input type="checkbox" id="emailEnabled" ${config.email?.enabled ? 'checked' : ''} onchange="updateEmailFieldsState()">
                   <span>Abilita invio email via SMTP</span>
                 </label>
               </div>
               
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; opacity: ${config.email?.enabled ? '1' : '0.5'}; pointer-events: ${config.email?.enabled ? 'auto' : 'none'}">
+              <div id="emailFieldsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; opacity: ${config.email?.enabled ? '1' : '0.5'}; pointer-events: ${config.email?.enabled ? 'auto' : 'none'}; transition: opacity 0.2s, pointer-events 0.2s">
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Host SMTP</label>
                   <input type="text" id="emailHost" maxlength="255" value="${config.email?.host || ''}" placeholder="smtp.gmail.com" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
@@ -1515,7 +1515,7 @@
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
-                  <input type="email" id="emailFromEmail" maxlength="255\" value=\"${config.email?.fromEmail || 'noreply@beachmaster.local'}\" style=\"width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px\">
+                  <input type="email" id="emailFromEmail" maxlength="255" value="${config.email?.fromEmail || 'noreply@beachmaster.local'}" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Nome Mittente</label>
@@ -2284,6 +2284,20 @@
       } catch (e) {
         await showInfoDialog('❌ Errore Test Email', e.message || 'Errore sconosciuto nel test');
       }
+    }
+
+    function updateEmailFieldsState() {
+      // ✅ Aggiorna lo stato dei campi email quando il checkbox cambia
+      const checkbox = document.getElementById('emailEnabled');
+      const container = document.getElementById('emailFieldsContainer');
+      
+      if (!container || !checkbox) return;
+      
+      const isEnabled = checkbox.checked;
+      container.style.opacity = isEnabled ? '1' : '0.5';
+      container.style.pointerEvents = isEnabled ? 'auto' : 'none';
+      
+      console.log('📧 Email fields state updated: enabled=' + isEnabled);
     }
 
     async function saveEmailConfig() {
@@ -4450,6 +4464,7 @@
       if (!container) return;
 
       console.log('📋 renderPhaseSelector - config.phases:', phases);
+      console.log('   currentPhaseIdx:', state.currentPhaseIdx);
 
       if (phases.length === 0) {
         container.innerHTML = '<p style="color: #999; font-size: 13px">Nessuna fase configurata. Crea una fase nella sezione "Fasi Torneo".</p>';
@@ -4461,17 +4476,29 @@
         const phaseNum = phase.phaseNumber || (idx + 1);
         console.log(`  Fase ${idx}: phaseNumber=${phaseNum}, type=${phase.type}, name=${phase.name}`);
         const isSelected = phaseNum === currentSelectedPhaseNumber;
+        const isCurrentPhase = phaseNum === state.currentPhaseIdx;
         const typeLabel = phase.type === 'groups' ? '🎯 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo');
         const btnStyle = isSelected 
           ? 'background: #2196F3; color: white; border: 2px solid #1976D2' 
           : 'background: white; color: #333; border: 1px solid #ddd';
         
         html += `
-          <button class="btn" style="${btnStyle}; flex: 1; min-width: 120px; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s" 
-            onclick="selectPhase(${phaseNum})">
-            <strong>Fase ${phaseNum}</strong><br>
-            <small>${typeLabel} - ${escapeHtml(phase.name)}</small>
-          </button>
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 140px">
+            <button class="btn" style="${btnStyle}; flex: 1; padding: 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s" 
+              onclick="selectPhase(${phaseNum})">
+              <strong>Fase ${phaseNum}</strong><br>
+              <small>${typeLabel} - ${escapeHtml(phase.name)}</small>
+            </button>
+            <div style="display: flex; align-items: center; gap: 4px; padding: 0 8px; background: ${isCurrentPhase ? '#c8e6c9' : '#f0f0f0'}; border-radius: 4px; cursor: pointer; transition: all 0.2s" 
+              title="Marca come fase corrente" onclick="event.stopPropagation(); setCurrentPhase(${phaseNum})">
+              <input type="checkbox" style="cursor: pointer; width: 16px; height: 16px" 
+                ${isCurrentPhase ? 'checked' : ''} 
+                onchange="event.stopPropagation(); setCurrentPhase(${phaseNum})">
+              <span style="font-size: 12px; color: ${isCurrentPhase ? '#2e7d32' : '#999'}; font-weight: ${isCurrentPhase ? 'bold' : 'normal'}">
+                ${isCurrentPhase ? '⭐ Corrente' : ''}
+              </span>
+            </div>
+          </div>
         `;
       });
 
@@ -4494,6 +4521,25 @@
       
       // Renderizza il pannello di modifica parametri
       renderPhaseParametersPanel(phaseNumber);
+    }
+
+    async function setCurrentPhase(phaseNumber) {
+      console.log('⭐ setCurrentPhase called with phaseNumber:', phaseNumber);
+      
+      try {
+        const r = await callApi('admin_set_current_phase', 'POST', { phaseIdx: phaseNumber }, true);
+        if (r.ok) {
+          state.currentPhaseIdx = phaseNumber;
+          renderPhaseSelector(); // Aggiorna il rendering con il nuovo flag
+          showSuccess(`Fase ${phaseNumber} impostata come corrente ✨`);
+          console.log('✅ setCurrentPhase - salvata fase:', phaseNumber);
+        } else {
+          showError('Errore nel salvataggio della fase corrente: ' + (r.message || ''));
+        }
+      } catch (err) {
+        console.error('❌ setCurrentPhase error:', err);
+        showError('Errore durante il salvataggio: ' + err.message);
+      }
     }
 
     function renderPhaseParametersPanel(phaseNumber) {

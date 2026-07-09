@@ -4414,19 +4414,38 @@
             <tbody>`;
         
         // ✅ NUOVO: Leggi quante squadre passano da questo girone
+        console.log(`\n🔍 DEBUG renderPhaseStandings - INIZIO GIRONE ${groupLabel}:`);
+        console.log(`   groupIdx: ${groupIdx}`);
+        console.log(`   statePhase: `, statePhase);
+        console.log(`   statePhase.teamsAdvance: ${statePhase.teamsAdvance}`);
+        console.log(`   type of statePhase.teamsAdvance: ${typeof statePhase.teamsAdvance}`);
+        
         const teamsAdvanceConfig = statePhase.teamsAdvance;
+        console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
+        console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
+        
         let teamsAdvanceForThisGroup = 1;
         
-        if (teamsAdvanceConfig) {
+        if (teamsAdvanceConfig !== undefined && teamsAdvanceConfig !== null && teamsAdvanceConfig !== '') {
+          console.log(`   ✅ teamsAdvanceConfig è valorizzato`);
           // Supporta sia numeri singoli che virgole-separati (es: "2,2,3")
           if (String(teamsAdvanceConfig).includes(',')) {
+            console.log(`   🔹 Formato COMMA-SEPARATED rilevato`);
             const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
+            console.log(`   📋 Values parsati: [${values.join(', ')}]`);
+            console.log(`   📍 Leggendo valore a indice [${groupIdx}]...`);
             teamsAdvanceForThisGroup = values[groupIdx] || 0;
+            console.log(`   📊 Valore estratto: ${teamsAdvanceForThisGroup}`);
           } else {
-            teamsAdvanceForThisGroup = parseInt(teamsAdvanceConfig) || 1;
+            console.log(`   🔹 Formato SINGOLO NUMERO rilevato`);
+            const parsed = parseInt(teamsAdvanceConfig);
+            console.log(`   📊 Numero parsato: ${parsed}`);
+            teamsAdvanceForThisGroup = parsed || 1;
           }
+        } else {
+          console.log(`   ❌ teamsAdvanceConfig è vuoto/non definito, usando default: 1`);
         }
-        console.log(`Girone ${groupLabel}: ${standings.length} squadre, ${teamsAdvanceForThisGroup} passano`);
+        console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel} (idx=${groupIdx}): ${teamsAdvanceForThisGroup} squadre passano\n`);
         
         standings.forEach((row, idx) => {
           const isQualified = idx < teamsAdvanceForThisGroup;

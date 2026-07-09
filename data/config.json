@@ -115,17 +115,17 @@
         "maxSteps": 10
     },
     "email": {
-        "enabled": false,
-        "service": "gmail",
-        "host": "",
-        "port": 587,
-        "secure": "tls",
+        "enabled": true,
+        "service": "aruba",
+        "host": "smtps.aruba.it",
+        "port": 465,
+        "secure": "ssl",
         "auth": true,
-        "username": "",
+        "username": "info@filippomorano.com",
         "password": "",
-        "fromEmail": "noreply@beachmaster.local",
-        "fromName": "BeachMaster",
-        "timeout": 10
+        "fromEmail": "info@filippomorano.com",
+        "fromName": "Torneo Beach Volley",
+        "timeout": 30
     },
     "security": {
         "encryptionEnabled": false,

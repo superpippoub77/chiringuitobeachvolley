@@ -1,4 +1,5 @@
 Tutte le partite dello stesso girone devono essere nello stesso giorno ✅
+Se nel numero di squadre che passano in una fase (gironi) ci sono più valori separati da virgola allora il primo valore corrisponde al numero di squadre che passano da primo girone e così via (es: 2,2,3 nel primo girone passano 2, nel secondo 2, nel terzo 3) ✅ [IMPLEMENTATO: parseTeamsAdvancePerGroup + extractQualifiedTeamsByGroup, campo input text, backup retrocompatibilità]
 Definire i giorni disponibili per il torneo ed eventualmente le fasce orarie ✅
 Dare la possibilità di fare un cambio girone per una squadra solo nella fase realizzazione gironi (pannello admin) ✅
 Validazione: il sistema deve verificare se è possibile generare il torneo in base ai giorni e time range, altrimenti mostrare errore ✅
@@ -120,4 +121,6 @@ Eliminare in tournament.json le cose superflue✅
 Inserire la current phase in tournament.json ✅
 Mi potresti inserire nella pagina di amministrazione sotto Seleziona Fase per Gestire: un flag che indica quale è la fase corrente se spuntato "currentPhaseIdx": in torunament.json ✅
 Quando crea un nuovo torneo aggiunge nuoamente beachmaster/<codice> esempio beachmaster/beachmaster/CB5E9DD1977C/ non va bene ✅ [RISOLTO: Migliorato filtro di copyDirectory, aggiunta funzione ricorsiva removeDirectoryRecursive per eliminare cartelle annidate, validazione doppia per beachmaster/beachmaster]
-Quando crea un nuovo torneo il tournament deve esser vuoto e nella configurazione i parmatri vuoti
+Quando crea un nuovo torneo il tournament deve esser vuoto in temini di parametri e anche nella configurazione ✅ [RISOLTO: create_tournament ora scrive tournament.json e config.json completamente vuoti, con strutture iniziali ma senza valori]
+Se nel numero di squadre che passano in una fase (gironi) ci sono più valori separati da virgola allora vuol dire che il primo valore corrisponde al numero si squadre che passano da primo girone e così via, esempio 2,2,3 (nel primo girone ne passano 2, nel secondo 2 e nel terzo 3, le altre eliminate)
+Nelle classifiche quelle che passano sono sottolineate di verde (per ora c'è solo la prima, deve prendere il valore dalla configurazione della fase) ✅ [IMPLEMENTATO: Funzione helper scoreboard + renderPhaseStandings() in admin, supporta valori singoli e comma-separated, sottolineatura verde + background chiaro] 

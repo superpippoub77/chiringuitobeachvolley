@@ -1632,6 +1632,25 @@
       c.innerHTML = html;
     }
 
+    // ✅ HELPER: Parsa teamsAdvance e ritorna quante squadre passano da questo girone
+    function getTeamsAdvanceForGroup(groupLabel) {
+      if (!config?.phases?.[0]) return 1; // Default: 1 squadra
+
+      const teamsAdvanceConfig = config.phases[0].teamsAdvance;
+      if (!teamsAdvanceConfig) return 1;
+
+      // Se contiene virgola, è un array di valori
+      if (String(teamsAdvanceConfig).includes(',')) {
+        const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
+        // Converte label (A, B, C, D) a indice (0, 1, 2, 3)
+        const groupIndex = groupLabel.charCodeAt(0) - 'A'.charCodeAt(0);
+        return values[groupIndex] || 0;
+      }
+
+      // Singolo numero per tutti i gironi
+      return parseInt(teamsAdvanceConfig) || 1;
+    }
+
     function renderStandings() {
       const c = document.getElementById('page-standings');
       // ✅ REFACTORED: Leggi classifiche da phases[0].standings
@@ -1641,12 +1660,16 @@
         c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
         return;
       }
-      c.innerHTML = '<h3>Classifiche gironi</h3>' + standings.map(s =>
-        `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) =>
-          `<tr><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td>${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
+
+      // ✅ NUOVO: Sottolinea in verde le squadre che passano
+      c.innerHTML = '<h3>Classifiche gironi</h3>' + standings.map(s => {
+        const teamsAdvance = getTeamsAdvanceForGroup(s.group);
+        return `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) =>
+          `<tr style="${i < teamsAdvance ? 'border-bottom: 3px solid #4caf50; font-weight: 600' : ''}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td style="text-decoration: ${i < teamsAdvance ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
         ).join('')}</tbody></table>`
-      ).join('');
+      }).join('');
     }
+
 
     function playoffTable(title, arr) {
       if (!arr || !arr.length) return '';

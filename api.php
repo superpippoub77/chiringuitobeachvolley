@@ -1291,6 +1291,70 @@ function shuffleArray(array $arr): array {
 }
 
 /**
+ * ✅ NUOVO: Parsa il valore teamsAdvance in array per girone
+ * Input: "2" → [2,2,2,2] (con 4 gironi)
+ * Input: "2,2,3" → [2,2,3]
+ * @param mixed $teamsAdvance - Numero o stringa con virgole
+ * @param int $numGroups - Numero di gironi
+ * @return array Numero di squadre che passano per ogni girone
+ */
+function parseTeamsAdvancePerGroup($teamsAdvance, int $numGroups): array {
+    if (is_string($teamsAdvance) && strpos($teamsAdvance, ',') !== false) {
+        // Valori separati da virgola: prima trim, poi intval
+        $parts = array_map('trim', explode(',', $teamsAdvance));
+        $values = array_map(function($v) { return (int)$v; }, $parts);
+        
+        // Completa con zeri se non ci sono abbastanza valori
+        while (count($values) < $numGroups) {
+            $values[] = 0;
+        }
+        return array_slice($values, 0, $numGroups);
+    } else {
+        // Singolo numero per tutti i gironi
+        $num = (int)$teamsAdvance ?: 2;
+        return array_fill(0, $numGroups, $num);
+    }
+}
+
+/**
+ * ✅ NUOVO: Estrae le squadre qualificate per ogni girone
+ * @param array $phases - Array delle fasi
+ * @param array $standings - Standings della fase gironi
+ * @param array $teamsPerGroup - Array con numero squadre per ogni girone [2,2,3]
+ * @return array Squadre qualificate ordinate per girone
+ */
+function extractQualifiedTeamsByGroup(array $phases, array $standings, array $teamsPerGroup): array {
+    // Organizza gli standings per girone (label A, B, C, D)
+    $groupedStandings = [];
+    foreach ($standings as $standing) {
+        $groupLabel = $standing['groupLabel'] ?? 'A';
+        if (!isset($groupedStandings[$groupLabel])) {
+            $groupedStandings[$groupLabel] = [];
+        }
+        $groupedStandings[$groupLabel][] = $standing;
+    }
+    
+    $qualified = [];
+    $groupLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    
+    // Per ogni girone, estrai i top N
+    foreach ($groupLabels as $idx => $label) {
+        if (!isset($teamsPerGroup[$idx]) || $teamsPerGroup[$idx] === 0) {
+            continue; // Skip questo girone
+        }
+        
+        $groupTeams = $groupedStandings[$label] ?? [];
+        $numToTake = (int)$teamsPerGroup[$idx];
+        
+        // Prendi i top N squadre da questo girone
+        $topTeams = array_slice($groupTeams, 0, $numToTake);
+        $qualified = array_merge($qualified, $topTeams);
+    }
+    
+    return $qualified;
+}
+
+/**
  * Calcola il numero di squadre qualificate e eliminate da una fase
  * @param array $phase - Configurazione della fase
  * @param int $teamsIn - Numero di squadre in ingresso in questa fase
@@ -1301,8 +1365,9 @@ function calculatePhaseTeams(array $phase, int $teamsIn): array {
         $numGroups = $phase['numGroups'] ?? 4;
         $teamsAdvance = $phase['teamsAdvance'] ?? 2;
         
-        // Squadre qualificate = numGroups * teamsAdvance
-        $qualified = $numGroups * $teamsAdvance;
+        // ✅ MIGLIORATO: Parsa teamsAdvance per supportare valori separati da virgola
+        $perGroup = parseTeamsAdvancePerGroup($teamsAdvance, $numGroups);
+        $qualified = array_sum($perGroup); // Somma i valori per ogni girone
         
         // Se teamsIn non è divisibile per numGroups, aggiustiamo
         $teamsPerGroup = (int)ceil($teamsIn / $numGroups);
@@ -3549,9 +3614,32 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
         }
         
         if ($type === 'knockout') {
-            // Estrai i team qualificati dalla fase precedente
+            // ✅ MIGLIORATO: Estrai i team qualificati dalla fase precedente
+            // Considerando i valori separati da virgola in teamsAdvance
             $standings = computeStandings($state);
-            $qualifiedTeams = array_slice($standings, 0, (int)ceil(count($standings) / 2));
+            
+            // Leggi la configurazione della fase gironi (fase precedente)
+            $groupsPhaseConfig = null;
+            foreach ($configPhases as $cp) {
+                if (($cp['type'] ?? null) === 'groups' && ($cp['phaseNumber'] ?? null) === ($phaseIdx - 1)) {
+                    $groupsPhaseConfig = $cp;
+                    break;
+                }
+            }
+            
+            if ($groupsPhaseConfig) {
+                // Usa la nuova logica che rispetta i valori per girone
+                $numGroups = $groupsPhaseConfig['numGroups'] ?? 4;
+                $teamsAdvance = $groupsPhaseConfig['teamsAdvance'] ?? 2;
+                $perGroup = parseTeamsAdvancePerGroup($teamsAdvance, $numGroups);
+                $qualifiedTeams = extractQualifiedTeamsByGroup($state['phases'] ?? [], $standings, $perGroup);
+                
+                error_log("✅ Squadre qualificate estratte per girone: teamsAdvance=$teamsAdvance, perGroup=" . json_encode($perGroup) . ", total=" . count($qualifiedTeams));
+            } else {
+                // Fallback: usa la logica semplice (top metà)
+                $qualifiedTeams = array_slice($standings, 0, (int)ceil(count($standings) / 2));
+                error_log("⚠️ Config gironi non trovata, uso fallback: " . count($qualifiedTeams) . " squadre");
+            }
             
             // Crea i playoff/knockout
             $knockoutMatches = [];
@@ -7129,6 +7217,58 @@ if ($action === 'create_tournament' && $method === 'POST') {
     if (!is_dir($uploadsDir)) {
         mkdir($uploadsDir, 0755, true);
     }
+    
+    // ✅ RESET: Scrivi tournament.json vuoto (stato iniziale)
+    $tournamentJsonFile = $tournamentDir . '/data/tournament.json';
+    $emptyTournament = [
+        'teams' => [],
+        'phases' => [],
+        'settings' => [
+            'maxTeams' => 0,
+            'tournamentName' => ''
+        ],
+        'meta' => [
+            'lastUpdated' => null
+        ]
+    ];
+    writeJsonFile($tournamentJsonFile, $emptyTournament);
+    
+    // ✅ RESET: Scrivi config.json vuoto (configurazione iniziale)
+    $configJsonFile = $tournamentDir . '/data/config.json';
+    $emptyConfig = [
+        'tournament' => [
+            'name' => '',
+            'maxTeams' => 0,
+            'testTeams' => 0
+        ],
+        'phases' => [],
+        'schedule' => [
+            'days' => [],
+            'fields' => []
+        ],
+        'email' => [
+            'enabled' => false,
+            'host' => '',
+            'port' => 587,
+            'username' => '',
+            'password' => '',
+            'fromEmail' => '',
+            'fromName' => '',
+            'secure' => 'tls',
+            'timeout' => 30
+        ],
+        'payment' => [
+            'costPerTeam' => 0,
+            'notes' => []
+        ],
+        'theme' => [
+            'template' => 'beachmaster',
+            'logoUrl' => '',
+            'backgroundUrl' => '',
+            'fontFamily' => ''
+        ]
+    ];
+    writeJsonFile($configJsonFile, $emptyConfig);
     
     // Scrivi un file .env o config di tenant nel nuovo torneo
     $envFile = $tournamentDir . '/.tournament-config.json';

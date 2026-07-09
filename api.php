@@ -1688,7 +1688,10 @@ function computeStandings(array $state): array {
     $teamMap = getTeamMap($state);
     $out = [];
 
-    foreach ($state['groups'] as $group) {
+    // Supporta sia vecchia struttura ($state['groups']) che nuova ($state['phases'][0]['groups'])
+    $groups = !empty($state['groups']) ? $state['groups'] : ($state['phases'][0]['groups'] ?? []);
+
+    foreach ($groups as $group) {
         $rows = [];
         foreach ($group['teamIds'] as $teamId) {
             $rows[$teamId] = [

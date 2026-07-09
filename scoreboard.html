@@ -1610,10 +1610,9 @@
 
       let html = '<h3>📈 Classifiche Gironi</h3>';
       state.standings.forEach((standing, idx) => {
-        const groupName = String.fromCharCode(65 + idx);
-        html += `<h4>Girone ${groupName}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>V</th><th>S</th><th>Pt</th></tr></thead><tbody>`;
-        (standing.teams || []).forEach((t, pos) => {
-          html += `<tr><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.wins || 0}</td><td>${t.losses || 0}</td><td>${t.points || 0}</td></tr>`;
+        html += `<h4>Girone ${standing.group}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>G</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>`;
+        (standing.rows || []).forEach((t, pos) => {
+          html += `<tr><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.played || 0}</td><td>${t.won || 0}</td><td>${t.lost || 0}</td><td>${t.points || 0}</td><td>${t.scored || 0}</td><td>${t.conceded || 0}</td><td>${t.diff || 0}</td></tr>`;
         });
         html += `</tbody></table>`;
       });

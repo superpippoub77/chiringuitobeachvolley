@@ -8316,8 +8316,15 @@
         return;
       }
 
+      // ✅ Inizializza config.schedule se non esiste
+      if (!config.schedule) {
+        config.schedule = { courts: [], days: [], fields: [] };
+      }
+      if (!config.schedule.courts) {
+        config.schedule.courts = [];
+      }
+
       // Crea i campi vuoti
-      config.schedule = config.schedule || { courts: [] };
       for (let i = 0; i < numCourts; i++) {
         const newCourt = {
           courtId: 'court-' + Date.now() + '-' + i,
@@ -9271,7 +9278,9 @@
         html += `<div class="card" style="background: #f5f5f5; margin-bottom: 12px; padding: 12px">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px">
             <h4 style="margin: 0">Fase ${idx + 1}</h4>
-            <button class="btn btn-danger" onclick="removePhase(${idx})">Rimuovi</button>
+            <button class="btn" style="background: #e74c3c; color: white; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 6px; hover-background: #c0392b;" onclick="removePhase(${idx})" title="Elimina questa fase e tutti i dati collegati">
+              🗑️ Elimina Fase
+            </button>
           </div>
           <div class="form-grid-modal">
             <div class="field">
@@ -10376,13 +10385,13 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       
       const confirmed = await showConfirmDialog(
         '🗑️ Rimuovi Fase',
-        `Vuoi veramente cancellare la fase "${phaseToRemove.name || 'Fase ' + (idx + 1)}"?`
+        `Vuoi veramente cancellare la fase "${phaseToRemove.name || 'Fase ' + (idx + 1)}" e TUTTI i dati collegati (gironi, partite, classifiche)?`
       );
       
       if (!confirmed) return;
       
       try {
-        // Rimuovi dalla lista locale
+        // Rimuovi dalla lista locale config
         phases.splice(idx, 1);
         
         // Aggiorna i numeri di fase
@@ -10391,11 +10400,21 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
           phaseNumber: i + 1
         }));
         
-        // Salva direttamente via API (non legge da HTML per evitare mismatch di indici)
+        // Rimuovi dalla state anche i dati della fase
+        if (state && state.phases) {
+          state.phases = state.phases.filter(p => (p.phaseNumber || p.phaseIdx) !== (phaseToRemove.phaseNumber || phaseToRemove.phaseIdx));
+        }
+        
+        // Salva config
         await callApi('admin_update_config', 'POST', { phases: phasesToSave }, true);
         
+        // Salva state senza la fase eliminata
+        if (state) {
+          await callApi('admin_save_state', 'POST', state, true);
+        }
+        
         config.phases = phasesToSave;
-        await showInfoDialog('✅ Fase rimossa', 'La fase è stata cancellata con successo.');
+        await showInfoDialog('✅ Fase rimossa', 'La fase e tutti i dati collegati sono stati cancellati con successo.');
         renderPhases();
         updateButtonStates();
       } catch (e) {

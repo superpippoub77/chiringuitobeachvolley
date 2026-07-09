@@ -7276,14 +7276,27 @@ if ($action === 'create_tournament' && $method === 'POST') {
         mkdir($uploadsDir, 0755, true);
     }
     
-    // ✅ RESET: Scrivi tournament.json vuoto (stato iniziale)
+    // ✅ RESET: Scrivi tournament.json vuoto (stato iniziale) con struttura completa
     $tournamentJsonFile = $tournamentDir . '/data/tournament.json';
     $emptyTournament = [
-        'teams' => [],
-        'phases' => [],
         'settings' => [
             'maxTeams' => 0,
             'tournamentName' => ''
+        ],
+        'teams' => [],
+        'phases' => [
+            [
+                'id' => 'phase-1-groups',
+                'phaseIdx' => 1,
+                'phaseNumber' => 1,
+                'name' => 'Fase 1 - Gironi',
+                'type' => 'groups',
+                'status' => 'pending',
+                'groups' => [],
+                'matches' => [],
+                'standings' => [],
+                'createdAt' => gmdate('c')
+            ]
         ],
         'meta' => [
             'lastUpdated' => null
@@ -7291,39 +7304,82 @@ if ($action === 'create_tournament' && $method === 'POST') {
     ];
     writeJsonFile($tournamentJsonFile, $emptyTournament);
     
-    // ✅ RESET: Scrivi config.json vuoto (configurazione iniziale)
+    // ✅ RESET: Scrivi config.json vuoto (configurazione iniziale) con struttura completa
     $configJsonFile = $tournamentDir . '/data/config.json';
     $emptyConfig = [
         'tournament' => [
             'name' => '',
-            'maxTeams' => 0,
-            'testTeams' => 0
+            'maxTeams' => 16,
+            'maxPlayersPerTeam' => 3,
+            'maxPlayersOnCourt' => 2,
+            'maxSubstitutions' => 0,
+            'numGroups' => 0,
+            'numSets' => 1,
+            'winScore' => 21,
+            'maxScore' => 25,
+            'timePerSetMinutes' => 25,
+            'setupTimeMinutes' => 5,
+            'maxTimeoutsPerSet' => 2,
+            'registrationsClosed' => false,
+            'registrationDeadline' => ''
         ],
-        'phases' => [],
         'schedule' => [
+            'courts' => [],
             'days' => [],
             'fields' => []
         ],
+        'phases' => [
+            [
+                'phaseNumber' => 1,
+                'name' => '',
+                'type' => 'groups',
+                'branch' => 'root',
+                'qualifiedGoTo' => 'sa',
+                'eliminatedGoTo' => 'sa',
+                'numGroups' => 0,
+                'teamsAdvance' => '',
+                'hasRepescage' => false,
+                'notes' => ''
+            ]
+        ],
+        'contact' => [
+            'managerEmail' => ''
+        ],
+        'display' => [
+            'theme' => 'beachmaster',
+            'customThemes' => [],
+            'logoFile' => '',
+            'backgroundFile' => ''
+        ],
+        'sponsors' => [],
+        'payment' => [
+            'enabled' => false,
+            'costPerTeam' => 0,
+            'currency' => 'EUR'
+        ],
+        'notes' => [],
+        'news' => [],
+        'autosave' => [
+            'enabled' => false,
+            'intervalSeconds' => 30,
+            'maxSteps' => 10
+        ],
         'email' => [
             'enabled' => false,
+            'service' => '',
             'host' => '',
             'port' => 587,
+            'secure' => 'tls',
+            'auth' => false,
             'username' => '',
             'password' => '',
             'fromEmail' => '',
             'fromName' => '',
-            'secure' => 'tls',
             'timeout' => 30
         ],
-        'payment' => [
-            'costPerTeam' => 0,
-            'notes' => []
-        ],
-        'theme' => [
-            'template' => 'beachmaster',
-            'logoUrl' => '',
-            'backgroundUrl' => '',
-            'fontFamily' => ''
+        'security' => [
+            'encryptionEnabled' => false,
+            'encryptionPassword' => ''
         ]
     ];
     writeJsonFile($configJsonFile, $emptyConfig);

@@ -1632,23 +1632,48 @@
       c.innerHTML = html;
     }
 
-    // ✅ HELPER: Parsa teamsAdvance e ritorna quante squadre passano da questo girone
+    // ✅ HELPER: Parsa teamsAdvance e ritorna quante squadre passano da questo girone (PATTERN ADMIN)
     function getTeamsAdvanceForGroup(groupLabel) {
-      if (!config?.phases?.[0]) return 1; // Default: 1 squadra
+      if (!config?.phases?.[0]) {
+        console.log('⚠️ getTeamsAdvanceForGroup: config.phases[0] non trovato');
+        return 1; // Default: 1 squadra
+      }
 
-      const teamsAdvanceConfig = config.phases[0].teamsAdvance;
-      if (!teamsAdvanceConfig) return 1;
+      const configPhase = config.phases[0];
+      console.log(`\n🔍 DEBUG getTeamsAdvanceForGroup - INIZIO GIRONE ${groupLabel}:`);
+      console.log(`   groupLabel: ${groupLabel}`);
+      console.log(`   configPhase: `, configPhase);
+      console.log(`   configPhase.teamsAdvance: ${configPhase?.teamsAdvance}`);
+      
+      const teamsAdvanceConfig = configPhase.teamsAdvance;
+      console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
+      console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
+      
+      if (!teamsAdvanceConfig) {
+        console.log(`   ❌ teamsAdvanceConfig è vuoto, usando default: 1`);
+        return 1;
+      }
 
-      // Se contiene virgola, è un array di valori
+      // Se contiene virgola, è un array di valori (es: "2,2,3")
       if (String(teamsAdvanceConfig).includes(',')) {
+        console.log(`   🔹 Formato COMMA-SEPARATED rilevato`);
         const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
+        console.log(`   📋 Values parsati: [${values.join(', ')}]`);
         // Converte label (A, B, C, D) a indice (0, 1, 2, 3)
         const groupIndex = groupLabel.charCodeAt(0) - 'A'.charCodeAt(0);
-        return values[groupIndex] || 0;
+        console.log(`   📍 groupLabel "${groupLabel}" -> indice [${groupIndex}]`);
+        const result = values[groupIndex] || 0;
+        console.log(`   📊 Valore estratto: ${result}`);
+        console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel}: ${result} squadre passano\n`);
+        return result;
       }
 
       // Singolo numero per tutti i gironi
-      return parseInt(teamsAdvanceConfig) || 1;
+      console.log(`   🔹 Formato SINGOLO NUMERO rilevato`);
+      const parsed = parseInt(teamsAdvanceConfig);
+      console.log(`   📊 Numero parsato: ${parsed}`);
+      console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel}: ${parsed || 1} squadre passano\n`);
+      return parsed || 1;
     }
 
     function renderStandings() {

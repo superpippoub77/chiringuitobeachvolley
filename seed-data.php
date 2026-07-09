@@ -13,8 +13,7 @@ if (file_exists($dataFile)) {
     $data = [
         'settings' => ['maxTeams' => 16, 'tournamentName' => 'Test Tournament'],
         'teams' => [],
-        'groups' => [],
-        'groupMatches' => []
+        'phases' => []
     ];
 }
 

@@ -2738,14 +2738,28 @@
     }
 
     function isTournamentStarted() {
-      const p = state?.playoff || {};
-      return (state?.groups || []).length > 0
-        || (state?.groupMatches || []).length > 0
-        || (p.quarterFinals || []).length > 0
-        || (p.semiFinals || []).length > 0
-        || !!p.thirdPlace
-        || !!p.final
-        || (state?.finalRanking || []).length > 0;
+      // Controlla se il torneo ha fasi con matches
+      if (state?.phases && Array.isArray(state.phases)) {
+        for (const phase of state.phases) {
+          if ((phase.matches && phase.matches.length > 0) || 
+              (phase.groups && phase.groups.length > 0)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Helper: Aggreg tutti i match dalle fasi per compatibilità con codice legacy
+    function getAllMatches() {
+      if (!state?.phases) return [];
+      const allMatches = [];
+      for (const phase of state.phases) {
+        if (phase.matches && Array.isArray(phase.matches)) {
+          allMatches.push(...phase.matches);
+        }
+      }
+      return allMatches;
     }
 
     async function openTeamDialog(teamId) {
@@ -3741,7 +3755,7 @@
     }
 
     async function openSlotPicker(matchId) {
-      const match = (state.groupMatches || []).find(m => m.id === matchId);
+      const match = getAllMatches().find(m => m.id === matchId);
       if (!match) {
         await showInfoDialog('Errore', 'Partita non trovata');
         return;
@@ -5622,16 +5636,8 @@
         state = {
           teams: [],
           pendingCount: 0,
-          groups: [],
-          groupMatches: [],
-          playoff: {
-            quarterFinals: [],
-            semiFinals: [],
-            thirdPlace: null,
-            final: null
-          },
+          phases: [],
           standings: [],
-          finalRanking: [],
           matches: [],
           schedule: {}
         };
@@ -7445,7 +7451,7 @@
         return;
       }
 
-      document.getElementById('rescheduleBtn').style.display = (state.groupMatches || []).length > 0 ? 'inline-block' : 'none';
+      document.getElementById('rescheduleBtn').style.display = getAllMatches().length > 0 ? 'inline-block' : 'none';
       
       let html = validateScheduleRealtimeHtml(); // Aggiungi validazione real-time
       
@@ -7590,14 +7596,15 @@
 
     // Conta il numero di partite assegnate a uno slot specifico
     function getMatchesInSlot(courtIdx, dateIdx, slotIdx) {
-      if (!state || !state.groupMatches || !Array.isArray(state.groupMatches)) {
-        console.warn('🔴 getMatchesInSlot: state.groupMatches non trovato o non è array');
+      const allMatches = getAllMatches();
+      if (!state || !allMatches || !Array.isArray(allMatches)) {
+        console.warn('🔴 getMatchesInSlot: matches non trovati o non è array');
         return 0;
       }
       
       // Conta le partite che corrispondono a court, date, e slot
       let count = 0;
-      state.groupMatches.forEach((match, idx) => {
+      allMatches.forEach((match, idx) => {
         // Log solo per i primi 3 match per debug
         if (idx < 3 && courtIdx === 0 && dateIdx === 0) {
           console.log('🔍 Match ' + idx + ':', {
@@ -7668,14 +7675,15 @@
 
     // Conta slot totali occupati per una data specifica
     function getTotalMatchesForDate(courtIdx, dateIdx) {
-      if (!state || !state.groupMatches || !Array.isArray(state.groupMatches)) {
+      const allMatches = getAllMatches();
+      if (!state || !allMatches || !Array.isArray(allMatches)) {
         return 0;
       }
       
       // Conta gli SLOT UNICI occupati, non i match totali
       // (perché attualmente slotIdx può essere duplicato tra gironi diversi)
       const uniqueSlots = new Set();
-      state.groupMatches.forEach((match) => {
+      allMatches.forEach((match) => {
         if (match.courtIdx === courtIdx && match.dateIdx === dateIdx) {
           uniqueSlots.add(match.slotIdx);
         }
@@ -7770,8 +7778,9 @@
       for (let i = 0; i < effectiveSlots; i++) {
         // Recupera l'orario per QUESTO box (che corrisponde a slotIdx = i)
         let boxTimeStr = 'N/A';
-        if (state && state.groupMatches && Array.isArray(state.groupMatches)) {
-          for (let match of state.groupMatches) {
+        const allMatches = getAllMatches();
+        if (state && allMatches && Array.isArray(allMatches)) {
+          for (let match of allMatches) {
             if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === i) {
               boxTimeStr = match.startTime;
               break;
@@ -8196,7 +8205,8 @@
     }
 
     async function rescheduleMatches() {
-      if (!state.groupMatches || !state.groupMatches.length) {
+      const allMatches = getAllMatches();
+      if (!allMatches || !allMatches.length) {
         await showInfoDialog('Attenzione', 'Nessuna partita da rischedulare');
         return;
       }

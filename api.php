@@ -661,15 +661,7 @@ function initialState(): array {
             'tournamentName' => $config['tournament']['name'] ?? ''  // Vuoto se non configurato
         ],
         'teams' => [],
-        'groups' => [],
-        'groupMatches' => [],
-        'playoff' => [
-            'quarterFinals' => [],
-            'semiFinals' => [],
-            'thirdPlace' => null,
-            'final' => null
-        ],
-        'finalRanking' => [],
+        'phases' => [],
         'meta' => [
             'lastUpdated' => null
         ]
@@ -680,28 +672,12 @@ function mergeState(array $existingState, array $newState): array {
     // Preserva i dati critici del torneo dal state esistente
     $merged = $newState;
     
-    // Preserva squadre, gironi, partite e risultati
+    // Preserva squadre e fasi
     if (isset($existingState['teams']) && is_array($existingState['teams'])) {
         $merged['teams'] = $existingState['teams'];
     }
     
-    if (isset($existingState['groups']) && is_array($existingState['groups'])) {
-        $merged['groups'] = $existingState['groups'];
-    }
-    
-    if (isset($existingState['groupMatches']) && is_array($existingState['groupMatches'])) {
-        $merged['groupMatches'] = $existingState['groupMatches'];
-    }
-    
-    if (isset($existingState['playoff']) && is_array($existingState['playoff'])) {
-        $merged['playoff'] = $existingState['playoff'];
-    }
-    
-    if (isset($existingState['finalRanking']) && is_array($existingState['finalRanking'])) {
-        $merged['finalRanking'] = $existingState['finalRanking'];
-    }
-    
-    // 🔧 FIX: PRESERVA LE FASI CON TUTTI I MATCH E GRUPPI SALVATI!
+    // PRESERVA LE FASI CON TUTTI I MATCH E GRUPPI SALVATI!
     if (isset($existingState['phases']) && is_array($existingState['phases'])) {
         $merged['phases'] = $existingState['phases'];
     }
@@ -851,51 +827,8 @@ function ensurePhases(array &$state): void {
                     'metadata' => $configPhase['metadata'] ?? []
                 ];
                 
-                // Se è fase 1 e non ha gruppi ma $state ha groups, sincronizza
-                if ($phaseNumber === 1 && empty($newPhase['groups']) && !empty($state['groups'])) {
-                    $newPhase['groups'] = $state['groups'];
-                    error_log('ℹ️ ensurePhases: Sincronizzazione groups a fase 1 da state');
-                }
-                // Se è fase 1 e non ha matches ma $state ha groupMatches, sincronizza
-                if ($phaseNumber === 1 && empty($newPhase['matches']) && !empty($state['groupMatches'])) {
-                    $newPhase['matches'] = $state['groupMatches'];
-                    error_log('ℹ️ ensurePhases: Sincronizzazione groupMatches a fase 1 da state');
-                }
-                
                 $state['phases'][] = $newPhase;
             }
-        }
-    }
-    
-    // Se ancora non ci sono fasi, prova a migrare da vecchia struttura
-    if (empty($state['phases'])) {
-        if (!empty($state['groups']) || !empty($state['groupMatches'])) {
-            $state['phases'] = [
-                [
-                    'id' => 'phase-1-groups',
-                    'phaseIdx' => 1,
-                    'phaseNumber' => 1,
-                    'name' => 'Fase 1 - Gironi',
-                    'type' => 'groups',
-                    'status' => !empty($state['groups']) ? 'active' : 'pending',
-                    'groups' => $state['groups'] ?? [],
-                    'matches' => $state['groupMatches'] ?? [],
-                    'standings' => $state['standings'] ?? [],
-                    'createdAt' => $state['meta']['groupsCreatedAt'] ?? gmdate('c')
-                ],
-                [
-                    'id' => 'phase-2-knockout',
-                    'phaseIdx' => 2,
-                    'phaseNumber' => 2,
-                    'name' => 'Fase 2 - Playoff',
-                    'type' => 'knockout',
-                    'status' => 'pending',
-                    'matches' => $state['playoff'] ?? ['quarterFinals' => [], 'semiFinals' => [], 'final' => null],
-                    'standings' => [],
-                    'createdAt' => null
-                ]
-            ];
-            error_log('ℹ️ ensurePhases: Migrazione da vecchia struttura completata');
         }
     }
     
@@ -1576,20 +1509,16 @@ function balancedKnockoutSeeding(array $teams): array {
 }
 
 function tournamentStarted(array $state): bool {
-    if (count($state['groups']) > 0 || count($state['groupMatches']) > 0) {
-        return true;
+    // Controlla se il torneo ha fasi con matches o gruppi
+    if (!empty($state['phases']) && is_array($state['phases'])) {
+        foreach ($state['phases'] as $phase) {
+            if ((!empty($phase['matches']) && is_array($phase['matches']) && count($phase['matches']) > 0) ||
+                (!empty($phase['groups']) && is_array($phase['groups']) && count($phase['groups']) > 0)) {
+                return true;
+            }
+        }
     }
-
-    if (
-        count($state['playoff']['quarterFinals']) > 0 ||
-        count($state['playoff']['semiFinals']) > 0 ||
-        $state['playoff']['thirdPlace'] !== null ||
-        $state['playoff']['final'] !== null
-    ) {
-        return true;
-    }
-
-    return count($state['finalRanking']) > 0;
+    return false;
 }
 
 function publicState(array $state): array {
@@ -1603,6 +1532,11 @@ function publicState(array $state): array {
             'tournamentName' => $config['tournament']['name'] ?? ''
         ];
     }
+    
+    // Estrai groups e matches dalla prima fase (gironi)
+    $groupsPhase = $state['phases'][0] ?? null;
+    $groups = $groupsPhase ? ($groupsPhase['groups'] ?? []) : [];
+    $allMatches = $groupsPhase ? ($groupsPhase['matches'] ?? []) : [];
     
     // Crea una mappa matchId -> phaseInfo per recuperare fase e nome
     $matchPhaseMap = [];
@@ -1640,7 +1574,7 @@ function publicState(array $state): array {
                     ];
                 }, $g['teamIds']))
             ];
-        }, $state['groups'])),
+        }, $groups)),
         'groupMatches' => array_values(array_map(function ($m) use ($teamMap, $matchPhaseMap) {
             $phaseInfo = $matchPhaseMap[$m['id']] ?? ['phaseId' => null, 'phaseIdx' => 1, 'phaseName' => 'Fase 1 - Gironi'];
             return [
@@ -1654,24 +1588,24 @@ function publicState(array $state): array {
                 'score1' => $m['score1'],
                 'score2' => $m['score2'],
                 'date' => $m['date'] ?? null,
-                'dayDate' => $m['date'] ?? null,  // Alias per compatibilità frontend
+                'dayDate' => $m['date'] ?? null,
                 'courtId' => $m['courtId'] ?? null,
-                'courtIdx' => $m['courtIdx'] ?? null,  // Indice della corte
+                'courtIdx' => $m['courtIdx'] ?? null,
                 'courtName' => $m['courtName'] ?? null,
                 'startTime' => $m['startTime'] ?? null,
                 'endTime' => $m['endTime'] ?? null,
-                'time' => !empty($m['startTime']) && !empty($m['endTime']) ? ($m['startTime'] . ' - ' . $m['endTime']) : '',  // Formato leggibile
-                'dateIdx' => $m['dateIdx'] ?? null,  // Indice della data
-                'slotIdx' => $m['slotIdx'] ?? null,  // Indice dello slot
+                'time' => !empty($m['startTime']) && !empty($m['endTime']) ? ($m['startTime'] . ' - ' . $m['endTime']) : '',
+                'dateIdx' => $m['dateIdx'] ?? null,
+                'slotIdx' => $m['slotIdx'] ?? null,
                 'duration' => $m['duration'] ?? null,
                 'phaseId' => $phaseInfo['phaseId'],
                 'phaseIdx' => $phaseInfo['phaseIdx'],
                 'phaseName' => $phaseInfo['phaseName']
             ];
-        }, $state['groupMatches'])),
+        }, $allMatches)),
         'standings' => computeStandings($state),
         'playoff' => playoffView($state),
-        'finalRanking' => $state['finalRanking'],
+        'finalRanking' => computeFinalRanking($state),
         'meta' => $state['meta'],
         'phases' => $state['phases'] ?? []
     ];
@@ -1680,32 +1614,64 @@ function publicState(array $state): array {
 function playoffView(array $state): array {
     $teamMap = getTeamMap($state);
     $mapFn = function ($m) use ($teamMap) {
+        $team1Id = $m['team1'] ?? $m['team1Id'] ?? null;
+        $team2Id = $m['team2'] ?? $m['team2Id'] ?? null;
         return [
             'id' => $m['id'],
-            'label' => $m['label'],
-            'team1Id' => $m['team1Id'],
-            'team2Id' => $m['team2Id'],
-            'team1Name' => $teamMap[$m['team1Id']]['name'] ?? '-',
-            'team2Name' => $teamMap[$m['team2Id']]['name'] ?? '-',
+            'label' => $m['label'] ?? '',
+            'team1Id' => $team1Id,
+            'team2Id' => $team2Id,
+            'team1Name' => $teamMap[$team1Id]['name'] ?? '-',
+            'team2Name' => $teamMap[$team2Id]['name'] ?? '-',
             'score1' => $m['score1'],
             'score2' => $m['score2']
         ];
     };
 
-    return [
-        'quarterFinals' => array_values(array_map($mapFn, $state['playoff']['quarterFinals'])),
-        'semiFinals' => array_values(array_map($mapFn, $state['playoff']['semiFinals'])),
-        'thirdPlace' => $state['playoff']['thirdPlace'] ? $mapFn($state['playoff']['thirdPlace']) : null,
-        'final' => $state['playoff']['final'] ? $mapFn($state['playoff']['final']) : null
+    $playoff = [
+        'quarterFinals' => [],
+        'semiFinals' => [],
+        'thirdPlace' => null,
+        'final' => null
     ];
+
+    // Estrai matches dalle fasi knockout
+    foreach ($state['phases'] ?? [] as $phaseIdx => $phase) {
+        if ($phaseIdx === 0) continue; // Salta la fase dei gironi
+        
+        foreach ($phase['matches'] ?? [] as $match) {
+            if ($phase['type'] === 'knockout') {
+                // Classifica in base al tipo di match (se presente)
+                $matchType = $match['type'] ?? '';
+                
+                if ($matchType === 'quarterFinal' || strpos($match['label'] ?? '', 'Quarti') !== false) {
+                    $playoff['quarterFinals'][] = $mapFn($match);
+                } elseif ($matchType === 'semiFinal' || strpos($match['label'] ?? '', 'Semi') !== false) {
+                    $playoff['semiFinals'][] = $mapFn($match);
+                } elseif ($matchType === 'thirdPlace' || strpos($match['label'] ?? '', 'Terzo') !== false) {
+                    $playoff['thirdPlace'] = $mapFn($match);
+                } elseif ($matchType === 'final' || strpos($match['label'] ?? '', 'Final') !== false) {
+                    $playoff['final'] = $mapFn($match);
+                }
+            }
+        }
+    }
+
+    return $playoff;
 }
 
 function computeStandings(array $state): array {
     $teamMap = getTeamMap($state);
     $out = [];
 
-    // Supporta sia vecchia struttura ($state['groups']) che nuova ($state['phases'][0]['groups'])
-    $groups = !empty($state['groups']) ? $state['groups'] : ($state['phases'][0]['groups'] ?? []);
+    // Estrai groups e matches dalla prima fase (gironi)
+    $groupsPhase = $state['phases'][0] ?? null;
+    if (!$groupsPhase) {
+        return $out;
+    }
+    
+    $groups = $groupsPhase['groups'] ?? [];
+    $allMatches = $groupsPhase['matches'] ?? [];
 
     foreach ($groups as $group) {
         $rows = [];
@@ -1723,15 +1689,16 @@ function computeStandings(array $state): array {
             ];
         }
 
-        foreach ($state['groupMatches'] as $match) {
-            if ($match['group'] !== $group['name']) {
+        foreach ($allMatches as $match) {
+            $groupName = $match['groupName'] ?? $match['group'] ?? '';
+            if ($groupName !== $group['name']) {
                 continue;
             }
             if ($match['score1'] === null || $match['score2'] === null) {
                 continue;
             }
-            $t1 = $match['team1Id'];
-            $t2 = $match['team2Id'];
+            $t1 = $match['team1'] ?? $match['team1Id'] ?? null;
+            $t2 = $match['team2'] ?? $match['team2Id'] ?? null;
             if (!isset($rows[$t1], $rows[$t2])) {
                 continue;
             }
@@ -1784,9 +1751,12 @@ function validateScheduleForTournament(array $state): array {
         return ['valid' => false, 'message' => 'Nessun giorno schedulato nel torneo'];
     }
 
+    // ✅ REFACTORED: Leggi i gruppi dalla prima fase
+    $groups = $state['phases'][0]['groups'] ?? [];
+
     // Calcola numero totale di partite nei gironi
     $totalMatches = 0;
-    foreach ($state['groups'] as $group) {
+    foreach ($groups as $group) {
         $teamCount = count($group['teamIds']);
         if ($teamCount >= 2) {
             $totalMatches += intdiv($teamCount * ($teamCount - 1), 2);
@@ -1884,7 +1854,10 @@ function buildGroupMatches(array &$state): void {
     $day = 1;
     $slot = 0;
 
-    foreach ($state['groups'] as $group) {
+    // ✅ REFACTORED: Leggi i gruppi dalla prima fase
+    $groups = $state['phases'][0]['groups'] ?? [];
+
+    foreach ($groups as $group) {
         $ids = $group['teamIds'];
         for ($i = 0; $i < count($ids) - 1; $i++) {
             for ($j = $i + 1; $j < count($ids); $j++) {
@@ -1909,7 +1882,11 @@ function buildGroupMatches(array &$state): void {
         }
     }
 
-    $state['groupMatches'] = $matches;
+    // ✅ REFACTORED: Salva i match nella prima fase
+    if (!isset($state['phases'][0])) {
+        $state['phases'][0] = [];
+    }
+    $state['phases'][0]['matches'] = $matches;
 }
 
 function winnerLoser(?array $match): array {
@@ -1957,72 +1934,190 @@ function createPlayoff(array &$state): bool {
     // Genera seeding bilanciato per peso
     $seeding = balancedKnockoutSeeding($qualifiedTeams);
     
-    // Crea i quarter-finals usando il seeding bilanciato
-    $state['playoff']['quarterFinals'] = [];
+    // Crea i match delle fasi knockout nella nuova fase
+    $knockoutMatches = [];
+    
+    // Quarter-finals
     foreach ($seeding as $idx => $match) {
-        $state['playoff']['quarterFinals'][] = [
+        $knockoutMatches[] = [
             'id' => uid(),
             'label' => 'QF' . ($idx + 1),
+            'type' => 'quarterFinal',
+            'team1' => $match['team1'],
+            'team2' => $match['team2'],
             'team1Id' => $match['team1'],
             'team2Id' => $match['team2'],
             'score1' => null,
-            'score2' => null
+            'score2' => null,
+            'date' => null,
+            'startTime' => null,
+            'endTime' => null
         ];
     }
 
-    $state['playoff']['semiFinals'] = [
-        ['id' => uid(), 'label' => 'SF1', 'team1Id' => null, 'team2Id' => null, 'score1' => null, 'score2' => null],
-        ['id' => uid(), 'label' => 'SF2', 'team1Id' => null, 'team2Id' => null, 'score1' => null, 'score2' => null]
+    // Semi-finals (placeholder, verranno riempiti dai quarti)
+    for ($i = 0; $i < 2; $i++) {
+        $knockoutMatches[] = [
+            'id' => uid(),
+            'label' => 'SF' . ($i + 1),
+            'type' => 'semiFinal',
+            'team1' => null,
+            'team2' => null,
+            'team1Id' => null,
+            'team2Id' => null,
+            'score1' => null,
+            'score2' => null,
+            'date' => null,
+            'startTime' => null,
+            'endTime' => null
+        ];
+    }
+
+    // Third place match
+    $knockoutMatches[] = [
+        'id' => uid(),
+        'label' => '3P',
+        'type' => 'thirdPlace',
+        'team1' => null,
+        'team2' => null,
+        'team1Id' => null,
+        'team2Id' => null,
+        'score1' => null,
+        'score2' => null,
+        'date' => null,
+        'startTime' => null,
+        'endTime' => null
     ];
-    $state['playoff']['thirdPlace'] = ['id' => uid(), 'label' => '3P', 'team1Id' => null, 'team2Id' => null, 'score1' => null, 'score2' => null];
-    $state['playoff']['final'] = ['id' => uid(), 'label' => 'F', 'team1Id' => null, 'team2Id' => null, 'score1' => null, 'score2' => null];
+
+    // Final match
+    $knockoutMatches[] = [
+        'id' => uid(),
+        'label' => 'F',
+        'type' => 'final',
+        'team1' => null,
+        'team2' => null,
+        'team1Id' => null,
+        'team2Id' => null,
+        'score1' => null,
+        'score2' => null,
+        'date' => null,
+        'startTime' => null,
+        'endTime' => null
+    ];
+
+    // Aggiungi la fase knockout allo state
+    $knockoutPhaseIdx = count($state['phases']);
+    $state['phases'][] = [
+        'id' => 'phase-' . ($knockoutPhaseIdx + 1) . '-knockout',
+        'phaseIdx' => $knockoutPhaseIdx + 1,
+        'phaseNumber' => $knockoutPhaseIdx + 1,
+        'name' => 'Fase ' . ($knockoutPhaseIdx + 1) . ' - Playoff',
+        'type' => 'knockout',
+        'status' => 'pending',
+        'matches' => $knockoutMatches,
+        'groups' => [],
+        'standings' => [],
+        'createdAt' => gmdate('c')
+    ];
 
     return true;
 }
 
 function updatePlayoffTree(array &$state): void {
-    $qf = $state['playoff']['quarterFinals'];
-    $sf = &$state['playoff']['semiFinals'];
-    $final = &$state['playoff']['final'];
-    $third = &$state['playoff']['thirdPlace'];
-
-    if (count($qf) !== 4 || count($sf) !== 2 || !$final || !$third) {
+    // Trova la fase knockout
+    $knockoutPhaseIdx = null;
+    $knockoutPhase = null;
+    
+    foreach ($state['phases'] ?? [] as $phaseIdx => $phase) {
+        if ($phase['type'] === 'knockout') {
+            $knockoutPhaseIdx = $phaseIdx;
+            $knockoutPhase = &$state['phases'][$phaseIdx];
+            break;
+        }
+    }
+    
+    if (!$knockoutPhase || !isset($knockoutPhase['matches'])) {
         return;
     }
-
-    $qw = array_map(fn($m) => winnerLoser($m)['winner'], $qf);
-    $sf[0]['team1Id'] = $qw[0];
-    $sf[0]['team2Id'] = $qw[1];
-    $sf[1]['team1Id'] = $qw[2];
-    $sf[1]['team2Id'] = $qw[3];
-
-    $sf1 = winnerLoser($sf[0]);
-    $sf2 = winnerLoser($sf[1]);
-
-    $final['team1Id'] = $sf1['winner'];
-    $final['team2Id'] = $sf2['winner'];
-    $third['team1Id'] = $sf1['loser'];
-    $third['team2Id'] = $sf2['loser'];
+    
+    // Separa i match per tipo
+    $quarterFinals = [];
+    $semiFinals = [];
+    $final = null;
+    $thirdPlace = null;
+    
+    foreach ($knockoutPhase['matches'] as $idx => $match) {
+        if ($match['type'] === 'quarterFinal') {
+            $quarterFinals[] = ['idx' => $idx, 'match' => $match];
+        } elseif ($match['type'] === 'semiFinal') {
+            $semiFinals[] = ['idx' => $idx, 'match' => $match];
+        } elseif ($match['type'] === 'final') {
+            $final = ['idx' => $idx, 'match' => $match];
+        } elseif ($match['type'] === 'thirdPlace') {
+            $thirdPlace = ['idx' => $idx, 'match' => $match];
+        }
+    }
+    
+    if (count($quarterFinals) !== 4 || count($semiFinals) !== 2 || !$final || !$thirdPlace) {
+        return;
+    }
+    
+    // Calcola i vincitori dei quarti
+    $qw = [];
+    foreach ($quarterFinals as $qf) {
+        $wl = winnerLoser($qf['match']);
+        $qw[] = $wl['winner'];
+    }
+    
+    // Aggiorna le semifinali con i vincitori dei quarti
+    if (isset($semiFinals[0]['idx'])) {
+        $knockoutPhase['matches'][$semiFinals[0]['idx']]['team1'] = $qw[0] ?? null;
+        $knockoutPhase['matches'][$semiFinals[0]['idx']]['team1Id'] = $qw[0] ?? null;
+        $knockoutPhase['matches'][$semiFinals[0]['idx']]['team2'] = $qw[1] ?? null;
+        $knockoutPhase['matches'][$semiFinals[0]['idx']]['team2Id'] = $qw[1] ?? null;
+    }
+    if (isset($semiFinals[1]['idx'])) {
+        $knockoutPhase['matches'][$semiFinals[1]['idx']]['team1'] = $qw[2] ?? null;
+        $knockoutPhase['matches'][$semiFinals[1]['idx']]['team1Id'] = $qw[2] ?? null;
+        $knockoutPhase['matches'][$semiFinals[1]['idx']]['team2'] = $qw[3] ?? null;
+        $knockoutPhase['matches'][$semiFinals[1]['idx']]['team2Id'] = $qw[3] ?? null;
+    }
+    
+    // Calcola vincitori e perdenti delle semifinali
+    $sf1 = winnerLoser($knockoutPhase['matches'][$semiFinals[0]['idx']] ?? []);
+    $sf2 = winnerLoser($knockoutPhase['matches'][$semiFinals[1]['idx']] ?? []);
+    
+    // Aggiorna la finale con i vincitori delle semifinali
+    $knockoutPhase['matches'][$final['idx']]['team1'] = $sf1['winner'] ?? null;
+    $knockoutPhase['matches'][$final['idx']]['team1Id'] = $sf1['winner'] ?? null;
+    $knockoutPhase['matches'][$final['idx']]['team2'] = $sf2['winner'] ?? null;
+    $knockoutPhase['matches'][$final['idx']]['team2Id'] = $sf2['winner'] ?? null;
+    
+    // Aggiorna la terza posizione con i perdenti delle semifinali
+    $knockoutPhase['matches'][$thirdPlace['idx']]['team1'] = $sf1['loser'] ?? null;
+    $knockoutPhase['matches'][$thirdPlace['idx']]['team1Id'] = $sf1['loser'] ?? null;
+    $knockoutPhase['matches'][$thirdPlace['idx']]['team2'] = $sf2['loser'] ?? null;
+    $knockoutPhase['matches'][$thirdPlace['idx']]['team2Id'] = $sf2['loser'] ?? null;
 }
 
-function computeFinalRanking(array &$state): void {
+function computeFinalRanking(array $state): array {
     $teamMap = getTeamMap($state);
     $standings = computeStandings($state);
     $rankingIds = [];
 
-    $finalWL = winnerLoser($state['playoff']['final']);
-    $thirdWL = winnerLoser($state['playoff']['thirdPlace']);
-
-    if ($finalWL['winner']) $rankingIds[] = $finalWL['winner'];
-    if ($finalWL['loser']) $rankingIds[] = $finalWL['loser'];
-    if ($thirdWL['winner']) $rankingIds[] = $thirdWL['winner'];
-    if ($thirdWL['loser']) $rankingIds[] = $thirdWL['loser'];
-
-    foreach ($state['playoff']['semiFinals'] as $sf) {
-        $wl = winnerLoser($sf);
-        if ($wl['loser']) $rankingIds[] = $wl['loser'];
+    // Estrai matches dalle fasi knockout (a partire dalla fase 2)
+    foreach ($state['phases'] ?? [] as $phaseIdx => $phase) {
+        if ($phaseIdx === 0) continue; // Salta la fase dei gironi
+        
+        foreach ($phase['matches'] ?? [] as $match) {
+            // Determina il vincitore e il perdente di ogni match
+            $wl = winnerLoser($match);
+            if ($wl['winner']) $rankingIds[] = $wl['winner'];
+            if ($wl['loser']) $rankingIds[] = $wl['loser'];
+        }
     }
 
+    // Aggiungi le standings dei gironi
     foreach ($standings as $g) {
         foreach ($g['rows'] as $r) {
             $rankingIds[] = $r['teamId'];
@@ -2030,14 +2125,16 @@ function computeFinalRanking(array &$state): void {
     }
 
     $rankingIds = array_values(array_unique($rankingIds));
-    $state['finalRanking'] = [];
+    $finalRanking = [];
     foreach ($rankingIds as $idx => $teamId) {
-        $state['finalRanking'][] = [
+        $finalRanking[] = [
             'position' => $idx + 1,
             'teamId' => $teamId,
             'name' => $teamMap[$teamId]['name'] ?? 'N/D'
         ];
     }
+    
+    return $finalRanking;
 }
 
 function calculateMatchDuration(array $state, ?int $score1, ?int $score2): int {
@@ -2174,9 +2271,12 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         return;
     }
     
+    // ✅ REFACTORED: Leggi i gruppi dalla prima fase
+    $groups = $state['phases'][0]['groups'] ?? [];
+    
     // Raccogli tutte le partite dei gironi
     $matches = [];
-    foreach ($state['groups'] as $group) {
+    foreach ($groups as $group) {
         $teamIds = $group['teamIds'];
         for ($i = 0; $i < count($teamIds) - 1; $i++) {
             for ($j = $i + 1; $j < count($teamIds); $j++) {
@@ -2371,7 +2471,6 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     if (count($matchesWithSlots) < count($matches)) {
         error_log('DEBUG buildGroupMatchesWithSchedule: Could not assign all matches! Assigned: ' . count($matchesWithSlots) . '/' . count($matches));
         error_log('  → Fallback: resetting matches without scheduling');
-        $state['groupMatches'] = [];
         buildGroupMatches($state);
         return;
     }
@@ -2385,11 +2484,19 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     }
     
     error_log('DEBUG buildGroupMatchesWithSchedule: ✅ Successfully assigned all ' . count($finalMatches) . ' matches with time-aware distribution');
-    $state['groupMatches'] = $finalMatches;
+    // ✅ REFACTORED: Salva i match nella prima fase
+    if (!isset($state['phases'][0])) {
+        $state['phases'][0] = [];
+    }
+    $state['phases'][0]['matches'] = $finalMatches;
 }
 
 function simulateAll(array &$state): bool {
-    if (count($state['groups']) === 0) {
+    // ✅ REFACTORED: Controlla i gruppi nella prima fase
+    $groupsPhase = &$state['phases'][0];
+    $groupsInPhase = $groupsPhase['groups'] ?? [];
+    
+    if (count($groupsInPhase) === 0) {
         $approved = shuffleArray(approvedTeams($state));
         $approved = array_slice($approved, 0, (int)$state['settings']['maxTeams']);
         if (count($approved) < 4) {
@@ -2405,52 +2512,82 @@ function simulateAll(array &$state): bool {
             $groups[$i % $groupCount]['teamIds'][] = $team['id'];
         }
 
-        $state['groups'] = $groups;
+        // ✅ REFACTORED: Salva i gruppi nella prima fase
+        $groupsPhase['groups'] = $groups;
         buildGroupMatches($state);
     }
 
-    foreach ($state['groupMatches'] as &$match) {
+    // ✅ REFACTORED: Itera sui match della prima fase
+    $groupsPhase = &$state['phases'][0];
+    foreach ($groupsPhase['matches'] ?? [] as &$match) {
         [$a, $b] = randomScore();
         $match['score1'] = $a;
         $match['score2'] = $b;
     }
     unset($match);
 
-    if (count($state['playoff']['quarterFinals']) === 0) {
+    // ✅ REFACTORED: Verifica se ci sono fasi di playoff
+    $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
+    if (count($playoffPhases) === 0) {
         if (!createPlayoff($state)) {
             return false;
         }
+        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
     }
 
-    foreach ($state['playoff']['quarterFinals'] as &$qf) {
-        [$a, $b] = randomScore();
-        $qf['score1'] = $a;
-        $qf['score2'] = $b;
+    // ✅ REFACTORED: Simula i quarti di finale
+    foreach ($playoffPhases as &$phase) {
+        if (($phase['type'] ?? null) !== 'knockout') continue;
+        
+        foreach ($phase['matches'] ?? [] as &$match) {
+            if (($match['type'] ?? null) === 'quarterFinal') {
+                [$a, $b] = randomScore();
+                $match['score1'] = $a;
+                $match['score2'] = $b;
+            }
+        }
+        unset($match);
     }
-    unset($qf);
+    unset($phase);
 
     updatePlayoffTree($state);
 
-    foreach ($state['playoff']['semiFinals'] as &$sf) {
-        if (!$sf['team1Id'] || !$sf['team2Id']) continue;
-        [$a, $b] = randomScore();
-        $sf['score1'] = $a;
-        $sf['score2'] = $b;
+    // ✅ REFACTORED: Simula le semifinali
+    foreach ($playoffPhases as &$phase) {
+        if (($phase['type'] ?? null) !== 'knockout') continue;
+        
+        foreach ($phase['matches'] ?? [] as &$match) {
+            if (($match['type'] ?? null) === 'semiFinal' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
+                [$a, $b] = randomScore();
+                $match['score1'] = $a;
+                $match['score2'] = $b;
+            }
+        }
+        unset($match);
     }
-    unset($sf);
+    unset($phase);
 
     updatePlayoffTree($state);
 
-    if ($state['playoff']['thirdPlace']['team1Id'] && $state['playoff']['thirdPlace']['team2Id']) {
-        [$a, $b] = randomScore();
-        $state['playoff']['thirdPlace']['score1'] = $a;
-        $state['playoff']['thirdPlace']['score2'] = $b;
+    // ✅ REFACTORED: Simula terzo posto e finale
+    foreach ($playoffPhases as &$phase) {
+        if (($phase['type'] ?? null) !== 'knockout') continue;
+        
+        foreach ($phase['matches'] ?? [] as &$match) {
+            if (($match['type'] ?? null) === 'thirdPlace' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
+                [$a, $b] = randomScore();
+                $match['score1'] = $a;
+                $match['score2'] = $b;
+            }
+            if (($match['type'] ?? null) === 'final' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
+                [$a, $b] = randomScore();
+                $match['score1'] = $a;
+                $match['score2'] = $b;
+            }
+        }
+        unset($match);
     }
-    if ($state['playoff']['final']['team1Id'] && $state['playoff']['final']['team2Id']) {
-        [$a, $b] = randomScore();
-        $state['playoff']['final']['score1'] = $a;
-        $state['playoff']['final']['score2'] = $b;
-    }
+    unset($phase);
 
     computeFinalRanking($state);
     return true;
@@ -2775,63 +2912,9 @@ if ($action === 'admin_state' && $method === 'GET') {
             }
         }
     }
+    unset($phase);
     
-    // 🔧 SINCRONIZZAZIONE: Se groupMatches non ha courtIdx/dateIdx/slotIdx, copiali da phases[0].matches
-    if (!empty($state['groupMatches']) && !empty($state['phases'])) {
-        $firstPhase = $state['phases'][0] ?? null;
-        if ($firstPhase && isset($firstPhase['matches']) && is_array($firstPhase['matches'])) {
-            // Costruisci una mappa match ID → match
-            $matchMapById = [];
-            foreach ($firstPhase['matches'] as $idx => $match) {
-                $matchMapById[$match['id']] = $match;
-            }
-            
-            // Aggiorna groupMatches per ogni match
-            $syncCount = 0;
-            foreach ($state['groupMatches'] as $idx => &$gm) {
-                $sourceMatch = null;
-                $matchMethod = 'none';
-                
-                // Prova a trovare il match per ID
-                if (isset($matchMapById[$gm['id']])) {
-                    $sourceMatch = $matchMapById[$gm['id']];
-                    $matchMethod = 'by_id';
-                } 
-                // Se non trovato per ID, prova per POSIZIONE (fallback)
-                elseif (isset($firstPhase['matches'][$idx])) {
-                    $sourceMatch = $firstPhase['matches'][$idx];
-                    $matchMethod = 'by_position';
-                }
-                
-                // Copia i campi dal sourceMatch SEMPRE (non controllare se il campo esiste già)
-                if ($sourceMatch) {
-                    $old = ['courtIdx' => $gm['courtIdx'] ?? null, 'dateIdx' => $gm['dateIdx'] ?? null, 'slotIdx' => $gm['slotIdx'] ?? null];
-                    
-                    $gm['courtIdx'] = $sourceMatch['courtIdx'] ?? 0;
-                    $gm['dateIdx'] = $sourceMatch['dateIdx'] ?? 0;
-                    $gm['slotIdx'] = $sourceMatch['slotIdx'] ?? 0;
-                    
-                    $new = ['courtIdx' => $gm['courtIdx'], 'dateIdx' => $gm['dateIdx'], 'slotIdx' => $gm['slotIdx']];
-                    
-                    // Log se cambiano
-                    if ($old !== $new) {
-                        error_log('✅ Sincronizzato match[' . $idx . '] (' . $matchMethod . '): courtIdx=' . $new['courtIdx'] . ', dateIdx=' . $new['dateIdx'] . ', slotIdx=' . $new['slotIdx']);
-                        $syncCount++;
-                    }
-                }
-            }
-            unset($gm);
-            
-            error_log('🔄 admin_state: Sincronizzazione completata - ' . $syncCount . ' match aggiornati su ' . count($state['groupMatches']) . ' totali');
-        }
-    }
-    
-    // DEBUG: Verifica che state['groupMatches'] abbia i campi corretti
-    if (!empty($state['groupMatches'])) {
-        $firstMatch = $state['groupMatches'][0];
-        error_log('🔍 admin_state: First groupMatch has keys: ' . implode(', ', array_keys($firstMatch)));
-        error_log('🔍 admin_state: courtIdx=' . ($firstMatch['courtIdx'] ?? 'MISSING') . ', dateIdx=' . ($firstMatch['dateIdx'] ?? 'MISSING') . ', slotIdx=' . ($firstMatch['slotIdx'] ?? 'MISSING'));
-    }
+    // ✅ REFACTORED: Rimossi campi obsoleti - lo stato contiene solo le fasi
     
     // Per admin: ritorna LO STATO COMPLETO, non filtrato
     jsonResponse(200, ['ok' => true, 'data' => $state]);
@@ -3150,7 +3233,22 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         // Usa distribuzione bilanciata per peso squadra
         $groups = balancedGroupDistribution($approved, $groupCount);
 
-        $state['groups'] = $groups;
+        // ✅ REFACTORED: Salva i gruppi nella prima fase
+        if (!isset($state['phases'][0])) {
+            $state['phases'][0] = [
+                'id' => 'groups_' . uid(),
+                'phaseIdx' => 0,
+                'phaseNumber' => 1,
+                'name' => 'Fase 1 - Gironi',
+                'type' => 'groups',
+                'status' => 'pending',
+                'matches' => [],
+                'groups' => [],
+                'standings' => [],
+                'createdAt' => gmdate('c')
+            ];
+        }
+        $state['phases'][0]['groups'] = $groups;
         
         // Valida lo schedule prima di generare le partite
         $validation = validateScheduleForTournament($state);
@@ -3166,38 +3264,12 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         }
         
         buildGroupMatchesWithSchedule($state);
-        $state['playoff'] = [
-            'quarterFinals' => [],
-            'semiFinals' => [],
-            'thirdPlace' => null,
-            'final' => null
-        ];
-        $state['finalRanking'] = [];
         
         // ===== INTEGRAZIONE NUOVO SISTEMA DI FASI =====
-        // Inizializza il sistema di fasi se necessario
-        ensurePhases($state);
+        // Le fasi sono state create direttamente da buildGroupMatchesWithSchedule
+        // che salva i match in phases[0]['matches']
         
-        // Crea/Aggiorna Fase 1 - Gironi
-        initializePhase($state, 1, 'Fase 1 - Gironi', 'groups', [
-            'groups' => $state['groups'],
-            'matches' => $state['groupMatches'] ?? [],
-            'metadata' => [
-                'teamCount' => count($approved),
-                'groupCount' => $groupCount
-            ]
-        ]);
-        
-        // Imposta status a 'active'
-        setPhaseStatus($state, 1, 'active');
-        
-        // Iniz ializza Fase 2 - Playoff (vuota, da compilare dopo)
-        initializePhase($state, 2, 'Fase 2 - Playoff', 'knockout', [
-            'matches' => $state['playoff'],
-            'metadata' => []
-        ]);
-        
-        error_log('✅ Fasi create: Phase 1 (Gironi) - ' . count($groups) . ' groups, Phase 2 (Playoff) - pending');
+        error_log('✅ Gruppi e partite create: ' . count($groups) . ' groups con ' . count($state['phases'][0]['matches'] ?? []) . ' matches');
 
         return ['ok' => true];
     });
@@ -3206,71 +3278,18 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
 }
 
 /**
- * Sincronizza i campi slotIdx, dateIdx, courtIdx da phases[0].matches a groupMatches
- * POST endpoint (no params needed)
+ * ✅ DEPRECATED: Questa funzione non è più necessaria poiché $state['groupMatches'] è stato rimosso
+ * Tutti i match sono ora memorizzati in phases[0]['matches']
  */
 if ($action === 'admin_sync_group_matches_slots' && $method === 'POST') {
     validSession($token);
     
-    $result = withStateTransaction(function (&$state) {
-        $phaseMatches = $state['phases'][0]['matches'] ?? [];
-        $groupMatches = &$state['groupMatches'];
-        
-        $syncedCount = 0;
-        
-        // Per ogni match in groupMatches, trova il corrispondente in phases[0].matches
-        foreach ($groupMatches as &$gm) {
-            // Cerca per ID prima
-            $phaseMatch = null;
-            foreach ($phaseMatches as $pm) {
-                if ($pm['id'] === $gm['id']) {
-                    $phaseMatch = $pm;
-                    break;
-                }
-            }
-            
-            // Se non trovato per ID, cerca per (date, startTime, courtId, team1, team2)
-            if (!$phaseMatch) {
-                foreach ($phaseMatches as $pm) {
-                    if (
-                        ($pm['date'] ?? '') === ($gm['date'] ?? '') &&
-                        ($pm['startTime'] ?? '') === ($gm['startTime'] ?? '') &&
-                        ($pm['courtId'] ?? '') === ($gm['courtId'] ?? '') &&
-                        ($pm['team1'] ?? '') === ($gm['team1'] ?? '') &&
-                        ($pm['team2'] ?? '') === ($gm['team2'] ?? '')
-                    ) {
-                        $phaseMatch = $pm;
-                        break;
-                    }
-                }
-            }
-            
-            // Copia i campi slot se trovato
-            if ($phaseMatch) {
-                $gm['courtIdx'] = $phaseMatch['courtIdx'] ?? 0;
-                $gm['dateIdx'] = $phaseMatch['dateIdx'] ?? 0;
-                $gm['slotIdx'] = $phaseMatch['slotIdx'] ?? 0;
-                $syncedCount++;
-                error_log("✅ Sincronizzato match {$gm['id']}: courtIdx={$gm['courtIdx']}, dateIdx={$gm['dateIdx']}, slotIdx={$gm['slotIdx']}");
-            } else {
-                error_log("⚠️  Match {$gm['id']} non trovato in phases[0].matches");
-            }
-        }
-        
-        error_log("🔄 admin_sync_group_matches_slots: Sincronizzati $syncedCount match su " . count($groupMatches) . " totali");
-        
-        return [
-            'ok' => true,
-            'syncedCount' => $syncedCount,
-            'totalMatches' => count($groupMatches)
-        ];
-    });
-    
-    if (!($result['ok'] ?? false)) {
-        jsonResponse(422, $result);
-    }
-    
-    jsonResponse(200, $result);
+    jsonResponse(200, [
+        'ok' => true,
+        'message' => 'Sincronizzazione non necessaria - tutti i match sono in phases[0].matches',
+        'syncedCount' => 0,
+        'totalMatches' => 0
+    ]);
 }
 
 /**
@@ -3689,9 +3708,8 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
         // Assegna automaticamente date e orari alle nuove partite
         $newGroupMatches = scheduleMatches($state, $newGroupMatches);
 
-        // Aggiorna sia la fase che lo state - ESPLICITO per evitare problemi di reference
+        // ✅ REFACTORED: Aggiorna solo la fase, non il campo obsoleto
         $state['phases'][$phaseIdx]['matches'] = $newGroupMatches;
-        $state['groupMatches'] = $newGroupMatches;
 
         return ['ok' => true, 'message' => 'Partite ricalcolate con successo', 'matchCount' => count($newGroupMatches)];
     });
@@ -3812,57 +3830,95 @@ if ($action === 'admin_complete_phase' && $method === 'POST') {
 if ($action === 'admin_move_team_group' && $method === 'POST') {
     $body = bodyJson();
     $teamId = (string)($body['teamId'] ?? '');
-    $newGroup = (string)($body['newGroup'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 1);
+    $newGroupLabel = (string)($body['newGroup'] ?? '');
 
-    withStateTransaction(function (&$state) use ($teamId, $newGroup) {
-        // 🔧 FIX: Gestisci il gruppo speciale "AVAILABLE" per rimuovere da gironi
+    withStateTransaction(function (&$state) use ($teamId, $phaseNumber, $newGroupLabel) {
+        // ✅ REFACTORED: Usa le fasi per spostare le squadre tra gironi
+        $phaseIdx = null;
+        $phase = null;
         
-        // Trova il girone attuale
-        $currentGroup = null;
-        $currentGroupIdx = null;
-        foreach ($state['groups'] as $idx => &$group) {
-            $pos = array_search($teamId, $group['teamIds'], true);
-            if ($pos !== false) {
-                $currentGroup = $group['name'];
-                $currentGroupIdx = $idx;
-                unset($group['teamIds'][$pos]);
-                $group['teamIds'] = array_values($group['teamIds']); // Re-index array
+        foreach ($state['phases'] ?? [] as $idx => &$p) {
+            if (($p['phaseNumber'] ?? null) === $phaseNumber) {
+                $phaseIdx = $idx;
+                $phase = &$p;
                 break;
             }
         }
 
-        if ($currentGroup === null) {
+        if (!$phase) {
+            jsonResponse(404, ['ok' => false, 'error' => "Fase $phaseNumber non trovata"]);
+        }
+
+        // Mappa label → indice
+        $groupLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        $newGroupIdx = array_search($newGroupLabel, $groupLabels);
+        
+        if ($newGroupIdx === false) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Etichetta girone non valida']);
+        }
+
+        // Cerca la squadra nei gironi attuali
+        $foundTeam = null;
+        $currentGroupIdx = null;
+
+        $groups = &$phase['groups'];
+        for ($gIdx = 0; $gIdx < count($groups); $gIdx++) {
+            $group = &$groups[$gIdx];
+            
+            if (!isset($group['teamIds'])) continue;
+            
+            $pos = array_search($teamId, $group['teamIds'], true);
+            if ($pos !== false) {
+                $currentGroupIdx = $gIdx;
+                $foundTeam = $group['teamIds'][$pos];
+                
+                // Rimuovi dal girone attuale
+                unset($group['teamIds'][$pos]);
+                $group['teamIds'] = array_values($group['teamIds']);
+                break;
+            }
+        }
+
+        if ($currentGroupIdx === null || !$foundTeam) {
             jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata in nessun girone']);
         }
 
-        if ($currentGroup === $newGroup) {
+        if ($currentGroupIdx === $newGroupIdx) {
             jsonResponse(400, ['ok' => false, 'error' => 'La squadra è già in questo girone']);
         }
 
-        // 🔧 FIX: Se destinazione è "AVAILABLE", la squadra viene rimossa dai gironi
-        if ($newGroup === 'AVAILABLE') {
-            // La squadra è già stata rimossa dal girone precedente sopra
-            // Non fare nulla di ulteriore - la squadra è ora "disponibile"
-            buildGroupMatches($state);
-            return ['ok' => true];
+        // Aggiungi al nuovo girone
+        if (!isset($groups[$newGroupIdx])) {
+            jsonResponse(404, ['ok' => false, 'error' => "Girone $newGroupLabel non trovato"]);
         }
 
-        // Aggiunge squadra al nuovo girone
-        $newGroupFound = false;
-        foreach ($state['groups'] as &$group) {
-            if ($group['name'] === $newGroup) {
-                $group['teamIds'][] = $teamId;
-                $newGroupFound = true;
-                break;
+        $groups[$newGroupIdx]['teamIds'][] = $teamId;
+
+        // Rigenerare le partite della fase
+        $newMatches = [];
+        $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        
+        foreach ($groups as $gIdx => $group) {
+            $teamIds = $group['teamIds'] ?? [];
+            if (count($teamIds) < 2) continue;
+            
+            $groupName = $groupNames[$gIdx] ?? 'G';
+            for ($i = 0; $i < count($teamIds) - 1; $i++) {
+                for ($j = $i + 1; $j < count($teamIds); $j++) {
+                    $newMatches[] = [
+                        'id' => uid(),
+                        'group' => $groupName,
+                        'team1Id' => $teamIds[$i],
+                        'team2Id' => $teamIds[$j],
+                        'score1' => null,
+                        'score2' => null
+                    ];
+                }
             }
         }
 
-        if (!$newGroupFound) {
-            jsonResponse(404, ['ok' => false, 'error' => 'Girone di destinazione non trovato']);
-        }
-
-        // Rigenerare le partite
-        buildGroupMatches($state);
+        $phase['matches'] = $newMatches;
 
         return ['ok' => true];
     });
@@ -3964,19 +4020,8 @@ if ($action === 'admin_create_playoff' && $method === 'POST') {
             jsonResponse(422, ['ok' => false, 'error' => 'Playoff non generabile: servono almeno 8 squadre classificate']);
         }
         
-        // ===== INTEGRAZIONE NUOVO SISTEMA DI FASI =====
-        ensurePhases($state);
-        
-        // Aggiorna Fase 2 - Playoff con i dati generati
-        initializePhase($state, 2, 'Fase 2 - Playoff', 'knockout', [
-            'matches' => $state['playoff'] ?? ['quarterFinals' => [], 'semiFinals' => [], 'final' => null],
-            'metadata' => []
-        ]);
-        
-        // Imposta status a 'active'
-        setPhaseStatus($state, 2, 'active');
-        
-        error_log('✅ Fase 2 (Playoff) creata e attivata');
+        // ✅ REFACTORED: createPlayoff() ha già creato e inizializzato la fase di playoff
+        error_log('✅ Fase di Playoff creata e attivata');
         
         return ['ok' => true];
     });
@@ -4033,28 +4078,26 @@ if ($action === 'admin_get_phases_list' && $method === 'GET') {
 
 if ($action === 'admin_update_playoff_match' && $method === 'POST') {
     $body = bodyJson();
-    $phase = (string)($body['phase'] ?? '');
-    $id = (string)($body['id'] ?? '');
+    $matchId = (string)($body['id'] ?? '');
+    $matchType = (string)($body['type'] ?? ''); // 'quarterFinal', 'semiFinal', 'thirdPlace', 'final'
 
-    withStateTransaction(function (&$state) use ($body, $phase, $id) {
+    withStateTransaction(function (&$state) use ($body, $matchId, $matchType) {
+        // ✅ REFACTORED: Trova la fase di playoff e il match
         $found = false;
-
-        if (in_array($phase, ['quarterFinals', 'semiFinals'], true)) {
-            foreach ($state['playoff'][$phase] as &$m) {
-                if ($m['id'] !== $id) continue;
-                $found = true;
-                $m['score1'] = array_key_exists('score1', $body) ? (is_null($body['score1']) ? null : (int)$body['score1']) : $m['score1'];
-                $m['score2'] = array_key_exists('score2', $body) ? (is_null($body['score2']) ? null : (int)$body['score2']) : $m['score2'];
-                break;
+        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
+        
+        foreach ($playoffPhases as &$phase) {
+            foreach ($phase['matches'] ?? [] as &$match) {
+                if ($match['id'] === $matchId) {
+                    $found = true;
+                    $match['score1'] = array_key_exists('score1', $body) ? (is_null($body['score1']) ? null : (int)$body['score1']) : $match['score1'];
+                    $match['score2'] = array_key_exists('score2', $body) ? (is_null($body['score2']) ? null : (int)$body['score2']) : $match['score2'];
+                    break 2;
+                }
             }
-            unset($m);
-        } elseif (in_array($phase, ['thirdPlace', 'final'], true)) {
-            if ($state['playoff'][$phase] && $state['playoff'][$phase]['id'] === $id) {
-                $found = true;
-                $state['playoff'][$phase]['score1'] = array_key_exists('score1', $body) ? (is_null($body['score1']) ? null : (int)$body['score1']) : $state['playoff'][$phase]['score1'];
-                $state['playoff'][$phase]['score2'] = array_key_exists('score2', $body) ? (is_null($body['score2']) ? null : (int)$body['score2']) : $state['playoff'][$phase]['score2'];
-            }
+            unset($match);
         }
+        unset($phase);
 
         if (!$found) {
             jsonResponse(404, ['ok' => false, 'error' => 'Match playoff non trovato']);
@@ -4071,108 +4114,40 @@ if ($action === 'admin_update_playoff_match' && $method === 'POST') {
 if ($action === 'admin_swap_knockout_teams' && $method === 'POST') {
     $body = bodyJson();
     $matchId = (string)($body['matchId'] ?? '');
-    $phaseNumber = (int)($body['phaseNumber'] ?? 1);
 
-    withStateTransaction(function (&$state) use ($matchId, $phaseNumber) {
+    withStateTransaction(function (&$state) use ($matchId) {
         $found = false;
         $result = ['team1Name' => '', 'team2Name' => ''];
 
-        // Cerca nell'old system playoff
-        if (!empty($state['playoff'])) {
-            $phases = ['quarterFinals', 'semiFinals', 'thirdPlace', 'final'];
-            foreach ($phases as $phase) {
-                if ($phase === 'thirdPlace' || $phase === 'final') {
-                    if ($state['playoff'][$phase] && $state['playoff'][$phase]['id'] === $matchId) {
-                        $m = &$state['playoff'][$phase];
-                        // Scambio squadre
-                        $tmp1 = $m['team1Id'];
-                        $m['team1Id'] = $m['team2Id'];
-                        $m['team2Id'] = $tmp1;
-                        
-                        $tmp2 = $m['team1Name'];
-                        $m['team1Name'] = $m['team2Name'];
-                        $m['team2Name'] = $tmp2;
-                        
-                        // Scambio anche gli score se non sono null
-                        $tmpScore = $m['score1'];
-                        $m['score1'] = $m['score2'];
-                        $m['score2'] = $tmpScore;
-                        
-                        $result['team1Name'] = $m['team1Name'];
-                        $result['team2Name'] = $m['team2Name'];
-                        $found = true;
-                        break;
-                    }
-                } else {
-                    foreach ($state['playoff'][$phase] as &$m) {
-                        if ($m['id'] !== $matchId) continue;
-                        // Scambio squadre
-                        $tmp1 = $m['team1Id'];
-                        $m['team1Id'] = $m['team2Id'];
-                        $m['team2Id'] = $tmp1;
-                        
-                        $tmp2 = $m['team1Name'];
-                        $m['team1Name'] = $m['team2Name'];
-                        $m['team2Name'] = $tmp2;
-                        
-                        // Scambio anche gli score se non sono null
-                        $tmpScore = $m['score1'];
-                        $m['score1'] = $m['score2'];
-                        $m['score2'] = $tmpScore;
-                        
-                        $result['team1Name'] = $m['team1Name'];
-                        $result['team2Name'] = $m['team2Name'];
-                        $found = true;
-                        break;
-                    }
-                    unset($m);
-                    if ($found) break;
-                }
-            }
-        }
-
-        // Cerca nel nuovo system phases
-        if (!$found && !empty($state['phases'])) {
-            foreach ($state['phases'] as &$phase) {
-                if ($phase['type'] !== 'knockout') continue;
-                if (!isset($phase['matches'])) continue;
+        // ✅ REFACTORED: Cerca nelle fasi di knockout
+        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
+        
+        foreach ($playoffPhases as &$phase) {
+            foreach ($phase['matches'] ?? [] as &$match) {
+                if ($match['id'] !== $matchId) continue;
                 
-                $matches = &$phase['matches'];
-                if (is_array($matches)) {
-                    $phaseRounds = ['quarterFinals', 'semiFinals', 'thirdPlace', 'final'];
-                    foreach ($phaseRounds as $round) {
-                        if (!isset($matches[$round])) continue;
-                        
-                        foreach ($matches[$round] as &$m) {
-                            if ($m['id'] !== $matchId) continue;
-                            
-                            // Scambio squadre
-                            $tmp1 = $m['team1Id'];
-                            $m['team1Id'] = $m['team2Id'];
-                            $m['team2Id'] = $tmp1;
-                            
-                            $tmp2 = $m['team1Name'];
-                            $m['team1Name'] = $m['team2Name'];
-                            $m['team2Name'] = $tmp2;
-                            
-                            // Scambio anche gli score se non sono null
-                            $tmpScore = $m['score1'];
-                            $m['score1'] = $m['score2'];
-                            $m['score2'] = $tmpScore;
-                            
-                            $result['team1Name'] = $m['team1Name'];
-                            $result['team2Name'] = $m['team2Name'];
-                            $found = true;
-                            break;
-                        }
-                        unset($m);
-                        if ($found) break;
-                    }
-                }
-                unset($phase);
-                if ($found) break;
+                // Scambio squadre
+                $tmp1 = $match['team1Id'];
+                $match['team1Id'] = $match['team2Id'];
+                $match['team2Id'] = $tmp1;
+                
+                $tmp2 = $match['team1Name'] ?? '';
+                $match['team1Name'] = $match['team2Name'] ?? '';
+                $match['team2Name'] = $tmp2;
+                
+                // Scambio anche gli score se non sono null
+                $tmpScore = $match['score1'];
+                $match['score1'] = $match['score2'];
+                $match['score2'] = $tmpScore;
+                
+                $result['team1Name'] = $match['team1Name'];
+                $result['team2Name'] = $match['team2Name'];
+                $found = true;
+                break 2;
             }
+            unset($match);
         }
+        unset($phase);
 
         if (!$found) {
             jsonResponse(404, ['ok' => false, 'error' => 'Match knockout non trovato']);
@@ -4217,10 +4192,22 @@ if ($action === 'admin_seed_demo' && $method === 'POST') {
             ];
         }
 
-        $state['groups'] = [];
-        $state['groupMatches'] = [];
-        $state['playoff'] = ['quarterFinals' => [], 'semiFinals' => [], 'thirdPlace' => null, 'final' => null];
-        $state['finalRanking'] = [];
+        // ✅ REFACTORED: Inizializza solo le fasi, non i campi obsoleti
+        $state['phases'] = [
+            [
+                'id' => 'groups_' . uid(),
+                'phaseIdx' => 0,
+                'phaseNumber' => 1,
+                'name' => 'Fase 1 - Gironi',
+                'type' => 'groups',
+                'status' => 'pending',
+                'matches' => [],
+                'groups' => [],
+                'standings' => [],
+                'createdAt' => gmdate('c')
+            ]
+        ];
+        $state['currentPhaseIdx'] = 0;
 
         return ['ok' => true];
     });
@@ -4231,23 +4218,28 @@ if ($action === 'admin_seed_demo' && $method === 'POST') {
 if ($action === 'admin_reset' && $method === 'POST') {
     // Reset PARZIALE: cancella gironi, playoff, partite ma CONSERVA squadre e config
     withStateTransaction(function (&$state) {
-        // Crea nuovo state ma preserva squadre e altre info
+        // ✅ REFACTORED: Crea nuovo state con fasi resettate
         $newState = [
             'settings' => [
                 'maxTeams' => $state['settings']['maxTeams'] ?? 16,
                 'tournamentName' => $state['settings']['tournamentName'] ?? ''
             ],
             'teams' => $state['teams'] ?? [],  // ✅ CONSERVA squadre
-            'groups' => [],                      // ❌ Cancella gironi
-            'groupMatches' => [],                // ❌ Cancella partite
-            'playoff' => [                       // ❌ Cancella playoff
-                'quarterFinals' => [],
-                'semiFinals' => [],
-                'thirdPlace' => null,
-                'final' => null
+            'phases' => [
+                [
+                    'id' => 'groups_' . uid(),
+                    'phaseIdx' => 0,
+                    'phaseNumber' => 1,
+                    'name' => 'Fase 1 - Gironi',
+                    'type' => 'groups',
+                    'status' => 'pending',
+                    'matches' => [],
+                    'groups' => [],
+                    'standings' => [],
+                    'createdAt' => gmdate('c')
+                ]
             ],
-            'standings' => [],                   // ❌ Cancella classifiche
-            'finalRanking' => [],                // ❌ Cancella ranking
+            'currentPhaseIdx' => 0,
             'meta' => [
                 'lastUpdated' => null
             ]
@@ -4256,7 +4248,7 @@ if ($action === 'admin_reset' && $method === 'POST') {
         return ['ok' => true];
     });
 
-    jsonResponse(200, ['ok' => true, 'message' => 'Gironi, playoff e partite cancellate. Squadre conservate.']);
+    jsonResponse(200, ['ok' => true, 'message' => 'Torneo resettato. Squadre conservate.']);
 }
 
 if ($action === 'admin_upload_logo' && $method === 'POST') {
@@ -5399,7 +5391,9 @@ if ($action === 'admin_update_schedule' && $method === 'POST') {
 
 if ($action === 'admin_reschedule_matches' && $method === 'POST') {
     withStateTransaction(function (&$state) {
-        if (empty($state['groups'])) {
+        // ✅ REFACTORED: Verifica i gruppi nella fase
+        $groups = $state['phases'][0]['groups'] ?? [];
+        if (empty($groups)) {
             jsonResponse(400, ['ok' => false, 'error' => 'Nessun girone generato']);
         }
         
@@ -6472,16 +6466,15 @@ if ($action === 'admin_save_backup_server' && $method === 'POST') {
         $config = readConfig();
         $state = readJsonFile(DATA_FILE, initialState());
         
+        // ✅ REFACTORED: Backup delle fasi invece dei campi obsoleti
         $backup = [
             'version' => '1.0',
             'timestamp' => date('c'),
             'config' => $config,
             'teams' => $state['teams'] ?? [],
-            'groups' => $state['groups'] ?? [],
-            'groupMatches' => $state['groupMatches'] ?? [],
-            'playoff' => $state['playoff'] ?? [],
-            'standings' => $state['standings'] ?? [],
-            'finalRanking' => $state['finalRanking'] ?? []
+            'phases' => $state['phases'] ?? [],
+            'currentPhaseIdx' => $state['currentPhaseIdx'] ?? 0,
+            'meta' => $state['meta'] ?? []
         ];
         
         $filename = 'backup-' . date('Y-m-d_His') . '.json';
@@ -7360,8 +7353,12 @@ if ($action === 'debug_schedule' && $method === 'GET') {
             }
         }
         
-        $groupMatches = $state['groupMatches'] ?? [];
+        // ✅ REFACTORED: Leggi i match dalle fasi
+        $groupMatches = $state['phases'][0]['matches'] ?? [];
         $totalMatches = count($groupMatches);
+        
+        // ✅ REFACTORED: Leggi i gruppi dalle fasi
+        $groupsCount = count($state['phases'][0]['groups'] ?? []);
         
         jsonResponse(200, [
             'ok' => true,
@@ -7370,7 +7367,7 @@ if ($action === 'debug_schedule' && $method === 'GET') {
                 'total_slots' => $totalSlots,
                 'total_matches' => $totalMatches,
                 'slots_list' => $slotsList,
-                'groups_count' => count($state['groups'] ?? []),
+                'groups_count' => $groupsCount,
                 'teams_count' => count($state['teams'] ?? []),
                 'approved_teams_count' => count(array_filter($state['teams'] ?? [], fn($t) => $t['approved'] ?? false)),
                 'config_schedule_courts' => $courts
@@ -7529,63 +7526,22 @@ if ($action === 'save_match_duration' && $method === 'POST') {
             jsonResponse(400, ['ok' => false, 'error' => 'matchId non fornito']);
         }
         
-        // Leggi lo stato
+        // ✅ REFACTORED: Leggi lo stato e cerca nelle fasi
         $state = readJsonFile(DATA_FILE, []);
         $found = false;
         
-        // Cerca la partita nei groupMatches
-        foreach ($state['groupMatches'] ?? [] as &$match) {
-            if (($match['id'] ?? '') === $matchId) {
-                $match['duration'] = $duration;
-                $found = true;
-                break;
-            }
-        }
-        
-        // Se non trovato nei groupMatches, cerca nei playoff matches
-        if (!$found) {
-            $playoff = $state['playoff'] ?? [];
-            
-            // Cerca in quarterFinals
-            foreach ($playoff['quarterFinals'] ?? [] as &$match) {
+        // Cerca la partita in tutte le fasi
+        foreach ($state['phases'] ?? [] as &$phase) {
+            foreach ($phase['matches'] ?? [] as &$match) {
                 if (($match['id'] ?? '') === $matchId) {
                     $match['duration'] = $duration;
                     $found = true;
-                    break;
+                    break 2;
                 }
             }
-            
-            // Cerca in semiFinals
-            if (!$found) {
-                foreach ($playoff['semiFinals'] ?? [] as &$match) {
-                    if (($match['id'] ?? '') === $matchId) {
-                        $match['duration'] = $duration;
-                        $found = true;
-                        break;
-                    }
-                }
-            }
-            
-            // Cerca in thirdPlace
-            if (!$found && isset($playoff['thirdPlace'])) {
-                if (($playoff['thirdPlace']['id'] ?? '') === $matchId) {
-                    $playoff['thirdPlace']['duration'] = $duration;
-                    $found = true;
-                }
-            }
-            
-            // Cerca in final
-            if (!$found && isset($playoff['final'])) {
-                if (($playoff['final']['id'] ?? '') === $matchId) {
-                    $playoff['final']['duration'] = $duration;
-                    $found = true;
-                }
-            }
-            
-            if ($found) {
-                $state['playoff'] = $playoff;
-            }
+            unset($match);
         }
+        unset($phase);
         
         if ($found) {
             writeJsonFile(DATA_FILE, $state);

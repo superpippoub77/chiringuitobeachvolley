@@ -4318,6 +4318,11 @@
       const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
       console.log('🔍 CLASSIFICHE: fase trovata?', statePhase ? '✅ Sì' : '❌ No', statePhase);
       
+      // Leggi anche la fase dalla config per ottenere teamsAdvance
+      const configPhases = config.phases || [];
+      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);
+      console.log('🔍 CONFIG FASE trovata?', configPhase ? '✅ Sì' : '❌ No', configPhase);
+      
       if (!statePhase) {
         console.log('❌ CLASSIFICHE: Fase non trovata nel state');
         container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata.</p>';
@@ -4416,11 +4421,11 @@
         // ✅ NUOVO: Leggi quante squadre passano da questo girone
         console.log(`\n🔍 DEBUG renderPhaseStandings - INIZIO GIRONE ${groupLabel}:`);
         console.log(`   groupIdx: ${groupIdx}`);
-        console.log(`   statePhase: `, statePhase);
-        console.log(`   statePhase.teamsAdvance: ${statePhase.teamsAdvance}`);
-        console.log(`   type of statePhase.teamsAdvance: ${typeof statePhase.teamsAdvance}`);
+        console.log(`   configPhase: `, configPhase);
+        console.log(`   configPhase.teamsAdvance: ${configPhase?.teamsAdvance}`);
+        console.log(`   type of configPhase.teamsAdvance: ${typeof configPhase?.teamsAdvance}`);
         
-        const teamsAdvanceConfig = statePhase.teamsAdvance;
+        const teamsAdvanceConfig = configPhase?.teamsAdvance;
         console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
         console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
         

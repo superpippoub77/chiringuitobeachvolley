@@ -115,5 +115,6 @@ Devi ripristinare la sezione per le fasi a castello la X-eliminate in uqnto per 
 Il concetto è semplice per ogni fase devo aver la possibilità di creare i gironi con relaitva classifica e il castello con relativa posizione di chi passa al turno successivo, il tutto nella stessa sezione devinita "gironi" devo aver la fase 1 fino alla fase n con i relativi pulsanti, idem per la classifica (Gironi con tabella e castello con formula ad albero devi replicare quallo che hai fatto con Playoff)✅
 In partite e classifica posso cambiare un orario o cancellarlo e prenderlo dagli slot disponibili selezionadolo da una dialog che preleva quelli disponibili dalla gestione date e timerange✅
 Consenti nella fase castello di spostare eventualmente le squadre degli incontri nel caso in cui la compinazione non vada bene sempre con drag and drop (switch)✅ [COMPLETATO: Drag and drop per scambiare team1 ↔ team2 negli incontri knockout, pulsante ⇅ per il switch, endpoint API admin_swap_knockout_teams]
-Senza fare troppo casino è possibile aggiungere un overlay con saving o laoding quando ci sono dei processi in atto di salvataggio o richiesta affichè l'utente non posssa schiacciare altro?
-Eliminare in tournament.json le cose superflue
+Senza fare troppo casino è possibile aggiungere un overlay con saving o laoding quando ci sono dei processi in atto di salvataggio o richiesta affichè l'utente non posssa schiacciare altro?✅
+Eliminare in tournament.json le cose superflue✅
+Inserire la current phase in tournament.json

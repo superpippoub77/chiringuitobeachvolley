@@ -1563,18 +1563,26 @@ function publicState(array $state): array {
             ];
         }, array_filter($state['teams'], fn($t) => !empty($t['approved'])))),
         'pendingCount' => count(array_filter($state['teams'], fn($t) => empty($t['approved']))),
-        'groups' => array_values(array_map(function ($g) use ($teamMap) {
+        'groups' => array_values(array_map(function ($g, $idx) use ($teamMap) {
+            // ✅ REFACTORED: Gestisci nuova struttura groups dove ogni elemento è un array di team objects
+            $groupTeams = [];
+            if (is_array($g)) {
+                foreach ($g as $team) {
+                    if (is_array($team) && !empty($team['id'])) {
+                        // È un team object (dalla nuova struttura)
+                        $groupTeams[] = [
+                            'id' => $team['id'],
+                            'name' => $team['name'] ?? 'N/D',
+                            'players' => $team['players'] ?? []
+                        ];
+                    }
+                }
+            }
             return [
-                'name' => $g['name'],
-                'teams' => array_values(array_map(function ($id) use ($teamMap) {
-                    return [
-                        'id' => $id,
-                        'name' => $teamMap[$id]['name'] ?? 'N/D',
-                        'players' => $teamMap[$id]['players'] ?? []
-                    ];
-                }, $g['teamIds']))
+                'name' => chr(65 + $idx),  // A, B, C, etc.
+                'teams' => $groupTeams
             ];
-        }, $groups)),
+        }, $groups, array_keys($groups))),
         'groupMatches' => array_values(array_map(function ($m) use ($teamMap, $matchPhaseMap) {
             $phaseInfo = $matchPhaseMap[$m['id']] ?? ['phaseId' => null, 'phaseIdx' => 1, 'phaseName' => 'Fase 1 - Gironi'];
             return [
@@ -1664,7 +1672,7 @@ function computeStandings(array $state): array {
     $teamMap = getTeamMap($state);
     $out = [];
 
-    // Estrai groups e matches dalla prima fase (gironi)
+    // ✅ REFACTORED: Estrai groups e matches dalla prima fase (gironi)
     $groupsPhase = $state['phases'][0] ?? null;
     if (!$groupsPhase) {
         return $out;
@@ -1673,25 +1681,34 @@ function computeStandings(array $state): array {
     $groups = $groupsPhase['groups'] ?? [];
     $allMatches = $groupsPhase['matches'] ?? [];
 
-    foreach ($groups as $group) {
+    // Itera su ogni gruppo - con nuova struttura, ogni $group è un array di team objects
+    foreach ($groups as $groupIdx => $group) {
         $rows = [];
-        foreach ($group['teamIds'] as $teamId) {
-            $rows[$teamId] = [
-                'teamId' => $teamId,
-                'name' => $teamMap[$teamId]['name'] ?? 'N/D',
-                'played' => 0,
-                'won' => 0,
-                'lost' => 0,
-                'points' => 0,
-                'scored' => 0,
-                'conceded' => 0,
-                'diff' => 0
-            ];
+        $groupName = chr(65 + $groupIdx);  // A, B, C, etc.
+        
+        // ✅ REFACTORED: La nuova struttura ha i team objects direttamente nell'array
+        if (is_array($group)) {
+            foreach ($group as $team) {
+                if (is_array($team) && !empty($team['id'])) {
+                    $teamId = $team['id'];
+                    $rows[$teamId] = [
+                        'teamId' => $teamId,
+                        'name' => $team['name'] ?? 'N/D',
+                        'played' => 0,
+                        'won' => 0,
+                        'lost' => 0,
+                        'points' => 0,
+                        'scored' => 0,
+                        'conceded' => 0,
+                        'diff' => 0
+                    ];
+                }
+            }
         }
 
         foreach ($allMatches as $match) {
-            $groupName = $match['groupName'] ?? $match['group'] ?? '';
-            if ($groupName !== $group['name']) {
+            $matchGroupName = $match['groupName'] ?? $match['group'] ?? '';
+            if ($matchGroupName !== $groupName && $matchGroupName !== ('Girone ' . $groupName)) {
                 continue;
             }
             if ($match['score1'] === null || $match['score2'] === null) {
@@ -1735,7 +1752,7 @@ function computeStandings(array $state): array {
         });
 
         $out[] = [
-            'group' => $group['name'],
+            'group' => $groupName,
             'rows' => $rows
         ];
     }

@@ -2789,6 +2789,26 @@ function validSession(string $token = ''): bool {
     return false;
 }
 
+// Ottiene il tournament code dal token della sessione
+function getTournamentCodeFromToken(string $token = ''): ?string {
+    if (empty($token)) {
+        $token = authToken() ?? '';
+        if (empty($token)) {
+            return null;
+        }
+    }
+    
+    $sessions = readJsonFile(SESSION_FILE, ['tokens' => []]);
+    
+    foreach ($sessions['tokens'] as $item) {
+        if (is_array($item) && ($item['token'] ?? '') === $token) {
+            return $item['tournamentCode'] ?? null;
+        }
+    }
+    
+    return null;
+}
+
 function requireAdmin(): void {
     $token = authToken();
     if (!$token || !validSession($token)) {
@@ -3213,6 +3233,81 @@ if ($action === 'admin_delete_team' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_add_team' && $method === 'POST') {
+    $body = bodyJson();
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 50);
+    $phone = mb_substr(trim((string)($body['phone'] ?? '')), 0, 20);
+    $players = $body['players'] ?? [];
+    
+    if ($name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nome squadra obbligatorio']);
+    }
+
+    $result = withStateTransaction(function (&$state) use ($name, $phone, $players) {
+        if (tournamentStarted($state)) {
+            return ['ok' => false, 'error' => 'Non puoi aggiungere squadre: il torneo è già iniziato'];
+        }
+
+        $config = readConfig();
+        $maxTeams = $config['tournament']['maxTeams'] ?? 0;
+        $currentTeams = count($state['teams'] ?? []);
+        
+        if ($maxTeams > 0 && $currentTeams >= $maxTeams) {
+            return ['ok' => false, 'error' => "Hai raggiunto il numero massimo di squadre ($maxTeams)"];
+        }
+
+        // Normalizza giocatori
+        $normalizedPlayers = [];
+        $maxPlayers = $config['tournament']['maxPlayersPerTeam'] ?? 3;
+        
+        if (is_array($players)) {
+            foreach (array_slice($players, 0, $maxPlayers) as $player) {
+                if (is_array($player) && isset($player['name'])) {
+                    $playerName = mb_substr(trim((string)$player['name']), 0, 50);
+                    if ($playerName !== '') {
+                        $normalizedPlayers[] = [
+                            'name' => $playerName,
+                            'isCaptain' => (bool)($player['isCaptain'] ?? false),
+                            'level' => max(1, min(5, (int)($player['level'] ?? 3)))
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Crea la nuova squadra
+        $newTeam = [
+            'id' => bin2hex(random_bytes(8)),
+            'name' => $name,
+            'category' => 'Misto',
+            'players' => $normalizedPlayers,
+            'phone' => $phone,
+            'paid' => false,
+            'approved' => false,
+            'kitDelivered' => false,
+            'dummy' => false,
+            'createdAt' => gmdate('c'),
+            'skillLevel' => 3  // Default skill level
+        ];
+
+        if (!isset($state['teams'])) {
+            $state['teams'] = [];
+        }
+        
+        $state['teams'][] = $newTeam;
+
+        error_log("✅ admin_add_team: Aggiunta squadra " . $newTeam['id'] . " - " . $name);
+
+        return [
+            'ok' => true,
+            'teamId' => $newTeam['id'],
+            'totalTeams' => count($state['teams'])
+        ];
+    });
+
+    jsonResponse(200, $result);
 }
 
 if ($action === 'admin_add_test_teams' && $method === 'POST') {
@@ -7636,6 +7731,171 @@ if ($action === 'get_user_tournaments' && $method === 'POST') {
         'count' => count($userTournaments)
     ]);
 }
+
+// ==================== SYNC FILES FROM ROOT ====================
+
+// Sincronizza i file (api.php, index.html, scoreboard.html) dalla root al torneo corrente
+if ($action === 'admin_sync_files_from_root' && $method === 'POST') {
+    requireAdmin();
+    
+    try {
+        $token = authToken();
+        $tournamentCode = getTournamentCodeFromToken($token);
+        
+        // Se è single-tenant (local), non sincronizzare (i file sono nella root)
+        if ($tournamentCode === 'local') {
+            jsonResponse(400, [
+                'ok' => false,
+                'error' => 'La sincronizzazione non è disponibile in modalità single-tenant'
+            ]);
+        }
+        
+        if (!$tournamentCode) {
+            jsonResponse(401, [
+                'ok' => false,
+                'error' => 'Torneo non identificato'
+            ]);
+        }
+        
+        $tournamentDir = __DIR__ . '/' . $tournamentCode;
+        $rootDir = __DIR__;
+        
+        if (!is_dir($tournamentDir)) {
+            jsonResponse(404, [
+                'ok' => false,
+                'error' => 'Directory torneo non trovata'
+            ]);
+        }
+        
+        $filesToSync = ['api.php', 'index.html', 'scoreboard.html'];
+        $syncedFiles = [];
+        $errors = [];
+        
+        foreach ($filesToSync as $filename) {
+            $srcPath = $rootDir . '/' . $filename;
+            $dstPath = $tournamentDir . '/' . $filename;
+            
+            // Verifica che il file esista nella root
+            if (!file_exists($srcPath)) {
+                $errors[] = "File $filename non trovato nella root";
+                continue;
+            }
+            
+            // Crea backup del file esistente nel torneo
+            if (file_exists($dstPath)) {
+                $backupPath = $dstPath . '.backup.' . date('YmdHis');
+                if (!copy($dstPath, $backupPath)) {
+                    $errors[] = "Non riuscito a creare backup di $filename";
+                    continue;
+                }
+            }
+            
+            // Copia il file dalla root
+            if (copy($srcPath, $dstPath)) {
+                $syncedFiles[] = $filename;
+            } else {
+                $errors[] = "Errore nella copia di $filename";
+            }
+        }
+        
+        if (empty($syncedFiles) && !empty($errors)) {
+            jsonResponse(400, [
+                'ok' => false,
+                'error' => 'Errore durante la sincronizzazione: ' . implode(', ', $errors)
+            ]);
+        }
+        
+        error_log("✅ admin_sync_files_from_root: Sincronizzati " . count($syncedFiles) . " file nel torneo $tournamentCode");
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'message' => 'Sincronizzati ' . count($syncedFiles) . ' file: ' . implode(', ', $syncedFiles),
+            'syncedFiles' => $syncedFiles,
+            'errors' => $errors
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ admin_sync_files_from_root: " . $e->getMessage());
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// Verifica quali file della root sono diversi da quelli del torneo
+if ($action === 'admin_check_files_sync' && $method === 'POST') {
+    requireAdmin();
+    
+    try {
+        $token = authToken();
+        $tournamentCode = getTournamentCodeFromToken($token);
+        
+        // Se è single-tenant (local), non sincronizzare
+        if ($tournamentCode === 'local') {
+            jsonResponse(200, [
+                'ok' => true,
+                'filesNeedSync' => [],
+                'needsSync' => false,
+                'reason' => 'Single-tenant mode'
+            ]);
+        }
+        
+        if (!$tournamentCode) {
+            jsonResponse(401, [
+                'ok' => false,
+                'error' => 'Torneo non identificato'
+            ]);
+        }
+        
+        $tournamentDir = __DIR__ . '/' . $tournamentCode;
+        $rootDir = __DIR__;
+        
+        if (!is_dir($tournamentDir)) {
+            jsonResponse(404, [
+                'ok' => false,
+                'error' => 'Directory torneo non trovata'
+            ]);
+        }
+        
+        $filesToCheck = ['api.php', 'index.html', 'scoreboard.html'];
+        $filesNeedSync = [];
+        
+        foreach ($filesToCheck as $filename) {
+            $srcPath = $rootDir . '/' . $filename;
+            $dstPath = $tournamentDir . '/' . $filename;
+            
+            // Se il file non esiste nel torneo, deve essere sincronizzato
+            if (!file_exists($dstPath)) {
+                $filesNeedSync[] = $filename . ' (file non esiste)';
+                continue;
+            }
+            
+            // Confronta i hash MD5 dei file
+            $srcHash = md5_file($srcPath);
+            $dstHash = md5_file($dstPath);
+            
+            if ($srcHash !== $dstHash) {
+                $filesNeedSync[] = $filename;
+            }
+        }
+        
+        error_log("🔍 admin_check_files_sync: Torneo $tournamentCode - " . count($filesNeedSync) . " file da sincronizzare");
+        
+        jsonResponse(200, [
+            'ok' => true,
+            'filesNeedSync' => $filesNeedSync,
+            'needsSync' => count($filesNeedSync) > 0
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ admin_check_files_sync: " . $e->getMessage());
+        jsonResponse(500, [
+            'ok' => false,
+            'error' => 'Errore: ' . $e->getMessage()
+        ]);
+    }
+}
+
+// ==================== MULTITENANT ====================
 
 // Ottieni TUTTI i tornei (per admin root)
 if ($action === 'multitenant_get_all_tournaments' && $method === 'POST') {

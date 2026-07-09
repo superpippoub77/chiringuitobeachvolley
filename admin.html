@@ -1710,6 +1710,37 @@
             </div>
           </div>
 
+          <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🔄 Sincronizzazione File da Root</h4>
+            <p class="muted">Aggiorna i file del torneo (api.php, index.html, scoreboard.html) dalla versione principale nella root del progetto.</p>
+            
+            <div style="background: white; padding: 12px; border-radius: 6px; margin-top: 10px">
+              <div style="margin-bottom: 12px">
+                <p style="color: #666; font-size: 13px; line-height: 1.5">
+                  ℹ️ Quando vengono aggiornati i file nella root del progetto, usa questo bottone per sincronizzarli con il torneo corrente senza perdere la configurazione (config.json, data/tournament.json).
+                </p>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px">
+                <button class="btn" style="background: #2196F3; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold" onclick="syncFilesFromRoot()">
+                  📤 Sincronizza File
+                </button>
+                <button class="btn" style="background: #666; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer" onclick="showSyncDetails()">
+                  ℹ️ Dettagli Sync
+                </button>
+                <button class="btn" style="background: #ff9800; color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer" onclick="checkFilesNeedSync()">
+                  🔍 Verifica Aggiornamenti
+                </button>
+              </div>
+              
+              <div id="syncStatus" style="padding: 10px; background: #f0f0f0; border-radius: 4px; color: #666; font-size: 12px; display: none; border-left: 4px solid #2196F3"></div>
+              
+              <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 12px">
+                <strong>⚠️ Nota:</strong> La sincronizzazione non elimina file di configurazione. Verranno copiati solo: api.php, index.html, scoreboard.html. Puoi sempre tornare indietro con la cronologia.
+              </div>
+            </div>
+          </div>
+
           <div class="card" style="background: #f3e5f5; padding: 12px; margin-top: 12px">
             <h4 style="margin-top: 0">🔒 Crittografia Dati Sensibili</h4>
             <p class="muted">Crittografa i dati sensibili (username e password SMTP) con una password master. La password master non viene salvata, solo un hash derivato.</p>
@@ -2697,7 +2728,28 @@
         return;
       }
       const all = state.teams || [];
-      c.innerHTML = `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + all.map(teamRow).join('');
+      const addButton = !isTournamentStarted() ? `
+        <div style="margin-bottom: 16px">
+          <button class="btn" style="background: #4caf50; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px">
+            ➕ Aggiungi Squadra
+          </button>
+        </div>
+      ` : '';
+      
+      const button = c.querySelector('button');
+      if (!button && addButton && !isTournamentStarted()) {
+        // Inserisci il bottone solo una volta
+      }
+      
+      c.innerHTML = addButton + 
+        `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + 
+        all.map(teamRow).join('');
+      
+      // Aggiungi event listener al bottone
+      const addBtn = c.querySelector('button');
+      if (addBtn) {
+        addBtn.onclick = openAddTeamDialog;
+      }
     }
 
     async function deleteTeamFromList(teamId, teamName) {
@@ -3075,6 +3127,167 @@
         else if (weight >= 2 && weight < 3) color = '#fbc02d'; // Giallo
         else if (weight >= 3 && weight < 4) color = '#689f38'; // Verde chiaro
         else if (weight >= 4) color = '#1565c0'; // Blu - squad strong
+        
+        if (weightValue) weightValue.style.color = color;
+        if (weightBox) weightBox.style.display = 'block';
+      }
+    }
+
+    // ==================== AGGIUNGI SQUADRA ====================
+    async function openAddTeamDialog() {
+      if (isTournamentStarted()) {
+        await showInfoDialog('Operazione non consentita', 'Non puoi aggiungere squadre: il torneo è già iniziato.');
+        return;
+      }
+
+      const levelLabels = ['Amatore', 'Intermedio', 'Avanzato', 'Professionista', 'Top'];
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+
+      let playersHtml = `<div style="border: 1px solid #ddd; padding: 12px; border-radius: 4px; margin-top: 10px; background: #f9f9f9; grid-column: 1 / -1">
+        <h4 style="margin: 0 0 12px 0">Giocatori (Max ${maxPlayers})</h4>`;
+
+      for (let i = 0; i < maxPlayers; i++) {
+        playersHtml += `
+          <div style="border: 1px solid #e0e0e0; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: white; display: flex; gap: 8px; align-items: flex-start">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+              <input 
+                id="nPlayer${i}Name" 
+                type="text" 
+                maxlength="50"
+                placeholder="Nome giocatore ${i + 1}"
+                style="padding: 6px; border: 1px solid #ccc; border-radius: 4px"
+              >
+              <div style="display: flex; gap: 8px; align-items: center">
+                <label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal; font-size: 14px">
+                  <input 
+                    id="nPlayer${i}Captain" 
+                    type="checkbox"
+                    style="cursor: pointer"
+                  >
+                  👨‍💼 Capitano
+                </label>
+                <select id="nPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; flex: 1; cursor: pointer; box-sizing: border-box" onchange="updateAddTeamWeight()">
+                  ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${l === 2 ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      playersHtml += `
+        <div id="addTeamWeightBox" style="background: #e3f2fd; border: 2px solid #2196f3; padding: 8px; border-radius: 4px; margin-top: 8px; text-align: center; display: none">
+          <strong style="color: #1976d2">Peso Squadra (Media Livelli):</strong> <span id="addTeamWeightValue" style="font-size: 16px; font-weight: bold; color: #1565c0">-</span>
+        </div>
+        <small style="color: #666; display: block; margin-top: 8px">• Livello: 0=Amatore ... 4=Top | • Capitano responsabile: squadra | • Peso: media dei livelli dei giocatori inseriti</small>
+      </div>`;
+
+      openModal({
+        title: '➕ Aggiungi Nuova Squadra',
+        bodyHtml: `
+          <div class="form-grid-modal">
+            <div class="field full">
+              <label>Nome squadra</label>
+              <input id="nTeamName" type="text" maxlength="50" placeholder="Es: Team ABC">
+            </div>
+            ${playersHtml}
+            <div class="field full">
+              <label>Telefono (opzionale)</label>
+              <input id="nPhone" type="text" maxlength="20" placeholder="">
+            </div>
+            <div class="field full muted">Categoria torneo: Misto (predefinita)</div>
+            <div class="field full muted" style="color: #1565c0; background: #e3f2fd; padding: 6px; border-radius: 4px;">
+              La squadra verrà creata come "In attesa" di approvazione. Dovrai approvarla e registrare il pagamento in seguito.
+            </div>
+          </div>
+        `,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          {
+            text: '✅ Crea Squadra',
+            className: 'btn btn-success',
+            async onclick() {
+              const name = document.getElementById('nTeamName')?.value?.trim() || '';
+              const phone = document.getElementById('nPhone')?.value?.trim() || '';
+              
+              if (!name) {
+                await showInfoDialog('Errore', 'Il nome della squadra è obbligatorio');
+                return;
+              }
+
+              // Raccogli i giocatori
+              const players = [];
+              for (let i = 0; i < maxPlayers; i++) {
+                const nameInput = document.getElementById(`nPlayer${i}Name`);
+                const captainInput = document.getElementById(`nPlayer${i}Captain`);
+                const levelInput = document.getElementById(`nPlayer${i}Level`);
+                
+                if (nameInput && nameInput.value.trim()) {
+                  players.push({
+                    name: nameInput.value.trim(),
+                    isCaptain: captainInput?.checked || false,
+                    level: parseInt(levelInput?.value) || 2
+                  });
+                }
+              }
+
+              try {
+                const result = await callApi('admin_add_team', 'POST', {
+                  name: name,
+                  phone: phone,
+                  players: players
+                }, true);
+
+                if (result.ok) {
+                  closeModal();
+                  await refresh();
+                  await showInfoDialog('✅ Successo', `Squadra "${name}" aggiunta!\n\nTotale squadre: ${result.totalTeams}`);
+                } else {
+                  await showInfoDialog('Errore', result.error || 'Errore durante la creazione');
+                }
+              } catch (e) {
+                await showInfoDialog('Errore', e.message);
+              }
+            }
+          }
+        ]
+      });
+
+      // Calcola peso iniziale (tutti i giocatori a livello 2)
+      updateAddTeamWeight();
+    }
+
+    function calculateAddTeamWeight() {
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+      let totalLevel = 0;
+      let playerCount = 0;
+      
+      for (let i = 0; i < maxPlayers; i++) {
+        const levelSelect = document.getElementById(`nPlayer${i}Level`);
+        const nameInput = document.getElementById(`nPlayer${i}Name`);
+        if (nameInput && nameInput.value.trim() && levelSelect) {
+          totalLevel += parseInt(levelSelect.value) || 2;
+          playerCount++;
+        }
+      }
+      
+      return playerCount > 0 ? (totalLevel / playerCount).toFixed(2) : 0;
+    }
+
+    function updateAddTeamWeight() {
+      const weight = calculateAddTeamWeight();
+      const weightBox = document.getElementById('addTeamWeightBox');
+      const weightValue = document.getElementById('addTeamWeightValue');
+      
+      if (weightValue) {
+        weightValue.textContent = weight;
+        
+        let color = '#1565c0';
+        if (weight >= 0 && weight < 1) color = '#d32f2f';
+        else if (weight >= 1 && weight < 2) color = '#f57c00';
+        else if (weight >= 2 && weight < 3) color = '#fbc02d';
+        else if (weight >= 3 && weight < 4) color = '#689f38';
+        else if (weight >= 4) color = '#1565c0';
         
         if (weightValue) weightValue.style.color = color;
         if (weightBox) weightBox.style.display = 'block';
@@ -10645,6 +10858,93 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       
       contentDiv.innerHTML = html;
       resultDiv.style.display = 'block';
+    }
+
+    // ==================== FILE SYNC FROM ROOT ====================
+    async function syncFilesFromRoot() {
+      const confirmed = await showConfirmDialog(
+        '🔄 Sincronizza File',
+        'Vuoi sincronizzare i file (api.php, index.html, scoreboard.html) dalla root del progetto?\n\nNon verranno toccati config.json e tournament.json'
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '⏳ Sincronizzazione in corso...';
+        statusDiv.style.borderLeftColor = '#ff9800';
+        
+        const result = await callApi('admin_sync_files_from_root', 'POST', {}, true);
+        
+        if (result.ok) {
+          statusDiv.innerHTML = `✅ Sincronizzazione completata!<br><small>${result.message}</small>`;
+          statusDiv.style.borderLeftColor = '#4caf50';
+          await showInfoDialog('✅ Successo', 'File sincronizzati con successo dalla root.');
+          
+          // Ricarica la pagina dopo 2 secondi
+          setTimeout(() => {
+            location.reload();
+          }, 2000);
+        } else {
+          statusDiv.innerHTML = `❌ Errore: ${result.error}`;
+          statusDiv.style.borderLeftColor = '#f44336';
+          await showInfoDialog('❌ Errore', result.error || 'Errore durante la sincronizzazione');
+        }
+      } catch (e) {
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.innerHTML = `❌ Errore: ${e.message}`;
+        statusDiv.style.display = 'block';
+        statusDiv.style.borderLeftColor = '#f44336';
+        await showInfoDialog('❌ Errore', e.message);
+      }
+    }
+
+    async function checkFilesNeedSync() {
+      try {
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '⏳ Verifica in corso...';
+        statusDiv.style.borderLeftColor = '#2196F3';
+        
+        const result = await callApi('admin_check_files_sync', 'POST', {}, true);
+        
+        if (result.ok) {
+          const needsSync = result.filesNeedSync || [];
+          
+          if (needsSync.length === 0) {
+            statusDiv.innerHTML = `✅ Tutti i file sono sincronizzati<br><small>Nessun aggiornamento disponibile dalla root</small>`;
+            statusDiv.style.borderLeftColor = '#4caf50';
+          } else {
+            const filesList = needsSync.map(f => `• ${f}`).join('<br>');
+            statusDiv.innerHTML = `⚠️ Aggiornamenti disponibili:<br><small>${filesList}</small><br><br>Clicca "Sincronizza File" per aggiornare.`;
+            statusDiv.style.borderLeftColor = '#ff9800';
+          }
+        } else {
+          statusDiv.innerHTML = `❌ Errore: ${result.error}`;
+          statusDiv.style.borderLeftColor = '#f44336';
+        }
+      } catch (e) {
+        const statusDiv = document.getElementById('syncStatus');
+        statusDiv.innerHTML = `❌ Errore: ${e.message}`;
+        statusDiv.style.display = 'block';
+        statusDiv.style.borderLeftColor = '#f44336';
+      }
+    }
+
+    async function showSyncDetails() {
+      const message = `📤 Sincronizzazione File da Root\n\nQuesti file verranno aggiornati dalla versione principale:\n\n` +
+        `✓ api.php - Backend API del torneo\n` +
+        `✓ index.html - Homepage pubblica\n` +
+        `✓ scoreboard.html - Scoreboard pubblico\n\n` +
+        `NON verranno modificati:\n` +
+        `✗ data/config.json - Configurazione torneo\n` +
+        `✗ data/tournament.json - Stato torneo\n` +
+        `✗ data/sessions.json - Sessioni utenti\n\n` +
+        `Usa "Verifica Aggiornamenti" per controllare se ci sono file da aggiornare.\n` +
+        `La sincronizzazione crea un backup automatico dei file sostituiti.`;
+      
+      await showInfoDialog('ℹ️ Informazioni Sync', message);
     }
 
     (async function bootstrap() {

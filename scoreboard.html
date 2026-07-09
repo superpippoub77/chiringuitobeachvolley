@@ -781,16 +781,6 @@
       <div id="newsList" style="display: grid; gap: 12px"></div>
     </section>
 
-    <nav class="tabs">
-      <button class="tab active" onclick="showTab('iscrizione', this)">Iscrizione</button>
-      <button class="tab" onclick="showTab('teams', this)">Squadre</button>
-      <button class="tab" onclick="showTab('groups', this)">Gironi</button>
-      <button class="tab" onclick="showTab('matches', this)">Calendario</button>
-      <button class="tab" onclick="showTab('standings', this)">Classifiche</button>
-      <button class="tab" onclick="showTab('playoff', this)">Fase finale</button>
-      <button class="tab" onclick="showTab('ranking', this)">Ranking finale</button>
-    </nav>
-
     <!-- Tab globali per Scoreboard -->
     <nav style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap">
       <a href="#" onclick="showPhase('iscrizione'); return false;" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 Iscrizione</a>
@@ -1295,7 +1285,6 @@
             ${t.dummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
             <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ ${weight}</span>
             <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? 'Confermato' : 'In attesa'}</span>
-            <span class="badge ${t.paid ? 'ok' : 'no'}">${t.paid ? 'Pagato' : 'Non pagato'}</span>
           </div>
         </div>`;
       }).join('');
@@ -1351,52 +1340,9 @@
       
       // Lista squadre
       html += '<div style="border-top: 3px solid #ddd; padding-top: 16px; margin-top: 24px">';
-      html += '<h4>Squadre Iscritte (Total: ' + state.teams.length + ')</h4>';
       if (state.teams.length === 0) {
         html += '<p style="color: #999">Nessuna squadra ancora iscritta</p>';
-      } else {
-        html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px">';
-        state.teams.forEach(t => {
-          let playersHtml = (t.players || [])
-            .map(p => {
-              const name = typeof p === 'string' ? p : (p.name || '');
-              const level = typeof p === 'string' ? null : (p.level || p.skillLevel);
-              const isCap = typeof p === 'string' ? false : (p.isCaptain || false);
-              if (!name) return '';
-              const capIcon = isCap ? ' 👨‍💼' : '';
-              const levelIcon = level ? ` ⭐${level}` : '';
-              return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
-            })
-            .filter(Boolean)
-            .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
-          
-          let playersImages = (t.players || [])
-            .map((p, idx) => {
-              if (typeof p === 'string') return '';
-              const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
-              const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
-              return `<img src="${imgUrl}" title="${title}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #8b7355">`;
-            })
-            .filter(Boolean)
-            .join('');
-          
-          const weight = getTeamWeight(t);
-          const weightColor = getWeightColor(weight);
-          
-          html += `<div style="border: 1px solid #d8c39f; border-radius: 6px; padding: 12px; background: #faf5f0">
-            <strong style="color: #6b5d45">${esc(t.name)}</strong>
-            <small style="display: block; color: #999; margin-top: 4px">${playersHtml}</small>
-            ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap">${playersImages}</div>` : ''}
-            <div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap; font-size: 11px">
-              ${t.dummy ? '<span style="background: #d8c39f; color: #1d1a13; padding: 2px 6px; border-radius: 3px">Fittizia</span>' : ''}
-              <span style="background: ${weightColor}; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px">⚖️ ${weight}</span>
-              <span style="background: ${t.approved ? '#27ae60' : '#e67e22'}; color: white; padding: 2px 6px; border-radius: 3px">${t.approved ? 'Confermato' : 'In attesa'}</span>
-              <span style="background: ${t.paid ? '#27ae60' : '#e67e22'}; color: white; padding: 2px 6px; border-radius: 3px">${t.paid ? 'Pagato' : 'Non pagato'}</span>
-            </div>
-          </div>`;
-        });
-        html += '</div>';
-      }
+      } 
       html += '</div>';
       
       c.innerHTML = html;
@@ -1686,12 +1632,16 @@
         return;
       }
 
-      // ✅ NUOVO: Sottolinea in verde le squadre che passano
+      // ✅ NUOVO: Sottolinea in verde le squadre che passano con soglia visibile
       c.innerHTML = '<h3>Classifiche gironi</h3>' + standings.map(s => {
         const teamsAdvance = getTeamsAdvanceForGroup(s.group);
-        return `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) =>
-          `<tr style="${i < teamsAdvance ? 'border-bottom: 3px solid #4caf50; font-weight: 600' : ''}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td style="text-decoration: ${i < teamsAdvance ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
-        ).join('')}</tbody></table>`
+        const tableHtml = `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) => {
+          const isQualified = i < teamsAdvance;
+          const isLastQualified = i === teamsAdvance - 1;
+          const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
+          return `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td style="text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
+        }).join('')}</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
+        return tableHtml;
       }).join('');
     }
 

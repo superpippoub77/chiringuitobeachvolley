@@ -3997,13 +3997,27 @@
           return;
         }
         
+        // Verifica che config e numSets siano configurati
+        const numSets = config?.numSets || 1;
+        console.log(`Simulando punteggi con numSets=${numSets} dalla configurazione`);
+        
         let savedCount = 0;
         for (const match of matches) {
-          // Genera punteggi casuali tra 15 e 25
-          const score1 = Math.floor(Math.random() * 11) + 15;
-          const score2 = Math.floor(Math.random() * 11) + 15;
+          // Genera punteggi congrui al numero di set configurato
+          // Ad esempio, se numSets=2: possibili risultati sono 2-0, 2-1, 1-2, 0-2
+          const score1 = Math.floor(Math.random() * (numSets + 1));
+          let score2 = Math.floor(Math.random() * (numSets + 1));
           
-          console.log(`Saving match ${match.id}: ${score1} vs ${score2}`);
+          // Assicura che almeno uno raggiunga il valore di vittoria (numSets)
+          if (score1 < numSets && score2 < numSets) {
+            if (Math.random() > 0.5) {
+              score1 = numSets;
+            } else {
+              score2 = numSets;
+            }
+          }
+          
+          console.log(`Saving match ${match.id}: ${score1} vs ${score2} (numSets=${numSets})`);
           
           try {
             await callApi('admin_update_group_match', 'POST', {
@@ -4495,35 +4509,48 @@
             (m.team1 === team.id || m.team2 === team.id) && m.groupName === groupLabel
           );
           
-          let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0;
+          let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0, playedMatches = 0;
           
           teamMatches.forEach(m => {
             const isTeam1 = m.team1 === team.id;
             const score1 = m.score1 ?? 0;
             const score2 = m.score2 ?? 0;
             
-            if (isTeam1) {
-              setsWon += score1 || 0;
-              setsLost += score2 || 0;
-              pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
-              pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+            // Conta solo le partite giocate (con score)
+            const hasScore = score1 > 0 || score2 > 0;
+            
+            if (hasScore) {
+              playedMatches++;
               
-              if ((score1 || 0) > (score2 || 0)) points += 3;
-              else if ((score1 || 0) === (score2 || 0)) points += 1;
-            } else {
-              setsWon += score2 || 0;
-              setsLost += score1 || 0;
-              pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
-              pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
-              
-              if ((score2 || 0) > (score1 || 0)) points += 3;
-              else if ((score2 || 0) === (score1 || 0)) points += 1;
+              if (isTeam1) {
+                setsWon += score1 || 0;
+                setsLost += score2 || 0;
+                pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
+                pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+                
+                if ((score1 || 0) > (score2 || 0)) points += 3;
+                else if ((score1 || 0) === (score2 || 0)) points += 1;
+              } else {
+                setsWon += score2 || 0;
+                setsLost += score1 || 0;
+                pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+                pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
+                
+                if ((score2 || 0) > (score1 || 0)) points += 3;
+                else if ((score2 || 0) === (score1 || 0)) points += 1;
+              }
             }
           });
           
+          // Calcola vittorie (punti / 3) e sconfitte (partite - vittorie)
+          const wins = Math.floor(points / 3);
+          const losses = playedMatches - wins;
+          
           return {
             name: team.name,
-            matches: teamMatches.length,
+            matches: playedMatches,
+            wins,
+            losses,
             points,
             setsWon,
             setsLost,
@@ -4548,10 +4575,13 @@
               <tr style="background: #e3f2fd">
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">#</th>
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Part</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Pts</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Set</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Punt</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">G</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">V</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">S</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Pt</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">PF</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">PS</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Diff</th>
               </tr>
             </thead>
             <tbody>`;
@@ -4597,9 +4627,12 @@
             <td style="padding: 8px; font-weight: bold; color: #2196F3">${idx + 1}</td>
             <td style="padding: 8px; text-decoration: none">${escapeHtml(row.name)}</td>
             <td style="padding: 8px; text-align: center">${row.matches}</td>
+            <td style="padding: 8px; text-align: center">${row.wins}</td>
+            <td style="padding: 8px; text-align: center">${row.losses}</td>
             <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f">${row.points}</td>
-            <td style="padding: 8px; text-align: center">${row.setsWon}-${row.setsLost}</td>
-            <td style="padding: 8px; text-align: center">${row.pointsFor}-${row.pointsAgainst}</td>
+            <td style="padding: 8px; text-align: center">${row.pointsFor}</td>
+            <td style="padding: 8px; text-align: center">${row.pointsAgainst}</td>
+            <td style="padding: 8px; text-align: center">${row.pointsDiff >= 0 ? '+' : ''}${row.pointsDiff}</td>
           </tr>`;
         });
 
@@ -4608,7 +4641,7 @@
 
       html += `<div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-top: 16px; font-size: 12px">
         <strong>Legenda:</strong><br>
-        Part = Partite | Pts = Punti classifica (V=3, P=1) | Set = Set vinti-persi | Punt = Punti set vinti-subiti
+        G = Giocate | V = Vinte | S = Sconfitte | Pt = Punti classifica (V=3, P=1) | PF = Punti For | PS = Punti Subiti | Diff = Differenza punti
       </div></div>`;
 
       container.innerHTML = html;

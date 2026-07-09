@@ -1322,11 +1322,19 @@ function uploadViaSftp(string $localFilePath, string $sftpHost, int $sftpPort, s
     return ['ok' => true, 'message' => 'File uploaded successfully via SFTP to ' . $remotePath . '/' . $fileName, 'remoteFile' => $remotePath . '/' . $fileName];
 }
 
-function randomScore(): array {
-    $a = randomInt(10, 21);
-    $b = randomInt(10, 21);
-    while ($a === $b) {
-        $b = randomInt(10, 21);
+function randomScore(int $numSets = 2): array {
+    // Genera punteggi congrui al numero di set configurato
+    // Ad esempio, se numSets=2: possibili risultati sono 2-0, 2-1, 1-2, 0-2
+    $a = random_int(0, $numSets);
+    $b = random_int(0, $numSets);
+    
+    // Assicura che almeno uno raggiunga il valore di vittoria (numSets)
+    if ($a < $numSets && $b < $numSets) {
+        if (random_int(0, 1) === 0) {
+            $a = $numSets;
+        } else {
+            $b = $numSets;
+        }
     }
     return [$a, $b];
 }
@@ -2644,6 +2652,11 @@ function buildGroupMatchesWithSchedule(array &$state): void {
 }
 
 function simulateAll(array &$state): bool {
+    // ✅ REFACTORED: Leggi la configurazione per ottenere numSets
+    $config = readConfig();
+    $numSets = (int)($config['tournament']['numSets'] ?? 2);
+    error_log("✅ simulateAll: Usando numSets=$numSets dalla configurazione");
+    
     // ✅ REFACTORED: Controlla i gruppi nella prima fase
     $groupsPhase = &$state['phases'][0];
     $groupsInPhase = $groupsPhase['groups'] ?? [];
@@ -2672,7 +2685,7 @@ function simulateAll(array &$state): bool {
     // ✅ REFACTORED: Itera sui match della prima fase
     $groupsPhase = &$state['phases'][0];
     foreach ($groupsPhase['matches'] ?? [] as &$match) {
-        [$a, $b] = randomScore();
+        [$a, $b] = randomScore($numSets);
         $match['score1'] = $a;
         $match['score2'] = $b;
     }
@@ -2693,7 +2706,7 @@ function simulateAll(array &$state): bool {
         
         foreach ($phase['matches'] ?? [] as &$match) {
             if (($match['type'] ?? null) === 'quarterFinal') {
-                [$a, $b] = randomScore();
+                [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
                 $match['score2'] = $b;
             }
@@ -2710,7 +2723,7 @@ function simulateAll(array &$state): bool {
         
         foreach ($phase['matches'] ?? [] as &$match) {
             if (($match['type'] ?? null) === 'semiFinal' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
-                [$a, $b] = randomScore();
+                [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
                 $match['score2'] = $b;
             }
@@ -2727,12 +2740,12 @@ function simulateAll(array &$state): bool {
         
         foreach ($phase['matches'] ?? [] as &$match) {
             if (($match['type'] ?? null) === 'thirdPlace' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
-                [$a, $b] = randomScore();
+                [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
                 $match['score2'] = $b;
             }
             if (($match['type'] ?? null) === 'final' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
-                [$a, $b] = randomScore();
+                [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
                 $match['score2'] = $b;
             }

@@ -7150,9 +7150,15 @@ if ($action === 'create_tournament' && $method === 'POST') {
     }
     
     $tournamentCode = generateGUID();
-    $tournamentDir = __DIR__ . '/' . $tournamentCode;
+    $beachmasterDir = __DIR__ . '/beachmaster';
+    $tournamentDir = $beachmasterDir . '/' . $tournamentCode;
     
     error_log("📌 create_tournament: tournamentCode=$tournamentCode, dir=$tournamentDir");
+    
+    // Crea la directory beachmaster se non esiste
+    if (!is_dir($beachmasterDir)) {
+        mkdir($beachmasterDir, 0755, true);
+    }
     
     // Copia il progetto nella nuova directory
     error_log("📌 create_tournament: starting copyDirectory...");
@@ -7162,7 +7168,26 @@ if ($action === 'create_tournament' && $method === 'POST') {
     }
     error_log("📌 create_tournament: copyDirectory completed");
     
-
+    // Pulisci: rimuovi la cartella beachmaster se è stata copiata per errore
+    $beachmasterInTournament = $tournamentDir . '/beachmaster';
+    if (is_dir($beachmasterInTournament)) {
+        error_log("⚠️ ALERT: Trovata cartella beachmaster nel torneo! Rimuovo ricorsivamente...");
+        removeDirectoryRecursive($beachmasterInTournament);
+        error_log("✅ Cartella beachmaster rimossa");
+    }
+    
+    // Verifica che NON ci siano directory beachmaster annidate
+    $doubleNested = $tournamentDir . '/beachmaster/beachmaster';
+    if (is_dir($doubleNested)) {
+        error_log("⚠️ CRITICAL: Trovata doppia nidificazione beachmaster/beachmaster! Rimuovo...");
+        removeDirectoryRecursive($doubleNested);
+        // Verifica se anche la prima beachmaster è ora vuota
+        $firstNested = $tournamentDir . '/beachmaster';
+        if (is_dir($firstNested) && count(array_diff(scandir($firstNested), ['.', '..'])) === 0) {
+            rmdir($firstNested);
+        }
+        error_log("✅ Doppia nidificazione rimossa");
+    }
     
     // Nel torneo copiato: gestisci i file HTML
     // Elimina index.html (landing page del root che non serve nel torneo)
@@ -7263,7 +7288,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'code' => $tournamentCode,
         'email' => $managerEmail,
         'name' => $tournamentName,
-        'path' => $tournamentCode,
+        'path' => 'beachmaster/' . $tournamentCode,
         'createdAt' => date('Y-m-d H:i:s')
     ];
     writeTournamentsRegistry($registry);
@@ -7278,7 +7303,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'message' => 'Torneo creato con successo',
         'tournamentCode' => $tournamentCode,
         'token' => $token,
-        'redirectUrl' => $tournamentCode . '/admin.html'
+        'redirectUrl' => 'beachmaster/' . $tournamentCode . '/admin.html'
     ]);
 }
 
@@ -7293,7 +7318,7 @@ if ($action === 'tournament_login' && $method === 'POST') {
         jsonResponse(400, ['ok' => false, 'error' => 'Codice torneo non valido']);
     }
     
-    $tournamentDir = __DIR__ . '/' . $tournamentCode;
+    $tournamentDir = __DIR__ . '/beachmaster/' . $tournamentCode;
     $configFile = $tournamentDir . '/.tournament-config.json';
     
     if (!file_exists($configFile)) {

@@ -4592,9 +4592,10 @@
         
         standings.forEach((row, idx) => {
           const isQualified = idx < teamsAdvanceForThisGroup;
-          html += `<tr style="border-bottom: 3px solid ${isQualified ? '#4caf50' : '#eee'}; background: ${isQualified ? '#e8f5e9' : ''}; font-weight: ${isQualified ? '600' : 'normal'}">
+          const isLastQualified = idx === teamsAdvanceForThisGroup - 1;
+          html += `<tr style="border-bottom: 3px solid ${isLastQualified ? '#4caf50' : '#eee'}; background: ${isQualified ? '#e8f5e9' : ''}; font-weight: ${isQualified ? '600' : 'normal'}">
             <td style="padding: 8px; font-weight: bold; color: #2196F3">${idx + 1}</td>
-            <td style="padding: 8px; text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${escapeHtml(row.name)}</td>
+            <td style="padding: 8px; text-decoration: none">${escapeHtml(row.name)}</td>
             <td style="padding: 8px; text-align: center">${row.matches}</td>
             <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f">${row.points}</td>
             <td style="padding: 8px; text-align: center">${row.setsWon}-${row.setsLost}</td>
@@ -9259,7 +9260,7 @@
             </div>
             <div class="field">
               <label>Squadre che avanzano per girone (Top N)</label>
-              <input id="phase-teamsAdvance-${idx}" type="number" min="1" max="8" value="${phase.teamsAdvance || 2}" onchange="updatePhasePreview(${idx})">
+              <input id="phase-teamsAdvance-${idx}" type="text" min="1" max="8" value="${phase.teamsAdvance || 2}" onchange="updatePhasePreview(${idx})">
             </div>
             <div class="field" style="grid-column: 1 / -1">
               <label style="display: flex; align-items: center; gap: 8px; margin: 0">
@@ -9643,7 +9644,7 @@
                   
                   <div class="field">
                     <label>Squadre che avanzano per girone (Top N)</label>
-                    <input type="number" id="wizard-teamsAdvance" min="1" max="8" value="${wizardState.phaseData.teamsAdvance}" style="width: 100%">
+                    <input type="text" id="wizard-teamsAdvance" min="1" max="8" value="${wizardState.phaseData.teamsAdvance}" style="width: 100%">
                     <small style="color: #666">I migliori N classificati di ogni girone passano</small>
                   </div>
                   

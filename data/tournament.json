@@ -405,9 +405,6 @@
             "createdAt": "2026-07-08T18:58:03+00:00"
         }
     ],
-    "meta": {
-        "lastUpdated": "2026-07-08T22:23:00+00:00"
-    },
     "phases": [
         {
             "id": "phase-1-groups",
@@ -517,9 +514,7 @@
                         "kitDelivered": false,
                         "dummy": true,
                         "createdAt": "2026-07-08T18:58:03+00:00"
-                    }
-                ],
-                [
+                    },
                     {
                         "id": "4b1d8f9a75170b77",
                         "name": "Test Team 2",
@@ -569,7 +564,9 @@
                         "kitDelivered": false,
                         "dummy": true,
                         "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
+                    }
+                ],
+                [
                     {
                         "id": "3556085be0676f32",
                         "name": "Test Team 10",
@@ -828,7 +825,7 @@
             ],
             "matches": [
                 {
-                    "id": "c617d40fd94d2db4",
+                    "id": "254a2deaac139c34",
                     "groupName": "A",
                     "team1": "03da5cc18200c08f",
                     "team2": "603546a38e9de785",
@@ -848,7 +845,7 @@
                     "slotIdx": 0
                 },
                 {
-                    "id": "918ce039617f5c06",
+                    "id": "950c40fc14cc64f6",
                     "groupName": "A",
                     "team1": "03da5cc18200c08f",
                     "team2": "ec5bda4aa88ff7fb",
@@ -868,12 +865,12 @@
                     "slotIdx": 1
                 },
                 {
-                    "id": "1b542b7af45e34d1",
+                    "id": "82a0cfe8c651d20d",
                     "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 16",
+                    "team1": "03da5cc18200c08f",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 2",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -888,12 +885,12 @@
                     "slotIdx": 0
                 },
                 {
-                    "id": "a0b894049516f8a5",
+                    "id": "46d6db8ee940d178",
                     "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "03da5cc18200c08f",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 8",
+                    "team1": "03da5cc18200c08f",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 7",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -908,12 +905,12 @@
                     "slotIdx": 1
                 },
                 {
-                    "id": "d3b3e0ed123cd1e8",
+                    "id": "cd9d4bf2f1412b12",
                     "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "603546a38e9de785",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 9",
+                    "team1": "4b1d8f9a75170b77",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 2",
+                    "team2Name": "Test Team 7",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -928,11 +925,11 @@
                     "slotIdx": 2
                 },
                 {
-                    "id": "435cd47bbd4bd494",
+                    "id": "654c6ffd06bae63a",
                     "groupName": "A",
-                    "team1": "9af9533b440769aa",
+                    "team1": "603546a38e9de785",
                     "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 1",
+                    "team1Name": "Test Team 9",
                     "team2Name": "Test Team 16",
                     "score1": null,
                     "score2": null,
@@ -948,12 +945,12 @@
                     "slotIdx": 3
                 },
                 {
-                    "id": "6a39d8c223867249",
-                    "groupName": "B",
-                    "team1": "3556085be0676f32",
-                    "team2": "ec04760d8db46d82",
-                    "team1Name": "Test Team 10",
-                    "team2Name": "Test Team 15",
+                    "id": "1557dc9200045f95",
+                    "groupName": "A",
+                    "team1": "603546a38e9de785",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 9",
+                    "team2Name": "Test Team 2",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -968,11 +965,11 @@
                     "slotIdx": 4
                 },
                 {
-                    "id": "0c49b1e5addcc2b8",
-                    "groupName": "B",
-                    "team1": "4b1d8f9a75170b77",
+                    "id": "e1aa4a7400c59029",
+                    "groupName": "A",
+                    "team1": "603546a38e9de785",
                     "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 2",
+                    "team1Name": "Test Team 9",
                     "team2Name": "Test Team 7",
                     "score1": null,
                     "score2": null,
@@ -988,12 +985,12 @@
                     "slotIdx": 5
                 },
                 {
-                    "id": "e62a40bd19c6f429",
-                    "groupName": "B",
-                    "team1": "4b1d8f9a75170b77",
-                    "team2": "3556085be0676f32",
-                    "team1Name": "Test Team 2",
-                    "team2Name": "Test Team 10",
+                    "id": "6045125cb572268b",
+                    "groupName": "A",
+                    "team1": "9af9533b440769aa",
+                    "team2": "03da5cc18200c08f",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 8",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1008,12 +1005,12 @@
                     "slotIdx": 6
                 },
                 {
-                    "id": "df8aafc42bed9bb9",
-                    "groupName": "B",
-                    "team1": "4b1d8f9a75170b77",
-                    "team2": "ec04760d8db46d82",
-                    "team1Name": "Test Team 2",
-                    "team2Name": "Test Team 15",
+                    "id": "94272e7a5a7d636b",
+                    "groupName": "A",
+                    "team1": "9af9533b440769aa",
+                    "team2": "603546a38e9de785",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 9",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1028,12 +1025,12 @@
                     "slotIdx": 7
                 },
                 {
-                    "id": "69f1aa8b6ab6eccb",
-                    "groupName": "B",
-                    "team1": "6a06af0c790a0efe",
-                    "team2": "3556085be0676f32",
-                    "team1Name": "Test Team 7",
-                    "team2Name": "Test Team 10",
+                    "id": "877b2743dc584943",
+                    "groupName": "A",
+                    "team1": "9af9533b440769aa",
+                    "team2": "ec5bda4aa88ff7fb",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 16",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1048,12 +1045,12 @@
                     "slotIdx": 0
                 },
                 {
-                    "id": "b863bf06184d0a4d",
-                    "groupName": "B",
-                    "team1": "6a06af0c790a0efe",
-                    "team2": "ec04760d8db46d82",
-                    "team1Name": "Test Team 7",
-                    "team2Name": "Test Team 15",
+                    "id": "54a6a3a5dbc126af",
+                    "groupName": "A",
+                    "team1": "9af9533b440769aa",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 2",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1068,12 +1065,12 @@
                     "slotIdx": 1
                 },
                 {
-                    "id": "8088d437e7900bea",
-                    "groupName": "C",
-                    "team1": "08ba93b19519ffb8",
-                    "team2": "952519f120bc555b",
-                    "team1Name": "Test Team 6",
-                    "team2Name": "Test Team 11",
+                    "id": "0913d8e8bb36d7af",
+                    "groupName": "A",
+                    "team1": "9af9533b440769aa",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 7",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1088,12 +1085,12 @@
                     "slotIdx": 2
                 },
                 {
-                    "id": "3096ad35ba7812be",
-                    "groupName": "C",
-                    "team1": "08ba93b19519ffb8",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 6",
-                    "team2Name": "Test Team 14",
+                    "id": "7c13177c1013d536",
+                    "groupName": "A",
+                    "team1": "ec5bda4aa88ff7fb",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 16",
+                    "team2Name": "Test Team 2",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1108,12 +1105,12 @@
                     "slotIdx": 3
                 },
                 {
-                    "id": "6b13bbf1812810c8",
-                    "groupName": "C",
-                    "team1": "952519f120bc555b",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 11",
-                    "team2Name": "Test Team 14",
+                    "id": "de283f77d14f88c9",
+                    "groupName": "A",
+                    "team1": "ec5bda4aa88ff7fb",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 16",
+                    "team2Name": "Test Team 7",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1128,12 +1125,12 @@
                     "slotIdx": 4
                 },
                 {
-                    "id": "d2fe059b9753f7ab",
-                    "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "08ba93b19519ffb8",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 6",
+                    "id": "ca4a6d5b857723a9",
+                    "groupName": "B",
+                    "team1": "3556085be0676f32",
+                    "team2": "ec04760d8db46d82",
+                    "team1Name": "Test Team 10",
+                    "team2Name": "Test Team 15",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1148,11 +1145,11 @@
                     "slotIdx": 5
                 },
                 {
-                    "id": "245afb7ca94aec63",
+                    "id": "22c817c625446cc3",
                     "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
+                    "team1": "08ba93b19519ffb8",
                     "team2": "952519f120bc555b",
-                    "team1Name": "Test Team 3",
+                    "team1Name": "Test Team 6",
                     "team2Name": "Test Team 11",
                     "score1": null,
                     "score2": null,
@@ -1168,11 +1165,11 @@
                     "slotIdx": 6
                 },
                 {
-                    "id": "4d986598d8762d8f",
+                    "id": "6bed913ac1466e39",
                     "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
+                    "team1": "08ba93b19519ffb8",
                     "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 3",
+                    "team1Name": "Test Team 6",
                     "team2Name": "Test Team 14",
                     "score1": null,
                     "score2": null,
@@ -1188,12 +1185,12 @@
                     "slotIdx": 7
                 },
                 {
-                    "id": "cc51a67eb29d838e",
-                    "groupName": "D",
-                    "team1": "5ad991ebd03fcdde",
-                    "team2": "786cd27a3cb5c025",
-                    "team1Name": "Test Team 5",
-                    "team2Name": "Test Team 12",
+                    "id": "adda47791a1ea109",
+                    "groupName": "C",
+                    "team1": "952519f120bc555b",
+                    "team2": "4e1373a49a855cbf",
+                    "team1Name": "Test Team 11",
+                    "team2Name": "Test Team 14",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1208,12 +1205,12 @@
                     "slotIdx": 0
                 },
                 {
-                    "id": "ae3688fa4cd05794",
-                    "groupName": "D",
-                    "team1": "5ad991ebd03fcdde",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 5",
-                    "team2Name": "Test Team 13",
+                    "id": "fad67c220914e248",
+                    "groupName": "C",
+                    "team1": "ce47d32b0dd3b7be",
+                    "team2": "08ba93b19519ffb8",
+                    "team1Name": "Test Team 3",
+                    "team2Name": "Test Team 6",
                     "score1": null,
                     "score2": null,
                     "status": "pending",
@@ -1228,7 +1225,87 @@
                     "slotIdx": 1
                 },
                 {
-                    "id": "6130e1a49b4a9e23",
+                    "id": "e21e487042058ad7",
+                    "groupName": "C",
+                    "team1": "ce47d32b0dd3b7be",
+                    "team2": "952519f120bc555b",
+                    "team1Name": "Test Team 3",
+                    "team2Name": "Test Team 11",
+                    "score1": null,
+                    "score2": null,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-16",
+                    "startTime": "20:30",
+                    "endTime": "21:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 2
+                },
+                {
+                    "id": "eab5e5f6ca66d38e",
+                    "groupName": "C",
+                    "team1": "ce47d32b0dd3b7be",
+                    "team2": "4e1373a49a855cbf",
+                    "team1Name": "Test Team 3",
+                    "team2Name": "Test Team 14",
+                    "score1": null,
+                    "score2": null,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-16",
+                    "startTime": "21:00",
+                    "endTime": "21:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 3
+                },
+                {
+                    "id": "88ac157890788e1b",
+                    "groupName": "D",
+                    "team1": "5ad991ebd03fcdde",
+                    "team2": "786cd27a3cb5c025",
+                    "team1Name": "Test Team 5",
+                    "team2Name": "Test Team 12",
+                    "score1": null,
+                    "score2": null,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-16",
+                    "startTime": "21:30",
+                    "endTime": "22:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 4
+                },
+                {
+                    "id": "dd5885e9f7c6ccf6",
+                    "groupName": "D",
+                    "team1": "5ad991ebd03fcdde",
+                    "team2": "64436e658e469a00",
+                    "team1Name": "Test Team 5",
+                    "team2Name": "Test Team 13",
+                    "score1": null,
+                    "score2": null,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-16",
+                    "startTime": "22:00",
+                    "endTime": "22:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 5
+                },
+                {
+                    "id": "481f2bb148330b3a",
                     "groupName": "D",
                     "team1": "786cd27a3cb5c025",
                     "team2": "64436e658e469a00",
@@ -1239,16 +1316,16 @@
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
-                    "startTime": "20:30",
-                    "endTime": "21:00",
+                    "startTime": "22:30",
+                    "endTime": "23:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 2
+                    "slotIdx": 6
                 },
                 {
-                    "id": "d75e28f641a546a4",
+                    "id": "26bb2a030dbfca35",
                     "groupName": "D",
                     "team1": "809f7659c7a39de2",
                     "team2": "5ad991ebd03fcdde",
@@ -1259,16 +1336,16 @@
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
-                    "startTime": "21:00",
-                    "endTime": "21:30",
+                    "startTime": "23:00",
+                    "endTime": "23:30",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 3
+                    "slotIdx": 7
                 },
                 {
-                    "id": "4cf0550dad0e6dc3",
+                    "id": "da9944e42fa59681",
                     "groupName": "D",
                     "team1": "809f7659c7a39de2",
                     "team2": "786cd27a3cb5c025",
@@ -1278,17 +1355,17 @@
                     "score2": null,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "21:30",
-                    "endTime": "22:00",
+                    "date": "2026-07-13",
+                    "startTime": "22:30",
+                    "endTime": "23:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 4
+                    "dateIdx": 0,
+                    "slotIdx": 0
                 },
                 {
-                    "id": "2c1300fe3f711994",
+                    "id": "ea708c3a12371553",
                     "groupName": "D",
                     "team1": "809f7659c7a39de2",
                     "team2": "64436e658e469a00",
@@ -1298,14 +1375,14 @@
                     "score2": null,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "22:00",
-                    "endTime": "22:30",
+                    "date": "2026-07-13",
+                    "startTime": "23:00",
+                    "endTime": "23:30",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 5
+                    "dateIdx": 0,
+                    "slotIdx": 1
                 }
             ],
             "standings": [],
@@ -1316,5 +1393,7 @@
             }
         }
     ],
-    "currentPhaseIdx": 1
+    "meta": {
+        "lastUpdated": "2026-07-09T21:06:15+00:00"
+    }
 }

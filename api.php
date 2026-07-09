@@ -737,28 +737,75 @@ function randomInt(int $min, int $max): int {
  * INPUT: [ [team1, team2], [team3, team4] ]
  * OUTPUT: [ { "label": "A", "teams": [team1, team2] }, { "label": "B", "teams": [team3, team4] } ]
  */
-function normalizeGroups(array $groups): array {
+function normalizeGroups(array $groups, array $allTeams = []): array {
     $groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     $normalized = [];
     
+    // Crea mappa veloce ID -> Team per lookup
+    $teamsById = [];
+    foreach ($allTeams as $team) {
+        if (isset($team['id'])) {
+            $teamsById[$team['id']] = $team;
+        }
+    }
+    
     foreach ($groups as $idx => $group) {
-        // Se è già nel formato nuovo, skip
+        // Se è già nel formato nuovo con sia 'teams' che 'label', usa direttamente
         if (isset($group['label']) && isset($group['teams'])) {
+            if (!isset($group['teamIds']) && is_array($group['teams'])) {
+                $group['teamIds'] = array_map(fn($t) => $t['id'] ?? null, $group['teams']);
+            }
             $normalized[] = $group;
             continue;
         }
         
-        // Formato vecchio: array di squadre
-        if (is_array($group)) {
-            $label = $groupNames[$idx] ?? ('G' . ($idx + 1));
+        // Formato VECCHIO: solo 'teamIds' (da vecchi tournament.json)
+        if (isset($group['teamIds']) && !isset($group['teams'])) {
+            $label = $group['label'] ?? $group['name'] ?? $groupNames[$idx] ?? ('G' . ($idx + 1));
+            // Ricostruisci i teams da teamIds usando la mappa
+            $teams = [];
+            foreach ($group['teamIds'] as $teamId) {
+                if (isset($teamsById[$teamId])) {
+                    $teams[] = $teamsById[$teamId];
+                }
+            }
             $normalized[] = [
                 'label' => $label,
-                'teams' => $group
+                'name' => $label,
+                'teams' => $teams,
+                'teamIds' => $group['teamIds']
+            ];
+            continue;
+        }
+        
+        // Formato vecchio: array di squadre (pure array)
+        if (is_array($group) && !isset($group['label']) && !isset($group['teamIds'])) {
+            $label = $groupNames[$idx] ?? ('G' . ($idx + 1));
+            $teamIds = array_map(fn($t) => $t['id'] ?? null, $group);
+            $normalized[] = [
+                'label' => $label,
+                'name' => $label,
+                'teams' => $group,
+                'teamIds' => $teamIds
             ];
         }
     }
     
     return $normalized;
+}
+
+/**
+ * Calcola teamIds da teams se non esiste
+ */
+function ensureGroupTeamIds(array &$group): array {
+    if (!isset($group['teamIds'])) {
+        if (isset($group['teams']) && is_array($group['teams'])) {
+            $group['teamIds'] = array_map(fn($t) => $t['id'] ?? null, $group['teams']);
+        } else {
+            $group['teamIds'] = [];
+        }
+    }
+    return $group['teamIds'];
 }
 
 /**
@@ -1504,8 +1551,9 @@ function balancedGroupDistribution(array $teams, int $groupCount): array {
     $groups = [];
     for ($i = 0; $i < $groupCount; $i++) {
         $groups[] = [
+            'label' => chr(65 + $i),
             'name' => chr(65 + $i),
-            'teamIds' => [],
+            'teams' => [],  // ✅ Solo questo campo contiene i dati completi
             'totalWeight' => 0.0
         ];
     }
@@ -1523,7 +1571,7 @@ function balancedGroupDistribution(array $teams, int $groupCount): array {
             usort($groups, fn($a, $b) => $a['totalWeight'] <=> $b['totalWeight']);
         }
         
-        $groups[0]['teamIds'][] = $team['id'];
+        $groups[0]['teams'][] = $team;  // ✅ SOLO questo: salva l'oggetto team completo
         $groups[0]['totalWeight'] += $weight;
         $forward = !$forward; // Alterna direzione
     }
@@ -3012,7 +3060,7 @@ if ($action === 'admin_state' && $method === 'GET') {
     if (isset($state['phases']) && is_array($state['phases'])) {
         foreach ($state['phases'] as &$phase) {
             if (isset($phase['groups'])) {
-                $phase['groups'] = normalizeGroups($phase['groups']);
+                $phase['groups'] = normalizeGroups($phase['groups'], $state['teams'] ?? []);
             }
         }
     }
@@ -3364,6 +3412,14 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         
         // Usa distribuzione bilanciata per peso squadra
         $groups = balancedGroupDistribution($approved, $groupCount);
+        
+        // ✅ Assicura che ogni group abbia teamIds calcolato da teams
+        foreach ($groups as &$group) {
+            if (!isset($group['teamIds']) && isset($group['teams'])) {
+                $group['teamIds'] = array_map(fn($t) => $t['id'] ?? null, $group['teams']);
+            }
+        }
+        unset($group);
 
         // ✅ REFACTORED: Salva i gruppi nella prima fase
         if (!isset($state['phases'][0])) {
@@ -3429,11 +3485,12 @@ if ($action === 'admin_sync_group_matches_slots' && $method === 'POST') {
  * POST body: { phaseNumber: 1, name: "Fase 1", type: "groups", numGroups: 4, teamsAdvance: 2, hasRepescage: false, notes: "..." }
  */
 if ($action === 'admin_update_phase' && $method === 'POST') {
-    validSession($token);
+    requireAdmin();
     
-    $phaseNumber = (int)($data['phaseNumber'] ?? 0);
+    $body = bodyJson();
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
     if ($phaseNumber <= 0) {
-        jsonResponse(400, ['error' => 'Phase number richiesto']);
+        jsonResponse(400, ['ok' => false, 'error' => 'Phase number richiesto']);
     }
     
     $config = readConfig();
@@ -3449,25 +3506,25 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
     }
     
     if ($phaseIdx === null) {
-        jsonResponse(404, ['error' => 'Fase non trovata']);
+        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
     }
     
     // Aggiorna i parametri
     $phase = &$phases[$phaseIdx];
-    $phase['name'] = $data['name'] ?? $phase['name'];
-    $phase['type'] = $data['type'] ?? $phase['type'];
-    $phase['notes'] = $data['notes'] ?? '';
-    $phase['qualifiedGoTo'] = $data['qualifiedGoTo'] ?? '';
-    $phase['eliminatedGoTo'] = $data['eliminatedGoTo'] ?? '';
+    $phase['name'] = $body['name'] ?? $phase['name'];
+    $phase['type'] = $body['type'] ?? $phase['type'];
+    $phase['notes'] = $body['notes'] ?? '';
+    $phase['qualifiedGoTo'] = $body['qualifiedGoTo'] ?? '';
+    $phase['eliminatedGoTo'] = $body['eliminatedGoTo'] ?? '';
     
     // Parametri specifici per tipo
     if ($phase['type'] === 'groups') {
-        $phase['numGroups'] = (int)($data['numGroups'] ?? $phase['numGroups'] ?? 4);
-        $phase['teamsAdvance'] = (int)($data['teamsAdvance'] ?? $phase['teamsAdvance'] ?? 2);
-        $phase['hasRepescage'] = (bool)($data['hasRepescage'] ?? false);
+        $phase['numGroups'] = (int)($body['numGroups'] ?? $phase['numGroups'] ?? 4);
+        $phase['teamsAdvance'] = (string)($body['teamsAdvance'] ?? $phase['teamsAdvance'] ?? '2');
+        $phase['hasRepescage'] = (bool)($body['hasRepescage'] ?? false);
     } elseif ($phase['type'] === 'knockout') {
-        $phase['numTeams'] = (int)($data['numTeams'] ?? $phase['numTeams'] ?? 8);
-        $phase['hasLosersPath'] = (bool)($data['hasLosersPath'] ?? false);
+        $phase['numTeams'] = (int)($body['numTeams'] ?? $phase['numTeams'] ?? 8);
+        $phase['hasLosersPath'] = (bool)($body['hasLosersPath'] ?? false);
     }
     
     $config['phases'] = $phases;
@@ -3535,7 +3592,7 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             }
             
             $numGroups = !empty($configPhase['numGroups']) ? (int)$configPhase['numGroups'] : 4;
-            $teamsAdvance = !empty($configPhase['teamsAdvance']) ? (int)$configPhase['teamsAdvance'] : 2;
+            $teamsAdvance = !empty($configPhase['teamsAdvance']) ? (string)$configPhase['teamsAdvance'] : '2';
             
             // Distribuisci squadre nei gironi (round-robin snake draft)
             $groups = array_fill(0, $numGroups, []);
@@ -5172,8 +5229,13 @@ if ($action === 'get_sponsors' && $method === 'GET') {
 }
 
 if ($action === 'admin_update_config' && $method === 'POST') {
-    $body = bodyJson();
-    $config = readConfig();
+    try {
+        error_log("📝 admin_update_config: INIZIO");
+        $body = bodyJson();
+        error_log("📝 admin_update_config: bodyJson() OK, keys=" . json_encode(array_keys($body)));
+        
+        $config = readConfig();
+        error_log("📝 admin_update_config: readConfig() OK");
     
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
@@ -5269,7 +5331,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             
             if ($phaseData['type'] === 'groups') {
                 $phaseData['numGroups'] = max(1, min(16, (int)($phase['numGroups'] ?? 4)));
-                $phaseData['teamsAdvance'] = max(1, min(8, (int)($phase['teamsAdvance'] ?? 2)));
+                $phaseData['teamsAdvance'] = (string)($phase['teamsAdvance'] ?? '2');
                 $phaseData['hasRepescage'] = (bool)($phase['hasRepescage'] ?? false);
             } elseif ($phaseData['type'] === 'knockout') {
                 $numTeams = (int)($phase['numTeams'] ?? 4);
@@ -5288,7 +5350,10 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         
         foreach ($phases as $idx => &$phase) {
             if ($phase['type'] === 'groups') {
-                $qualified = ($phase['numGroups'] ?? 4) * ($phase['teamsAdvance'] ?? 2);
+                // Parsa teamsAdvance (potrebbe essere "2" o "2,1,3") e somma il totale
+                $numGroups = $phase['numGroups'] ?? 4;
+                $teamsAdvancePerGroup = parseTeamsAdvancePerGroup($phase['teamsAdvance'] ?? '2', $numGroups);
+                $qualified = array_sum($teamsAdvancePerGroup);
                 $eliminated = max(0, $teamsInPlay - $qualified);
                 $teamsInPlay = $qualified + ($phase['hasRepescage'] ? $eliminated : 0);
             } elseif ($phase['type'] === 'knockout') {
@@ -5366,7 +5431,12 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     // Salva snapshot nella history se autosave è abilitato
     saveToHistory('Aggiornamento configurazione');
     
+    error_log("📝 admin_update_config: SUCCESSO, inviando config");
     jsonResponse(200, ['ok' => true, 'config' => $config]);
+    } catch (Exception $e) {
+        error_log("❌ admin_update_config ERRORE: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore configurazione: ' . $e->getMessage()]);
+    }
 }
 
 if ($action === 'create_subtournament' && $method === 'POST') {

@@ -70,8 +70,9 @@
             "qualifiedGoTo": "sa",
             "eliminatedGoTo": "sa",
             "numGroups": 4,
-            "teamsAdvance": 2,
-            "hasRepescage": true
+            "teamsAdvance": "2,1,2,2",
+            "hasRepescage": true,
+            "notes": ""
         }
     ],
     "contact": {

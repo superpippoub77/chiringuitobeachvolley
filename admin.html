@@ -4426,6 +4426,7 @@
             teamsAdvanceForThisGroup = parseInt(teamsAdvanceConfig) || 1;
           }
         }
+        console.log(`Girone ${groupLabel}: ${standings.length} squadre, ${teamsAdvanceForThisGroup} passano`);
         
         standings.forEach((row, idx) => {
           const isQualified = idx < teamsAdvanceForThisGroup;

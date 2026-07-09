@@ -471,12 +471,12 @@
         }
 
         // Successo - redirect al nuovo torneo
-        const tournamentCode = data.tournamentCode;
+        const redirectUrl = data.redirectUrl || `${data.tournamentCode}/admin.html`;
         showSuccessDialog(
           'Torneo Creato! ✅',
-          `Il tuo codice torneo è: <strong>${tournamentCode}</strong><br><br>Verrai reindirizzato al pannello di controllo...`,
+          `Il tuo codice torneo è: <strong>${data.tournamentCode}</strong><br><br>Verrai reindirizzato al pannello di controllo...`,
           () => {
-            window.location.href = `beachmaster/${tournamentCode}/admin.html`;
+            window.location.href = redirectUrl;
           }
         );
 

@@ -7102,12 +7102,14 @@ function writeTournamentsRegistry(array $data): void {
 }
 
 // Copia ricorsivamente una directory
-function copyDirectory(string $src, string $dst): bool {
+function copyDirectory(string $src, string $dst, array $extraExcludeDirs = []): bool {
     if (!is_dir($src)) return false;
     if (!is_dir($dst)) mkdir($dst, 0755, true);
     
     // ✅ Cartelle e file da escludere da TUTTE le copie
     $excludeDirs = ['.', '..', '.git', 'node_modules', 'beachmaster', '.github', 'vendor'];
+    // Aggiungi le esclusioni extra (es: il codice del torneo che si sta creando)
+    $excludeDirs = array_merge($excludeDirs, $extraExcludeDirs);
     $excludeFiles = ['.gitignore', '.gitattributes'];
     
     // Usa PHP puro per la copia (più affidabile)
@@ -7129,7 +7131,7 @@ function copyDirectory(string $src, string $dst): bool {
                 if (!is_dir($dstPath)) {
                     mkdir($dstPath, 0755, true);
                 }
-                copyDirectory($srcPath, $dstPath);
+                copyDirectory($srcPath, $dstPath, $extraExcludeDirs);
             } else {
                 copy($srcPath, $dstPath);
                 $count++;
@@ -7233,44 +7235,17 @@ if ($action === 'create_tournament' && $method === 'POST') {
     }
     
     $tournamentCode = generateGUID();
-    $beachmasterDir = __DIR__ . '/beachmaster';
-    $tournamentDir = $beachmasterDir . '/' . $tournamentCode;
+    $tournamentDir = __DIR__ . '/' . $tournamentCode;
     
     error_log("📌 create_tournament: tournamentCode=$tournamentCode, dir=$tournamentDir");
     
-    // Crea la directory beachmaster se non esiste
-    if (!is_dir($beachmasterDir)) {
-        mkdir($beachmasterDir, 0755, true);
-    }
-    
-    // Copia il progetto nella nuova directory
+    // Copia il progetto nella nuova directory, escludendo il torneo stesso per evitare loop
     error_log("📌 create_tournament: starting copyDirectory...");
-    if (!copyDirectory(__DIR__, $tournamentDir)) {
+    if (!copyDirectory(__DIR__, $tournamentDir, [$tournamentCode])) {
         error_log("📌 create_tournament: copyDirectory FAILED");
         jsonResponse(500, ['ok' => false, 'error' => 'Errore nella creazione del torneo']);
     }
     error_log("📌 create_tournament: copyDirectory completed");
-    
-    // Pulisci: rimuovi la cartella beachmaster se è stata copiata per errore
-    $beachmasterInTournament = $tournamentDir . '/beachmaster';
-    if (is_dir($beachmasterInTournament)) {
-        error_log("⚠️ ALERT: Trovata cartella beachmaster nel torneo! Rimuovo ricorsivamente...");
-        removeDirectoryRecursive($beachmasterInTournament);
-        error_log("✅ Cartella beachmaster rimossa");
-    }
-    
-    // Verifica che NON ci siano directory beachmaster annidate
-    $doubleNested = $tournamentDir . '/beachmaster/beachmaster';
-    if (is_dir($doubleNested)) {
-        error_log("⚠️ CRITICAL: Trovata doppia nidificazione beachmaster/beachmaster! Rimuovo...");
-        removeDirectoryRecursive($doubleNested);
-        // Verifica se anche la prima beachmaster è ora vuota
-        $firstNested = $tournamentDir . '/beachmaster';
-        if (is_dir($firstNested) && count(array_diff(scandir($firstNested), ['.', '..'])) === 0) {
-            rmdir($firstNested);
-        }
-        error_log("✅ Doppia nidificazione rimossa");
-    }
     
     // Nel torneo copiato: gestisci i file HTML
     // Elimina index.html (landing page del root che non serve nel torneo)
@@ -7371,7 +7346,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'code' => $tournamentCode,
         'email' => $managerEmail,
         'name' => $tournamentName,
-        'path' => 'beachmaster/' . $tournamentCode,
+        'path' => $tournamentCode,
         'createdAt' => date('Y-m-d H:i:s')
     ];
     writeTournamentsRegistry($registry);
@@ -7386,7 +7361,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'message' => 'Torneo creato con successo',
         'tournamentCode' => $tournamentCode,
         'token' => $token,
-        'redirectUrl' => 'beachmaster/' . $tournamentCode . '/admin.html'
+        'redirectUrl' => $tournamentCode . '/admin.html'
     ]);
 }
 
@@ -7401,7 +7376,7 @@ if ($action === 'tournament_login' && $method === 'POST') {
         jsonResponse(400, ['ok' => false, 'error' => 'Codice torneo non valido']);
     }
     
-    $tournamentDir = __DIR__ . '/beachmaster/' . $tournamentCode;
+    $tournamentDir = __DIR__ . '/' . $tournamentCode;
     $configFile = $tournamentDir . '/.tournament-config.json';
     
     if (!file_exists($configFile)) {

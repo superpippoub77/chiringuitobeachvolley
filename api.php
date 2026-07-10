@@ -1055,7 +1055,7 @@ function scheduleMatches(array &$state, array $matches): array {
     // giorni. A parità di numero di partite si mantiene l'ordine originale (sort stabile di
     // PHP 8+), es. girone A (5 squadre, 10 partite), girone C (5 squadre, 10 partite), girone B
     // (4 squadre, 6 partite) -> ordine di schedulazione: A, C, B.
-    uasort($matchesByGroup, fn($a, $b) => count($b) <=> count($a));
+    ksort($matchesByGroup);
     
     error_log('🔧 scheduleMatches(): Ordine di schedulazione gironi: ' . implode(', ', array_map(
         fn($g, $ms) => "$g(" . count($ms) . ')',
@@ -5478,7 +5478,9 @@ if ($action === 'get_config' && $method === 'GET') {
             'name' => $tournament['name'] ?? '',
             'maxTeams' => $tournament['maxTeams'] ?? 16,
             'maxPlayersPerTeam' => $tournament['maxPlayersPerTeam'] ?? 3,
-            'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2
+            'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2,
+			'registrationsClosed' => $tournament['registrationsClosed'] ?? false,
+			'registrationDeadline' =>$tournament['registrationDeadline'] ?? ''
         ],
         'schedule' => $config['schedule'] ?? [],
         'phases' => $publicPhases

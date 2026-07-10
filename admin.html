@@ -8115,7 +8115,8 @@
               </div>
               <div style="flex: 1; margin-left: 4px; min-width: 100px">
                 <label style="font-size: 10px; color: #6b5d45">Fine</label>
-                <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}" onchange="syncScheduleFromForm(); renderSchedule()">
+                <!-- <input type="time" id="end-${courtIdx}-${dateIdx}-${slotIdx}" value="${slot.endTime || '20:30'}" onchange="syncScheduleFromForm(); renderSchedule()"> -->
+				<input type="text" id="end-${courtIdx}-${dateIdx}-${slotIdx}" pattern="[0-9]{2}:[0-5][0-9]" placeholder="HH:MM" onchange="syncScheduleFromForm(); renderSchedule()">
               </div>
               <button class="btn btn-danger" style="margin-left: 4px; padding: 6px 8px" onclick="removeCourtTimeSlot(${courtIdx}, ${dateIdx}, ${slotIdx})">-</button>
               <div style="flex: 1; margin-top: 6px; background: white; padding: 8px; border-radius: 3px; font-size: 11px; min-width: 220px">

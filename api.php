@@ -1050,6 +1050,19 @@ function scheduleMatches(array &$state, array $matches): array {
         $matchesByGroup[$g][] = $m;
     }
     
+    // Ordina i gironi per numero di partite decrescente: i gironi più "pesanti" (più squadre,
+    // quindi più partite) vengono schedulati per primi, in modo da occupare gli slot dei primi
+    // giorni. A parità di numero di partite si mantiene l'ordine originale (sort stabile di
+    // PHP 8+), es. girone A (5 squadre, 10 partite), girone C (5 squadre, 10 partite), girone B
+    // (4 squadre, 6 partite) -> ordine di schedulazione: A, C, B.
+    uasort($matchesByGroup, fn($a, $b) => count($b) <=> count($a));
+    
+    error_log('🔧 scheduleMatches(): Ordine di schedulazione gironi: ' . implode(', ', array_map(
+        fn($g, $ms) => "$g(" . count($ms) . ')',
+        array_keys($matchesByGroup),
+        $matchesByGroup
+    )));
+    
     // Algoritmo: ogni girone viene collocato per intero nel giorno corrente, usando gli slot
     // disponibili in ordine cronologico e con distanziamento massimo tra le partite di una
     // stessa squadra (nessuna doppia prenotazione nello stesso turno). Se le celle del giorno

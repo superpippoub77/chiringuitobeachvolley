@@ -1584,13 +1584,19 @@
         return;
       }
 
+      // ✅ Stessa evidenziazione delle qualificate usata in renderStandings()/admin.html:
+      // riga verde per le squadre che passano il turno, bordo più marcato sull'ultima qualificata
       let html = '<h3>📈 Classifiche Gironi</h3>';
       standings.forEach((standing, idx) => {
+        const teamsAdvance = getTeamsAdvanceForGroup(standing.group);
         html += `<h4>Girone ${standing.group}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>G</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>`;
         (standing.rows || []).forEach((t, pos) => {
-          html += `<tr><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.played || 0}</td><td>${t.won || 0}</td><td>${t.lost || 0}</td><td>${t.points || 0}</td><td>${t.scored || 0}</td><td>${t.conceded || 0}</td><td>${t.diff || 0}</td></tr>`;
+          const isQualified = pos < teamsAdvance;
+          const isLastQualified = pos === teamsAdvance - 1;
+          const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
+          html += `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td>${pos + 1}</td><td style="text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(t.name)}</td><td>${t.played || 0}</td><td>${t.won || 0}</td><td>${t.lost || 0}</td><td>${t.points || 0}</td><td>${t.scored || 0}</td><td>${t.conceded || 0}</td><td>${t.diff || 0}</td></tr>`;
         });
-        html += `</tbody></table>`;
+        html += `</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
       });
       c.innerHTML = html;
     }

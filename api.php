@@ -1978,28 +1978,47 @@ function computeStandings(array $state): array {
     $groups = $groupsPhase['groups'] ?? [];
     $allMatches = $groupsPhase['matches'] ?? [];
 
-    // Itera su ogni gruppo - con nuova struttura, ogni $group è un array di team objects
+    // Itera su ogni gruppo: ogni $group è salvato come { name, teamIds: [...] } (solo ID),
+    // quindi va risolto tramite $teamMap per ottenere i dati completi delle squadre.
     foreach ($groups as $groupIdx => $group) {
         $rows = [];
-        $groupName = chr(65 + $groupIdx);  // A, B, C, etc.
+        $groupName = (is_array($group) ? ($group['name'] ?? $group['label'] ?? null) : null) ?? chr(65 + $groupIdx);
         
-        // ✅ REFACTORED: La nuova struttura ha i team objects direttamente nell'array
+        $teamIds = [];
         if (is_array($group)) {
-            foreach ($group as $team) {
-                if (is_array($team) && !empty($team['id'])) {
-                    $teamId = $team['id'];
-                    $rows[$teamId] = [
-                        'teamId' => $teamId,
-                        'name' => $team['name'] ?? 'N/D',
-                        'played' => 0,
-                        'won' => 0,
-                        'lost' => 0,
-                        'points' => 0,
-                        'scored' => 0,
-                        'conceded' => 0,
-                        'diff' => 0
-                    ];
+            if (isset($group['teamIds']) && is_array($group['teamIds'])) {
+                $teamIds = $group['teamIds'];
+            } elseif (isset($group['teams']) && is_array($group['teams'])) {
+                // Formato alternativo: già un array di team object
+                foreach ($group['teams'] as $t) {
+                    if (is_array($t) && !empty($t['id'])) {
+                        $teamIds[] = $t['id'];
+                    }
                 }
+            } else {
+                // Formato legacy: $group è direttamente un array di team object
+                foreach ($group as $t) {
+                    if (is_array($t) && !empty($t['id'])) {
+                        $teamIds[] = $t['id'];
+                    }
+                }
+            }
+        }
+        
+        foreach ($teamIds as $teamId) {
+            $team = $teamMap[$teamId] ?? null;
+            if ($team) {
+                $rows[$teamId] = [
+                    'teamId' => $teamId,
+                    'name' => $team['name'] ?? 'N/D',
+                    'played' => 0,
+                    'won' => 0,
+                    'lost' => 0,
+                    'points' => 0,
+                    'scored' => 0,
+                    'conceded' => 0,
+                    'diff' => 0
+                ];
             }
         }
 

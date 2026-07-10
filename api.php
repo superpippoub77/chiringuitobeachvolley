@@ -2462,8 +2462,8 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
     
-    // ✅ GROUP-DAY PRIORITY SCHEDULER: Una giorno per girone, gli orari variano dentro il giorno
-    error_log('🎯 GROUP-DAY PRIORITY SCHEDULER: Starting with per-day assignment...');
+    // ✅ GROUP-DAY PRIORITY SCHEDULER con ROUND-BASED DISTRIBUTION
+    error_log('🎯 GROUP-DAY PRIORITY SCHEDULER with ROUND-BASED DISTRIBUTION: Starting...');
     
     // 1. RACCOGLI le partite per girone
     $matchesByGroup = [];
@@ -2499,7 +2499,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     // 3. ASSEGNA un giorno per ogni girone
     $slotUsed = array_fill(0, count($availableSlots), false);
     $matchesWithSlots = [];
-    $groupDateAssignment = []; // Traccia quale data è assegnata ad ogni girone
+    $groupDateAssignment = [];
     
     $datesList = array_keys($slotsByDate);
     $groupsList = array_keys($matchesByGroup);
@@ -2530,10 +2530,16 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         error_log("    ✅ Assigned $group to date $bestDate (max $maxAvailableSlots slots available)");
         $groupDateAssignment[$group] = $bestDate;
         
-        // 4. DISTRIBUISCI le partite del girone nei slot del giorno assegnato
+        // 4. DISTRIBUISCI le partite del girone nei slot del giorno assegnato CON ROUND-BASED DISTRIBUTION
         $groupMatches = $matchesByGroup[$group];
         $daySlots = array_filter($slotsByDate[$bestDate], fn($i) => !$slotUsed[$i]);
+        $daySlots = array_values($daySlots); // Re-index
         
+        if (count($daySlots) < count($groupMatches)) {
+            error_log("    ⚠️  Day $bestDate has " . count($daySlots) . " slots but group needs " . count($groupMatches) . " - will overflow to next available slots");
+        }
+        
+        // Distribuisci le partite usando logica gap-aware
         $teamLastTime = [];
         
         foreach ($groupMatches as $matchData) {
@@ -2542,11 +2548,13 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             $team1 = $match['team1Id'];
             $team2 = $match['team2Id'];
             
-            // Trova il miglior slot nel giorno assegnato
+            // Trova il miglior slot disponibile nel giorno, rispettando gap minimo
             $bestSlotIdx = -1;
             $bestScore = PHP_INT_MIN;
             $bestSlotTime = null;
+            $foundGapCompliance = false; // Flag se troviamo un slot con gap >= 75 min
             
+            // PRIMA PASS: Cerca slot dove ENTRAMBE le squadre hanno gap >= 75 minuti
             foreach ($daySlots as $slotIdx) {
                 if ($slotUsed[$slotIdx]) continue;
                 
@@ -2560,13 +2568,41 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $team2Gap = ($slotTime - $team2LastTime) / 60;
                 $minGap = min($team1Gap, $team2Gap);
                 
-                // Score: preferiamo gap >= 75 minuti
-                $score = ($minGap >= 75) ? (1000 + $minGap) : $minGap;
-                
-                if ($score > $bestScore) {
-                    $bestScore = $score;
-                    $bestSlotIdx = $slotIdx;
-                    $bestSlotTime = $slotTime;
+                // Se gap >= 75 minuti, score è positivo (bonus)
+                if ($minGap >= 75 || $team1LastTime === PHP_INT_MIN || $team2LastTime === PHP_INT_MIN) {
+                    $score = 1000 + $minGap;
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestSlotIdx = $slotIdx;
+                        $bestSlotTime = $slotTime;
+                        $foundGapCompliance = true;
+                    }
+                }
+            }
+            
+            // SECONDA PASS (fallback): Se non troviamo slot con gap >= 75, prendi il migliore disponibile
+            if ($bestSlotIdx === -1) {
+                foreach ($daySlots as $slotIdx) {
+                    if ($slotUsed[$slotIdx]) continue;
+                    
+                    $slot = $availableSlots[$slotIdx];
+                    $slotTime = strtotime($slot['startTime']);
+                    
+                    $team1LastTime = $teamLastTime[$team1] ?? PHP_INT_MIN;
+                    $team2LastTime = $teamLastTime[$team2] ?? PHP_INT_MIN;
+                    
+                    $team1Gap = ($slotTime - $team1LastTime) / 60;
+                    $team2Gap = ($slotTime - $team2LastTime) / 60;
+                    $minGap = min($team1Gap, $team2Gap);
+                    
+                    // Score: gap il più grande possibile
+                    $score = $minGap;
+                    
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestSlotIdx = $slotIdx;
+                        $bestSlotTime = $slotTime;
+                    }
                 }
             }
             
@@ -2586,9 +2622,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $teamLastTime[$team1] = $bestSlotTime;
                 $teamLastTime[$team2] = $bestSlotTime;
                 
-                error_log("    ✅ Match → {$slot['date']} {$slot['startTime']}-{$slot['endTime']}");
+                $gapInfo = $foundGapCompliance ? "✅ gap OK" : "⚠️ gap < 75min";
+                error_log("    $gapInfo: Match {$team1} vs {$team2} → {$slot['startTime']}-{$slot['endTime']}");
             } else {
-                error_log("    ❌ Could not find slot in $bestDate for group $group! Using fallback.");
+                error_log("    ❌ Could not find slot in $bestDate for group $group!");
                 buildGroupMatches($state);
                 return;
             }

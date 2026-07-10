@@ -2530,7 +2530,8 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         error_log("    ✅ Assigned $group to date $bestDate (max $maxAvailableSlots slots available)");
         $groupDateAssignment[$group] = $bestDate;
         
-        // 4. DISTRIBUISCI le partite del girone nei slot del giorno assegnato CON ROUND-BASED DISTRIBUTION
+        // 4. DISTRIBUISCI le partite del girone nei slot del giorno assegnato CON GREEDY MATCHING
+        // Strategy: Ad ogni passo, scelgo la partita NON ANCORA ASSEGNATA che meno carica le squadre già cariche
         $groupMatches = $matchesByGroup[$group];
         $daySlots = array_filter($slotsByDate[$bestDate], fn($i) => !$slotUsed[$i]);
         $daySlots = array_values($daySlots); // Re-index
@@ -2539,64 +2540,71 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             error_log("    ⚠️  Day $bestDate has " . count($daySlots) . " slots but group needs " . count($groupMatches) . " - will overflow to next available slots");
         }
         
-        // RIORDINA i match per bilanciare il carico delle squadre
-        // Strategy: Le squadre meno "cariche" (meno match assegnati) dovrebbero giocare prima
-        // Questo garantisce una distribuzione uniforme nel tempo
+        // Traccia quali match sono già assegnati
+        $assignedMatchIndices = [];
         $teamLoadIndex = [];
-        $allTeamsInGroup = [];
+        
+        // Inizializza i carichi
         foreach ($groupMatches as $matchData) {
             $team1 = $matchData['match']['team1Id'];
             $team2 = $matchData['match']['team2Id'];
             if (!isset($teamLoadIndex[$team1])) {
                 $teamLoadIndex[$team1] = 0;
-                $allTeamsInGroup[] = $team1;
             }
             if (!isset($teamLoadIndex[$team2])) {
                 $teamLoadIndex[$team2] = 0;
-                $allTeamsInGroup[] = $team2;
             }
         }
         
-        // Ordina i match: priorità a match dove ENTRAMBE le squadre hanno il carico più basso
-        usort($groupMatches, function($a, $b) use (&$teamLoadIndex) {
-            $team1A = $a['match']['team1Id'];
-            $team2A = $a['match']['team2Id'];
-            $team1B = $b['match']['team1Id'];
-            $team2B = $b['match']['team2Id'];
+        $teamLastTime = [];
+        
+        // Greedy matching: finché ci sono partite non assegnate
+        while (count($assignedMatchIndices) < count($groupMatches)) {
+            $bestMatchIdx = -1;
+            $bestScore = PHP_INT_MIN;
+            $bestLoad = PHP_INT_MAX;
             
-            $loadA = min($teamLoadIndex[$team1A], $teamLoadIndex[$team2A]);
-            $loadB = min($teamLoadIndex[$team1B], $teamLoadIndex[$team2B]);
-            
-            if ($loadA !== $loadB) {
-                return $loadA - $loadB;  // Prima i match con squadre meno cariche
+            // Trova la miglior partita NOT YET ASSIGNED
+            foreach ($groupMatches as $idx => $matchData) {
+                if (in_array($idx, $assignedMatchIndices)) {
+                    continue; // Già assegnata
+                }
+                
+                $team1 = $matchData['match']['team1Id'];
+                $team2 = $matchData['match']['team2Id'];
+                
+                // Score: preferiamo partite dove le squadre sono meno cariche
+                $load = max($teamLoadIndex[$team1], $teamLoadIndex[$team2]);
+                $minLoad = min($teamLoadIndex[$team1], $teamLoadIndex[$team2]);
+                
+                // Prefer: squadre poco cariche, e se uno è poco carico e l'altro più carico, è OK
+                $score = -($load * 100 + $minLoad);  // Negativo perché cerchiamo il minimo
+                
+                if ($score > $bestScore || ($score === $bestScore && $load < $bestLoad)) {
+                    $bestScore = $score;
+                    $bestMatchIdx = $idx;
+                    $bestLoad = $load;
+                }
             }
             
-            // Se hanno lo stesso carico minimo, ordina per carico massimo (prendi più "squilibrato")
-            $maxLoadA = max($teamLoadIndex[$team1A], $teamLoadIndex[$team2A]);
-            $maxLoadB = max($teamLoadIndex[$team1B], $teamLoadIndex[$team2B]);
-            return $maxLoadA - $maxLoadB;
-        });
-        
-        error_log("    📊 Match reordered for balanced distribution");
-        
-        // Distribuisci le partite usando logica gap-aware
-        $teamLastTime = [];
-        $sortedMatchIdx = 0;
-        
-        foreach ($groupMatches as $matchData) {
-            $sortedMatchIdx++;
+            if ($bestMatchIdx === -1) {
+                error_log("    ❌ Could not find unassigned match in $group!");
+                buildGroupMatches($state);
+                return;
+            }
+            
+            // Assegna questa partita al miglior slot disponibile nel giorno
+            $matchData = $groupMatches[$bestMatchIdx];
             $idx = $matchData['idx'];
             $match = $matchData['match'];
             $team1 = $match['team1Id'];
             $team2 = $match['team2Id'];
             
-            // Trova il miglior slot disponibile nel giorno, rispettando gap minimo
             $bestSlotIdx = -1;
-            $bestScore = PHP_INT_MIN;
+            $bestSlotScore = PHP_INT_MIN;
             $bestSlotTime = null;
-            $foundGapCompliance = false;
             
-            // PRIMA PASS: Cerca slot dove ENTRAMBE le squadre hanno gap >= 75 minuti
+            // Cerca lo slot migliore considerando i gap
             foreach ($daySlots as $slotIdx) {
                 if ($slotUsed[$slotIdx]) continue;
                 
@@ -2610,41 +2618,15 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $team2Gap = ($slotTime - $team2LastTime) / 60;
                 $minGap = min($team1Gap, $team2Gap);
                 
-                // Se gap >= 75 minuti, score è positivo (bonus)
-                if ($minGap >= 75 || $team1LastTime === PHP_INT_MIN || $team2LastTime === PHP_INT_MIN) {
-                    $score = 1000 + $minGap;
-                    if ($score > $bestScore) {
-                        $bestScore = $score;
-                        $bestSlotIdx = $slotIdx;
-                        $bestSlotTime = $slotTime;
-                        $foundGapCompliance = true;
-                    }
-                }
-            }
-            
-            // SECONDA PASS (fallback): Se non troviamo slot con gap >= 75, prendi il migliore disponibile
-            if ($bestSlotIdx === -1) {
-                foreach ($daySlots as $slotIdx) {
-                    if ($slotUsed[$slotIdx]) continue;
-                    
-                    $slot = $availableSlots[$slotIdx];
-                    $slotTime = strtotime($slot['startTime']);
-                    
-                    $team1LastTime = $teamLastTime[$team1] ?? PHP_INT_MIN;
-                    $team2LastTime = $teamLastTime[$team2] ?? PHP_INT_MIN;
-                    
-                    $team1Gap = ($slotTime - $team1LastTime) / 60;
-                    $team2Gap = ($slotTime - $team2LastTime) / 60;
-                    $minGap = min($team1Gap, $team2Gap);
-                    
-                    // Score: gap il più grande possibile
-                    $score = $minGap;
-                    
-                    if ($score > $bestScore) {
-                        $bestScore = $score;
-                        $bestSlotIdx = $slotIdx;
-                        $bestSlotTime = $slotTime;
-                    }
+                // Score: preferiamo gap >= 75 minuti
+                $slotScore = ($minGap >= 75 || $team1LastTime === PHP_INT_MIN || $team2LastTime === PHP_INT_MIN) 
+                    ? (1000 + $minGap) 
+                    : $minGap;
+                
+                if ($slotScore > $bestSlotScore) {
+                    $bestSlotScore = $slotScore;
+                    $bestSlotIdx = $slotIdx;
+                    $bestSlotTime = $slotTime;
                 }
             }
             
@@ -2665,11 +2647,11 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $teamLastTime[$team2] = $bestSlotTime;
                 $teamLoadIndex[$team1]++;
                 $teamLoadIndex[$team2]++;
+                $assignedMatchIndices[] = $bestMatchIdx;
                 
-                $gapInfo = $foundGapCompliance ? "✅" : "⚠️";
-                error_log("    $gapInfo [$sortedMatchIdx/{" . count($groupMatches) . "}] {$team1} vs {$team2} → {$slot['startTime']}");
+                error_log("    ✅ [{count($assignedMatchIndices)}/{count($groupMatches)}] {$team1}[L:{$teamLoadIndex[$team1]}] vs {$team2}[L:{$teamLoadIndex[$team2]}] → {$slot['startTime']}");
             } else {
-                error_log("    ❌ Could not find slot in $bestDate for group $group!");
+                error_log("    ❌ Could not find slot for group $group!");
                 buildGroupMatches($state);
                 return;
             }

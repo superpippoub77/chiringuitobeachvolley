@@ -2539,10 +2539,52 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             error_log("    ⚠️  Day $bestDate has " . count($daySlots) . " slots but group needs " . count($groupMatches) . " - will overflow to next available slots");
         }
         
+        // RIORDINA i match per bilanciare il carico delle squadre
+        // Strategy: Le squadre meno "cariche" (meno match assegnati) dovrebbero giocare prima
+        // Questo garantisce una distribuzione uniforme nel tempo
+        $teamLoadIndex = [];
+        $allTeamsInGroup = [];
+        foreach ($groupMatches as $matchData) {
+            $team1 = $matchData['match']['team1Id'];
+            $team2 = $matchData['match']['team2Id'];
+            if (!isset($teamLoadIndex[$team1])) {
+                $teamLoadIndex[$team1] = 0;
+                $allTeamsInGroup[] = $team1;
+            }
+            if (!isset($teamLoadIndex[$team2])) {
+                $teamLoadIndex[$team2] = 0;
+                $allTeamsInGroup[] = $team2;
+            }
+        }
+        
+        // Ordina i match: priorità a match dove ENTRAMBE le squadre hanno il carico più basso
+        usort($groupMatches, function($a, $b) use (&$teamLoadIndex) {
+            $team1A = $a['match']['team1Id'];
+            $team2A = $a['match']['team2Id'];
+            $team1B = $b['match']['team1Id'];
+            $team2B = $b['match']['team2Id'];
+            
+            $loadA = min($teamLoadIndex[$team1A], $teamLoadIndex[$team2A]);
+            $loadB = min($teamLoadIndex[$team1B], $teamLoadIndex[$team2B]);
+            
+            if ($loadA !== $loadB) {
+                return $loadA - $loadB;  // Prima i match con squadre meno cariche
+            }
+            
+            // Se hanno lo stesso carico minimo, ordina per carico massimo (prendi più "squilibrato")
+            $maxLoadA = max($teamLoadIndex[$team1A], $teamLoadIndex[$team2A]);
+            $maxLoadB = max($teamLoadIndex[$team1B], $teamLoadIndex[$team2B]);
+            return $maxLoadA - $maxLoadB;
+        });
+        
+        error_log("    📊 Match reordered for balanced distribution");
+        
         // Distribuisci le partite usando logica gap-aware
         $teamLastTime = [];
+        $sortedMatchIdx = 0;
         
         foreach ($groupMatches as $matchData) {
+            $sortedMatchIdx++;
             $idx = $matchData['idx'];
             $match = $matchData['match'];
             $team1 = $match['team1Id'];
@@ -2552,7 +2594,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             $bestSlotIdx = -1;
             $bestScore = PHP_INT_MIN;
             $bestSlotTime = null;
-            $foundGapCompliance = false; // Flag se troviamo un slot con gap >= 75 min
+            $foundGapCompliance = false;
             
             // PRIMA PASS: Cerca slot dove ENTRAMBE le squadre hanno gap >= 75 minuti
             foreach ($daySlots as $slotIdx) {
@@ -2621,9 +2663,11 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $slotUsed[$bestSlotIdx] = true;
                 $teamLastTime[$team1] = $bestSlotTime;
                 $teamLastTime[$team2] = $bestSlotTime;
+                $teamLoadIndex[$team1]++;
+                $teamLoadIndex[$team2]++;
                 
-                $gapInfo = $foundGapCompliance ? "✅ gap OK" : "⚠️ gap < 75min";
-                error_log("    $gapInfo: Match {$team1} vs {$team2} → {$slot['startTime']}-{$slot['endTime']}");
+                $gapInfo = $foundGapCompliance ? "✅" : "⚠️";
+                error_log("    $gapInfo [$sortedMatchIdx/{" . count($groupMatches) . "}] {$team1} vs {$team2} → {$slot['startTime']}");
             } else {
                 error_log("    ❌ Could not find slot in $bestDate for group $group!");
                 buildGroupMatches($state);

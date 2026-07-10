@@ -2462,11 +2462,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
     
-    // ✅ GROUP-BASED PRIORITY SCHEDULER: Prioritizza il raggruppamento per giorno/orario per girone
-    error_log('🎯 GROUP-BASED PRIORITY SCHEDULER: Starting...');
-    error_log('  Gironi da elaborare:');
+    // ✅ GROUP-DAY PRIORITY SCHEDULER: Una giorno per girone, gli orari variano dentro il giorno
+    error_log('🎯 GROUP-DAY PRIORITY SCHEDULER: Starting with per-day assignment...');
     
-    // Raccogli le partite per girone
+    // 1. RACCOGLI le partite per girone
     $matchesByGroup = [];
     foreach ($matches as $idx => $match) {
         $group = $match['group'];
@@ -2476,111 +2475,93 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         $matchesByGroup[$group][] = ['idx' => $idx, 'match' => $match];
     }
     
-    error_log('  Gruppi trovati: ' . implode(', ', array_keys($matchesByGroup)));
+    error_log('  Groups found: ' . implode(', ', array_keys($matchesByGroup)));
     foreach ($matchesByGroup as $group => $groupMatches) {
         error_log("    - $group: " . count($groupMatches) . ' matches');
     }
     
+    // 2. RAGGRUPPA gli slot per GIORNO (non per data+time)
+    $slotsByDate = [];
+    for ($i = 0; $i < count($availableSlots); $i++) {
+        $slot = $availableSlots[$i];
+        $date = $slot['date'];
+        if (!isset($slotsByDate[$date])) {
+            $slotsByDate[$date] = [];
+        }
+        $slotsByDate[$date][] = $i;
+    }
+    
+    error_log("  Available dates: " . implode(', ', array_keys($slotsByDate)));
+    foreach ($slotsByDate as $date => $slotIndices) {
+        error_log("    - $date: " . count($slotIndices) . ' slots');
+    }
+    
+    // 3. ASSEGNA un giorno per ogni girone
     $slotUsed = array_fill(0, count($availableSlots), false);
     $matchesWithSlots = [];
-    $groupAssignments = []; // Traccia quale data/fascia oraria è assegnata ad ogni girone
+    $groupDateAssignment = []; // Traccia quale data è assegnata ad ogni girone
     
-    // Per ogni girone, assegna tutte le partite allo stesso giorno/orario
-    foreach ($matchesByGroup as $group => $groupMatches) {
-        error_log("\n  ▶️  Processing GROUP: $group");
+    $datesList = array_keys($slotsByDate);
+    $groupsList = array_keys($matchesByGroup);
+    
+    foreach ($groupsList as $groupIdx => $group) {
+        error_log("\n  ▶️  Processing GROUP: $group (match count: " . count($matchesByGroup[$group]) . ")");
         
-        // Raggruppa gli slot per (date, startTime) - stessa fascia oraria
-        $slotsByDateAndTime = [];
-        for ($i = 0; $i < count($availableSlots); $i++) {
-            if ($slotUsed[$i]) continue;
+        // Seleziona il GIORNO meno occupato per questo girone
+        $bestDate = null;
+        $maxAvailableSlots = -1;
+        
+        foreach ($datesList as $date) {
+            $availableSlots_inDate = array_filter($slotsByDate[$date], fn($i) => !$slotUsed[$i]);
+            $slotCount = count($availableSlots_inDate);
             
-            $slot = $availableSlots[$i];
-            $key = $slot['date'] . '|' . $slot['startTime']; // Es: "2026-07-13|19:30"
-            if (!isset($slotsByDateAndTime[$key])) {
-                $slotsByDateAndTime[$key] = [];
-            }
-            $slotsByDateAndTime[$key][] = $i;
-        }
-        
-        error_log("    Available date/time combinations: " . count($slotsByDateAndTime));
-        foreach (array_keys($slotsByDateAndTime) as $key) {
-            $parts = explode('|', $key);
-            error_log("      - {$parts[0]} {$parts[1]}: " . count($slotsByDateAndTime[$key]) . ' slots');
-        }
-        
-        // Trova la fascia oraria (date + startTime) con abbastanza slot per tutti i match del girone
-        $bestDateTimeKey = null;
-        $bestSlotCount = 0;
-        
-        foreach ($slotsByDateAndTime as $key => $slotIndices) {
-            $availableCount = count($slotIndices);
-            $neededCount = count($groupMatches);
-            
-            if ($availableCount >= $neededCount && $availableCount > $bestSlotCount) {
-                $bestDateTimeKey = $key;
-                $bestSlotCount = $availableCount;
+            if ($slotCount > $maxAvailableSlots) {
+                $maxAvailableSlots = $slotCount;
+                $bestDate = $date;
             }
         }
         
-        // Se non c'è una fascia oraria con abbastanza slot, usa la fascia con più slot disponibili
-        if ($bestDateTimeKey === null) {
-            foreach ($slotsByDateAndTime as $key => $slotIndices) {
-                if (count($slotIndices) > $bestSlotCount) {
-                    $bestDateTimeKey = $key;
-                    $bestSlotCount = count($slotIndices);
-                }
-            }
-        }
-        
-        if ($bestDateTimeKey === null) {
-            error_log("    ❌ No available slots for group $group!");
+        if ($bestDate === null) {
+            error_log("    ❌ No available date for group $group! Fallback to old algorithm.");
             buildGroupMatches($state);
             return;
         }
         
-        $parts = explode('|', $bestDateTimeKey);
-        error_log("    ✅ Assigned $group to {$parts[0]} {$parts[1]} ({$bestSlotCount} available slots)");
+        error_log("    ✅ Assigned $group to date $bestDate (max $maxAvailableSlots slots available)");
+        $groupDateAssignment[$group] = $bestDate;
         
-        $groupAssignments[$group] = $bestDateTimeKey;
-        $assignedSlotIndices = $slotsByDateAndTime[$bestDateTimeKey];
+        // 4. DISTRIBUISCI le partite del girone nei slot del giorno assegnato
+        $groupMatches = $matchesByGroup[$group];
+        $daySlots = array_filter($slotsByDate[$bestDate], fn($i) => !$slotUsed[$i]);
         
-        // Assegna le partite del girone agli slot della fascia oraria selezionata
-        $teamLastTime = []; // Traccia il tempo dell'ultimo match per ogni squadra del girone
+        $teamLastTime = [];
         
         foreach ($groupMatches as $matchData) {
             $idx = $matchData['idx'];
             $match = $matchData['match'];
-            
             $team1 = $match['team1Id'];
             $team2 = $match['team2Id'];
             
-            // Trova il miglior slot tra quelli disponibili per questa fascia oraria
+            // Trova il miglior slot nel giorno assegnato
             $bestSlotIdx = -1;
             $bestScore = PHP_INT_MIN;
             $bestSlotTime = null;
             
-            foreach ($assignedSlotIndices as $slotIdx) {
-                if ($slotUsed[$slotIdx]) {
-                    continue; // Questo slot è già stato usato in questo girone
-                }
+            foreach ($daySlots as $slotIdx) {
+                if ($slotUsed[$slotIdx]) continue;
                 
                 $slot = $availableSlots[$slotIdx];
                 $slotTime = strtotime($slot['startTime']);
                 
-                // Calcola gap dall'ultimo match di ogni squadra
                 $team1LastTime = $teamLastTime[$team1] ?? PHP_INT_MIN;
                 $team2LastTime = $teamLastTime[$team2] ?? PHP_INT_MIN;
                 
-                $team1Gap = ($slotTime - $team1LastTime) / 60; // In minuti
+                $team1Gap = ($slotTime - $team1LastTime) / 60;
                 $team2Gap = ($slotTime - $team2LastTime) / 60;
                 $minGap = min($team1Gap, $team2Gap);
                 
-                // Score: preferiamo gap più larghi (almeno 75 minuti tra match della stessa squadra)
-                if ($minGap < 75) {
-                    $score = $minGap; // Penalità se gap è piccolo
-                } else {
-                    $score = 1000 + $minGap; // Bonus se gap è decente
-                }
+                // Score: preferiamo gap >= 75 minuti
+                $score = ($minGap >= 75) ? (1000 + $minGap) : $minGap;
                 
                 if ($score > $bestScore) {
                     $bestScore = $score;
@@ -2605,9 +2586,9 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $teamLastTime[$team1] = $bestSlotTime;
                 $teamLastTime[$team2] = $bestSlotTime;
                 
-                error_log("    ✅ {$team1} vs {$team2} → {$slot['startTime']}-{$slot['endTime']}");
+                error_log("    ✅ Match → {$slot['date']} {$slot['startTime']}-{$slot['endTime']}");
             } else {
-                error_log("    ❌ Could not assign match for group $group!");
+                error_log("    ❌ Could not find slot in $bestDate for group $group! Using fallback.");
                 buildGroupMatches($state);
                 return;
             }

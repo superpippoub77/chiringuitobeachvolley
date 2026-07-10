@@ -1834,22 +1834,43 @@ function publicState(array $state): array {
         }, array_filter($state['teams'], fn($t) => !empty($t['approved'])))),
         'pendingCount' => count(array_filter($state['teams'], fn($t) => empty($t['approved']))),
         'groups' => array_values(array_map(function ($g, $idx) use ($teamMap) {
-            // ✅ REFACTORED: Gestisci nuova struttura groups dove ogni elemento è un array di team objects
+            // I gironi sono salvati come { name, teamIds: [...] } (solo ID), non come array
+            // di team object: qui li risolviamo tramite la mappa id->team per esporre al
+            // frontend i dati completi delle squadre (nome, giocatori, ecc.)
             $groupTeams = [];
+            $teamIds = [];
             if (is_array($g)) {
-                foreach ($g as $team) {
-                    if (is_array($team) && !empty($team['id'])) {
-                        // È un team object (dalla nuova struttura)
-                        $groupTeams[] = [
-                            'id' => $team['id'],
-                            'name' => $team['name'] ?? 'N/D',
-                            'players' => $team['players'] ?? []
-                        ];
+                if (isset($g['teamIds']) && is_array($g['teamIds'])) {
+                    $teamIds = $g['teamIds'];
+                } elseif (isset($g['teams']) && is_array($g['teams'])) {
+                    // Formato alternativo: già un array di team object
+                    foreach ($g['teams'] as $team) {
+                        if (is_array($team) && !empty($team['id'])) {
+                            $teamIds[] = $team['id'];
+                        }
+                    }
+                } else {
+                    // Formato legacy: $g è direttamente un array di team object
+                    foreach ($g as $team) {
+                        if (is_array($team) && !empty($team['id'])) {
+                            $teamIds[] = $team['id'];
+                        }
                     }
                 }
             }
+            foreach ($teamIds as $teamId) {
+                $team = $teamMap[$teamId] ?? null;
+                if ($team) {
+                    $groupTeams[] = [
+                        'id' => $team['id'],
+                        'name' => $team['name'] ?? 'N/D',
+                        'players' => $team['players'] ?? []
+                    ];
+                }
+            }
+            $groupName = (is_array($g) ? ($g['name'] ?? $g['label'] ?? null) : null) ?? chr(65 + $idx);
             return [
-                'name' => chr(65 + $idx),  // A, B, C, etc.
+                'name' => $groupName,
                 'teams' => $groupTeams
             ];
         }, $groups, array_keys($groups))),

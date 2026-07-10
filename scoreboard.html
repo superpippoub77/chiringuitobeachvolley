@@ -1437,8 +1437,10 @@
 
     function renderGroups() {
       const c = document.getElementById('page-groups');
-      // ✅ REFACTORED: Leggi gruppi da phases[0].groups
-      const groups = state.phases?.[0]?.groups || [];
+      // ✅ FIX: state.phases[0].groups contiene solo { name, teamIds: [...] } (solo ID,
+      // niente dati squadra). I dati completi delle squadre (nome, giocatori) sono già
+      // risolti lato server in state.groups: [{ name, teams: [...] }, ...]
+      const groups = state.groups || [];
       
       if (!groups.length) {
         c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
@@ -1460,8 +1462,9 @@
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
       
       groups.forEach((g, idx) => {
-        const groupName = String.fromCharCode(65 + idx);
-        const teamCount = (g || []).length;
+        const groupName = g?.name || String.fromCharCode(65 + idx);
+        const teamsInGroup = g?.teams || [];
+        const teamCount = teamsInGroup.length;
         
         html += `<div style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0">
           <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
@@ -1473,7 +1476,7 @@
           </h4>
           <div style="display: flex; flex-direction: column; gap: 8px">`;
         
-        (g || []).forEach(team => {
+        teamsInGroup.forEach(team => {
           let playersHtml = (team.players || [])
             .map(p => {
               const name = typeof p === 'string' ? p : (p.name || '');

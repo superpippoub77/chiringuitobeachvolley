@@ -1008,24 +1008,80 @@ function scheduleMatches(array &$state, array $matches): array {
     $totalCourtSlots = array_sum(array_map(fn($t) => count($t['courts']), $timeSlotsList));
     error_log('✅ scheduleMatches(): Turni cronologici: ' . count($timeSlotsList) . ', slot-campo totali: ' . $totalCourtSlots);
     
-    // Algoritmo greedy "a distanza massima":
-    // Per ogni turno (in ordine cronologico) e per ogni campo disponibile in quel turno,
-    // scegliamo tra le partite ancora da assegnare quella che, per ENTRAMBE le squadre
-    // coinvolte, garantisce il gap più ampio dall'ultima partita giocata (così nessuna
-    // squadra gioca due partite consecutive/troppo ravvicinate). In più, una squadra non
-    // può mai essere assegnata due volte nello stesso turno (stesso orario, campo diverso),
-    // il che evitava anche il rischio di doppie prenotazioni presente nella versione precedente.
-    $remaining = $matches;
-    $scheduled = [];
-    $teamLastSlotPos = []; // teamId => posizione cronologica dell'ultima partita assegnata
+    // Suddividi i turni in "giorni": dato che ogni data è un giorno di calendario distinto,
+    // ordinando cronologicamente i turni di una stessa data restano automaticamente contigui.
+    // Questo ci permette di individuare i confini tra un giorno e l'altro e di appiattire
+    // ogni giorno in una sequenza di celle (turno + campo) pronte da riempire in ordine.
+    $dayCells = [];
+    $currentDate = null;
     $slotPos = 0;
+    
+    foreach ($timeSlotsList as $turn) {
+        if ($turn['date'] !== $currentDate) {
+            $dayCells[] = [];
+            $currentDate = $turn['date'];
+        }
+        $lastDayIdx = count($dayCells) - 1;
+        
+        foreach ($turn['courts'] as $courtSlot) {
+            $dayCells[$lastDayIdx][] = [
+                'slotPos' => $slotPos,
+                'date' => $turn['date'],
+                'startTime' => $turn['startTime'],
+                'endTime' => $turn['endTime'],
+                'courtId' => $courtSlot['courtId'],
+                'courtName' => $courtSlot['courtName'],
+                'courtIdx' => $courtSlot['courtIdx'],
+                'dateIdx' => $courtSlot['dateIdx'],
+                'slotIdx' => $courtSlot['slotIdx']
+            ];
+        }
+        $slotPos++;
+    }
+    
+    error_log('✅ scheduleMatches(): Giorni disponibili: ' . count($dayCells));
+    
+    // Raggruppa le partite per girone, mantenendo l'ordine con cui i gironi compaiono
+    // nell'array (A, B, C, ...). Le partite senza girone (es. fase knockout) finiscono
+    // in un unico gruppo "senza nome".
+    $matchesByGroup = [];
+    foreach ($matches as $m) {
+        $g = $m['groupName'] ?? '__nogroup__';
+        $matchesByGroup[$g][] = $m;
+    }
+    
+    // Algoritmo: ogni girone viene collocato per intero nel giorno corrente, usando gli slot
+    // disponibili in ordine cronologico e con distanziamento massimo tra le partite di una
+    // stessa squadra (nessuna doppia prenotazione nello stesso turno). Se le celle del giorno
+    // finiscono prima che il girone sia completo, si passa al giorno successivo con gli slot
+    // rimasti. Il girone successivo riparte da dove si è fermato il puntatore, quindi può
+    // condividere lo stesso giorno se resta capienza, oppure iniziare già sul giorno dopo.
+    $scheduled = [];
+    $unplaced = [];
+    $teamLastSlotPos = []; // teamId => posizione cronologica dell'ultima partita assegnata
+    $busyTeamsBySlotPos = []; // slotPos => squadre già impegnate in quel turno
+    $dayIdx = 0;
+    $cellIdx = 0;
     $matchCount = 0;
     
-    foreach ($timeSlotsList as $timeSlot) {
-        $busyTeamsThisSlot = [];
+    foreach ($matchesByGroup as $groupName => $groupMatches) {
+        $remaining = $groupMatches;
         
-        foreach ($timeSlot['courts'] as $courtSlot) {
-            if (empty($remaining)) break 2;
+        while (!empty($remaining)) {
+            if ($dayIdx >= count($dayCells)) {
+                // Slot esauriti per l'intero torneo
+                break;
+            }
+            if ($cellIdx >= count($dayCells[$dayIdx])) {
+                // Giorno esaurito: passa al successivo (il girone corrente prosegue lì)
+                $dayIdx++;
+                $cellIdx = 0;
+                continue;
+            }
+            
+            $cell = $dayCells[$dayIdx][$cellIdx];
+            $slotPosHere = $cell['slotPos'];
+            $busyHere = $busyTeamsBySlotPos[$slotPosHere] ?? [];
             
             $bestIdx = null;
             $bestScore = -INF;
@@ -1035,12 +1091,12 @@ function scheduleMatches(array &$state, array $matches): array {
                 $t2 = $m['team2'] ?? null;
                 
                 // Una squadra non può giocare due partite nello stesso turno (campi diversi, stessa ora)
-                if (in_array($t1, $busyTeamsThisSlot, true) || in_array($t2, $busyTeamsThisSlot, true)) {
+                if (in_array($t1, $busyHere, true) || in_array($t2, $busyHere, true)) {
                     continue;
                 }
                 
-                $gap1 = isset($teamLastSlotPos[$t1]) ? ($slotPos - $teamLastSlotPos[$t1]) : PHP_INT_MAX;
-                $gap2 = isset($teamLastSlotPos[$t2]) ? ($slotPos - $teamLastSlotPos[$t2]) : PHP_INT_MAX;
+                $gap1 = isset($teamLastSlotPos[$t1]) ? ($slotPosHere - $teamLastSlotPos[$t1]) : PHP_INT_MAX;
+                $gap2 = isset($teamLastSlotPos[$t2]) ? ($slotPosHere - $teamLastSlotPos[$t2]) : PHP_INT_MAX;
                 $score = min($gap1, $gap2); // vince la coppia con il "riposo" minimo più grande
                 
                 if ($score > $bestScore) {
@@ -1050,48 +1106,52 @@ function scheduleMatches(array &$state, array $matches): array {
             }
             
             if ($bestIdx === null) {
-                // Nessuna partita compatibile per questo campo/turno (tutte le squadre libere
-                // sono già impegnate altrove in questo stesso turno): lascia lo slot vuoto.
+                // Nessuna partita di questo girone compatibile con questa cella (squadre già
+                // impegnate in questo turno): la lasciamo vuota e proviamo la prossima cella,
+                // restando nello stesso giorno finché possibile.
+                $cellIdx++;
                 continue;
             }
             
             $match = $remaining[$bestIdx];
             unset($remaining[$bestIdx]);
+            $remaining = array_values($remaining);
             
-            $match['date'] = $timeSlot['date'];
-            $match['startTime'] = $timeSlot['startTime'];
-            $match['endTime'] = $timeSlot['endTime'];
-            $match['courtId'] = $courtSlot['courtId'];
-            $match['courtName'] = $courtSlot['courtName'];
-            $match['courtIdx'] = $courtSlot['courtIdx'];
-            $match['dateIdx'] = $courtSlot['dateIdx'];
-            $match['slotIdx'] = $courtSlot['slotIdx'];
+            $match['date'] = $cell['date'];
+            $match['startTime'] = $cell['startTime'];
+            $match['endTime'] = $cell['endTime'];
+            $match['courtId'] = $cell['courtId'];
+            $match['courtName'] = $cell['courtName'];
+            $match['courtIdx'] = $cell['courtIdx'];
+            $match['dateIdx'] = $cell['dateIdx'];
+            $match['slotIdx'] = $cell['slotIdx'];
             
             $scheduled[] = $match;
             
             $t1 = $match['team1'] ?? null;
             $t2 = $match['team2'] ?? null;
-            $busyTeamsThisSlot[] = $t1;
-            $busyTeamsThisSlot[] = $t2;
-            $teamLastSlotPos[$t1] = $slotPos;
-            $teamLastSlotPos[$t2] = $slotPos;
+            $busyTeamsBySlotPos[$slotPosHere][] = $t1;
+            $busyTeamsBySlotPos[$slotPosHere][] = $t2;
+            $teamLastSlotPos[$t1] = $slotPosHere;
+            $teamLastSlotPos[$t2] = $slotPosHere;
             
             if ($matchCount < 5) {
-                error_log('🔧 scheduleMatches(): Match ' . $matchCount . ' assigned to courtIdx=' . $match['courtIdx'] . ', dateIdx=' . $match['dateIdx'] . ', slotIdx=' . $match['slotIdx'] . ' (date=' . $match['date'] . ', time=' . $match['startTime'] . ')');
+                error_log('🔧 scheduleMatches(): Match ' . $matchCount . " (girone $groupName) assigned to courtIdx=" . $match['courtIdx'] . ', date=' . $match['date'] . ', time=' . $match['startTime']);
             }
             $matchCount++;
+            $cellIdx++;
         }
         
-        $slotPos++;
+        if (!empty($remaining)) {
+            error_log("⚠️ scheduleMatches(): girone $groupName - " . count($remaining) . ' partite non assegnate per esaurimento slot');
+            foreach ($remaining as $m) {
+                $unplaced[] = $m;
+            }
+        }
     }
     
-    // Se restano partite non assegnate (slot esauriti), aggiungile in coda senza orario:
-    // meglio segnalarle come "da programmare manualmente" che sovrascrivere uno slot già usato.
-    if (!empty($remaining)) {
-        error_log('⚠️ scheduleMatches(): ' . count($remaining) . ' partite non assegnate per esaurimento slot');
-        foreach ($remaining as $m) {
-            $scheduled[] = $m;
-        }
+    foreach ($unplaced as $m) {
+        $scheduled[] = $m;
     }
     
     error_log('✅ scheduleMatches(): COMPLETE - ' . $matchCount . ' matches scheduled su ' . count($matches) . ' totali');

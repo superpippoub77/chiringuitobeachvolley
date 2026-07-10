@@ -8487,14 +8487,17 @@
           </div>
           <div style="margin-bottom: 12px">
             <label style="display: block; margin-bottom: 6px; font-weight: bold">Orario Inizio</label>
-            <input type="time" id="bulkStartTime" value="19:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+            <input type="text" id="bulkStartTime" value="19:30" placeholder="Es: 19:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+            <small style="color: #666; display: block; margin-top: 4px">Formato: HH:MM (es: 19:30)</small>
           </div>
           <div style="margin-bottom: 12px">
             <label style="display: block; margin-bottom: 6px; font-weight: bold">Orario Fine</label>
-            <input type="time" id="bulkEndTime" value="20:30" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+            <input type="text" id="bulkEndTime" value="20:30" placeholder="Es: 20:30 o 24:00" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+            <small style="color: #666; display: block; margin-top: 4px">Formato: HH:MM (es: 20:30 oppure 24:00 per mezzanotte)</small>
           </div>
           <div style="background: #e3f2fd; border-left: 3px solid #1976d2; padding: 10px; border-radius: 4px; font-size: 12px; color: #0d47a1">
             <strong>ℹ️ Nota:</strong> La fascia oraria sarà aggiunta a tutti i giorni compresi nell'intervallo di date, in tutti i campi configurati.
+            <br><strong>💡 Tip:</strong> Per 10 partite da 30min (19:00-24:00), usa: Inizio=19:00, Fine=24:00
           </div>
         </div>
       `;
@@ -8569,12 +8572,23 @@
 
       const dateStart = dateStartEl.value.trim();
       const dateEnd = dateEndEl.value.trim();
-      const startTime = startTimeEl.value.trim();
-      const endTime = endTimeEl.value.trim();
+      let startTime = startTimeEl.value.trim();
+      let endTime = endTimeEl.value.trim();
 
       // Validazione campi vuoti
       if (!dateStart || !dateEnd || !startTime || !endTime) {
         showInfoDialog('Attenzione', 'Compila tutti i campi: data inizio, data fine, orario inizio, orario fine.');
+        return;
+      }
+
+      // Validazione formato orario (HH:MM o 24:00)
+      const timeRegex = /^(\d{1,2}):(\d{2})$/;
+      if (!timeRegex.test(startTime)) {
+        showInfoDialog('Errore', 'Orario inizio non valido. Usa formato HH:MM (es: 19:30)');
+        return;
+      }
+      if (!timeRegex.test(endTime) && endTime !== '24:00') {
+        showInfoDialog('Errore', 'Orario fine non valido. Usa formato HH:MM (es: 20:30) oppure 24:00 per mezzanotte');
         return;
       }
 
@@ -8588,7 +8602,7 @@
 
       // Validazione: endTime > startTime
       const startMin = timeStringToMinutes(startTime);
-      const endMin = timeStringToMinutes(endTime);
+      const endMin = endTime === '24:00' ? (24 * 60) : timeStringToMinutes(endTime);
       if (endMin <= startMin) {
         showInfoDialog('Errore', 'L\'orario fine deve essere successivo all\'orario inizio.');
         return;

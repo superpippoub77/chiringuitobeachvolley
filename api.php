@@ -5459,6 +5459,19 @@ if ($action === 'get_config' && $method === 'GET') {
     // Informazioni pubbliche del torneo
     $tournament = $config['tournament'] ?? [];
     
+    // Dati pubblici delle fasi: servono al frontend (scoreboard.html) per sapere quante
+    // squadre passano per girone (teamsAdvance) e disegnare la soglia di qualificazione.
+    // Esponiamo solo i campi necessari, non le note interne dell'admin.
+    $publicPhases = array_map(function ($p) {
+        return [
+            'phaseNumber' => $p['phaseNumber'] ?? null,
+            'name' => $p['name'] ?? '',
+            'type' => $p['type'] ?? '',
+            'numGroups' => $p['numGroups'] ?? null,
+            'teamsAdvance' => $p['teamsAdvance'] ?? null
+        ];
+    }, $config['phases'] ?? []);
+    
     $publicConfig = [
         'display' => $display,
         'tournament' => [
@@ -5467,7 +5480,8 @@ if ($action === 'get_config' && $method === 'GET') {
             'maxPlayersPerTeam' => $tournament['maxPlayersPerTeam'] ?? 3,
             'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2
         ],
-        'schedule' => $config['schedule'] ?? []
+        'schedule' => $config['schedule'] ?? [],
+        'phases' => $publicPhases
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }

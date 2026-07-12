@@ -55,6 +55,12 @@
             "tournamentCode": "local",
             "email": "admin",
             "createdAt": "2026-07-08 18:51:52"
+        },
+        {
+            "token": "f3803057c11e1dd86185724b469e3315c90ad57d",
+            "tournamentCode": "local",
+            "email": "admin",
+            "createdAt": "2026-07-10 19:53:01"
         }
     ]
 }

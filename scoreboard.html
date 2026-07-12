@@ -409,8 +409,17 @@
     }
 
     @keyframes blink {
-      0%, 49%, 100% { opacity: 1; }
-      50%, 99% { opacity: 0.3; }
+
+      0%,
+      49%,
+      100% {
+        opacity: 1;
+      }
+
+      50%,
+      99% {
+        opacity: 0.3;
+      }
     }
 
     .match-status {
@@ -627,10 +636,15 @@
     }
 
     @keyframes blink {
-      0%, 49%, 100% {
+
+      0%,
+      49%,
+      100% {
         opacity: 1;
       }
-      50%, 99% {
+
+      50%,
+      99% {
         opacity: 0.3;
       }
     }
@@ -683,7 +697,8 @@
     }
 
     body {
-      padding-bottom: 95px; /* Spazio per la barra sponsor fissa */
+      padding-bottom: 95px;
+      /* Spazio per la barra sponsor fissa */
     }
 
     .sponsor-ticker-wrapper {
@@ -708,7 +723,7 @@
       padding: 8px 20px;
       background: white;
       border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
       flex-shrink: 0;
       font-weight: bold;
       color: var(--ink);
@@ -725,6 +740,7 @@
       0% {
         transform: translateX(0);
       }
+
       100% {
         transform: translateX(-100%);
       }
@@ -760,18 +776,21 @@
       </div>
     </section>
 
-    <div id="notConfiguredNotice" class="hidden" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 12px; padding: 24px; text-align: center; margin-top: 16px">
+    <div id="notConfiguredNotice" class="hidden"
+      style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 12px; padding: 24px; text-align: center; margin-top: 16px">
       <h2 style="color: #e65100; margin: 0 0 12px 0">🎯 Crea il tuo torneo</h2>
-      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px">Nessun torneo è stato configurato. Accedi al panel di amministrazione per iniziare.</p>
-      <a href="admin.html?tab=settings" target="_blank" style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s">
+      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px">Nessun torneo è stato configurato. Accedi al panel
+        di amministrazione per iniziare.</p>
+      <a href="admin.html?tab=settings" target="_blank"
+        style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s">
         🚀 Inizia la configurazione
       </a>
     </div>
 
     <div id="mainContent" style="display: none">
 
-    <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
-        href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
+      <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
+          href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
       <div class="stat">
         <div class="n" id="statTeams">0</div>
         <div class="l">Squadre confermate</div>
@@ -788,115 +807,129 @@
         <div class="n" id="statMatches">0</div>
         <div class="l">Partite</div>
       </div>
-    </section>
+      </section>
 
-    <section id="newsSection" style="margin-top: 24px; display: none">
-      <h3 style="color: #2e5d1f; margin-top: 0">📰 Notizie e Comunicati</h3>
-      <div id="newsList" style="display: grid; gap: 12px"></div>
-    </section>
+      <section id="newsSection" style="margin-top: 24px; display: none">
+        <h3 style="color: #2e5d1f; margin-top: 0">📰 Notizie e Comunicati</h3>
+        <div id="newsList" style="display: grid; gap: 12px"></div>
+      </section>
 
-    <!-- Tab globali per Scoreboard -->
-    <nav style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap">
-      <a href="#" onclick="showPhase('iscrizione'); return false;" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 Iscrizione</a>
-      <a href="#" onclick="showPhase('teams'); return false;" style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 Squadre</a>
-      <a href="#" onclick="showPhase('groups'); return false;" style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
-    </nav>
+      <!-- Tab globali per Scoreboard -->
+      <nav
+        style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap">
+        <a href="#" onclick="showPhase('iscrizione'); return false;"
+          style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9"
+          onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 Iscrizione</a>
+        <a href="#" onclick="showPhase('teams'); return false;"
+          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 Squadre</a>
+        <a href="#" onclick="showPhase('groups'); return false;"
+          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
+      </nav>
 
-    <!-- <section class="page active" id="page-iscrizione"> -->
-      <!-- <h3>Registrazione squadra</h3> -->
-      <!-- <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non -->
-        <!-- conferma.</div> -->
-      <!-- <div id="closedNotice" class="closed-notice hidden">🚫 Le iscrizioni al torneo sono chiuse</div> -->
-      <!-- <div class="form-grid" id="registrationForm"> -->
-        <!-- <input id="fName" placeholder="Nome squadra"> -->
-        
-        <!-- <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"> -->
-          <!-- <h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4> -->
-        <!-- </div> -->
-        
-        <!-- <div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;"> -->
-          <!-- <h4 style="margin: 0 0 15px 0;">Giocatore 1</h4> -->
-          <!-- <input id="fP1" placeholder="Nome completo"> -->
-          <!-- <select id="fP1Level" style="padding: 8px; margin-top: 8px;"> -->
-            <!-- <option value="">Livello (opzionale)</option> -->
-            <!-- <option value="principiante">Principiante</option> -->
-            <!-- <option value="intermedio">Intermedio</option> -->
-            <!-- <option value="avanzato">Avanzato</option> -->
-            <!-- <option value="professionista">Professionista</option> -->
-          <!-- </select> -->
-          <!-- <input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;"> -->
-          <!-- <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"> -->
-            <!-- <input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;"> -->
-            <!-- <span>👑 Capitano</span> -->
-          <!-- </label> -->
-        <!-- </div> -->
+      <section class="page active" id="page-iscrizione">
+        <h3>Registrazione squadra</h3>
+        <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
+          conferma.</div>
+        <div id="closedNotice" class="closed-notice hidden">🚫 Le iscrizioni al torneo sono chiuse</div>
+        <div class="form-grid" id="registrationForm">
+          <input id="fName" placeholder="Nome squadra">
 
-        <!-- <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;"> -->
-          <!-- <h4 style="margin: 0 0 15px 0;">Giocatore 2</h4> -->
-          <!-- <input id="fP2" placeholder="Nome completo"> -->
-          <!-- <select id="fP2Level" style="padding: 8px; margin-top: 8px;"> -->
-            <!-- <option value="">Livello (opzionale)</option> -->
-            <!-- <option value="principiante">Principiante</option> -->
-            <!-- <option value="intermedio">Intermedio</option> -->
-            <!-- <option value="avanzato">Avanzato</option> -->
-            <!-- <option value="professionista">Professionista</option> -->
-          <!-- </select> -->
-          <!-- <input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;"> -->
-          <!-- <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"> -->
-            <!-- <input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;"> -->
-            <!-- <span>👑 Capitano</span> -->
-          <!-- </label> -->
-        <!-- </div> -->
+          <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+            <h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4>
+          </div>
 
-        <!-- <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;"> -->
-          <!-- <h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4> -->
-          <!-- <input id="fP3" placeholder="Nome completo (opzionale)"> -->
-          <!-- <select id="fP3Level" style="padding: 8px; margin-top: 8px;"> -->
-            <!-- <option value="">Livello (opzionale)</option> -->
-            <!-- <option value="principiante">Principiante</option> -->
-            <!-- <option value="intermedio">Intermedio</option> -->
-            <!-- <option value="avanzato">Avanzato</option> -->
-            <!-- <option value="professionista">Professionista</option> -->
-          <!-- </select> -->
-          <!-- <input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;"> -->
-          <!-- <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"> -->
-            <!-- <input type="radio" name="captain" value="3" id="fP3Captain" style="width: auto;"> -->
-            <!-- <span>👑 Capitano</span> -->
-          <!-- </label> -->
-        <!-- </div> -->
+          <div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+            <h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>
+            <input id="fP1" placeholder="Nome completo">
+            <select id="fP1Level" style="padding: 8px; margin-top: 8px;">
+              <option value="">Livello (opzionale)</option>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzato">Avanzato</option>
+              <option value="professionista">Professionista</option>
+            </select>
+            <input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
+              style="margin-top: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+              <input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;">
+              <span>👑 Capitano</span>
+            </label>
+          </div>
 
-        <!-- <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"> -->
-          <!-- <h4 style="margin: 0 0 10px 0;">Contatti</h4> -->
-        <!-- </div> -->
-        <!-- <input id="fPhone" placeholder="Telefono"> -->
-      <!-- </div> -->
-      <!-- <div class="form-check"> -->
-        <!-- <input type="checkbox" id="fPrivacy"> -->
-        <!-- <label for="fPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label> -->
-      <!-- </div> -->
-      <!-- <div class="form-check"> -->
-        <!-- <input type="checkbox" id="fCookies"> -->
-        <!-- <label for="fCookies">Accetto l'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label> -->
-      <!-- </div> -->
-      <!-- <div style="margin-top:10px;"> -->
-        <!-- <button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button> -->
-      <!-- </div> -->
-    <!-- </section> -->
+          <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+            <h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>
+            <input id="fP2" placeholder="Nome completo">
+            <select id="fP2Level" style="padding: 8px; margin-top: 8px;">
+              <option value="">Livello (opzionale)</option>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzato">Avanzato</option>
+              <option value="professionista">Professionista</option>
+            </select>
+            <input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
+              style="margin-top: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+              <input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;">
+              <span>👑 Capitano</span>
+            </label>
+          </div>
 
-    <section class="page" id="page-teams"></section>
-    <section class="page" id="page-groups"></section>
-    <section class="page" id="page-matches"></section>
-    <section class="page" id="page-standings"></section>
-    <section class="page" id="page-playoff"></section>
-    <section class="page" id="page-ranking"></section>
+          <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
+            <h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>
+            <input id="fP3" placeholder="Nome completo (opzionale)">
+            <select id="fP3Level" style="padding: 8px; margin-top: 8px;">
+              <option value="">Livello (opzionale)</option>
+              <option value="principiante">Principiante</option>
+              <option value="intermedio">Intermedio</option>
+              <option value="avanzato">Avanzato</option>
+              <option value="professionista">Professionista</option>
+            </select>
+            <input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
+              style="margin-top: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+              <input type="radio" name="captain" value="3" id="fP3Captain" style="width: auto;">
+              <span>👑 Capitano</span>
+            </label>
+          </div>
 
-    <footer>
-      <a href="policy.html" target="_blank">Privacy Policy</a>
-      <a href="policy.html#cookies" target="_blank">Cookie Policy</a>
-      <a href="policy.html#terms" target="_blank">Termini e Condizioni</a>
-      <br>
-      <div style="margin-top: 10px;">© 2026 Chiringuito Beach Volley LUI&Lei 2026 - Tutti i diritti riservati</div>
-    </footer>
+          <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+            <h4 style="margin: 0 0 10px 0;">Contatti</h4>
+          </div>
+
+          <input id="fPhone" placeholder="Telefono">
+        </div>
+
+        <div class="form-check">
+          <input type="checkbox" id="fPrivacy">
+          <label for="fPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
+        </div>
+
+        <div class="form-check">
+          <input type="checkbox" id="fCookies">
+          <label for="fCookies">Accetto l'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label>
+        </div>
+
+        <div style="margin-top:10px;">
+          <button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button>
+        </div>
+      </section>
+
+      <section class="page" id="page-teams"></section>
+      <section class="page" id="page-groups"></section>
+      <section class="page" id="page-matches"></section>
+      <section class="page" id="page-standings"></section>
+      <section class="page" id="page-playoff"></section>
+      <section class="page" id="page-ranking"></section>
+
+      <footer>
+        <a href="policy.html" target="_blank">Privacy Policy</a>
+        <a href="policy.html#cookies" target="_blank">Cookie Policy</a>
+        <a href="policy.html#terms" target="_blank">Termini e Condizioni</a>
+        <br>
+        <div style="margin-top: 10px;">© 2026 Chiringuito Beach Volley LUI&Lei 2026 - Tutti i diritti riservati</div>
+      </footer>
 
     </div> <!-- Fine mainContent -->
   </div>
@@ -915,7 +948,8 @@
   </div>
 
   <!-- SPONSOR TICKER -->
-  <div id="sponsorTickerContainer" style="background: linear-gradient(90deg, #f8edd8 0%, #f1dfbc 100%); border-top: 3px solid #ff7f32; padding: 12px 0; overflow: hidden; display: none">
+  <div id="sponsorTickerContainer"
+    style="background: linear-gradient(90deg, #f8edd8 0%, #f1dfbc 100%); border-top: 3px solid #ff7f32; padding: 12px 0; overflow: hidden; display: none">
     <div class="sponsor-ticker-wrapper">
       <div class="sponsor-ticker-track" id="sponsorTickerTrack">
         <!-- Sponsor items loaded dynamically -->
@@ -929,7 +963,7 @@
     let config = null;
     let tournamentStartDate = new Date('2026-07-14T19:30:00'); // Default fallback
     let firstLoad = true; // Track first page load
-    
+
     // Timer state per gestire i timer di tutte le partite
     const timerState = {
       activeTimers: {}, // { matchId: { running: bool, seconds: number, interval: id } }
@@ -940,37 +974,37 @@
         return this.activeTimers[matchId];
       }
     };
-    
+
     function formatTime(seconds) {
       const h = Math.floor(seconds / 3600);
       const m = Math.floor((seconds % 3600) / 60);
       const s = seconds % 60;
       return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
-    
+
     function startTimer(matchId) {
       const timer = timerState.get(matchId);
       if (timer.running) return;
-      
+
       timer.running = true;
       timer.interval = setInterval(() => {
         timer.seconds++;
         updateTimerDisplay(matchId);
       }, 1000);
-      
+
       updateTimerDisplay(matchId);
     }
-    
+
     function stopTimer(matchId) {
       const timer = timerState.get(matchId);
       if (!timer.running) return;
-      
+
       timer.running = false;
       clearInterval(timer.interval);
       timer.interval = null;
       updateTimerDisplay(matchId);
     }
-    
+
     function resetTimer(matchId) {
       const timer = timerState.get(matchId);
       timer.running = false;
@@ -979,22 +1013,22 @@
       timer.seconds = 0;
       updateTimerDisplay(matchId);
     }
-    
+
     function updateTimerDisplay(matchId) {
       const timer = timerState.get(matchId);
       const el = document.getElementById(`timer-${matchId}`);
       const btnStart = document.getElementById(`btn-start-${matchId}`);
       const btnStop = document.getElementById(`btn-stop-${matchId}`);
-      
+
       if (el) {
         el.textContent = formatTime(timer.seconds);
         el.style.color = timer.running ? '#ea5b0c' : '#666';
       }
-      
+
       if (btnStart) btnStart.style.opacity = timer.running ? '0.5' : '1';
       if (btnStop) btnStop.style.opacity = timer.running ? '1' : '0.5';
     }
-    
+
     function openTimerModal(matchId, team1, team2) {
       const timer = timerState.get(matchId);
       const backdrop = document.createElement('div');
@@ -1002,7 +1036,7 @@
       backdrop.onclick = (e) => {
         if (e.target === backdrop) backdrop.remove();
       };
-      
+
       backdrop.innerHTML = `
         <div class="modal">
           <div class="modal-head">
@@ -1036,9 +1070,9 @@
           </div>
         </div>
       `;
-      
+
       document.body.appendChild(backdrop);
-      
+
       // Aggiorna il display del timer nel modale in tempo reale
       const updateInterval = setInterval(() => {
         if (!document.body.contains(backdrop)) {
@@ -1052,7 +1086,7 @@
         }
       }, 100);
     }
-    
+
     async function saveMatchDuration(matchId, seconds) {
       try {
         // Salva la durata della partita
@@ -1085,7 +1119,7 @@
       if (!config || !config.schedule || !config.schedule.courts) {
         return null;
       }
-      
+
       for (let court of config.schedule.courts) {
         if (court.availability && court.availability.length > 0) {
           const firstDay = court.availability[0];
@@ -1095,26 +1129,26 @@
           }
         }
       }
-      
+
       return null;
     }
 
     function updateHeroSection() {
       if (!config) return;
-      
+
       // Aggiorna badge con tournament name
       const badgeEl = document.querySelector('.badge');
       if (badgeEl && config.tournament && config.tournament.name) {
         badgeEl.textContent = config.tournament.name.toUpperCase();
       }
-      
+
       // Aggiorna info hero cells
       const cells = document.querySelectorAll('.hero-cell');
       if (cells.length >= 3) {
         const maxTeams = config.tournament?.maxTeams || 16;
         const playersPerTeam = config.tournament?.maxPlayersPerTeam || 3;
         const playersOnCourt = config.tournament?.maxPlayersOnCourt || 2;
-        
+
         // Calcola data inizio da schedule se disponibile
         const firstDate = getFirstScheduleDate();
         let dateStr = '';
@@ -1123,7 +1157,7 @@
           dateStr = firstDate.toLocaleDateString('it-IT', options);
           tournamentStartDate = firstDate;
         }
-        
+
         cells[0].textContent = dateStr || 'Data da definire';
         cells[1].textContent = `Max ${maxTeams} squadre`;
         cells[2].textContent = `${playersOnCourt} contro ${playersOnCourt} (max ${playersPerTeam} giocatori)`;
@@ -1135,30 +1169,30 @@
         // Carica dati pubblici che ora includono i phases
         const r = await api('get_public');
         state = r.data || {};
-        
+
         console.log('📊 Stato caricato:', state);
         console.log('📋 Gironi disponibili:', state.phases?.[0]?.groups?.length || 0);
       } catch (e) {
         console.error('❌ Errore caricamento get_public:', e);
         return;
       }
-      
+
       // Carica la configurazione
       try {
         const configData = await api('get_config');
         config = configData.config;
-		console.log('📋 config:', config);
+        console.log('📋 config:', config);
       } catch (e) {
         console.warn('⚠️ Errore caricamento config:', e);
       }
-      
+
       // Controlla se il torneo è configurato verificando il nome del torneo
       const isTournamentConfigured = state && state.settings && state.settings.tournamentName && state.settings.tournamentName.trim() !== '';
       const noticeEl = document.getElementById('notConfiguredNotice');
       const mainContentEl = document.getElementById('mainContent');
       const heroEl = document.querySelector('.hero');
       const countdownEl = document.getElementById('countdownContainer');
-      
+
       if (!isTournamentConfigured) {
         // Torneo non configurato - mostra il messaggio, nascondi il resto
         if (noticeEl) noticeEl.classList.remove('hidden');
@@ -1167,40 +1201,39 @@
         if (countdownEl) countdownEl.style.display = 'none';
         return;
       }
-      
+
       // Torneo configurato - mostra il contenuto principale
       if (noticeEl) noticeEl.classList.add('hidden');
       if (mainContentEl) mainContentEl.style.display = 'block';
       if (heroEl) heroEl.style.display = 'block';
       if (countdownEl) countdownEl.style.display = 'grid';
-      
+
       // Controlla se le iscrizioni sono chiuse
       const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
       const registrationDeadline = config?.tournament?.registrationDeadline ?? '';
       let isDeadlineExpired = false;
-      
+
       if (registrationDeadline) {
         const now = new Date();
         const deadline = new Date(registrationDeadline);
         isDeadlineExpired = now > deadline;
       }
-      
+
       // Aggiorna hero section con dati dal config
       updateHeroSection();
-      
+
       renderAll();
-      
-      // Al primo caricamento, reindirizza automaticamente alla tab appropriata
+
+      // Al primo caricamento, reindirizza automaticamente alla sezione appropriata
       if (firstLoad) {
         firstLoad = false;
-        // Se il torneo è iniziato (gironi creati), vai alle partite
-        if ((state.phases?.[0]?.groups?.length || 0) > 0) {
-          const matchesTab = document.querySelector('button[onclick="showTab(\'matches\', this)"]');
-          if (matchesTab) showTab('matches', matchesTab);
+        if (registrationsClosed || isDeadlineExpired) {
+          // Iscrizioni chiuse (o scadute): vai direttamente ai Gironi, vista Partite
+          showPhase('groups');
+          showGironiTab('matches');
         } else {
-          // Altrimenti vai alle squadre
-          const teamsTab = document.querySelector('button[onclick="showTab(\'teams\', this)"]');
-          if (teamsTab) showTab('teams', teamsTab);
+          // Iscrizioni aperte: mostra la sezione Iscrizioni
+          showPhase('iscrizione');
         }
       }
     }
@@ -1234,7 +1267,7 @@
       // ✅ REFACTORED: Leggi da phases[0] invece di campi obsoleti
       const groupsCount = state.phases?.[0]?.groups?.length || 0;
       const groupMatchesCount = state.phases?.[0]?.matches?.length || 0;
-      
+
       document.getElementById('statTeams').textContent = state.teams.length;
       document.getElementById('statPending').textContent = state.pendingCount || 0;
       document.getElementById('statGroups').textContent = groupsCount;
@@ -1245,9 +1278,6 @@
       renderPlayoff();
       renderRanking();
       renderIscrizione();
-      
-      // Mostra per default la sezione Iscrizioni
-      showPhase('iscrizione');
     }
 
     function renderTeams() {
@@ -1256,10 +1286,10 @@
         c.innerHTML = '<h3>### Gestione squadre</h3><p>Totale: <strong>0</strong> | In attesa: <strong>0</strong></p>';
         return;
       }
-      
+
       const totalTeams = state.teams.length;
       const waitingTeams = state.teams.filter(t => !t.approved).length;
-      
+
       let html = '<h3>### Gestione squadre</h3>';
       html += `<p>Totale: <strong>${totalTeams}</strong> | In attesa: <strong>${waitingTeams}</strong></p>`;
       html += state.teams.map(t => {
@@ -1275,7 +1305,7 @@
           })
           .filter(Boolean)
           .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
-        
+
         // Crea HTML per le immagini dei giocatori
         let playersImages = (t.players || [])
           .map((p, idx) => {
@@ -1286,10 +1316,10 @@
           })
           .filter(Boolean)
           .join('');
-        
+
         const weight = getTeamWeight(t);
         const weightColor = getWeightColor(weight);
-        
+
         return `<div class="team" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa">
           <div class="team-info">
             <strong>${esc(t.name)}</strong>
@@ -1303,10 +1333,10 @@
           </div>
         </div>`;
       }).join('');
-      
+
       c.innerHTML = html;
     }
-    
+
     function getTeamWeight(team) {
       if (!team.players || !Array.isArray(team.players)) return '—';
       const skillLevels = team.players
@@ -1321,76 +1351,70 @@
     function renderIscrizione() {
       const c = document.getElementById('page-iscrizione');
       let html = '<h3>📝 Iscrizione e Squadre</h3>';
-      
-      // Form di iscrizione
-      html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 24px">';
-      html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
-      html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Il torneo è solo misto. Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';
-      html += '<div id="closedNotice2" class="closed-notice hidden" style="background: #ffebee; color: #c62828; padding: 8px; border-radius: 4px; margin-bottom: 12px">🚫 Le iscrizioni al torneo sono chiuse</div>';
-      html += '<div class="form-grid" id="registrationForm2">';
-      html += '<input id="fName" placeholder="Nome squadra">';
-      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4></div>';
-      html += '<div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
-      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>';
-      html += '<input id="fP1" placeholder="Nome completo">';
-      html += '<select id="fP1Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
-      html += '<input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
-      html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;"><span>👑 Capitano</span></label>';
-      html += '</div>';
-      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
-      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>';
-      html += '<input id="fP2" placeholder="Nome completo">';
-      html += '<select id="fP2Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
-      html += '<input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
-      html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;"><span>👑 Capitano</span></label>';
-      html += '</div>';
-      html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
-      html += '<h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>';
-      html += '<input id="fP3" placeholder="Nome completo (opzionale)">';
-      html += '<select id="fP3Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
-      html += '<input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
-      html += '</div>';
-      html += '<div style="grid-column: 1/-1; margin-top: 10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
-      html += '</div></div>';
-      
+
+      // 🔧 FIX: usa il flag/data di chiusura dal config (non un maxTeams fisso a 16)
+      const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
+      const registrationDeadline = config?.tournament?.registrationDeadline ?? '';
+      let isDeadlineExpired = false;
+      if (registrationDeadline) {
+        isDeadlineExpired = new Date() > new Date(registrationDeadline);
+      }
+      const maxTeams = config?.tournament?.maxTeams || 0;
+      const totalTeams = state.teams.length + (state.pendingCount || 0);
+      const isFull = maxTeams > 0 && totalTeams >= maxTeams;
+      const isClosed = registrationsClosed || isDeadlineExpired || isFull;
+
+      if (isClosed) {
+        // Iscrizioni chiuse: non mostrare più il modulo di iscrizione
+        let reason = '🚫 Le iscrizioni al torneo sono chiuse.';
+        if (!registrationsClosed && isDeadlineExpired) {
+          reason = `🚫 Le iscrizioni si sono chiuse il ${new Date(registrationDeadline).toLocaleString('it-IT')}.`;
+        } else if (!registrationsClosed && !isDeadlineExpired && isFull) {
+          reason = '🚫 È stato raggiunto il numero massimo di squadre.';
+        }
+        html += `<div style="background: #ffebee; color: #c62828; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-weight: bold">${reason}</div>`;
+      } else {
+        // Form di iscrizione
+        html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 24px">';
+        html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
+        html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Il torneo è solo misto. Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';
+        html += '<div class="form-grid" id="registrationForm2">';
+        html += '<input id="fName" placeholder="Nome squadra">';
+        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4></div>';
+        html += '<div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+        html += '<h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>';
+        html += '<input id="fP1" placeholder="Nome completo">';
+        html += '<select id="fP1Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+        html += '<input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+        html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;"><span>👑 Capitano</span></label>';
+        html += '</div>';
+        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+        html += '<h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>';
+        html += '<input id="fP2" placeholder="Nome completo">';
+        html += '<select id="fP2Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+        html += '<input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+        html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;"><span>👑 Capitano</span></label>';
+        html += '</div>';
+        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">';
+        html += '<h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>';
+        html += '<input id="fP3" placeholder="Nome completo (opzionale)">';
+        html += '<select id="fP3Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
+        html += '<input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+        html += '</div>';
+        html += '<div style="grid-column: 1/-1; margin-top: 10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
+        html += '</div></div>';
+      }
+
       // Lista squadre
       html += '<div style="border-top: 3px solid #ddd; padding-top: 16px; margin-top: 24px">';
       if (state.teams.length === 0) {
         html += '<p style="color: #999">Nessuna squadra ancora iscritta</p>';
-      } 
-      html += '</div>';
-      
-      c.innerHTML = html;
-      
-      // Aggiorna lo stato del form
-      const maxTeams = 16;
-      const totalTeams = state.teams.length + state.pendingCount;
-      const isClosed = totalTeams >= maxTeams;
-      const form = document.getElementById('registrationForm2');
-      const submitBtn = document.getElementById('submitBtn');
-      const closedNotice = document.getElementById('closedNotice2');
-      
-      if (form && submitBtn) {
-        if (isClosed) {
-          form.style.opacity = '0.5';
-          form.style.pointerEvents = 'none';
-          submitBtn.disabled = true;
-          submitBtn.style.opacity = '0.5';
-          if (closedNotice) closedNotice.classList.remove('hidden');
-          const inputs = form.querySelectorAll('input, select');
-          inputs.forEach(inp => inp.disabled = true);
-        } else {
-          form.style.opacity = '1';
-          form.style.pointerEvents = 'auto';
-          submitBtn.disabled = false;
-          submitBtn.style.opacity = '1';
-          if (closedNotice) closedNotice.classList.add('hidden');
-          const inputs = form.querySelectorAll('input, select');
-          inputs.forEach(inp => inp.disabled = false);
-        }
       }
+      html += '</div>';
+
+      c.innerHTML = html;
     }
-    
+
     function getWeightColor(weight) {
       if (weight === '—') return '#999';
       const w = parseFloat(weight);
@@ -1412,15 +1436,15 @@
       // Mostra/nasconde le sezioni dentro page-groups
       const groupsContainer = document.getElementById('page-groups');
       if (!groupsContainer) return;
-      
+
       const groupsView = groupsContainer.querySelector('[data-view="groups"]');
       const matchesView = groupsContainer.querySelector('[data-view="matches"]');
       const standingsView = groupsContainer.querySelector('[data-view="standings"]');
-      
+
       if (groupsView) groupsView.style.display = tab === 'groups' ? 'block' : 'none';
       if (matchesView) matchesView.style.display = tab === 'matches' ? 'block' : 'none';
       if (standingsView) standingsView.style.display = tab === 'standings' ? 'block' : 'none';
-      
+
       // Evidenzia il tab attivo
       const tabs = groupsContainer.querySelectorAll('[data-tab]');
       tabs.forEach(t => {
@@ -1442,31 +1466,31 @@
       // niente dati squadra). I dati completi delle squadre (nome, giocatori) sono già
       // risolti lato server in state.groups: [{ name, teams: [...] }, ...]
       const groups = state.groups || [];
-      
+
       if (!groups.length) {
         c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
         return;
       }
-      
+
       let html = '<h3>### 📊 Gironi e Fasi</h3>';
-      
+
       // Tab interni per Gironi/Partite/Classifiche
       html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 16px; flex-wrap: wrap">';
       html += '<a href="#" onclick="showGironiTab(\'groups\'); return false;" data-tab="groups" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'#e8f5e9\'">📊 Gironi</a>';
       html += '<a href="#" onclick="showGironiTab(\'matches\'); return false;" data-tab="matches" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">🏆 Partite</a>';
       html += '<a href="#" onclick="showGironiTab(\'standings\'); return false;" data-tab="standings" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">📈 Classifiche</a>';
       html += '</div>';
-      
+
       // CONTENITORE GIRONI
       html += '<div data-view="groups">';
       html += '<h4 style="margin-top: 20px; margin-bottom: 12px">#### 📌 Fase 1 - Gironi</h4>';
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
-      
+
       groups.forEach((g, idx) => {
         const groupName = g?.name || String.fromCharCode(65 + idx);
         const teamsInGroup = g?.teams || [];
         const teamCount = teamsInGroup.length;
-        
+
         html += `<div style="border: 2px solid #8b7355; border-radius: 8px; padding: 12px; background: #faf5f0">
           <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
             <span style="display: flex; align-items: center; gap: 8px">
@@ -1476,7 +1500,7 @@
             <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${teamCount}</span>
           </h4>
           <div style="display: flex; flex-direction: column; gap: 8px">`;
-        
+
         teamsInGroup.forEach(team => {
           let playersHtml = (team.players || [])
             .map(p => {
@@ -1490,7 +1514,7 @@
             })
             .filter(Boolean)
             .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
-          
+
           let playersImages = (team.players || [])
             .map((p, pidx) => {
               if (typeof p === 'string') return '';
@@ -1500,10 +1524,10 @@
             })
             .filter(Boolean)
             .join('');
-          
+
           const weight = getTeamWeight(team);
           const weightColor = getWeightColor(weight);
-          
+
           html += `<div style="background: white; border: 1px solid #d8c39f; border-radius: 6px; padding: 10px">
             <strong style="color: #6b5d45">${esc(team.name)}</strong>
             <small style="display: block; color: #999; margin-top: 4px">${playersHtml}</small>
@@ -1513,30 +1537,37 @@
             </div>
           </div>`;
         });
-        
+
         html += `</div></div>`;
       });
-      
+
       html += '</div></div>';
-      
+
       // CONTENITORE PARTITE (renderMatches lo popola)
       html += '<div data-view="matches" style="display:none" id="gironi-matches-content"></div>';
-      
+
       // CONTENITORE CLASSIFICHE (renderStandings lo popola)
       html += '<div data-view="standings" style="display:none" id="gironi-standings-content"></div>';
-      
+
       c.innerHTML = html;
-      
+
       // Popola partite e classifiche
       renderGironiMatches();
       renderGironiStandings();
+    }
+
+    let gironiMatchTeamFilter = ''; // Squadra selezionata nel filtro tabella partite (Gironi)
+
+    function filterGironiMatchesByTeam(teamName) {
+      gironiMatchTeamFilter = teamName || '';
+      renderGironiMatches();
     }
 
     function renderGironiMatches() {
       const c = document.getElementById('gironi-matches-content');
       // ✅ REFACTORED: Leggi partite da phases[0].matches
       const groupMatches = state.phases?.[0]?.matches || [];
-      
+
       if (!groupMatches.length) {
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
         return;
@@ -1551,6 +1582,28 @@
         return timeA.localeCompare(timeB);
       });
 
+      // Costruisci l'elenco delle squadre presenti nel calendario, per il filtro
+      const teamNames = Array.from(new Set(
+        matches.flatMap(m => [m.team1Name, m.team2Name]).filter(Boolean)
+      )).sort((a, b) => a.localeCompare(b));
+
+      // Se la squadra selezionata nel filtro non esiste più tra le partite, resetta il filtro
+      if (gironiMatchTeamFilter && !teamNames.includes(gironiMatchTeamFilter)) {
+        gironiMatchTeamFilter = '';
+      }
+
+      const filterHtml = `<div style="margin: 8px 0 12px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+        <label for="gironiMatchTeamFilterSelect" style="font-weight: bold; color: #2e5d1f">🔎 Filtra per squadra:</label>
+        <select id="gironiMatchTeamFilterSelect" onchange="filterGironiMatchesByTeam(this.value)" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #8b7355">
+          <option value=""${gironiMatchTeamFilter === '' ? ' selected' : ''}>Tutte le squadre</option>
+          ${teamNames.map(t => `<option value="${esc(t)}"${t === gironiMatchTeamFilter ? ' selected' : ''}>${esc(t)}</option>`).join('')}
+        </select>
+      </div>`;
+
+      if (gironiMatchTeamFilter) {
+        matches = matches.filter(m => m.team1Name === gironiMatchTeamFilter || m.team2Name === gironiMatchTeamFilter);
+      }
+
       function getMatchStatus(m) {
         if ((m.score1 === null || m.score1 === undefined) && (m.score2 === null || m.score2 === undefined)) {
           return { status: 'pending', label: 'Da giocare', class: 'status-pending' };
@@ -1561,7 +1614,12 @@
         return { status: 'online', label: 'Online', class: 'status-online' };
       }
 
-      c.innerHTML = `<h3>🏆 Calendario partite</h3><table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
+      if (!matches.length) {
+        c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<div class="empty">Nessuna partita trovata per la squadra selezionata.</div>`;
+        return;
+      }
+
+      c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
         const phaseName = m.phaseName || 'Fase 1 - Gironi';
         return `<tr>
@@ -1580,7 +1638,7 @@
       const c = document.getElementById('gironi-standings-content');
       // ✅ REFACTORED: Leggi classifiche da phases[0].standings
       const standings = state.phases?.[0]?.standings || [];
-      
+
       if (!standings.length) {
         c.innerHTML = '<h3>📈 Classifiche</h3><p>Classifiche non ancora disponibili.</p>';
         return;
@@ -1615,11 +1673,11 @@
       console.log(`   groupLabel: ${groupLabel}`);
       console.log(`   configPhase: `, configPhase);
       console.log(`   configPhase.teamsAdvance: ${configPhase?.teamsAdvance}`);
-      
+
       const teamsAdvanceConfig = configPhase.teamsAdvance;
       console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
       console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
-      
+
       if (!teamsAdvanceConfig) {
         console.log(`   ❌ teamsAdvanceConfig è vuoto, usando default: 1`);
         return 1;
@@ -1651,7 +1709,7 @@
       const c = document.getElementById('page-standings');
       // ✅ REFACTORED: Leggi classifiche da phases[0].standings
       const standings = state.phases?.[0]?.standings || [];
-      
+
       if (!standings.length) {
         c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
         return;
@@ -1682,20 +1740,20 @@
       const c = document.getElementById('page-playoff');
       // ✅ REFACTORED: Leggi partite da phases[1+] invece di state.playoff
       const playoffPhases = state.phases?.slice(1) || [];
-      
+
       if (!playoffPhases.length) {
         c.innerHTML = '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
         return;
       }
-      
+
       let html = '<h3>Fase finale</h3>';
       playoffPhases.forEach(phase => {
         const matches = phase.matches || [];
         if (!matches.length) return;
-        
+
         html += `<h4>${phase.name || 'Fase ' + (phase.phaseNumber || '?')}</h4>`;
         html += '<table><thead><tr><th>Match</th><th>Squadra 1</th><th>Squadra 2</th><th>Risultato</th></tr></thead><tbody>';
-        
+
         matches.forEach(m => {
           html += `<tr>
             <td>${m.label || m.type || 'Match'}</td>
@@ -1704,10 +1762,10 @@
             <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
           </tr>`;
         });
-        
+
         html += '</tbody></table>';
       });
-      
+
       c.innerHTML = html || '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
     }
 
@@ -1715,7 +1773,7 @@
       const c = document.getElementById('page-ranking');
       // ✅ REFACTORED: Leggi ranking finale da meta o calcola dalle fasi
       const finalRanking = state.meta?.finalRanking || [];
-      
+
       if (!finalRanking.length) {
         c.innerHTML = '<h3>Ranking finale</h3><div class="empty">Ranking finale non disponibile.</div>';
         return;
@@ -1733,8 +1791,8 @@
       const phone = document.getElementById('fPhone').value.trim();
       const privacyOk = document.getElementById('fPrivacy').checked;
       const cookiesOk = document.getElementById('fCookies').checked;
-	  
-	  console.log('registrationsClosed',config?.tournament?.registrationsClosed);
+
+      console.log('registrationsClosed', config?.tournament?.registrationsClosed);
 
       // Controlla se le iscrizioni sono chiuse
       if (config?.tournament?.registrationsClosed) {
@@ -1771,10 +1829,10 @@
       try {
         // Determina quale giocatore è capitano (radio button selezionato)
         const captainValue = document.querySelector('input[name="captain"]:checked')?.value || '1';
-        
+
         // Raccogli i dati dei giocatori con livello e immagine
         const playersData = [];
-        
+
         // Giocatore 1
         playersData.push({
           name: player1,
@@ -1782,7 +1840,7 @@
           isCaptain: captainValue === '1',
           image: await getFileAsBase64('fP1Image') || null
         });
-        
+
         // Giocatore 2
         playersData.push({
           name: player2,
@@ -1790,7 +1848,7 @@
           isCaptain: captainValue === '2',
           image: await getFileAsBase64('fP2Image') || null
         });
-        
+
         // Giocatore 3 (opzionale)
         if (player3) {
           playersData.push({
@@ -1802,15 +1860,15 @@
         }
 
         console.log('Registrazione squadra...', { name, playersData, phone });
-        const r = await api('register_team', 'POST', { 
-          name, 
+        const r = await api('register_team', 'POST', {
+          name,
           players: playersData,
-          phone, 
-          category: 'Misto' 
+          phone,
+          category: 'Misto'
         });
         console.log('Risposta API:', r);
         await showInfoDialog('Iscrizione inviata', (r && r.message) ? r.message : 'Iscrizione inviata. In attesa di approvazione.');
-        
+
         // Pulisci il form
         document.getElementById('fName').value = '';
         document.getElementById('fP1').value = '';
@@ -1826,7 +1884,7 @@
         document.getElementById('fPrivacy').checked = false;
         document.getElementById('fCookies').checked = false;
         document.getElementById('fP1Captain').checked = true; // Reset a giocatore 1 come capitano
-        
+
         try {
           await loadState();
         } catch (err) {
@@ -1932,7 +1990,7 @@
             if (data.config.display.theme) {
               const themeName = data.config.display.theme;
               const validThemes = ['chiringuito', 'moderno', 'scuro', 'minimalista'];
-              
+
               if (validThemes.includes(themeName)) {
                 // Tema built-in
                 document.getElementById('themeLink').href = `theme-${themeName}.css`;
@@ -1944,7 +2002,7 @@
                 }
               }
             }
-            
+
             // Carica logo
             if (data.config.display.logoFile) {
               const mainLogo = document.getElementById('mainLogo');
@@ -1955,7 +2013,7 @@
                 };
               }
             }
-            
+
             // Carica sfondo
             if (data.config.display.backgroundFile) {
               document.body.style.backgroundImage = `url('${data.config.display.backgroundFile}')`;
@@ -1973,7 +2031,7 @@
     function applyCustomThemeStyle(customTheme) {
       // Importa i font da Google Fonts
       const fontImport = `@import url('https://fonts.googleapis.com/css2?family=${customTheme.headingFont.replace(/ /g, '+')}&family=${customTheme.bodyFont.replace(/ /g, '+')}');`;
-      
+
       // Genera CSS per il tema custom
       const customCss = `
         ${fontImport}
@@ -1998,7 +2056,7 @@
           color: ${customTheme.headingColor};
         }
       `;
-      
+
       // Inietta il CSS nel DOM
       const style = document.createElement('style');
       style.textContent = customCss;
@@ -2009,12 +2067,12 @@
     loadTheme();
 
     // ==================== SPONSOR TICKER ====================
-    
+
     async function loadSponsors() {
       try {
         const response = await fetch(`${API}?action=get_sponsors`);
         const data = await response.json();
-        
+
         if (data.ok && data.sponsors && data.sponsors.length > 0) {
           renderSponsorTicker(data.sponsors);
         }
@@ -2026,12 +2084,12 @@
     function renderSponsorTicker(sponsors) {
       const container = document.getElementById('sponsorTickerContainer');
       const track = document.getElementById('sponsorTickerTrack');
-      
+
       if (!sponsors || sponsors.length === 0) {
         container.style.display = 'none';
         return;
       }
-      
+
       // Crea array duplicato di sponsor per effetto loop infinito
       const sponsorItems = [];
       sponsors.forEach(sponsor => {
@@ -2040,16 +2098,16 @@
           sponsorItems.push(sponsor);
         }
       });
-      
+
       // Raddoppia gli sponsor per creare effetto seamless
       const allSponsors = [...sponsorItems, ...sponsorItems];
-      
+
       let html = '';
       allSponsors.forEach(sponsor => {
-        const logoHtml = sponsor.logoFile 
+        const logoHtml = sponsor.logoFile
           ? `<img src="${sponsor.logoFile}" alt="${sponsor.name}" class="sponsor-logo">`
           : '';
-        
+
         html += `
           <div class="sponsor-ticker-item">
             ${logoHtml}
@@ -2057,10 +2115,10 @@
           </div>
         `;
       });
-      
+
       track.innerHTML = html;
       container.style.display = 'block';
-      
+
       // Calcola la durata dell'animazione in base al numero di sponsor
       const duration = allSponsors.length * 3; // 3 secondi per sponsor
       track.style.animationDuration = `${duration}s`;
@@ -2070,12 +2128,12 @@
     loadSponsors();
 
     // ==================== NEWS SECTION ====================
-    
+
     async function loadNews() {
       try {
         const response = await fetch(`${API}?action=public_get_news`);
         const data = await response.json();
-        
+
         if (data.ok && data.news && data.news.length > 0) {
           renderNews(data.news);
         }
@@ -2087,20 +2145,20 @@
     function renderNews(news) {
       const section = document.getElementById('newsSection');
       const newsList = document.getElementById('newsList');
-      
+
       if (!news || news.length === 0) {
         section.style.display = 'none';
         return;
       }
-      
+
       section.style.display = 'block';
       newsList.innerHTML = '';
-      
+
       news.forEach(item => {
         const date = new Date(item.publishedAt || item.createdAt);
         const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-        
+
         const newsCard = document.createElement('div');
         newsCard.style.cssText = `
           background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
@@ -2112,7 +2170,7 @@
           display: flex;
           gap: 12px;
         `;
-        
+
         newsCard.onmouseover = () => {
           newsCard.style.transform = 'translateY(-2px)';
           newsCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
@@ -2121,7 +2179,7 @@
           newsCard.style.transform = 'none';
           newsCard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
         };
-        
+
         // Immagine
         if (item.imageFile) {
           const img = document.createElement('img');
@@ -2129,22 +2187,22 @@
           img.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 8px; flex-shrink: 0';
           newsCard.appendChild(img);
         }
-        
+
         const content_div = document.createElement('div');
         content_div.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: space-between';
-        
+
         const title = document.createElement('h4');
         title.textContent = item.title;
         title.style.cssText = 'margin: 0 0 8px 0; color: #2e5d1f; font-size: 18px';
-        
+
         const date_el = document.createElement('div');
         date_el.textContent = `${dateStr} • ${timeStr}`;
         date_el.style.cssText = 'font-size: 12px; color: #999; margin-bottom: 10px';
-        
+
         const text = document.createElement('p');
         text.textContent = item.content;
         text.style.cssText = 'margin: 0; color: #333; line-height: 1.5; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden';
-        
+
         content_div.appendChild(title);
         content_div.appendChild(date_el);
         content_div.appendChild(text);

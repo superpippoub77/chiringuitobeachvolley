@@ -414,725 +414,779 @@
             "type": "groups",
             "status": "active",
             "groups": [
-                [
-                    {
-                        "id": "9af9533b440769aa",
-                        "name": "Test Team 1",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "03da5cc18200c08f",
-                        "name": "Test Team 8",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "603546a38e9de785",
-                        "name": "Test Team 9",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "ec5bda4aa88ff7fb",
-                        "name": "Test Team 16",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "4b1d8f9a75170b77",
-                        "name": "Test Team 2",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "6a06af0c790a0efe",
-                        "name": "Test Team 7",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    }
-                ],
-                [
-                    {
-                        "id": "3556085be0676f32",
-                        "name": "Test Team 10",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "ec04760d8db46d82",
-                        "name": "Test Team 15",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    }
-                ],
-                [
-                    {
-                        "id": "ce47d32b0dd3b7be",
-                        "name": "Test Team 3",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "08ba93b19519ffb8",
-                        "name": "Test Team 6",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "952519f120bc555b",
-                        "name": "Test Team 11",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "4e1373a49a855cbf",
-                        "name": "Test Team 14",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    }
-                ],
-                [
-                    {
-                        "id": "809f7659c7a39de2",
-                        "name": "Test Team 4",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "5ad991ebd03fcdde",
-                        "name": "Test Team 5",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "786cd27a3cb5c025",
-                        "name": "Test Team 12",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    },
-                    {
-                        "id": "64436e658e469a00",
-                        "name": "Test Team 13",
-                        "category": "Misto",
-                        "players": [
-                            {
-                                "name": "Bot 1",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 2",
-                                "isCaptain": false
-                            },
-                            {
-                                "name": "Bot 3",
-                                "isCaptain": false
-                            }
-                        ],
-                        "phone": "",
-                        "paid": true,
-                        "approved": true,
-                        "kitDelivered": false,
-                        "dummy": true,
-                        "createdAt": "2026-07-08T18:58:03+00:00"
-                    }
-                ]
+                {
+                    "label": "A",
+                    "name": "A",
+                    "teams": [
+                        {
+                            "id": "9af9533b440769aa",
+                            "name": "Test Team 1",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "03da5cc18200c08f",
+                            "name": "Test Team 8",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "603546a38e9de785",
+                            "name": "Test Team 9",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "ec5bda4aa88ff7fb",
+                            "name": "Test Team 16",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "6a06af0c790a0efe",
+                            "name": "Test Team 7",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        }
+                    ],
+                    "teamIds": [
+                        "9af9533b440769aa",
+                        "03da5cc18200c08f",
+                        "603546a38e9de785",
+                        "ec5bda4aa88ff7fb",
+                        "6a06af0c790a0efe"
+                    ]
+                },
+                {
+                    "label": "B",
+                    "name": "B",
+                    "teams": [
+                        {
+                            "id": "3556085be0676f32",
+                            "name": "Test Team 10",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "ec04760d8db46d82",
+                            "name": "Test Team 15",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "4b1d8f9a75170b77",
+                            "name": "Test Team 2",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        }
+                    ],
+                    "teamIds": [
+                        "3556085be0676f32",
+                        "ec04760d8db46d82",
+                        "4b1d8f9a75170b77"
+                    ]
+                },
+                {
+                    "label": "C",
+                    "name": "C",
+                    "teams": [
+                        {
+                            "id": "ce47d32b0dd3b7be",
+                            "name": "Test Team 3",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "08ba93b19519ffb8",
+                            "name": "Test Team 6",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "952519f120bc555b",
+                            "name": "Test Team 11",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "4e1373a49a855cbf",
+                            "name": "Test Team 14",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        }
+                    ],
+                    "teamIds": [
+                        "ce47d32b0dd3b7be",
+                        "08ba93b19519ffb8",
+                        "952519f120bc555b"
+                    ]
+                },
+                {
+                    "label": "D",
+                    "name": "D",
+                    "teams": [
+                        {
+                            "id": "809f7659c7a39de2",
+                            "name": "Test Team 4",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "5ad991ebd03fcdde",
+                            "name": "Test Team 5",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "786cd27a3cb5c025",
+                            "name": "Test Team 12",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        },
+                        {
+                            "id": "64436e658e469a00",
+                            "name": "Test Team 13",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Bot 1",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 2",
+                                    "isCaptain": false
+                                },
+                                {
+                                    "name": "Bot 3",
+                                    "isCaptain": false
+                                }
+                            ],
+                            "phone": "",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": true,
+                            "createdAt": "2026-07-08T18:58:03+00:00"
+                        }
+                    ],
+                    "teamIds": [
+                        "809f7659c7a39de2",
+                        "5ad991ebd03fcdde",
+                        "786cd27a3cb5c025",
+                        "64436e658e469a00"
+                    ]
+                }
             ],
             "matches": [
                 {
-                    "id": "254a2deaac139c34",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "603546a38e9de785",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 9",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-13",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 0,
-                    "slotIdx": 0
-                },
-                {
-                    "id": "950c40fc14cc64f6",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 16",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-13",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 0,
-                    "slotIdx": 1
-                },
-                {
-                    "id": "82a0cfe8c651d20d",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 2",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "19:30",
-                    "endTime": "20:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 0
-                },
-                {
-                    "id": "46d6db8ee940d178",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 7",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "20:00",
-                    "endTime": "20:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 1
-                },
-                {
-                    "id": "cd9d4bf2f1412b12",
-                    "groupName": "A",
-                    "team1": "4b1d8f9a75170b77",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 2",
-                    "team2Name": "Test Team 7",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "20:30",
-                    "endTime": "21:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 2
-                },
-                {
-                    "id": "654c6ffd06bae63a",
-                    "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 16",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "21:00",
-                    "endTime": "21:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 3
-                },
-                {
-                    "id": "1557dc9200045f95",
-                    "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 2",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "21:30",
-                    "endTime": "22:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 4
-                },
-                {
-                    "id": "e1aa4a7400c59029",
-                    "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 7",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "22:00",
-                    "endTime": "22:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 5
-                },
-                {
-                    "id": "6045125cb572268b",
+                    "id": "c57ed08a5757cb16",
                     "groupName": "A",
                     "team1": "9af9533b440769aa",
                     "team2": "03da5cc18200c08f",
                     "team1Name": "Test Team 1",
                     "team2Name": "Test Team 8",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 21,
+                    "score2": 13,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
+                    "startTime": "20:00",
+                    "endTime": "20:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 1,
+                    "time": "20:00"
+                },
+                {
+                    "id": "eb61c0992d83ee3b",
+                    "groupName": "A",
+                    "team1": "603546a38e9de785",
+                    "team2": "ec5bda4aa88ff7fb",
+                    "team1Name": "Test Team 9",
+                    "team2Name": "Test Team 16",
+                    "score1": 25,
+                    "score2": 24,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-13",
                     "startTime": "22:30",
                     "endTime": "23:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 6
+                    "dateIdx": 0,
+                    "slotIdx": 0,
+                    "time": "22:30"
                 },
                 {
-                    "id": "94272e7a5a7d636b",
+                    "id": "0593477f86ce0bbf",
                     "groupName": "A",
                     "team1": "9af9533b440769aa",
-                    "team2": "603546a38e9de785",
+                    "team2": "6a06af0c790a0efe",
                     "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 9",
-                    "score1": null,
-                    "score2": null,
+                    "team2Name": "Test Team 7",
+                    "score1": 21,
+                    "score2": 19,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-14",
+                    "date": "2026-07-13",
                     "startTime": "23:00",
                     "endTime": "23:30",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 7
+                    "dateIdx": 0,
+                    "slotIdx": 1,
+                    "time": "23:00"
                 },
                 {
-                    "id": "877b2743dc584943",
+                    "id": "e0c76163ce326875",
+                    "groupName": "A",
+                    "team1": "03da5cc18200c08f",
+                    "team2": "603546a38e9de785",
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 9",
+                    "score1": 21,
+                    "score2": 17,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "19:30",
+                    "endTime": "20:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 0,
+                    "time": "19:30"
+                },
+                {
+                    "id": "affbc46b17f1a3a0",
                     "groupName": "A",
                     "team1": "9af9533b440769aa",
                     "team2": "ec5bda4aa88ff7fb",
                     "team1Name": "Test Team 1",
                     "team2Name": "Test Team 16",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 25,
+                    "score2": 24,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "19:30",
-                    "endTime": "20:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 0
-                },
-                {
-                    "id": "54a6a3a5dbc126af",
-                    "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 2",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "20:00",
-                    "endTime": "20:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 1
-                },
-                {
-                    "id": "0913d8e8bb36d7af",
-                    "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 7",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
+                    "date": "2026-07-14",
                     "startTime": "20:30",
                     "endTime": "21:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 2
+                    "dateIdx": 1,
+                    "slotIdx": 2,
+                    "time": "20:30"
                 },
                 {
-                    "id": "7c13177c1013d536",
+                    "id": "37700e6d3ffb664c",
                     "groupName": "A",
-                    "team1": "ec5bda4aa88ff7fb",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 16",
-                    "team2Name": "Test Team 2",
-                    "score1": null,
-                    "score2": null,
+                    "team1": "03da5cc18200c08f",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 7",
+                    "score1": 19,
+                    "score2": 21,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-15",
+                    "date": "2026-07-14",
                     "startTime": "21:00",
                     "endTime": "21:30",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 3
+                    "dateIdx": 1,
+                    "slotIdx": 3,
+                    "time": "21:00"
                 },
                 {
-                    "id": "de283f77d14f88c9",
+                    "id": "86448b6da759e2ad",
                     "groupName": "A",
-                    "team1": "ec5bda4aa88ff7fb",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 16",
-                    "team2Name": "Test Team 7",
-                    "score1": null,
-                    "score2": null,
+                    "team1": "9af9533b440769aa",
+                    "team2": "603546a38e9de785",
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 9",
+                    "score1": 21,
+                    "score2": 15,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-15",
+                    "date": "2026-07-14",
                     "startTime": "21:30",
                     "endTime": "22:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 4
+                    "dateIdx": 1,
+                    "slotIdx": 4,
+                    "time": "21:30"
                 },
                 {
-                    "id": "ca4a6d5b857723a9",
+                    "id": "3e08c0eb9142f051",
+                    "groupName": "A",
+                    "team1": "03da5cc18200c08f",
+                    "team2": "ec5bda4aa88ff7fb",
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 16",
+                    "score1": 21,
+                    "score2": 3,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "22:00",
+                    "endTime": "22:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 5,
+                    "time": "22:00"
+                },
+                {
+                    "id": "d8e49ba844524873",
+                    "groupName": "A",
+                    "team1": "603546a38e9de785",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 9",
+                    "team2Name": "Test Team 7",
+                    "score1": 9,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "22:30",
+                    "endTime": "23:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 6,
+                    "time": "22:30"
+                },
+                {
+                    "id": "403eedee1f130d92",
+                    "groupName": "A",
+                    "team1": "ec5bda4aa88ff7fb",
+                    "team2": "6a06af0c790a0efe",
+                    "team1Name": "Test Team 16",
+                    "team2Name": "Test Team 7",
+                    "score1": 21,
+                    "score2": 4,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "23:00",
+                    "endTime": "23:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 7,
+                    "time": "23:00"
+                },
+                {
+                    "id": "5e2ab874f2eb44b3",
                     "groupName": "B",
                     "team1": "3556085be0676f32",
                     "team2": "ec04760d8db46d82",
                     "team1Name": "Test Team 10",
                     "team2Name": "Test Team 15",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 8,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "19:30",
+                    "endTime": "20:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 0,
+                    "time": "19:30"
+                },
+                {
+                    "id": "ad771325a6a90881",
+                    "groupName": "B",
+                    "team1": "3556085be0676f32",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 10",
+                    "team2Name": "Test Team 2",
+                    "score1": 21,
+                    "score2": 2,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "20:00",
+                    "endTime": "20:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 1,
+                    "time": "20:00"
+                },
+                {
+                    "id": "8c279bf2f2cdb907",
+                    "groupName": "B",
+                    "team1": "ec04760d8db46d82",
+                    "team2": "4b1d8f9a75170b77",
+                    "team1Name": "Test Team 15",
+                    "team2Name": "Test Team 2",
+                    "score1": 21,
+                    "score2": 2,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "20:30",
+                    "endTime": "21:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 2,
+                    "time": "20:30"
+                },
+                {
+                    "id": "b0ff6e2d38dadc59",
+                    "groupName": "C",
+                    "team1": "ce47d32b0dd3b7be",
+                    "team2": "08ba93b19519ffb8",
+                    "team1Name": "Test Team 3",
+                    "team2Name": "Test Team 6",
+                    "score1": 24,
+                    "score2": 25,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "21:00",
+                    "endTime": "21:30",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 3,
+                    "time": "21:00"
+                },
+                {
+                    "id": "a01eb177585fc38a",
+                    "groupName": "C",
+                    "team1": "952519f120bc555b",
+                    "team2": "4e1373a49a855cbf",
+                    "team1Name": "Test Team 11",
+                    "team2Name": "Test Team 14",
+                    "score1": 19,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "21:30",
+                    "endTime": "22:00",
+                    "courtId": "court-1783537091369-0",
+                    "courtName": "Campo 1",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 4,
+                    "time": "21:30"
+                },
+                {
+                    "id": "2749fcef391c35cd",
+                    "groupName": "C",
+                    "team1": "ce47d32b0dd3b7be",
+                    "team2": "952519f120bc555b",
+                    "team1Name": "Test Team 3",
+                    "team2Name": "Test Team 11",
+                    "score1": 21,
+                    "score2": 7,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
@@ -1142,17 +1196,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 2,
-                    "slotIdx": 5
+                    "slotIdx": 5,
+                    "time": "22:00"
                 },
                 {
-                    "id": "22c817c625446cc3",
+                    "id": "8dfede2a145efb69",
                     "groupName": "C",
                     "team1": "08ba93b19519ffb8",
-                    "team2": "952519f120bc555b",
+                    "team2": "4e1373a49a855cbf",
                     "team1Name": "Test Team 6",
-                    "team2Name": "Test Team 11",
-                    "score1": null,
-                    "score2": null,
+                    "team2Name": "Test Team 14",
+                    "score1": 21,
+                    "score2": 17,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
@@ -1162,17 +1217,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 2,
-                    "slotIdx": 6
+                    "slotIdx": 6,
+                    "time": "22:30"
                 },
                 {
-                    "id": "6bed913ac1466e39",
+                    "id": "1e34d6a480d84db7",
                     "groupName": "C",
-                    "team1": "08ba93b19519ffb8",
+                    "team1": "ce47d32b0dd3b7be",
                     "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 6",
+                    "team1Name": "Test Team 3",
                     "team2Name": "Test Team 14",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 21,
+                    "score2": 16,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
@@ -1182,17 +1238,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 2,
-                    "slotIdx": 7
+                    "slotIdx": 7,
+                    "time": "23:00"
                 },
                 {
-                    "id": "adda47791a1ea109",
+                    "id": "1fb342e07677d6be",
                     "groupName": "C",
-                    "team1": "952519f120bc555b",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 11",
-                    "team2Name": "Test Team 14",
-                    "score1": null,
-                    "score2": null,
+                    "team1": "08ba93b19519ffb8",
+                    "team2": "952519f120bc555b",
+                    "team1Name": "Test Team 6",
+                    "team2Name": "Test Team 11",
+                    "score1": 21,
+                    "score2": 19,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1202,17 +1259,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 0
+                    "slotIdx": 0,
+                    "time": "19:30"
                 },
                 {
-                    "id": "fad67c220914e248",
-                    "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "08ba93b19519ffb8",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 6",
-                    "score1": null,
-                    "score2": null,
+                    "id": "4d384e02df3ab784",
+                    "groupName": "D",
+                    "team1": "809f7659c7a39de2",
+                    "team2": "5ad991ebd03fcdde",
+                    "team1Name": "Test Team 4",
+                    "team2Name": "Test Team 5",
+                    "score1": 21,
+                    "score2": 19,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1222,17 +1280,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 1
+                    "slotIdx": 1,
+                    "time": "20:00"
                 },
                 {
-                    "id": "e21e487042058ad7",
-                    "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "952519f120bc555b",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 11",
-                    "score1": null,
-                    "score2": null,
+                    "id": "1864c54072522d7b",
+                    "groupName": "D",
+                    "team1": "786cd27a3cb5c025",
+                    "team2": "64436e658e469a00",
+                    "team1Name": "Test Team 12",
+                    "team2Name": "Test Team 13",
+                    "score1": 21,
+                    "score2": 3,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1242,17 +1301,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 2
+                    "slotIdx": 2,
+                    "time": "20:30"
                 },
                 {
-                    "id": "eab5e5f6ca66d38e",
-                    "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 14",
-                    "score1": null,
-                    "score2": null,
+                    "id": "f891dd548f17c1aa",
+                    "groupName": "D",
+                    "team1": "809f7659c7a39de2",
+                    "team2": "786cd27a3cb5c025",
+                    "team1Name": "Test Team 4",
+                    "team2Name": "Test Team 12",
+                    "score1": 8,
+                    "score2": 21,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1262,17 +1322,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 3
+                    "slotIdx": 3,
+                    "time": "21:00"
                 },
                 {
-                    "id": "88ac157890788e1b",
+                    "id": "6174a1f6ec44d5d0",
                     "groupName": "D",
                     "team1": "5ad991ebd03fcdde",
-                    "team2": "786cd27a3cb5c025",
+                    "team2": "64436e658e469a00",
                     "team1Name": "Test Team 5",
-                    "team2Name": "Test Team 12",
-                    "score1": null,
-                    "score2": null,
+                    "team2Name": "Test Team 13",
+                    "score1": 21,
+                    "score2": 18,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1282,17 +1343,18 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 4
+                    "slotIdx": 4,
+                    "time": "21:30"
                 },
                 {
-                    "id": "dd5885e9f7c6ccf6",
+                    "id": "c9d2496527ad796e",
                     "groupName": "D",
-                    "team1": "5ad991ebd03fcdde",
+                    "team1": "809f7659c7a39de2",
                     "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 5",
+                    "team1Name": "Test Team 4",
                     "team2Name": "Test Team 13",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 24,
+                    "score2": 25,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-16",
@@ -1302,87 +1364,29 @@
                     "courtName": "Campo 1",
                     "courtIdx": 0,
                     "dateIdx": 3,
-                    "slotIdx": 5
+                    "slotIdx": 5,
+                    "time": "22:00"
                 },
                 {
-                    "id": "481f2bb148330b3a",
+                    "id": "452266ba41f38ac9",
                     "groupName": "D",
-                    "team1": "786cd27a3cb5c025",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 12",
-                    "team2Name": "Test Team 13",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 6
-                },
-                {
-                    "id": "26bb2a030dbfca35",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
-                    "team2": "5ad991ebd03fcdde",
-                    "team1Name": "Test Team 4",
-                    "team2Name": "Test Team 5",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 7
-                },
-                {
-                    "id": "da9944e42fa59681",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
+                    "team1": "5ad991ebd03fcdde",
                     "team2": "786cd27a3cb5c025",
-                    "team1Name": "Test Team 4",
+                    "team1Name": "Test Team 5",
                     "team2Name": "Test Team 12",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 25,
+                    "score2": 24,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-13",
+                    "date": "2026-07-16",
                     "startTime": "22:30",
                     "endTime": "23:00",
                     "courtId": "court-1783537091369-0",
                     "courtName": "Campo 1",
                     "courtIdx": 0,
-                    "dateIdx": 0,
-                    "slotIdx": 0
-                },
-                {
-                    "id": "ea708c3a12371553",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 4",
-                    "team2Name": "Test Team 13",
-                    "score1": null,
-                    "score2": null,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-13",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 0,
-                    "slotIdx": 1
+                    "dateIdx": 3,
+                    "slotIdx": 6,
+                    "time": "22:30"
                 }
             ],
             "standings": [],
@@ -1391,9 +1395,167 @@
                 "teamCount": 16,
                 "numGroups": 4
             }
+        },
+        {
+            "id": "phase_fdf11f48c95f80e1",
+            "phaseIdx": 1,
+            "phaseNumber": 2,
+            "name": "Castello",
+            "type": "knockout",
+            "status": "pending",
+            "sourcePhaseNumber": 1,
+            "sourceBranch": "qualified",
+            "teamSource": "phase",
+            "matches": [
+                {
+                    "id": "92e98b7975616cf7",
+                    "label": "QF1",
+                    "type": "quarterFinal",
+                    "round": 1,
+                    "matchIndexInRound": 0,
+                    "team1": "9af9533b440769aa",
+                    "team1Id": "9af9533b440769aa",
+                    "team2": "5ad991ebd03fcdde",
+                    "team2Id": "5ad991ebd03fcdde",
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null,
+                    "team1Name": "Test Team 1",
+                    "team2Name": "Test Team 5"
+                },
+                {
+                    "id": "a94bc346829df9a8",
+                    "label": "QF2",
+                    "type": "quarterFinal",
+                    "round": 1,
+                    "matchIndexInRound": 1,
+                    "team1": "3556085be0676f32",
+                    "team1Id": "3556085be0676f32",
+                    "team2": "08ba93b19519ffb8",
+                    "team2Id": "08ba93b19519ffb8",
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null,
+                    "team1Name": "Test Team 10",
+                    "team2Name": "Test Team 6"
+                },
+                {
+                    "id": "6d5b3b7af862d675",
+                    "label": "QF3",
+                    "type": "quarterFinal",
+                    "round": 1,
+                    "matchIndexInRound": 2,
+                    "team1": "03da5cc18200c08f",
+                    "team1Id": "03da5cc18200c08f",
+                    "team2": "786cd27a3cb5c025",
+                    "team2Id": "786cd27a3cb5c025",
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null,
+                    "team1Name": "Test Team 8",
+                    "team2Name": "Test Team 12"
+                },
+                {
+                    "id": "b99e54b1d1850469",
+                    "label": "QF4",
+                    "type": "quarterFinal",
+                    "round": 1,
+                    "matchIndexInRound": 3,
+                    "team1": "ec04760d8db46d82",
+                    "team1Id": "ec04760d8db46d82",
+                    "team2": "ce47d32b0dd3b7be",
+                    "team2Id": "ce47d32b0dd3b7be",
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null,
+                    "team1Name": "Test Team 15",
+                    "team2Name": "Test Team 3"
+                },
+                {
+                    "id": "7c33571b55f1c9dc",
+                    "label": "SF1",
+                    "type": "semiFinal",
+                    "round": 2,
+                    "matchIndexInRound": 0,
+                    "team1": null,
+                    "team1Id": null,
+                    "team2": null,
+                    "team2Id": null,
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "172bd9fb5229a9f1",
+                    "label": "SF2",
+                    "type": "semiFinal",
+                    "round": 2,
+                    "matchIndexInRound": 1,
+                    "team1": null,
+                    "team1Id": null,
+                    "team2": null,
+                    "team2Id": null,
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "e626fddafb070e32",
+                    "label": "F",
+                    "type": "final",
+                    "round": 3,
+                    "matchIndexInRound": 0,
+                    "team1": null,
+                    "team1Id": null,
+                    "team2": null,
+                    "team2Id": null,
+                    "score1": null,
+                    "score2": null,
+                    "bye": false,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "4f96a1390e5bcf49",
+                    "label": "3P",
+                    "type": "thirdPlace",
+                    "team1": null,
+                    "team1Id": null,
+                    "team2": null,
+                    "team2Id": null,
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                }
+            ],
+            "groups": [],
+            "standings": [],
+            "createdAt": "2026-07-12T06:48:58+00:00"
         }
     ],
     "meta": {
-        "lastUpdated": "2026-07-09T21:06:15+00:00"
-    }
+        "lastUpdated": "2026-07-12T17:58:56+00:00"
+    },
+    "currentPhaseIdx": 2
 }

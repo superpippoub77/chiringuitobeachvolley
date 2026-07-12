@@ -593,6 +593,7 @@
   </style>
   <!-- PDF Generation Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -760,9 +761,12 @@
         </div>
 
         <!-- Pulsante Nuova Fase -->
-        <div style="margin-bottom: 16px">
+        <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap">
           <button class="btn btn-green" onclick="openPhaseWizard('root')" style="font-size: 14px; padding: 10px 16px">
             ➕ Nuova Fase
+          </button>
+          <button class="btn btn-primary" onclick="openCreatePhaseFromSourceModal()" style="font-size: 14px; padding: 10px 16px">
+            🆕 Crea Fase Successiva (squadre reali)
           </button>
         </div>
 
@@ -1052,6 +1056,9 @@
     let token = localStorage.getItem('adminToken') || '';
     let state = null;
     let config = {};
+    // 🔧 FIX: traccia la tab attiva per ripristinarla dopo refresh() invece di tornare
+    // sempre a "Impostazioni" (o alla tab indicata nella URL, che poteva essere obsoleta)
+    let currentActivePage = new URLSearchParams(window.location.search).get('tab') || 'settings';
     let modalCloseHandler = null;
     let modalOnClose = null;
 
@@ -1250,6 +1257,7 @@
     }
 
     function showPage(page, btn) {
+      currentActivePage = page; // 🔧 FIX: ricorda la tab attiva
       document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
       document.querySelector('#page-' + page).classList.remove('hidden');
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1356,16 +1364,12 @@
       renderMatches();
       updateButtonStates();
       
-      // Se è specificato un tab nell'URL, aprilo automaticamente
-      const urlParams = new URLSearchParams(window.location.search);
-      const tabParam = urlParams.get('tab');
-      if (tabParam) {
-        const tabButton = document.querySelector(`[data-page="${tabParam}"]`);
-        if (tabButton) {
-          showPage(tabParam, tabButton);
-        }
+      // 🔧 FIX: ripristina la tab su cui l'utente si trovava (non quella nella URL,
+      // che poteva non essere aggiornata/affidabile) invece di tornare sempre a "Impostazioni"
+      const tabButton = document.querySelector(`[data-page="${currentActivePage}"]`);
+      if (tabButton) {
+        showPage(currentActivePage, tabButton);
       } else {
-        // Se non c'è un tab nell'URL, apri il primo tab (settings)
         const defaultTabButton = document.querySelector('[data-page="settings"]');
         if (defaultTabButton) {
           showPage('settings', defaultTabButton);
@@ -4004,8 +4008,15 @@
       <div style="margin-bottom: 12px; display: flex; gap: 8px">
         <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
       </div>
-      <table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
-      ${m.map(match => `<tr>
+      <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
+      <table><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      ${m.map(match => `<tr draggable="true" data-match-id="${match.id}"
+          ondragstart="handleMatchDragStart(event, '${match.id}')"
+          ondragend="handleMatchDragEnd(event)"
+          ondragover="handleMatchDragOver(event)"
+          ondragleave="handleMatchDragLeave(event)"
+          ondrop="handleMatchDrop(event, '${match.id}')">
+        <td style="cursor: move; text-align: center; color: #999" title="Trascina per scambiare l'orario con un'altra partita">⠿</td>
         <td>${match.groupName || match.group || '-'}</td>
         <td>${escapeHtml(match.team1Name)}</td>
         <td>
@@ -4023,6 +4034,55 @@
         </td>
       </tr>`).join('')}
       </tbody></table>`;
+    }
+
+    // ==================== DRAG & DROP: scambio slot tra due partite ====================
+    let draggedMatchId = null;
+
+    function handleMatchDragStart(event, matchId) {
+      draggedMatchId = matchId;
+      event.dataTransfer.effectAllowed = 'move';
+      event.currentTarget.style.opacity = '0.4';
+    }
+
+    function handleMatchDragEnd(event) {
+      event.currentTarget.style.opacity = '1';
+    }
+
+    function handleMatchDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      if (event.currentTarget.dataset.matchId !== draggedMatchId) {
+        event.currentTarget.style.background = '#e3f2fd';
+      }
+    }
+
+    function handleMatchDragLeave(event) {
+      event.currentTarget.style.background = '';
+    }
+
+    async function handleMatchDrop(event, targetMatchId) {
+      event.preventDefault();
+      event.currentTarget.style.background = '';
+
+      const sourceMatchId = draggedMatchId;
+      draggedMatchId = null;
+
+      if (!sourceMatchId || sourceMatchId === targetMatchId) {
+        return;
+      }
+
+      try {
+        await callApi('admin_swap_match_slots', 'POST', {
+          matchIdA: sourceMatchId,
+          matchIdB: targetMatchId,
+          phaseNumber: currentSelectedPhaseNumber
+        }, true);
+        await refresh();
+        await showInfoDialog('✅ Successo', 'Orario/campo scambiato tra le due partite.');
+      } catch (e) {
+        await showInfoDialog('❌ Errore', 'Non è stato possibile scambiare lo slot: ' + e.message);
+      }
     }
 
     async function clearMatchTime(matchId) {
@@ -4110,17 +4170,28 @@
       const slots = [];
       const schedule = config.schedule || {};
       const courts = schedule.courts || [];
-      
+      const today = new Date().toISOString().split('T')[0];
+
       courts.forEach((court, courtIdx) => {
         const availability = court.availability || [];
         availability.forEach((av, dateIdx) => {
+          // 🔧 FIX: salta le date già passate, non ha senso proporle
+          if (av.date && av.date < today) return;
+
           const timeSlots = av.timeSlots || [];
           timeSlots.forEach((ts, slotIdx) => {
+            // 🔧 FIX: salta gli slot già assegnati a un'altra partita
+            // (prima venivano proposti anche quelli già occupati, apparendo
+            // "disponibili" nella dialog anche se in realtà erano già presi)
+            if (getMatchesInSlot(courtIdx, dateIdx, slotIdx) > 0) return;
+
             slots.push({
               courtIdx: courtIdx,
               dateIdx: dateIdx,
               slotIdx: slotIdx,
-              courtLabel: court.name || `Campo ${courtIdx + 1}`,
+              // 🔧 FIX: il campo si chiama 'courtName', non 'name' (per questo
+              // il nome campo non compariva mai nella dialog)
+              courtLabel: court.courtName || court.name || `Campo ${courtIdx + 1}`,
               dateLabel: formatDateIta(av.date),
               startTime: ts.startTime || '00:00',
               endTime: ts.endTime || '00:00',
@@ -4185,9 +4256,38 @@
       } catch (e) { await showInfoDialog('Errore', e.message); }
     }
 
+    // 🆕 Genera un punteggio realistico per un set/partita, rispettando il punteggio
+    // di vittoria configurato e la regola dello scarto di almeno 2 punti (ai vantaggi
+    // fino al tetto massimo, come nella pallavolo vera).
+    function generateRealisticSetScore(winScore, maxScore) {
+      const isCloseGame = Math.random() < 0.3; // 30% delle partite finisce ai vantaggi
+
+      if (!isCloseGame) {
+        // Vittoria normale: il perdente fa un punteggio a caso tra 0 e winScore-2,
+        // così il vincitore arriva a winScore con almeno 2 punti di scarto.
+        const loserScore = Math.floor(Math.random() * Math.max(1, winScore - 1));
+        return { winner: winScore, loser: loserScore };
+      }
+
+      // Partita ai vantaggi: si parte vicino al pareggio e si sale finché non c'è
+      // uno scarto di 2 punti, oppure si raggiunge il tetto massimo configurato.
+      let winner = winScore;
+      let loser = winScore - 1 - Math.floor(Math.random() * 2); // winScore-1 o winScore-2
+      while (winner - loser < 2 && winner < maxScore) {
+        winner++;
+        loser++;
+      }
+      if (winner - loser < 2) {
+        // Tetto massimo raggiunto senza i canonici 2 punti di scarto (es. 25-24): si chiude comunque qui.
+        winner = maxScore;
+        loser = maxScore - 1;
+      }
+      return { winner, loser };
+    }
+
     async function simulateMatchScores() {
-      // Genera punteggi casuali per tutte le partite della fase corrente
-      const confirmed = await showConfirmDialog('Simula Punteggi', 'Generare punteggi casuali per tutte le partite?');
+      // Genera punteggi realistici per tutte le partite della fase corrente
+      const confirmed = await showConfirmDialog('Simula Punteggi', 'Generare punteggi casuali (realistici) per tutte le partite?');
       if (!confirmed) return;
       
       try {
@@ -4200,37 +4300,26 @@
         const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
         const matches = (phase && phase.matches) ? phase.matches : [];
         
-        console.log('DEBUG simulateMatchScores:');
-        console.log('  currentSelectedPhaseNumber:', currentSelectedPhaseNumber);
-        console.log('  phase:', phase);
-        console.log('  matches count:', matches.length);
-        
         if (matches.length === 0) {
           await showInfoDialog('Errore', 'Nessuna partita disponibile per questa fase');
           return;
         }
         
-        // Verifica che config e numSets siano configurati
-        const numSets = config?.numSets || 1;
-        console.log(`Simulando punteggi con numSets=${numSets} dalla configurazione`);
+        // 🔧 FIX: i campi si chiamano config.tournament.winScore/maxScore, non config.numSets
+        // (che oltretutto non esiste: il numero di set è config.tournament.numSets)
+        const winScore = config?.tournament?.winScore || 21;
+        const maxScore = config?.tournament?.maxScore || 25;
+        console.log(`Simulando punteggi: winScore=${winScore}, maxScore=${maxScore} (scarto minimo di 2 punti)`);
         
         let savedCount = 0;
         for (const match of matches) {
-          // Genera punteggi congrui al numero di set configurato
-          // Ad esempio, se numSets=2: possibili risultati sono 2-0, 2-1, 1-2, 0-2
-          const score1 = Math.floor(Math.random() * (numSets + 1));
-          let score2 = Math.floor(Math.random() * (numSets + 1));
+          const { winner, loser } = generateRealisticSetScore(winScore, maxScore);
+          // Assegna casualmente chi vince tra le due squadre
+          const team1Wins = Math.random() > 0.5;
+          const score1 = team1Wins ? winner : loser;
+          const score2 = team1Wins ? loser : winner;
           
-          // Assicura che almeno uno raggiunga il valore di vittoria (numSets)
-          if (score1 < numSets && score2 < numSets) {
-            if (Math.random() > 0.5) {
-              score1 = numSets;
-            } else {
-              score2 = numSets;
-            }
-          }
-          
-          console.log(`Saving match ${match.id}: ${score1} vs ${score2} (numSets=${numSets})`);
+          console.log(`Saving match ${match.id}: ${score1} vs ${score2} (winScore=${winScore})`);
           
           try {
             await callApi('admin_update_group_match', 'POST', {
@@ -4256,15 +4345,21 @@
     }
 
     async function downloadScoutPDF() {
-      // Raccoglie partite e crea PDF scout per la stampa
+      // 🔧 RISCRITTA DA ZERO: le versioni precedenti "fotografavano" l'HTML con
+      // html2canvas, che ha continuato a dare risultati imprevedibili (spazio vuoto
+      // in cima al foglio, partite tagliate tra le pagine). Ora il PDF viene disegnato
+      // DIRETTAMENTE con jsPDF (testo e riquadri veri, non uno screenshot), quindi
+      // controlliamo esattamente quante partite stanno per foglio e non c'è nessun
+      // problema di cattura. Nessuna intestazione: si parte subito con le partite,
+      // 3 per foglio.
       try {
         if (!state || !state.phases) {
           await showInfoDialog('Errore', 'State non inizializzato');
           return;
         }
-        
+
         const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
-        if (!phase || !phase.matches) {
+        if (!phase || !phase.matches || phase.matches.length === 0) {
           await showInfoDialog('Errore', 'Nessuna partita disponibile per questa fase');
           return;
         }
@@ -4278,116 +4373,124 @@
           return timeA.localeCompare(timeB);
         });
 
-        // Raccogli dati torneo
-        const tournamentName = config.tournamentName || 'Torneo Beach Volley';
-        const currentDate = new Date().toLocaleDateString('it-IT', { year: 'numeric', month: 'long', day: 'numeric' });
-        
-        // Crea HTML per il PDF
-        let htmlContent = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; width: 100%; background: white; color: black">
-          <!-- HEADER -->
-          <div style="text-align: center; border-bottom: 3px solid #333; padding-bottom: 15px; margin-bottom: 20px">
-            <h1 style="margin: 0; font-size: 24px; color: #1d1a13">${escapeHtml(tournamentName)}</h1>
-            <h2 style="margin: 5px 0; font-size: 16px; color: #666">${escapeHtml(phase.name)}</h2>
-            <p style="margin: 5px 0; font-size: 12px; color: #888">Generato: ${currentDate}</p>
-          </div>
+        const JsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+        if (!JsPDFCtor) {
+          await showInfoDialog('Errore', 'Libreria PDF (jsPDF) non disponibile. Ricarica la pagina e riprova.');
+          return;
+        }
 
-          <!-- SCOUT TABLE -->
-          <div style="margin-bottom: 20px">
-            <h3 style="margin-bottom: 15px; font-size: 14px; border-bottom: 2px solid #2196F3; padding-bottom: 5px">📋 SCOUT PARTITE</h3>
-        `;
+        const doc = new JsPDFCtor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const pageWidth = 210, pageHeight = 297;
+        const margin = 10;
+        const usableWidth = pageWidth - margin * 2;
+        const usableHeight = pageHeight - margin * 2;
+        const matchesPerPage = 3;
+        const blockHeight = usableHeight / matchesPerPage;
+        const blockGap = 4; // spazio tra una partita e l'altra nello stesso foglio
 
         matches.forEach((match, idx) => {
-          const team1 = escapeHtml(match.team1Name || 'Squadra 1');
-          const team2 = escapeHtml(match.team2Name || 'Squadra 2');
-          const groupName = match.groupName || match.group || '-';
-          const matchDate = match.date ? formatDateIta(match.date) : '-';
-          const matchTime = match.startTime || '--:--';
-          const court = match.courtName || '-';
-
-          htmlContent += `
-            <div style="page-break-inside: avoid; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; background: #f9f9f9; border-radius: 4px">
-              <!-- Match Info -->
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; font-size: 11px; color: #666">
-                <div><strong>Girone:</strong> ${groupName}</div>
-                <div><strong>Data:</strong> ${matchDate}</div>
-                <div><strong>Ora:</strong> ${matchTime}</div>
-                <div><strong>Campo:</strong> ${court}</div>
-              </div>
-
-              <!-- Match Score Box -->
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
-                <!-- Team 1 -->
-                <div style="flex: 1; text-align: center">
-                  <div style="font-weight: bold; font-size: 13px; margin-bottom: 8px">${team1}</div>
-                  <div style="display: flex; gap: 10px; justify-content: center; align-items: center">
-                    <div style="border: 2px solid #333; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold">_</div>
-                  </div>
-                </div>
-
-                <!-- VS -->
-                <div style="width: 40px; text-align: center; font-weight: bold; color: #d32f2f; font-size: 12px">vs</div>
-
-                <!-- Team 2 -->
-                <div style="flex: 1; text-align: center">
-                  <div style="font-weight: bold; font-size: 13px; margin-bottom: 8px">${team2}</div>
-                  <div style="display: flex; gap: 10px; justify-content: center; align-items: center">
-                    <div style="border: 2px solid #333; width: 50px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold">_</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Notes -->
-              <div style="font-size: 10px; color: #999; text-align: center; padding-top: 8px; border-top: 1px dashed #ddd">
-                Note: ___________________________________________________________________________
-              </div>
-            </div>
-          `;
+          const posInPage = idx % matchesPerPage;
+          if (idx > 0 && posInPage === 0) {
+            doc.addPage();
+          }
+          const blockTop = margin + posInPage * blockHeight;
+          drawScoutMatchBlock(doc, match, margin, blockTop, usableWidth, blockHeight - blockGap);
         });
 
-        htmlContent += `
-            </div>
-            <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 15px">
-              Foglio scout generato automaticamente - Utilizzare una matita per compilare i punteggi
-            </div>
-          </div>
-        `;
-
-        // Opzioni per html2pdf
-        const opt = {
-          margin: 10,
-          filename: `Scout_${currentSelectedPhaseNumber}_${new Date().getTime()}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-        };
-
-        // Crea elemento temporaneo e genera PDF
-        const element = document.createElement('div');
-        element.innerHTML = htmlContent;
-        element.style.display = 'none';
-        document.body.appendChild(element);
-
-        // Genera PDF usando html2pdf
-        html2pdf()
-          .set(opt)
-          .from(element)
-          .save()
-          .then(() => {
-            document.body.removeChild(element);
-            console.log('✅ Scout PDF scaricato con successo');
-          })
-          .catch(err => {
-            document.body.removeChild(element);
-            console.error('❌ Errore generazione PDF:', err);
-            showInfoDialog('Errore', 'Errore nella generazione del PDF: ' + err.message);
-          });
-
+        doc.save(`Scout_${currentSelectedPhaseNumber}_${Date.now()}.pdf`);
+        console.log('✅ Scout PDF generato con successo (disegno diretto, ' + matches.length + ' partite)');
       } catch (e) {
         console.error('downloadScoutPDF error:', e);
         await showInfoDialog('Errore', 'Errore download scout: ' + e.message);
       }
     }
+
+    // Disegna una singola card-partita (riquadro, nomi, box punteggio, griglia 1-30) a partire da (x,y)
+    function drawScoutMatchBlock(doc, match, x, y, width, height) {
+      const team1 = match.team1Name || 'Squadra 1';
+      const team2 = match.team2Name || 'Squadra 2';
+      const groupName = match.groupName || match.group || '-';
+      const matchDate = match.date ? formatDateIta(match.date) : '-';
+      const matchTime = match.startTime || '--:--';
+      const court = match.courtName || '-';
+
+      // Riquadro esterno della card
+      doc.setDrawColor(190);
+      doc.setLineWidth(0.2);
+      doc.rect(x, y, width, height);
+
+      let cursorY = y + 5;
+
+      // Riga info
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(`Girone: ${groupName}    Data: ${matchDate}    Ora: ${matchTime}    Campo: ${court}`, x + 3, cursorY);
+
+      cursorY += 6;
+
+      const halfWidth = width / 2;
+      const col1Center = x + halfWidth / 2;
+      const col2Center = x + halfWidth + halfWidth / 2;
+
+      // Nomi squadre + VS
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(20);
+      doc.text(team1, col1Center, cursorY, { align: 'center', maxWidth: halfWidth - 8 });
+      doc.text(team2, col2Center, cursorY, { align: 'center', maxWidth: halfWidth - 8 });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(200, 50, 50);
+      doc.text('vs', x + halfWidth, cursorY, { align: 'center' });
+
+      cursorY += 6;
+
+      // Box punteggio finale
+      const scoreBoxSize = 11;
+      doc.setDrawColor(40);
+      doc.setLineWidth(0.4);
+      doc.rect(col1Center - scoreBoxSize / 2, cursorY, scoreBoxSize, scoreBoxSize);
+      doc.rect(col2Center - scoreBoxSize / 2, cursorY, scoreBoxSize, scoreBoxSize);
+
+      cursorY += scoreBoxSize + 3;
+
+      // Griglia caselle numerate 1-30 (una per squadra), dimensionata per stare nello
+      // spazio verticale rimanente della card
+      const remainingHeight = (y + height) - cursorY - 3;
+      const cols = 6, rows = 5;
+      const gap = 0.6;
+      const maxCellFromHeight = (remainingHeight - (rows - 1) * gap) / rows;
+      const maxCellFromWidth = (halfWidth - 10 - (cols - 1) * gap) / cols;
+      const cellSize = Math.max(3, Math.min(maxCellFromHeight, maxCellFromWidth, 6));
+      const gridWidth = cols * cellSize + (cols - 1) * gap;
+
+      drawPointGrid(doc, col1Center - gridWidth / 2, cursorY, cellSize, gap, cols, rows);
+      drawPointGrid(doc, col2Center - gridWidth / 2, cursorY, cellSize, gap, cols, rows);
+    }
+
+    // Disegna una griglia cols x rows di caselline numerate a partire da 1, da (startX, startY)
+    function drawPointGrid(doc, startX, startY, cellSize, gap, cols, rows) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(Math.max(4, cellSize * 1.1));
+      doc.setDrawColor(140);
+      doc.setLineWidth(0.15);
+      doc.setTextColor(90);
+
+      let n = 1;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const bx = startX + c * (cellSize + gap);
+          const by = startY + r * (cellSize + gap);
+          doc.rect(bx, by, cellSize, cellSize);
+          doc.text(String(n), bx + cellSize / 2, by + cellSize / 2 + cellSize * 0.32, { align: 'center' });
+          n++;
+        }
+      }
+    }
+
 
 
     async function createPlayoff() {
@@ -4648,8 +4751,15 @@
         <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
         <button class="btn btn-info" onclick="downloadScoutPDF()">📄 Scarica Scout PDF</button>
       </div>
-      <table><thead><tr><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
-      ${m.map(match => `<tr>
+      <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
+      <table><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      ${m.map(match => `<tr draggable="true" data-match-id="${match.id}"
+          ondragstart="handleMatchDragStart(event, '${match.id}')"
+          ondragend="handleMatchDragEnd(event)"
+          ondragover="handleMatchDragOver(event)"
+          ondragleave="handleMatchDragLeave(event)"
+          ondrop="handleMatchDrop(event, '${match.id}')">
+        <td style="cursor: move; text-align: center; color: #999" title="Trascina per scambiare l'orario con un'altra partita">⠿</td>
         <td>${match.groupName || match.group || '-'}</td>
         <td>${escapeHtml(match.team1Name)}</td>
         <td>
@@ -4948,11 +5058,15 @@
     }
 
     function renderPhaseSelector() {
-      const phases = config.phases || [];
+      // 🔧 FIX: leggeva da config.phases (la lista di "pianificazione" del vecchio
+      // wizard), non da state.phases (dove sono le fasi REALMENTE generate, incluse
+      // quelle create dal nuovo motore "Crea Fase Successiva"). Per questo una fase
+      // creata con le squadre vere non compariva mai nel selettore in alto.
+      const phases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
       const container = document.getElementById('phaseSelectorContainer');
       if (!container) return;
 
-      console.log('📋 renderPhaseSelector - config.phases:', phases);
+      console.log('📋 renderPhaseSelector - state.phases:', phases);
       console.log('   currentPhaseIdx:', state.currentPhaseIdx);
 
       if (phases.length === 0) {
@@ -5031,9 +5145,40 @@
       }
     }
 
+    // 🔧 FIX: le fasi create dal nuovo motore potrebbero non avere una voce in
+    // config.phases (es. se create prima dell'aggiunta della compatibilità, o se
+    // per qualunque motivo quella scrittura non fosse andata a buon fine). Invece
+    // di fallire, ricostruiamo un oggetto minimo di metadati da state.phases.
+    function getPhaseMetadata(phaseNumber) {
+      const configPhases = config.phases || [];
+      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      if (configPhase) return configPhase;
+
+      const statePhase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
+      if (!statePhase) return null;
+
+      const teamIds = new Set();
+      (statePhase.matches || []).forEach(m => {
+        const t1 = m.team1Id || m.team1;
+        const t2 = m.team2Id || m.team2;
+        if (t1) teamIds.add(t1);
+        if (t2) teamIds.add(t2);
+      });
+
+      return {
+        phaseNumber: statePhase.phaseNumber,
+        name: statePhase.name,
+        type: statePhase.type,
+        numGroups: (statePhase.groups || []).length,
+        teamsAdvance: '',
+        hasRepescage: false,
+        numTeams: teamIds.size,
+        hasLosersPath: !!statePhase.sourceBranch
+      };
+    }
+
     function renderPhaseParametersPanel(phaseNumber) {
-      const phases = config.phases || [];
-      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      const phase = getPhaseMetadata(phaseNumber);
       if (!phase) {
         console.warn('❌ Fase non trovata con phaseNumber/phaseIdx:', phaseNumber);
         return;
@@ -5098,8 +5243,7 @@
     }
 
     function openPhaseParametersDialog(phaseNumber) {
-      const phases = config.phases || [];
-      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      const phase = getPhaseMetadata(phaseNumber);
       if (!phase) return;
 
       let formHTML = `
@@ -5285,20 +5429,19 @@
       });
       console.log('�📊 renderPhaseContent - found statePhase:', statePhase);
       
-      const configPhases = config.phases || [];
-      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);
-      
       const container = document.getElementById('phaseContentContainer');
       
       if (!container) {
         return;
       }
       
-      // Se non c'è nemmeno in config, la fase non esiste
-      if (!configPhase) {
-        container.innerHTML = '<p style="color: #f44336">❌ Fase non trovata in configurazione.</p>';
-        return;
-      }
+      // 🔧 FIX: rimosso il controllo che richiedeva la presenza in config.phases
+      // prima ancora di guardare statePhase. config.phases è solo un elenco di
+      // metadati facoltativo del vecchio wizard: una fase può esistere ed essere
+      // completa senza comparire lì (es. le fasi create dal nuovo motore prima
+      // dell'aggiunta della sincronizzazione, o qualunque disallineamento futuro).
+      // statePhase (da state.phases) è l'unica fonte dati reale e sufficiente
+      // per mostrare il contenuto della fase.
       
       // Se non c'è in state, la fase non è stata generata
       if (!statePhase) {
@@ -5350,9 +5493,14 @@
         <h4 style="color: #2196F3; margin-bottom: 12px">📌 ${escapeHtml(phaseData.name)}</h4>`;
       
       // Mostra numero di squadre e gironi
-      html += `<div style="background: #f0f8ff; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
-        <div>📊 <strong>${phaseData.groups.length}</strong> gironi</div>
-        <div>👥 <strong>${phaseData.metadata?.teamCount || 0}</strong> squadre</div>
+      const unscheduledGroupCount = (phaseData.matches || []).filter(m => !m.date).length;
+      html += `<div style="background: #f0f8ff; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+        <div>
+          <div>📊 <strong>${phaseData.groups.length}</strong> gironi</div>
+          <div>👥 <strong>${phaseData.metadata?.teamCount || 0}</strong> squadre</div>
+          ${unscheduledGroupCount > 0 ? `<div style="color: #e65100"><strong>${unscheduledGroupCount}</strong> partite senza orario</div>` : ''}
+        </div>
+        ${unscheduledGroupCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
       </div>`;
 
       // Renderizza ogni girone
@@ -5529,13 +5677,17 @@ html += `
 
       try {
         // Chiama API per spostare squadra
+        console.log('📤 Sending API request with:', { teamName: draggedTeam.name, phaseNumber: phaseNumberInt, groupLabel });
         const response = await callApi('admin_move_team_to_group', 'POST', {
           teamName: draggedTeam.name,
           phaseNumber: phaseNumberInt,
           groupLabel: groupLabel
         }, true);
 
+        console.log('📥 API Response:', response);
+        
         if (!response.ok) {
+          console.error('❌ API returned error:', response.error);
           await showInfoDialog('Errore', response.error || 'Non è stato possibile spostare la squadra');
           return;
         }
@@ -5797,34 +5949,93 @@ html += `
       return html;
     }
 
+    let knockoutViewMode = 'table'; // 'table' oppure 'bracket' - toggle vista fase knockout
+
+    function toggleKnockoutView() {
+      knockoutViewMode = knockoutViewMode === 'table' ? 'bracket' : 'table';
+      renderPhaseContentForSubTab();
+    }
+
+    async function autoSchedulePhase(phaseNumber) {
+      const confirmed = await showConfirmDialog('Genera Orari', 'Assegnare automaticamente data/ora/campo alle partite di questa fase che non ce l\'hanno ancora? Potrai comunque modificare ogni singola partita dopo con il pulsante "📅 Slot".');
+      if (!confirmed) return;
+
+      try {
+        const res = await callApi('admin_auto_schedule_phase', 'POST', { phaseNumber }, true);
+        await refresh();
+        const playable = res.totalMatches - res.skippedByes;
+        if (res.scheduled === 0 && playable > 0) {
+          await showInfoDialog('⚠️ Nessuno slot disponibile', 'Non ci sono fasce orarie libere configurate per assegnare queste partite. Vai in Impostazioni → Calendario per aggiungerne (campi, date, orari), poi riprova.');
+        } else if (res.scheduled < playable) {
+          await showInfoDialog('⚠️ Slot parzialmente assegnati', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare: le fasce disponibili configurate sono finite. Aggiungine altre in Impostazioni → Calendario per completare.`);
+        } else {
+          await showInfoDialog('✅ Fatto', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare.`);
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore nella generazione orari: ' + e.message);
+      }
+    }
+
     function renderPhaseKnockout(phaseData, container) {
       // Renderizza il bracket ad albero per la fase knockout
+      // 🔧 FIX: la versione precedente referenziava una variabile "phase" mai
+      // definita (il parametro si chiama "phaseData"), che causava un errore e
+      // interrompeva il rendering subito dopo le tabelle. Rimosso anche un blocco
+      // legacy che leggeva da state.playoff (una struttura dati diversa, usata
+      // solo dal vecchio pulsante "Crea Playoff" a 8 squadre fisse) che non ha
+      // nulla a che fare con le fasi generate dal nuovo motore.
       if (!phaseData.matches || phaseData.matches.length === 0) {
         container.innerHTML = '<p style="color: #999">Nessuna partita di knockout disponibile.</p>';
         return;
       }
 
+      const unscheduledCount = phaseData.matches.filter(m => !m.bye && !m.date).length;
+
       let html = `<div>
         <h4 style="color: #ff9800; margin-bottom: 12px">🏆 ${escapeHtml(phaseData.name)}</h4>
-        <div style="background: #fff3e0; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
-          <div>🏆 <strong>${phaseData.matches.length}</strong> partite in questa fase</div>
+        <div style="background: #fff3e0; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+          <div>🏆 <strong>${phaseData.matches.length}</strong> partite in questa fase${unscheduledCount > 0 ? ` — <strong style="color: #e65100">${unscheduledCount} senza orario</strong>` : ''}</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap">
+            ${unscheduledCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
+            <button class="btn" onclick="toggleKnockoutView()" style="font-size: 12px; padding: 6px 12px">
+              🔀 Vista: ${knockoutViewMode === 'table' ? 'Tabella (passa a Bracket)' : 'Bracket (passa a Tabella)'}
+            </button>
+          </div>
         </div>
       `;
 
-      // Raggruppa partite per turno
-      const matchesByRound = {};
+      if (knockoutViewMode === 'bracket') {
+        html += renderKnockoutBracketHtml(phaseData);
+        container.innerHTML = html;
+        return;
+      }
+
+      // Raggruppa partite per tipo di turno (quarterFinal/semiFinal/final/thirdPlace),
+      // in ordine cronologico corretto invece che per numero di round grezzo
+      const roundLabels = {
+        quarterFinal: '🔹 Quarti di Finale',
+        semiFinal: '🔹 Semifinali',
+        final: '🏆 Finale',
+        thirdPlace: '🥉 Finale 3°/4° posto'
+      };
+      const roundOrder = ['round32', 'round16', 'quarterFinal', 'semiFinal', 'final', 'thirdPlace'];
+      const matchesByType = {};
       phaseData.matches.forEach(match => {
-        const round = match.round || 'Turno non definito';
-        if (!matchesByRound[round]) {
-          matchesByRound[round] = [];
-        }
-        matchesByRound[round].push(match);
+        const type = match.type || 'altro';
+        if (!matchesByType[type]) matchesByType[type] = [];
+        matchesByType[type].push(match);
       });
 
-      // Mostra partite per turno
-      Object.keys(matchesByRound).forEach(round => {
+      const orderedTypes = Object.keys(matchesByType).sort((a, b) => {
+        const ia = roundOrder.indexOf(a);
+        const ib = roundOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+
+      orderedTypes.forEach(type => {
+        const label = roundLabels[type] || `🔹 ${escapeHtml(type)}`;
         html += `<div style="margin-bottom: 16px">
-          <h5 style="color: #ff9800; margin-bottom: 8px">🔹 ${round}</h5>
+          <h5 style="color: #ff9800; margin-bottom: 8px">${label}</h5>
           <table style="width: 100%; font-size: 12px; border-collapse: collapse">
             <thead>
               <tr style="background: #fff3e0">
@@ -5835,12 +6046,14 @@ html += `
               </tr>
             </thead>
             <tbody>`;
-        
-        matchesByRound[round].forEach(match => {
+
+        matchesByType[type].forEach(match => {
+          const t1 = match.bye ? `${escapeHtml(match.team1Name || '-')} (bye)` : escapeHtml(match.team1Name || '—');
+          const t2 = match.team2Name ? escapeHtml(match.team2Name) : '—';
           html += `<tr style="border-bottom: 1px solid #eee">
-            <td style="padding: 8px">${escapeHtml(match.team1Name)}</td>
+            <td style="padding: 8px">${t1}</td>
             <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
-            <td style="padding: 8px">${escapeHtml(match.team2Name)}</td>
+            <td style="padding: 8px">${t2}</td>
             <td style="padding: 8px; text-align: center; font-size: 11px">${match.date ? formatDateIta(match.date) : '-'}</td>
           </tr>`;
         });
@@ -5850,78 +6063,53 @@ html += `
 
       html += '</div>';
       container.innerHTML = html;
+    }
 
-      // Mostra info su qualificate ed eliminate
-      if (phase.qualifiedGoTo || phase.eliminatedGoTo) {
-        html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 12px; font-size: 13px">';
-        if (phase.qualifiedGoTo) {
-          html += `<div><strong style="color: #2ecc71">✓ Vincitori:</strong> ${escapeHtml(phase.qualifiedGoTo)}</div>`;
-        }
-        if (phase.eliminatedGoTo) {
-          html += `<div style="margin-top: 6px"><strong style="color: #ff9800">✗ Perdenti:</strong> ${escapeHtml(phase.eliminatedGoTo)}</div>`;
-        }
+    // Costruisce il markup del bracket "grafico" (colonne collegate visivamente per turno),
+    // usando le classi CSS .bracket/.bracket-column/.bracket-match già presenti nel foglio stile.
+    function renderKnockoutBracketHtml(phaseData) {
+      const roundLabels = {
+        round32: 'OTTAVI', round16: 'SEDICESIMI', quarterFinal: 'QUARTI',
+        semiFinal: 'SEMIFINALI', final: 'FINALE', thirdPlace: '3°/4° POSTO'
+      };
+      const roundOrder = ['round32', 'round16', 'quarterFinal', 'semiFinal', 'final'];
+
+      const byType = {};
+      (phaseData.matches || []).forEach(m => {
+        const t = m.type || 'altro';
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(m);
+      });
+
+      const mainTypes = Object.keys(byType).filter(t => t !== 'thirdPlace').sort((a, b) => {
+        const ia = roundOrder.indexOf(a), ib = roundOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+
+      function matchBox(m) {
+        const t1 = escapeHtml(m.team1Name || 'Da definire');
+        const t2 = m.bye ? 'BYE' : escapeHtml(m.team2Name || 'Da definire');
+        return `<div class="bracket-match">
+          <div class="match-team"><strong>${t1}</strong><span class="match-score">${m.score1 ?? ''}</span></div>
+          <div class="match-team"><strong>${t2}</strong><span class="match-score">${m.score2 ?? ''}</span></div>
+        </div>`;
+      }
+
+      let html = '<div class="bracket">';
+      mainTypes.forEach(type => {
+        html += `<div class="bracket-column"><div class="bracket-title">${roundLabels[type] || escapeHtml(type)}</div>`;
+        byType[type].forEach(m => { html += matchBox(m); });
+        html += '</div>';
+      });
+
+      if (byType['thirdPlace']) {
+        html += `<div class="bracket-column"><div class="bracket-title">${roundLabels['thirdPlace']}</div>`;
+        byType['thirdPlace'].forEach(m => { html += matchBox(m); });
         html += '</div>';
       }
 
-      if (phase.phaseNumber === 1 && state && state.playoff) {
-        // Renderizza il playoff come bracket
-        html += '<div id="bracketContent"></div>';
-      } else {
-        html += '<p style="color: #999; font-size: 13px">Bracket non ancora generato. Completa la fase precedente.</p>';
-      }
-
       html += '</div>';
-      container.innerHTML = html;
-
-      // Se è la prima fase knockout, renderizza il bracket
-      if (phase.phaseNumber === 1 && state && state.playoff) {
-        setTimeout(() => {
-          // Renderizza il bracket nel bracketContent
-          const bracketDiv = document.getElementById('bracketContent');
-          if (bracketDiv) {
-            const p = state.playoff || {};
-            let bracketHtml = '<div class="bracket" style="margin-top: 16px">';
-
-            // Quarti di finale
-            if (p.quarterFinals && p.quarterFinals.length > 0) {
-              bracketHtml += '<div class="bracket-column"><div class="bracket-title">QUARTI</div>';
-              p.quarterFinals.forEach(m => {
-                bracketHtml += renderBracketMatch(m, 'quarterFinals', true, phase.phaseNumber);
-              });
-              bracketHtml += '</div>';
-            }
-
-            // Semifinali
-            if (p.semiFinals && p.semiFinals.length > 0) {
-              bracketHtml += '<div class="bracket-column"><div class="bracket-title">SEMIFINALI</div>';
-              p.semiFinals.forEach(m => {
-                bracketHtml += renderBracketMatch(m, 'semiFinals', true, phase.phaseNumber);
-              });
-              bracketHtml += '</div>';
-            }
-
-            // Finale 3° posto
-            if (p.thirdPlace) {
-              bracketHtml += '<div class="bracket-column"><div class="bracket-title">3° POSTO</div>';
-              bracketHtml += renderBracketMatch(p.thirdPlace, 'thirdPlace', true, phase.phaseNumber);
-              bracketHtml += '</div>';
-            }
-
-            // Finale
-            if (p.final) {
-              bracketHtml += '<div class="bracket-column"><div class="bracket-title">FINALE</div>';
-              bracketHtml += renderBracketMatch(p.final, 'final', true, phase.phaseNumber);
-              bracketHtml += '</div>';
-            }
-
-            bracketHtml += '</div>';
-            bracketDiv.innerHTML = bracketHtml;
-            
-            // Inizializza drag and drop per le squadre knockout
-            setupKnockoutDragDrop();
-          }
-        }, 100);
-      }
+      return html;
     }
 
     function renderPhaseSubtournament(phaseData, container) {
@@ -7946,7 +8134,11 @@ html += `
     }
 
     // Calcola il numero di slot disponibili nello schedule
-    function calculateAvailableSlots() {
+    // 🔧 FIX: rinominata (era omonima di calculateAvailableSlots() più sopra, che
+    // restituisce un array di slot; questa restituisce invece un conteggio. Avere
+    // due funzioni con lo stesso nome faceva sì che questa (l'ultima dichiarata)
+    // sovrascrivesse l'altra, rompendo openSlotPicker() che si aspettava un array.
+    function calculateAvailableSlotsCount() {
       let totalSlots = 0;
       const courts = config.schedule?.courts || [];
       
@@ -9811,6 +10003,155 @@ html += `
       newPhases.push(finalPhase);
       
       return newPhases;
+    }
+
+    // ==================== 🆕 CREA FASE SUCCESSIVA (motore reale, squadre vere) ====================
+    // Pannello nuovo, separato dal vecchio wizard "➕ Nuova Fase" (che resta invariato).
+    // Usa gli endpoint admin_preview_phase_branch / admin_create_phase_from_source.
+
+    function openCreatePhaseFromSourceModal() {
+      const phases = state.phases || [];
+      const nextPhaseNumber = phases.length ? Math.max(...phases.map(p => p.phaseNumber || 0)) + 1 : 1;
+
+      if (phases.length === 0) {
+        showInfoDialog('⚠️ Nessuna fase esistente', 'Crea prima la Fase 1 (gironi) dalle Impostazioni/Squadre prima di poter generare una fase successiva.');
+        return;
+      }
+
+      const phaseOptions = phases.map(p => `<option value="${p.phaseNumber}">${escapeHtml(p.name || ('Fase ' + p.phaseNumber))} (Fase ${p.phaseNumber})</option>`).join('');
+
+      const bodyHtml = `
+        <div style="display: flex; flex-direction: column; gap: 14px; min-width: 360px">
+          <div>
+            <label style="font-weight: bold; display: block; margin-bottom: 4px">Da dove arrivano le squadre?</label>
+            <select id="npTeamSource" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">
+              <option value="phase">Da una fase precedente (vincenti/perdenti reali)</option>
+              <option value="registration">Nuovo torneo (da tutte le squadre iscritte)</option>
+            </select>
+          </div>
+
+          <div id="npPhaseSourceFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
+            <div>
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Fase sorgente</label>
+              <select id="npSourcePhase" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">${phaseOptions}</select>
+            </div>
+            <div>
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Ramo</label>
+              <select id="npSourceBranch" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">
+                <option value="qualified">✅ Qualificati / Vincenti</option>
+                <option value="eliminated">❌ Eliminati / Perdenti</option>
+              </select>
+            </div>
+            <div id="npPreview" style="font-size: 13px; color: #555">Caricamento anteprima...</div>
+          </div>
+
+          <div>
+            <label style="font-weight: bold; display: block; margin-bottom: 4px">Formula della nuova fase</label>
+            <select id="npType" onchange="onNewPhaseTypeChange()" style="width: 100%; padding: 6px">
+              <option value="groups">🔄 Gironi</option>
+              <option value="knockout">🏆 Castello (eliminazione diretta)</option>
+            </select>
+          </div>
+
+          <div id="npGroupsFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
+            <div>
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Numero gironi</label>
+              <input id="npNumGroups" type="number" min="1" value="2" style="width: 100%; padding: 6px">
+            </div>
+            <div>
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Squadre che avanzano per girone</label>
+              <input id="npTeamsAdvance" type="text" placeholder="es. 2  oppure  2,1,2,2 (diverso per girone)" value="2" style="width: 100%; padding: 6px">
+              <p style="font-size: 12px; color: #777; margin: 4px 0 0 0">Usato per il collegamento della PROSSIMA fase da questa (non influisce su questa creazione).</p>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px">
+            <div style="flex: 1">
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Numero fase</label>
+              <input id="npTargetPhaseNumber" type="number" min="1" value="${nextPhaseNumber}" style="width: 100%; padding: 6px">
+            </div>
+            <div style="flex: 2">
+              <label style="font-weight: bold; display: block; margin-bottom: 4px">Nome fase</label>
+              <input id="npName" type="text" placeholder="es. Ottavi - Vincenti Girone" style="width: 100%; padding: 6px">
+            </div>
+          </div>
+        </div>
+      `;
+
+      openModal({
+        title: '🆕 Crea Fase Successiva',
+        bodyHtml,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          { text: '✅ Crea Fase', className: 'btn btn-green', closeOnClick: false, onClick: submitCreatePhaseFromSource }
+        ]
+      });
+
+      // Stato iniziale dei campi condizionali + prima anteprima
+      onNewPhaseSourceChange();
+      onNewPhaseTypeChange();
+    }
+
+    function onNewPhaseTypeChange() {
+      const type = document.getElementById('npType')?.value;
+      const groupsFields = document.getElementById('npGroupsFields');
+      if (groupsFields) groupsFields.style.display = (type === 'groups') ? 'flex' : 'none';
+    }
+
+    async function onNewPhaseSourceChange() {
+      const source = document.getElementById('npTeamSource')?.value;
+      const phaseFields = document.getElementById('npPhaseSourceFields');
+      if (!phaseFields) return;
+
+      if (source === 'registration') {
+        phaseFields.style.display = 'none';
+        return;
+      }
+      phaseFields.style.display = 'flex';
+
+      const preview = document.getElementById('npPreview');
+      const sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
+      const branch = document.getElementById('npSourceBranch')?.value;
+      if (!sourcePhaseNumber || !preview) return;
+
+      preview.textContent = '⏳ Calcolo squadre in base ai risultati reali...';
+      try {
+        const res = await callApi('admin_preview_phase_branch', 'POST', { sourcePhaseNumber, teamsAdvancePerGroup: 2 }, true);
+        const list = branch === 'eliminated' ? res.eliminated : res.qualified;
+        if (!res.complete) {
+          preview.innerHTML = `⚠️ La fase ${sourcePhaseNumber} non ha ancora tutti i risultati inseriti: l'elenco squadre potrebbe non essere definitivo.<br>Al momento risultano <b>${list.length}</b> squadre nel ramo selezionato.`;
+        } else {
+          preview.innerHTML = `<b>${list.length} squadre</b> reali in questo ramo: ${list.map(t => escapeHtml(t.name)).join(', ') || '—'}`;
+        }
+      } catch (e) {
+        preview.textContent = '❌ Errore nel calcolo anteprima: ' + e.message;
+      }
+    }
+
+    async function submitCreatePhaseFromSource() {
+      const teamSource = document.getElementById('npTeamSource')?.value;
+      const type = document.getElementById('npType')?.value;
+      const targetPhaseNumber = parseInt(document.getElementById('npTargetPhaseNumber')?.value, 10);
+      const name = document.getElementById('npName')?.value || '';
+      const numGroups = parseInt(document.getElementById('npNumGroups')?.value, 10) || 2;
+      const teamsAdvancePerGroup = document.getElementById('npTeamsAdvance')?.value || '2';
+
+      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup };
+
+      if (teamSource === 'phase') {
+        payload.sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
+        payload.sourceBranch = document.getElementById('npSourceBranch')?.value;
+      }
+
+      try {
+        const res = await callApi('admin_create_phase_from_source', 'POST', payload, true);
+        closeModal(true);
+        await refresh();
+        currentSelectedPhaseNumber = targetPhaseNumber;
+        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali.`);
+      } catch (e) {
+        await showInfoDialog('❌ Errore', e.message);
+      }
     }
 
     function openPhaseWizard(branch = 'root', teamsIn = null) {

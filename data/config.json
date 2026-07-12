@@ -12,8 +12,8 @@
         "timePerSetMinutes": 25,
         "setupTimeMinutes": 5,
         "maxTimeoutsPerSet": 2,
-        "registrationsClosed": false,
-        "registrationDeadline": ""
+        "registrationsClosed": true,
+        "registrationDeadline": "2026-07-11T21:35"
     },
     "schedule": {
         "courts": [
@@ -103,11 +103,21 @@
             "id": "5ac65db9dd4227d5",
             "title": "Inizio del torneo rimandati",
             "content": "Test",
-            "imageFile": "",
+            "imageFile": "data\/uploads\/news-e18d9ab552c57ad4.png",
             "published": true,
             "createdAt": "2026-07-08T22:37:25+00:00",
-            "updatedAt": "2026-07-08T22:37:25+00:00",
+            "updatedAt": "2026-07-10T20:14:59+00:00",
             "publishedAt": "2026-07-08T22:37:25+00:00"
+        },
+        {
+            "id": "0a98f4170565025d",
+            "title": "d",
+            "content": "d",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-10T19:37:50+00:00",
+            "updatedAt": "2026-07-10T20:15:09+00:00",
+            "publishedAt": "2026-07-10T20:15:09+00:00"
         }
     ],
     "autosave": {

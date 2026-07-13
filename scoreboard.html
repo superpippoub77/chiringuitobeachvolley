@@ -677,11 +677,16 @@
 
       table {
         font-size: 12px;
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
       }
 
       th,
       td {
         padding: 6px;
+        white-space: nowrap;
       }
     }
 
@@ -827,6 +832,15 @@
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
       </nav>
+
+    <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
+      <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 22px">
+        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)" style="opacity: 0; width: 0; height: 0">
+        <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 22px"></span>
+        <span id="autoRefreshKnob" style="position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3)"></span>
+      </label>
+      <span>🔄 Aggiornamento automatico (ogni 30s): <strong id="autoRefreshStatusLabel">disattivato</strong></span>
+    </div>
 
       <section class="page active" id="page-iscrizione">
         <h3>Registrazione squadra</h3>
@@ -1460,19 +1474,127 @@
       });
     }
 
+    let selectedPublicPhaseNumber = null; // 🆕 fase selezionata nella pagina pubblica Gironi/Fasi
+
+    function selectPublicPhase(phaseNumber) {
+      selectedPublicPhaseNumber = phaseNumber;
+      renderGroups();
+    }
+
+    // Risolve i gironi di una fase diversa dalla prima (che arriva già risolta dal
+    // server): i gruppi contengono solo teamIds, qui li trasformiamo in oggetti
+    // squadra completi usando state.teams.
+    function resolveGroupsForPublicPhase(phase) {
+      const teamById = {};
+      (state.teams || []).forEach(t => { teamById[t.id] = t; });
+
+      return (phase.groups || []).map(g => {
+        const teamIds = g.teamIds || (g.teams || []).map(t => t.id).filter(Boolean);
+        const teams = teamIds.map(id => teamById[id]).filter(Boolean);
+        return { name: g.name || g.label, teams };
+      });
+    }
+
+    // Vista pubblica di sola lettura per una fase a eliminazione diretta (castello):
+    // partite raggruppate per turno, senza possibilità di modifica.
+    function renderKnockoutPhasePublicHtml(phase) {
+      const roundLabels = {
+        round32: '🔹 Ottavi', round16: '🔹 Sedicesimi', quarterFinal: '🔹 Quarti di Finale',
+        semiFinal: '🔹 Semifinali', final: '🏆 Finale', thirdPlace: '🥉 Finale 3°/4° posto'
+      };
+      const roundOrder = ['round32', 'round16', 'quarterFinal', 'semiFinal', 'final', 'thirdPlace'];
+
+      const matches = phase.matches || [];
+      if (!matches.length) {
+        return '<p>Nessuna partita disponibile per questa fase.</p>';
+      }
+
+      const byType = {};
+      matches.forEach(m => {
+        const t = m.type || 'altro';
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(m);
+      });
+
+      const orderedTypes = Object.keys(byType).sort((a, b) => {
+        const ia = roundOrder.indexOf(a), ib = roundOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+
+      let html = '<div style="margin-top: 16px">';
+      orderedTypes.forEach(type => {
+        html += `<div style="margin-bottom: 20px">
+          <h4 style="color: #6b5d45; margin-bottom: 8px">${roundLabels[type] || esc(type)}</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px">`;
+
+        byType[type].forEach(m => {
+          const t1 = m.team1Name || 'Da definire';
+          const t2 = m.bye ? 'BYE' : (m.team2Name || 'Da definire');
+          const hasScore = m.score1 !== null && m.score1 !== undefined;
+          html += `<div style="border: 2px solid #8b7355; border-radius: 8px; padding: 10px; background: #faf5f0">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px">
+              <strong style="color: #6b5d45">${esc(t1)}</strong>
+              <span style="font-weight: bold">${hasScore ? m.score1 : ''}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <strong style="color: #6b5d45">${esc(t2)}</strong>
+              <span style="font-weight: bold">${hasScore ? m.score2 : ''}</span>
+            </div>
+            ${m.date ? `<div style="margin-top: 6px; font-size: 11px; color: #999">${formatDateIta(m.date)} ${m.startTime || ''}</div>` : ''}
+          </div>`;
+        });
+
+        html += '</div></div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
     function renderGroups() {
       const c = document.getElementById('page-groups');
-      // ✅ FIX: state.phases[0].groups contiene solo { name, teamIds: [...] } (solo ID,
-      // niente dati squadra). I dati completi delle squadre (nome, giocatori) sono già
-      // risolti lato server in state.groups: [{ name, teams: [...] }, ...]
-      const groups = state.groups || [];
+      const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
 
-      if (!groups.length) {
+      if (!allPhases.length) {
         c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
         return;
       }
 
+      // Di default mostra la prima fase (comportamento invariato rispetto a prima)
+      if (selectedPublicPhaseNumber === null) {
+        selectedPublicPhaseNumber = allPhases[0].phaseNumber;
+      }
+      const activePhase = allPhases.find(p => p.phaseNumber === selectedPublicPhaseNumber) || allPhases[0];
+
       let html = '<h3>### 📊 Gironi e Fasi</h3>';
+
+      // 🆕 Selettore fasi: mostra TUTTE le fasi del torneo, non solo la prima
+      if (allPhases.length > 1) {
+        html += '<div style="margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap">';
+        allPhases.forEach(p => {
+          const isActive = p.phaseNumber === activePhase.phaseNumber;
+          const icon = p.type === 'knockout' ? '🏆' : (p.type === 'subtournament' ? '🎪' : '📊');
+          html += `<button onclick="selectPublicPhase(${p.phaseNumber})" style="padding: 8px 14px; border-radius: 6px; border: 2px solid ${isActive ? '#2e5d1f' : '#ddd'}; background: ${isActive ? '#e8f5e9' : 'white'}; color: ${isActive ? '#2e5d1f' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; cursor: pointer">${icon} ${esc(p.name || ('Fase ' + p.phaseNumber))}</button>`;
+        });
+        html += '</div>';
+      }
+
+      // Fase knockout (castello): vista dedicata, non usa i sotto-tab Gironi/Partite/Classifiche
+      if (activePhase.type === 'knockout') {
+        html += renderKnockoutPhasePublicHtml(activePhase);
+        c.innerHTML = html;
+        return;
+      }
+
+      // Fase a gironi diversa dalla prima: risolvi le squadre lato client da state.teams,
+      // dato che solo la prima fase arriva già risolta nei campi state.groups/state.groupMatches
+      const isFirstPhase = activePhase.phaseNumber === allPhases[0].phaseNumber;
+      const groups = isFirstPhase ? (state.groups || []) : resolveGroupsForPublicPhase(activePhase);
+
+      if (!groups.length) {
+        html += '<p>Gironi non ancora pubblicati per questa fase.</p>';
+        c.innerHTML = html;
+        return;
+      }
 
       // Tab interni per Gironi/Partite/Classifiche
       html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 16px; flex-wrap: wrap">';
@@ -1483,7 +1605,7 @@
 
       // CONTENITORE GIRONI
       html += '<div data-view="groups">';
-      html += '<h4 style="margin-top: 20px; margin-bottom: 12px">#### 📌 Fase 1 - Gironi</h4>';
+      html += `<h4 style="margin-top: 20px; margin-bottom: 12px">#### 📌 ${esc(activePhase.name || 'Gironi')}</h4>`;
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
       groups.forEach((g, idx) => {
@@ -1972,8 +2094,44 @@
     updateCountdown();
     setInterval(updateCountdown, 1000);
 
-    // Auto-refresh pagina ogni 30 secondi
+    // 🆕 Auto-refresh pagina ogni 30 secondi, ma SOLO se attivato dallo switch
+    // (di default è spento: l'utente deve accenderlo esplicitamente per simulare
+    // l'aggiornamento in tempo reale delle partite).
+    let autoRefreshEnabled = false;
+
+    function toggleAutoRefresh(checked) {
+      autoRefreshEnabled = checked;
+      const knob = document.getElementById('autoRefreshKnob');
+      const track = knob?.previousElementSibling;
+      const label = document.getElementById('autoRefreshStatusLabel');
+      if (knob) {
+        knob.style.transform = checked ? 'translateX(18px)' : 'translateX(0)';
+      }
+      if (track) {
+        track.style.backgroundColor = checked ? '#2e5d1f' : '#ccc';
+      }
+      if (label) {
+        label.textContent = checked ? 'attivato' : 'disattivato';
+      }
+      try {
+        localStorage.setItem('scoreboardAutoRefresh', checked ? '1' : '0');
+      } catch (e) { /* localStorage non disponibile, pace */ }
+    }
+
+    // Ripristina la preferenza salvata (se l'utente l'aveva già attivata in passato)
+    try {
+      const saved = localStorage.getItem('scoreboardAutoRefresh');
+      if (saved === '1') {
+        const toggle = document.getElementById('autoRefreshToggle');
+        if (toggle) {
+          toggle.checked = true;
+          toggleAutoRefresh(true);
+        }
+      }
+    } catch (e) { /* localStorage non disponibile, pace */ }
+
     setInterval(() => {
+      if (!autoRefreshEnabled) return;
       loadState().catch(err => {
         console.error('Errore refresh:', err);
       });

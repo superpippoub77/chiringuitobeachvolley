@@ -9276,8 +9276,59 @@ html += `
       return warnings;
     }
 
+    // 🔧 FIX: teamsAdvance può essere un numero singolo ("2") oppure una lista
+    // per girone tipo "2,1,2,2" (gironi con un numero diverso di qualificati).
+    // Il vecchio codice faceva sempre numGroups * teamsAdvance, che con una stringa
+    // come "2,1,2,2" produce NaN. Qui sommiamo i valori reali per girone.
+    function parseTeamsAdvanceTotal(phase) {
+      const raw = phase.teamsAdvance;
+      if (typeof raw === 'string' && raw.includes(',')) {
+        return raw.split(',').map(s => parseInt(s.trim(), 10) || 0).reduce((a, b) => a + b, 0);
+      }
+      const numGroups = phase.numGroups || 4;
+      const teamsPerGroup = parseInt(raw, 10) || 2;
+      return numGroups * teamsPerGroup;
+    }
+
+    // 🔧 FIX: alcune fasi generate dal nuovo motore ("Crea Fase Successiva") possono
+    // non avere una voce in config.phases (es. se create prima che venisse aggiunta
+    // la sincronizzazione automatica). Il diagramma del workflow mostrava quindi solo
+    // le fasi presenti in config.phases, "perdendo" quelle reali. Qui uniamo le due
+    // fonti: partiamo da config.phases e aggiungiamo, sintetizzandole, le fasi che
+    // esistono in state.phases ma non risultano in config.phases.
+    function getMergedPhasesForWorkflow() {
+      const configPhases = (config.phases || []).slice();
+      const statePhases = state.phases || [];
+      const knownNumbers = new Set(configPhases.map(p => p.phaseNumber || p.phaseIdx));
+
+      statePhases.forEach(sp => {
+        if (knownNumbers.has(sp.phaseNumber)) return;
+
+        const teamIds = new Set();
+        (sp.matches || []).forEach(m => {
+          const t1 = m.team1Id || m.team1;
+          const t2 = m.team2Id || m.team2;
+          if (t1) teamIds.add(t1);
+          if (t2) teamIds.add(t2);
+        });
+
+        configPhases.push({
+          phaseNumber: sp.phaseNumber,
+          name: sp.name,
+          type: sp.type,
+          branch: sp.sourceBranch || 'root',
+          numGroups: (sp.groups || []).length,
+          teamsAdvance: '',
+          numTeams: teamIds.size,
+          hasRepescage: false
+        });
+      });
+
+      return configPhases.sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
+    }
+
     function calculatePhaseFlows() {
-      const phases = config.phases || [];
+      const phases = getMergedPhasesForWorkflow();
       const flows = [];
       
       // Calcola il numero reale di squadre in gioco
@@ -9297,9 +9348,7 @@ html += `
         };
 
         if (phase.type === 'groups') {
-          const numGroups = phase.numGroups || 4;
-          const teamsPerGroup = phase.teamsAdvance || 2;
-          flow.teamsAdvance = numGroups * teamsPerGroup;
+          flow.teamsAdvance = parseTeamsAdvanceTotal(phase);
           flow.teamsRepescage = phase.hasRepescage ? Math.max(0, totalTeams - flow.teamsAdvance) : 0;
           flow.teamsEliminated = 0;
         } else {
@@ -9322,7 +9371,7 @@ html += `
     }
 
     function renderPhaseWorkflowTree() {
-      const phases = config.phases || [];
+      const phases = getMergedPhasesForWorkflow();
       if (phases.length === 0) return '';
 
       const approvedCount = (state.teams || []).filter(t => t.approved === true).length;
@@ -9354,9 +9403,7 @@ html += `
         let eliminated = 0;
 
         if (phase.type === 'groups') {
-          const numGroups = phase.numGroups || 4;
-          const teamsAdvance = phase.teamsAdvance || 2;
-          qualified = numGroups * teamsAdvance;
+          qualified = parseTeamsAdvanceTotal(phase);
           eliminated = Math.max(0, qualifiedTeams - qualified);
         } else if (phase.type === 'knockout') {
           qualified = Math.ceil(qualifiedTeams / 2);
@@ -9391,9 +9438,7 @@ html += `
         let eliminated = 0;
 
         if (phase.type === 'groups') {
-          const numGroups = phase.numGroups || 4;
-          const teamsAdvance = phase.teamsAdvance || 2;
-          qualified = numGroups * teamsAdvance;
+          qualified = parseTeamsAdvanceTotal(phase);
           eliminated = Math.max(0, eliminatedTeams - qualified);
         } else if (phase.type === 'knockout') {
           qualified = Math.ceil(eliminatedTeams / 2);

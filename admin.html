@@ -4863,7 +4863,13 @@
       const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
       
       statePhase.groups.forEach((group, groupIdx) => {
-        const groupLabel = groupNames[groupIdx] || ('G' + (groupIdx + 1));
+        // 🔧 FIX: prima l'etichetta veniva presa SOLO dalla posizione nell'array
+        // (groupNames[groupIdx]), ignorando il vero group.label/group.name. La
+        // distribuzione bilanciata (snake-draft) può riordinare i gironi nell'array
+        // durante la generazione, quindi la posizione 0 non è detto sia il Girone A:
+        // usiamo lo stesso ordine di priorità di renderPhaseGroups() (la tab Gironi),
+        // così le due viste mostrano sempre la stessa etichetta per lo stesso girone.
+        const groupLabel = group.label || group.groupName || group.name || groupNames[groupIdx] || ('G' + (groupIdx + 1));
         
         // Gestisci sia il formato nuovo {label, teams} che il vecchio (array diretto)
         const groupTeams = group.teams || group;
@@ -4890,16 +4896,30 @@
               if (isTeam1) {
                 setsWon += score1 || 0;
                 setsLost += score2 || 0;
-                pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
-                pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
+                // 🔧 FIX: in un formato a set unico (punteggio diretto), m.sets non è
+                // mai popolato: usiamo direttamente score1/score2 come "punti fatti/subiti"
+                // invece di sommare un array che resta sempre vuoto (per questo PF/PS
+                // mostravano sempre 0 anche per i gironi con l'etichetta corretta).
+                if (m.sets && m.sets.length > 0) {
+                  pointsFor += m.sets.reduce((sum, s) => sum + (s.team1Points || 0), 0);
+                  pointsAgainst += m.sets.reduce((sum, s) => sum + (s.team2Points || 0), 0);
+                } else {
+                  pointsFor += score1 || 0;
+                  pointsAgainst += score2 || 0;
+                }
                 
                 if ((score1 || 0) > (score2 || 0)) points += 3;
                 else if ((score1 || 0) === (score2 || 0)) points += 1;
               } else {
                 setsWon += score2 || 0;
                 setsLost += score1 || 0;
-                pointsFor += (m.sets || []).reduce((sum, s) => sum + (s.team2Points || 0), 0);
-                pointsAgainst += (m.sets || []).reduce((sum, s) => sum + (s.team1Points || 0), 0);
+                if (m.sets && m.sets.length > 0) {
+                  pointsFor += m.sets.reduce((sum, s) => sum + (s.team2Points || 0), 0);
+                  pointsAgainst += m.sets.reduce((sum, s) => sum + (s.team1Points || 0), 0);
+                } else {
+                  pointsFor += score2 || 0;
+                  pointsAgainst += score1 || 0;
+                }
                 
                 if ((score2 || 0) > (score1 || 0)) points += 3;
                 else if ((score2 || 0) === (score1 || 0)) points += 1;

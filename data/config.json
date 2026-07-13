@@ -1,6 +1,6 @@
 {
     "tournament": {
-        "name": "aaa",
+        "name": "Chiringuito Beach Volley 2026",
         "maxTeams": 16,
         "maxPlayersPerTeam": 3,
         "maxPlayersOnCourt": 2,
@@ -9,24 +9,24 @@
         "numSets": 1,
         "winScore": 21,
         "maxScore": 25,
-        "timePerSetMinutes": 25,
+        "timePerSetMinutes": 20,
         "setupTimeMinutes": 5,
-        "maxTimeoutsPerSet": 2,
+        "maxTimeoutsPerSet": 1,
         "registrationsClosed": true,
-        "registrationDeadline": "2026-07-11T21:35"
+        "registrationDeadline": "2026-07-10 12:00:00"
     },
     "schedule": {
         "courts": [
             {
-                "courtId": "court-1783537091369-0",
-                "courtName": "Campo 1",
+                "courtId": "court-1783636718618-0",
+                "courtName": "Dadda",
                 "availability": [
                     {
                         "date": "2026-07-13",
                         "timeSlots": [
                             {
-                                "startTime": "22:30",
-                                "endTime": "23:30"
+                                "startTime": "19:30",
+                                "endTime": "22:00"
                             }
                         ]
                     },
@@ -35,7 +35,7 @@
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
-                                "endTime": "23:30"
+                                "endTime": "24:00"
                             }
                         ]
                     },
@@ -44,52 +44,87 @@
                         "timeSlots": [
                             {
                                 "startTime": "19:30",
-                                "endTime": "23:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-16",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:30",
-                                "endTime": "23:30"
+                                "endTime": "24:00"
                             }
                         ]
                     }
                 ]
             }
-        ]
+        ],
+        "days": [],
+        "fields": []
     },
     "phases": [
         {
             "phaseNumber": 1,
-            "name": "a",
+            "name": "Eliminatoria",
             "type": "groups",
             "branch": "root",
-            "qualifiedGoTo": "sa",
-            "eliminatedGoTo": "sa",
-            "numGroups": 4,
-            "teamsAdvance": "2,1,2,2",
+            "qualifiedGoTo": "Formula castello dagli ottavi",
+            "eliminatedGoTo": "Girone all'italiana",
+            "numGroups": 3,
+            "teamsAdvance": "2,3,3",
             "hasRepescage": true,
             "notes": ""
+        },
+        {
+            "phaseNumber": 2,
+            "name": "Castello",
+            "type": "knockout",
+            "branch": "qualified",
+            "qualifiedGoTo": "",
+            "eliminatedGoTo": "",
+            "numGroups": null,
+            "teamsAdvance": "2",
+            "hasRepescage": false,
+            "notes": "Creata con il motore automatico (squadre reali)"
         }
     ],
     "contact": {
         "managerEmail": ""
     },
     "display": {
-        "theme": "chiringuito",
+        "theme": "beachmaster",
         "customThemes": [],
         "logoFile": "",
         "backgroundFile": ""
     },
     "sponsors": [
         {
-            "id": "ua88lk6l",
-            "name": "Gessi",
-            "repetitions": 7,
+            "id": "84z89kw6",
+            "name": "Gessi - Parco Gessi, 13037 Serravalle Sesia VC",
+            "repetitions": 1,
+            "logoFile": "data\/uploads\/sponsor-logo-84z89kw6.png"
+        },
+        {
+            "id": "hgg2t317",
+            "name": "Autotrend - Corso XXV Aprile, sn, 13037 Serravalle Sesia VC",
+            "repetitions": 1,
+            "logoFile": "data\/uploads\/sponsor-logo-hgg2t317.png"
+        },
+        {
+            "id": "v6mzk8ab",
+            "name": "Bensinat - Via Silvestro Pianazzi, 18, 13027 Scopa VC",
+            "repetitions": 1,
             "logoFile": null
+        },
+        {
+            "id": "6iog7q2p",
+            "name": "CDU - via dei Borgognoni 4 13011 - Borgosesia VC",
+            "repetitions": 1,
+            "logoFile": "data\/uploads\/sponsor-logo-6iog7q2p.jpg"
+        },
+        {
+            "id": "fwqxmmqi",
+            "name": "Gabella Macchine - Via Monteorfano, 12, 13864 Crevacuore BI",
+            "repetitions": 1,
+            "logoFile": "data\/uploads\/sponsor-logo-fwqxmmqi.jpg"
+        },
+        {
+            "id": "7uhevz4v",
+            "name": "Copra - Frazione Failungo, 59 13020 Pila (VC) Italy Tel (+39) 0163 71530",
+            "repetitions": 1,
+            "logoFile": "data\/uploads\/sponsor-logo-7uhevz4v.png"
         }
     ],
     "payment": {
@@ -100,24 +135,44 @@
     "notes": [],
     "news": [
         {
-            "id": "5ac65db9dd4227d5",
-            "title": "Inizio del torneo rimandati",
-            "content": "Test",
-            "imageFile": "data\/uploads\/news-e18d9ab552c57ad4.png",
-            "published": true,
-            "createdAt": "2026-07-08T22:37:25+00:00",
-            "updatedAt": "2026-07-10T20:14:59+00:00",
-            "publishedAt": "2026-07-08T22:37:25+00:00"
+            "id": "a6cbfe7b2dab1b80",
+            "title": "Iscrizione ufficiale al torneo",
+            "content": "Per completare l'iscrizione ufficiale sarà necessario recarsi presso il Chiringhito, situato all’ingresso dell’Alpàa, ed effettuare il pagamento della quota di partecipazione.\n\nAl momento dell’iscrizione verranno consegnati il kit del torneo e i relativi coupon.\n\nL’iscrizione e il ritiro del materiale dovranno essere effettuati prima dell’inizio del torneo oppure comunque prima dell’inizio del proprio girone.",
+            "imageFile": "data\/uploads\/news-e06963e4aa06950c.png",
+            "published": false,
+            "createdAt": "2026-07-10T00:38:26+02:00",
+            "updatedAt": "2026-07-13T22:58:14+02:00",
+            "publishedAt": "2026-07-10T00:38:26+02:00"
         },
         {
-            "id": "0a98f4170565025d",
-            "title": "d",
-            "content": "d",
+            "id": "67655bcff7976aae",
+            "title": "Risulati Girone A",
+            "content": "Passano il turno la squadra di",
+            "imageFile": "",
+            "published": false,
+            "createdAt": "2026-07-13T20:29:34+00:00",
+            "updatedAt": "2026-07-13T22:58:10+02:00",
+            "publishedAt": "2026-07-13T20:29:34+00:00"
+        },
+        {
+            "id": "6b2a9538d5789188",
+            "title": "Girone A: Prina Colada e Spingere avanti tutta",
+            "content": "Si chiude il Girone A con Prina Colada al primo posto a punteggio pieno (3 vittorie su 3) e Spingere in seconda posizione con 2 successi e una sola sconfitta. Le due formazioni conquistano così l'accesso alla fase Gold del torneo.\n\nDovranno invece passare dal Girone Perdenti Finché beach non ci separi e Ginocchia disperse, che avranno comunque l'opportunità di continuare il proprio percorso e giocarsi le proprie chance nelle prossime sfide.\n\nComplimenti a tutte le squadre per l'impegno e lo spettacolo offerto in questa prima fase del torneo.",
             "imageFile": "",
             "published": true,
-            "createdAt": "2026-07-10T19:37:50+00:00",
-            "updatedAt": "2026-07-10T20:15:09+00:00",
-            "publishedAt": "2026-07-10T20:15:09+00:00"
+            "createdAt": "2026-07-13T22:57:50+02:00",
+            "updatedAt": "2026-07-13T22:57:50+02:00",
+            "publishedAt": "2026-07-13T22:57:50+02:00"
+        },
+        {
+            "id": "d4fb12787c56a55f",
+            "title": "Test",
+            "content": "Test",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-13T21:03:31+00:00",
+            "updatedAt": "2026-07-13T21:03:31+00:00",
+            "publishedAt": "2026-07-13T21:03:31+00:00"
         }
     ],
     "autosave": {
@@ -126,16 +181,16 @@
         "maxSteps": 10
     },
     "email": {
-        "enabled": true,
-        "service": "aruba",
-        "host": "smtps.aruba.it",
-        "port": 465,
-        "secure": "ssl",
-        "auth": true,
-        "username": "info@filippomorano.com",
+        "enabled": false,
+        "service": "",
+        "host": "",
+        "port": 587,
+        "secure": "tls",
+        "auth": false,
+        "username": "",
         "password": "",
-        "fromEmail": "info@filippomorano.com",
-        "fromName": "Torneo Beach Volley",
+        "fromEmail": "",
+        "fromName": "",
         "timeout": 30
     },
     "security": {

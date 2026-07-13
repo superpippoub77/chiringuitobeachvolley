@@ -3726,7 +3726,13 @@ if ($action === 'admin_state' && $method === 'GET') {
     }
     unset($phase);
     
-    // ✅ REFACTORED: Rimossi campi obsoleti - lo stato contiene solo le fasi
+    // 🔧 FIX: il refactoring precedente aveva rimosso il campo 'standings' dallo
+    // stato salvato su disco, ma questo endpoint (usato dal pannello admin) non lo
+    // ricalcolava più al volo come invece fa già publicState() (usato da
+    // scoreboard.html) — per questo la classifica in admin risultava vuota/a zero
+    // o mostrava uno snapshot vecchio, mentre quella pubblica era sempre corretta.
+    // Lo calcoliamo qui fresco, sugli stessi dati reali appena normalizzati sopra.
+    $state['standings'] = computeStandings($state);
     
     // Per admin: ritorna LO STATO COMPLETO, non filtrato
     jsonResponse(200, ['ok' => true, 'data' => $state]);

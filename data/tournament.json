@@ -1,408 +1,354 @@
 {
     "settings": {
         "maxTeams": 16,
-        "tournamentName": "aaa"
+        "tournamentName": "Chiringuito Beach Volley 2026"
     },
     "teams": [
         {
-            "id": "9af9533b440769aa",
-            "name": "Test Team 1",
+            "id": "1c9376be821386e0",
+            "name": "TuneSquad",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Matteo Stuppello",
+                    "isCaptain": true,
+                    "level": 0
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Giada Ricci",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
-            "phone": "",
+            "phone": "+39 348 569 8629",
             "paid": true,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 4,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "4b1d8f9a75170b77",
-            "name": "Test Team 2",
+            "id": "e742f0df5bfa0cce",
+            "name": "Double B",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Elisabetta Borgato",
+                    "isCaptain": true,
+                    "level": 2
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Alessandro Balocco",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
             "phone": "",
-            "paid": true,
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "ce47d32b0dd3b7be",
-            "name": "Test Team 3",
+            "id": "6b553b7f08e9b21a",
+            "name": "Prina Colada",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Mattia",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Arianna",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
             "phone": "",
-            "paid": true,
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "809f7659c7a39de2",
-            "name": "Test Team 4",
+            "id": "5e84627052d5c3b8",
+            "name": "Spingere",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Lorenzo Sappa",
+                    "isCaptain": true,
+                    "level": 3
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
+                    "name": "Emma Blynn",
+                    "isCaptain": false,
+                    "level": 2
                 },
                 {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Cristina Cabrera",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
             "phone": "",
-            "paid": true,
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 2,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "5ad991ebd03fcdde",
-            "name": "Test Team 5",
+            "id": "7c892c6be40b3df2",
+            "name": "Xxx",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Enrico Romolo",
+                    "isCaptain": true,
+                    "level": 3
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
+                    "name": "Federica Attardi",
+                    "isCaptain": false,
+                    "level": 2
                 },
                 {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Alessia Ciscato",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
             "phone": "",
-            "paid": true,
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 4,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "08ba93b19519ffb8",
-            "name": "Test Team 6",
+            "id": "a4b9c61683587994",
+            "name": "Christmas crackers",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Elisa Cacciatori",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Giorgio Drosi",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
             "phone": "",
             "paid": true,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 4,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "6a06af0c790a0efe",
-            "name": "Test Team 7",
+            "id": "80f12b731f07292c",
+            "name": "Misto Mare",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Matteo Dellavedova",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Serena Moschella",
+                    "isCaptain": false,
+                    "level": 3
                 }
             ],
             "phone": "",
-            "paid": true,
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "03da5cc18200c08f",
-            "name": "Test Team 8",
+            "id": "8af4dd33a176fb7f",
+            "name": "I nonni del buco",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Cecco",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Silvia",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
-            "phone": "",
+            "phone": "3388377215",
             "paid": true,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "603546a38e9de785",
-            "name": "Test Team 9",
+            "id": "ac9013d10284eed1",
+            "name": "le gessi girls",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Ilaria Orgiazzi",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Noga Wardinon",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
-            "phone": "",
-            "paid": true,
+            "phone": "3297008023 \/ 3446020",
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 4,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "3556085be0676f32",
-            "name": "Test Team 10",
+            "id": "fd7614b3cb7e9fed",
+            "name": "Finché beach non ci separi",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Raffaele Tosi",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Alice Brambilla",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
-            "phone": "",
-            "paid": true,
+            "phone": "3487701349",
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "952519f120bc555b",
-            "name": "Test Team 11",
+            "id": "19f2420905d4a165",
+            "name": "Dustinucci",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Riccardo Presta",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Sharon Vivona",
+                    "isCaptain": false,
+                    "level": 0
                 }
             ],
-            "phone": "",
-            "paid": true,
+            "phone": "3486288906",
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "786cd27a3cb5c025",
-            "name": "Test Team 12",
+            "id": "87eb6cc60e965894",
+            "name": "Ginocchia disperse",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Andrea Fizzotti",
+                    "isCaptain": true,
+                    "level": 1
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Lucia Canna",
+                    "isCaptain": false,
+                    "level": 1
                 }
             ],
-            "phone": "",
+            "phone": "3486777159",
             "paid": true,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "64436e658e469a00",
-            "name": "Test Team 13",
+            "id": "9efb2a96e88c79b1",
+            "name": "Giuli-Alby",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Giulia Barbonaglia",
+                    "isCaptain": true,
+                    "level": 3
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Alberto Martinelli",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
-            "phone": "",
-            "paid": true,
+            "phone": "3913872526",
+            "paid": false,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         },
         {
-            "id": "4e1373a49a855cbf",
-            "name": "Test Team 14",
+            "id": "794cabbc7e9f280c",
+            "name": "Presi dalla squadra",
             "category": "Misto",
             "players": [
                 {
-                    "name": "Bot 1",
-                    "isCaptain": false
+                    "name": "Alberto Cincinelli",
+                    "isCaptain": true,
+                    "level": 2
                 },
                 {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
+                    "name": "Gaia Siviero",
+                    "isCaptain": false,
+                    "level": 2
                 }
             ],
-            "phone": "",
+            "phone": "3661126922",
             "paid": true,
             "approved": true,
             "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
-        },
-        {
-            "id": "ec04760d8db46d82",
-            "name": "Test Team 15",
-            "category": "Misto",
-            "players": [
-                {
-                    "name": "Bot 1",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
-                }
-            ],
-            "phone": "",
-            "paid": true,
-            "approved": true,
-            "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
-        },
-        {
-            "id": "ec5bda4aa88ff7fb",
-            "name": "Test Team 16",
-            "category": "Misto",
-            "players": [
-                {
-                    "name": "Bot 1",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 2",
-                    "isCaptain": false
-                },
-                {
-                    "name": "Bot 3",
-                    "isCaptain": false
-                }
-            ],
-            "phone": "",
-            "paid": true,
-            "approved": true,
-            "kitDelivered": false,
-            "dummy": true,
-            "createdAt": "2026-07-08T18:58:03+00:00"
+            "dummy": false,
+            "skillLevel": 3,
+            "createdAt": "2026-07-09T22:57:50+00:00"
         }
     ],
     "phases": [
@@ -415,141 +361,141 @@
             "status": "active",
             "groups": [
                 {
-                    "label": "A",
-                    "name": "A",
+                    "label": "C",
+                    "name": "C",
                     "teams": [
                         {
-                            "id": "9af9533b440769aa",
-                            "name": "Test Team 1",
+                            "id": "7c892c6be40b3df2",
+                            "name": "Xxx",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Enrico Romolo",
+                                    "isCaptain": true,
+                                    "level": 3
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
+                                    "name": "Federica Attardi",
+                                    "isCaptain": false,
+                                    "level": 2
                                 },
                                 {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Alessia Ciscato",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
                             "phone": "",
-                            "paid": true,
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 4,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "03da5cc18200c08f",
-                            "name": "Test Team 8",
+                            "id": "80f12b731f07292c",
+                            "name": "Misto Mare",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Matteo Dellavedova",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Serena Moschella",
+                                    "isCaptain": false,
+                                    "level": 3
                                 }
                             ],
                             "phone": "",
-                            "paid": true,
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "603546a38e9de785",
-                            "name": "Test Team 9",
+                            "id": "a4b9c61683587994",
+                            "name": "Christmas crackers",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Elisa Cacciatori",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Giorgio Drosi",
+                                    "isCaptain": false,
+                                    "level": 1
                                 }
                             ],
                             "phone": "",
                             "paid": true,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 4,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "ec5bda4aa88ff7fb",
-                            "name": "Test Team 16",
+                            "id": "ac9013d10284eed1",
+                            "name": "le gessi girls",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Ilaria Orgiazzi",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Noga Wardinon",
+                                    "isCaptain": false,
+                                    "level": 1
                                 }
                             ],
-                            "phone": "",
-                            "paid": true,
+                            "phone": "3297008023 \/ 3446020",
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 4,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "6a06af0c790a0efe",
-                            "name": "Test Team 7",
+                            "id": "794cabbc7e9f280c",
+                            "name": "Presi dalla squadra",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Alberto Cincinelli",
+                                    "isCaptain": true,
+                                    "level": 2
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Gaia Siviero",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
-                            "phone": "",
+                            "phone": "3661126922",
                             "paid": true,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         }
                     ],
                     "teamIds": [
-                        "9af9533b440769aa",
-                        "03da5cc18200c08f",
-                        "603546a38e9de785",
-                        "ec5bda4aa88ff7fb",
-                        "6a06af0c790a0efe"
+                        "7c892c6be40b3df2",
+                        "80f12b731f07292c",
+                        "a4b9c61683587994",
+                        "ac9013d10284eed1",
+                        "794cabbc7e9f280c"
                     ]
                 },
                 {
@@ -557,847 +503,805 @@
                     "name": "B",
                     "teams": [
                         {
-                            "id": "3556085be0676f32",
-                            "name": "Test Team 10",
+                            "id": "9efb2a96e88c79b1",
+                            "name": "Giuli-Alby",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Giulia Barbonaglia",
+                                    "isCaptain": true,
+                                    "level": 3
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Alberto Martinelli",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
-                            "phone": "",
-                            "paid": true,
+                            "phone": "3913872526",
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "ec04760d8db46d82",
-                            "name": "Test Team 15",
+                            "id": "e742f0df5bfa0cce",
+                            "name": "Double B",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Elisabetta Borgato",
+                                    "isCaptain": true,
+                                    "level": 2
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Alessandro Balocco",
+                                    "isCaptain": false,
+                                    "level": 1
                                 }
                             ],
                             "phone": "",
-                            "paid": true,
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "4b1d8f9a75170b77",
-                            "name": "Test Team 2",
+                            "id": "1c9376be821386e0",
+                            "name": "TuneSquad",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Matteo Stuppello",
+                                    "isCaptain": true,
+                                    "level": 0
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Giada Ricci",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
-                            "phone": "",
+                            "phone": "+39 348 569 8629",
                             "paid": true,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 4,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
+                        },
+                        {
+                            "id": "8af4dd33a176fb7f",
+                            "name": "I nonni del buco",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Cecco",
+                                    "isCaptain": true,
+                                    "level": 1
+                                },
+                                {
+                                    "name": "Silvia",
+                                    "isCaptain": false,
+                                    "level": 1
+                                }
+                            ],
+                            "phone": "3388377215",
+                            "paid": true,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
+                        },
+                        {
+                            "id": "19f2420905d4a165",
+                            "name": "Dustinucci",
+                            "category": "Misto",
+                            "players": [
+                                {
+                                    "name": "Riccardo Presta",
+                                    "isCaptain": true,
+                                    "level": 1
+                                },
+                                {
+                                    "name": "Sharon Vivona",
+                                    "isCaptain": false,
+                                    "level": 0
+                                }
+                            ],
+                            "phone": "3486288906",
+                            "paid": false,
+                            "approved": true,
+                            "kitDelivered": false,
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         }
                     ],
                     "teamIds": [
-                        "3556085be0676f32",
-                        "ec04760d8db46d82",
-                        "4b1d8f9a75170b77"
+                        "9efb2a96e88c79b1",
+                        "e742f0df5bfa0cce",
+                        "1c9376be821386e0",
+                        "8af4dd33a176fb7f",
+                        "19f2420905d4a165"
                     ]
                 },
                 {
-                    "label": "C",
-                    "name": "C",
+                    "label": "A",
+                    "name": "A",
                     "teams": [
                         {
-                            "id": "ce47d32b0dd3b7be",
-                            "name": "Test Team 3",
+                            "id": "6b553b7f08e9b21a",
+                            "name": "Prina Colada",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Mattia",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Arianna",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
                             "phone": "",
-                            "paid": true,
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "08ba93b19519ffb8",
-                            "name": "Test Team 6",
+                            "id": "fd7614b3cb7e9fed",
+                            "name": "Finché beach non ci separi",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Raffaele Tosi",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Alice Brambilla",
+                                    "isCaptain": false,
+                                    "level": 2
                                 }
                             ],
-                            "phone": "",
-                            "paid": true,
+                            "phone": "3487701349",
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "952519f120bc555b",
-                            "name": "Test Team 11",
+                            "id": "87eb6cc60e965894",
+                            "name": "Ginocchia disperse",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Andrea Fizzotti",
+                                    "isCaptain": true,
+                                    "level": 1
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Lucia Canna",
+                                    "isCaptain": false,
+                                    "level": 1
                                 }
                             ],
-                            "phone": "",
+                            "phone": "3486777159",
                             "paid": true,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 3,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         },
                         {
-                            "id": "4e1373a49a855cbf",
-                            "name": "Test Team 14",
+                            "id": "5e84627052d5c3b8",
+                            "name": "Spingere",
                             "category": "Misto",
                             "players": [
                                 {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
+                                    "name": "Lorenzo Sappa",
+                                    "isCaptain": true,
+                                    "level": 3
                                 },
                                 {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
+                                    "name": "Emma Blynn",
+                                    "isCaptain": false,
+                                    "level": 2
                                 },
                                 {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
+                                    "name": "Cristina Cabrera",
+                                    "isCaptain": false,
+                                    "level": 1
                                 }
                             ],
                             "phone": "",
-                            "paid": true,
+                            "paid": false,
                             "approved": true,
                             "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
+                            "dummy": false,
+                            "skillLevel": 2,
+                            "createdAt": "2026-07-09T22:57:50+00:00"
                         }
                     ],
                     "teamIds": [
-                        "ce47d32b0dd3b7be",
-                        "08ba93b19519ffb8",
-                        "952519f120bc555b"
-                    ]
-                },
-                {
-                    "label": "D",
-                    "name": "D",
-                    "teams": [
-                        {
-                            "id": "809f7659c7a39de2",
-                            "name": "Test Team 4",
-                            "category": "Misto",
-                            "players": [
-                                {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
-                                }
-                            ],
-                            "phone": "",
-                            "paid": true,
-                            "approved": true,
-                            "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
-                        },
-                        {
-                            "id": "5ad991ebd03fcdde",
-                            "name": "Test Team 5",
-                            "category": "Misto",
-                            "players": [
-                                {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
-                                }
-                            ],
-                            "phone": "",
-                            "paid": true,
-                            "approved": true,
-                            "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
-                        },
-                        {
-                            "id": "786cd27a3cb5c025",
-                            "name": "Test Team 12",
-                            "category": "Misto",
-                            "players": [
-                                {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
-                                }
-                            ],
-                            "phone": "",
-                            "paid": true,
-                            "approved": true,
-                            "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
-                        },
-                        {
-                            "id": "64436e658e469a00",
-                            "name": "Test Team 13",
-                            "category": "Misto",
-                            "players": [
-                                {
-                                    "name": "Bot 1",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 2",
-                                    "isCaptain": false
-                                },
-                                {
-                                    "name": "Bot 3",
-                                    "isCaptain": false
-                                }
-                            ],
-                            "phone": "",
-                            "paid": true,
-                            "approved": true,
-                            "kitDelivered": false,
-                            "dummy": true,
-                            "createdAt": "2026-07-08T18:58:03+00:00"
-                        }
-                    ],
-                    "teamIds": [
-                        "809f7659c7a39de2",
-                        "5ad991ebd03fcdde",
-                        "786cd27a3cb5c025",
-                        "64436e658e469a00"
+                        "6b553b7f08e9b21a",
+                        "fd7614b3cb7e9fed",
+                        "87eb6cc60e965894",
+                        "5e84627052d5c3b8"
                     ]
                 }
             ],
             "matches": [
                 {
-                    "id": "c57ed08a5757cb16",
+                    "id": "52f24ced875e8880",
                     "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "03da5cc18200c08f",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 8",
-                    "score1": 21,
-                    "score2": 13,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "20:00",
-                    "endTime": "20:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 1,
-                    "time": "20:00"
-                },
-                {
-                    "id": "eb61c0992d83ee3b",
-                    "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 16",
-                    "score1": 25,
-                    "score2": 24,
+                    "team1": "5e84627052d5c3b8",
+                    "team2": "6b553b7f08e9b21a",
+                    "team1Name": "Spingere",
+                    "team2Name": "Prina Colada",
+                    "score1": 19,
+                    "score2": 21,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-13",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "19:30",
+                    "endTime": "19:55",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 0,
                     "slotIdx": 0,
-                    "time": "22:30"
+                    "time": "19:30"
                 },
                 {
-                    "id": "0593477f86ce0bbf",
+                    "id": "0e43307cb92cb994",
                     "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 7",
+                    "team1": "fd7614b3cb7e9fed",
+                    "team2": "87eb6cc60e965894",
+                    "team1Name": "Finché beach non ci separi",
+                    "team2Name": "Ginocchia disperse",
+                    "score1": 4,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-13",
+                    "startTime": "19:55",
+                    "endTime": "20:20",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 0,
+                    "slotIdx": 1,
+                    "time": "19:55"
+                },
+                {
+                    "id": "d1cc401615593789",
+                    "groupName": "A",
+                    "team1": "5e84627052d5c3b8",
+                    "team2": "fd7614b3cb7e9fed",
+                    "team1Name": "Spingere",
+                    "team2Name": "Finché beach non ci separi",
+                    "score1": 21,
+                    "score2": 11,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-13",
+                    "startTime": "20:20",
+                    "endTime": "20:45",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 0,
+                    "slotIdx": 2,
+                    "time": "20:20"
+                },
+                {
+                    "id": "ee2a2c67334b1a6d",
+                    "groupName": "A",
+                    "team1": "6b553b7f08e9b21a",
+                    "team2": "87eb6cc60e965894",
+                    "team1Name": "Prina Colada",
+                    "team2Name": "Ginocchia disperse",
+                    "score1": 4,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-13",
+                    "startTime": "20:45",
+                    "endTime": "21:10",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 0,
+                    "slotIdx": 3,
+                    "time": "20:45"
+                },
+                {
+                    "id": "252fb34b1eb3615a",
+                    "groupName": "A",
+                    "team1": "5e84627052d5c3b8",
+                    "team2": "87eb6cc60e965894",
+                    "team1Name": "Spingere",
+                    "team2Name": "Ginocchia disperse",
+                    "score1": 21,
+                    "score2": 3,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-13",
+                    "startTime": "21:10",
+                    "endTime": "21:35",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 0,
+                    "slotIdx": 4,
+                    "time": "21:10"
+                },
+                {
+                    "id": "f5f6c59d9f113b90",
+                    "groupName": "A",
+                    "team1": "6b553b7f08e9b21a",
+                    "team2": "fd7614b3cb7e9fed",
+                    "team1Name": "Prina Colada",
+                    "team2Name": "Finché beach non ci separi",
                     "score1": 21,
                     "score2": 19,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-13",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "21:35",
+                    "endTime": "22:00",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 0,
-                    "slotIdx": 1,
-                    "time": "23:00"
+                    "slotIdx": 5,
+                    "time": "21:35"
                 },
                 {
-                    "id": "e0c76163ce326875",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "603546a38e9de785",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 9",
+                    "id": "0abf7cce5a6bcce3",
+                    "groupName": "B",
+                    "team1": "9efb2a96e88c79b1",
+                    "team2": "e742f0df5bfa0cce",
+                    "team1Name": "Giuli-Alby",
+                    "team2Name": "Double B",
                     "score1": 21,
-                    "score2": 17,
+                    "score2": 6,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
                     "startTime": "19:30",
-                    "endTime": "20:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "endTime": "19:55",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 1,
                     "slotIdx": 0,
                     "time": "19:30"
                 },
                 {
-                    "id": "affbc46b17f1a3a0",
-                    "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 16",
-                    "score1": 25,
-                    "score2": 24,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "20:30",
-                    "endTime": "21:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 2,
-                    "time": "20:30"
-                },
-                {
-                    "id": "37700e6d3ffb664c",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 7",
-                    "score1": 19,
-                    "score2": 21,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-14",
-                    "startTime": "21:00",
-                    "endTime": "21:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 1,
-                    "slotIdx": 3,
-                    "time": "21:00"
-                },
-                {
-                    "id": "86448b6da759e2ad",
-                    "groupName": "A",
-                    "team1": "9af9533b440769aa",
-                    "team2": "603546a38e9de785",
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 9",
+                    "id": "b7ec57c6922f836d",
+                    "groupName": "B",
+                    "team1": "1c9376be821386e0",
+                    "team2": "8af4dd33a176fb7f",
+                    "team1Name": "TuneSquad",
+                    "team2Name": "I nonni del buco",
                     "score1": 21,
-                    "score2": 15,
+                    "score2": 19,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
-                    "startTime": "21:30",
-                    "endTime": "22:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "19:55",
+                    "endTime": "20:20",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 1,
-                    "slotIdx": 4,
-                    "time": "21:30"
+                    "slotIdx": 1,
+                    "time": "19:55"
                 },
                 {
-                    "id": "3e08c0eb9142f051",
-                    "groupName": "A",
-                    "team1": "03da5cc18200c08f",
-                    "team2": "ec5bda4aa88ff7fb",
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 16",
+                    "id": "7eeadbd12e972132",
+                    "groupName": "B",
+                    "team1": "9efb2a96e88c79b1",
+                    "team2": "19f2420905d4a165",
+                    "team1Name": "Giuli-Alby",
+                    "team2Name": "Dustinucci",
                     "score1": 21,
                     "score2": 3,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
-                    "startTime": "22:00",
-                    "endTime": "22:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "20:20",
+                    "endTime": "20:45",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 1,
-                    "slotIdx": 5,
-                    "time": "22:00"
+                    "slotIdx": 2,
+                    "time": "20:20"
                 },
                 {
-                    "id": "d8e49ba844524873",
-                    "groupName": "A",
-                    "team1": "603546a38e9de785",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 9",
-                    "team2Name": "Test Team 7",
-                    "score1": 9,
+                    "id": "324dc817f17bfa0b",
+                    "groupName": "B",
+                    "team1": "e742f0df5bfa0cce",
+                    "team2": "1c9376be821386e0",
+                    "team1Name": "Double B",
+                    "team2Name": "TuneSquad",
+                    "score1": 19,
                     "score2": 21,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "20:45",
+                    "endTime": "21:10",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 1,
-                    "slotIdx": 6,
-                    "time": "22:30"
+                    "slotIdx": 3,
+                    "time": "20:45"
                 },
                 {
-                    "id": "403eedee1f130d92",
-                    "groupName": "A",
-                    "team1": "ec5bda4aa88ff7fb",
-                    "team2": "6a06af0c790a0efe",
-                    "team1Name": "Test Team 16",
-                    "team2Name": "Test Team 7",
+                    "id": "e516f8c74edad0bb",
+                    "groupName": "B",
+                    "team1": "9efb2a96e88c79b1",
+                    "team2": "8af4dd33a176fb7f",
+                    "team1Name": "Giuli-Alby",
+                    "team2Name": "I nonni del buco",
                     "score1": 21,
-                    "score2": 4,
+                    "score2": 16,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-14",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "21:10",
+                    "endTime": "21:35",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 4,
+                    "time": "21:10"
+                },
+                {
+                    "id": "5933b88880d310db",
+                    "groupName": "B",
+                    "team1": "e742f0df5bfa0cce",
+                    "team2": "19f2420905d4a165",
+                    "team1Name": "Double B",
+                    "team2Name": "Dustinucci",
+                    "score1": 24,
+                    "score2": 25,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "21:35",
+                    "endTime": "22:00",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 5,
+                    "time": "21:35"
+                },
+                {
+                    "id": "6cb012e3774412b6",
+                    "groupName": "B",
+                    "team1": "9efb2a96e88c79b1",
+                    "team2": "1c9376be821386e0",
+                    "team1Name": "Giuli-Alby",
+                    "team2Name": "TuneSquad",
+                    "score1": 24,
+                    "score2": 25,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "22:00",
+                    "endTime": "22:25",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 6,
+                    "time": "22:00"
+                },
+                {
+                    "id": "0671483919677d02",
+                    "groupName": "B",
+                    "team1": "e742f0df5bfa0cce",
+                    "team2": "8af4dd33a176fb7f",
+                    "team1Name": "Double B",
+                    "team2Name": "I nonni del buco",
+                    "score1": 21,
+                    "score2": 19,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "22:25",
+                    "endTime": "22:50",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 1,
                     "slotIdx": 7,
-                    "time": "23:00"
+                    "time": "22:25"
                 },
                 {
-                    "id": "5e2ab874f2eb44b3",
+                    "id": "cb5ea0f8bf438d5c",
                     "groupName": "B",
-                    "team1": "3556085be0676f32",
-                    "team2": "ec04760d8db46d82",
-                    "team1Name": "Test Team 10",
-                    "team2Name": "Test Team 15",
-                    "score1": 8,
+                    "team1": "1c9376be821386e0",
+                    "team2": "19f2420905d4a165",
+                    "team1Name": "TuneSquad",
+                    "team2Name": "Dustinucci",
+                    "score1": 21,
+                    "score2": 12,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "22:50",
+                    "endTime": "23:15",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 8,
+                    "time": "22:50"
+                },
+                {
+                    "id": "9c0e9ea26bc24684",
+                    "groupName": "B",
+                    "team1": "8af4dd33a176fb7f",
+                    "team2": "19f2420905d4a165",
+                    "team1Name": "I nonni del buco",
+                    "team2Name": "Dustinucci",
+                    "score1": 14,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-14",
+                    "startTime": "23:15",
+                    "endTime": "23:40",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 1,
+                    "slotIdx": 9,
+                    "time": "23:15"
+                },
+                {
+                    "id": "2050797b455cfcd1",
+                    "groupName": "C",
+                    "team1": "a4b9c61683587994",
+                    "team2": "ac9013d10284eed1",
+                    "team1Name": "Christmas crackers",
+                    "team2Name": "le gessi girls",
+                    "score1": 9,
                     "score2": 21,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
                     "startTime": "19:30",
-                    "endTime": "20:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "endTime": "19:55",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 2,
                     "slotIdx": 0,
                     "time": "19:30"
                 },
                 {
-                    "id": "ad771325a6a90881",
-                    "groupName": "B",
-                    "team1": "3556085be0676f32",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 10",
-                    "team2Name": "Test Team 2",
-                    "score1": 21,
-                    "score2": 2,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "20:00",
-                    "endTime": "20:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 1,
-                    "time": "20:00"
-                },
-                {
-                    "id": "8c279bf2f2cdb907",
-                    "groupName": "B",
-                    "team1": "ec04760d8db46d82",
-                    "team2": "4b1d8f9a75170b77",
-                    "team1Name": "Test Team 15",
-                    "team2Name": "Test Team 2",
-                    "score1": 21,
-                    "score2": 2,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "20:30",
-                    "endTime": "21:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 2,
-                    "time": "20:30"
-                },
-                {
-                    "id": "b0ff6e2d38dadc59",
+                    "id": "8cf84280452b680e",
                     "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "08ba93b19519ffb8",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 6",
-                    "score1": 24,
-                    "score2": 25,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "21:00",
-                    "endTime": "21:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 3,
-                    "time": "21:00"
-                },
-                {
-                    "id": "a01eb177585fc38a",
-                    "groupName": "C",
-                    "team1": "952519f120bc555b",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 11",
-                    "team2Name": "Test Team 14",
+                    "team1": "7c892c6be40b3df2",
+                    "team2": "ac9013d10284eed1",
+                    "team1Name": "Xxx",
+                    "team2Name": "le gessi girls",
                     "score1": 19,
                     "score2": 21,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
-                    "startTime": "21:30",
-                    "endTime": "22:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "19:55",
+                    "endTime": "20:20",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 2,
-                    "slotIdx": 4,
-                    "time": "21:30"
+                    "slotIdx": 1,
+                    "time": "19:55"
                 },
                 {
-                    "id": "2749fcef391c35cd",
+                    "id": "86b515554fa43f61",
                     "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "952519f120bc555b",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 11",
+                    "team1": "7c892c6be40b3df2",
+                    "team2": "80f12b731f07292c",
+                    "team1Name": "Xxx",
+                    "team2Name": "Misto Mare",
+                    "score1": 19,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "20:20",
+                    "endTime": "20:45",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 2,
+                    "time": "20:20"
+                },
+                {
+                    "id": "1302ee60e7f199bf",
+                    "groupName": "C",
+                    "team1": "80f12b731f07292c",
+                    "team2": "ac9013d10284eed1",
+                    "team1Name": "Misto Mare",
+                    "team2Name": "le gessi girls",
                     "score1": 21,
                     "score2": 7,
                     "status": "pending",
                     "sets": [],
                     "date": "2026-07-15",
-                    "startTime": "22:00",
-                    "endTime": "22:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "startTime": "20:45",
+                    "endTime": "21:10",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
                     "dateIdx": 2,
-                    "slotIdx": 5,
-                    "time": "22:00"
+                    "slotIdx": 3,
+                    "time": "20:45"
                 },
                 {
-                    "id": "8dfede2a145efb69",
+                    "id": "1d00b0cb02c84d1e",
                     "groupName": "C",
-                    "team1": "08ba93b19519ffb8",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 6",
-                    "team2Name": "Test Team 14",
-                    "score1": 21,
-                    "score2": 17,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 6,
-                    "time": "22:30"
-                },
-                {
-                    "id": "1e34d6a480d84db7",
-                    "groupName": "C",
-                    "team1": "ce47d32b0dd3b7be",
-                    "team2": "4e1373a49a855cbf",
-                    "team1Name": "Test Team 3",
-                    "team2Name": "Test Team 14",
-                    "score1": 21,
-                    "score2": 16,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-15",
-                    "startTime": "23:00",
-                    "endTime": "23:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 2,
-                    "slotIdx": 7,
-                    "time": "23:00"
-                },
-                {
-                    "id": "1fb342e07677d6be",
-                    "groupName": "C",
-                    "team1": "08ba93b19519ffb8",
-                    "team2": "952519f120bc555b",
-                    "team1Name": "Test Team 6",
-                    "team2Name": "Test Team 11",
-                    "score1": 21,
-                    "score2": 19,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "19:30",
-                    "endTime": "20:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 0,
-                    "time": "19:30"
-                },
-                {
-                    "id": "4d384e02df3ab784",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
-                    "team2": "5ad991ebd03fcdde",
-                    "team1Name": "Test Team 4",
-                    "team2Name": "Test Team 5",
-                    "score1": 21,
-                    "score2": 19,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "20:00",
-                    "endTime": "20:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 1,
-                    "time": "20:00"
-                },
-                {
-                    "id": "1864c54072522d7b",
-                    "groupName": "D",
-                    "team1": "786cd27a3cb5c025",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 12",
-                    "team2Name": "Test Team 13",
-                    "score1": 21,
-                    "score2": 3,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "20:30",
-                    "endTime": "21:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 2,
-                    "time": "20:30"
-                },
-                {
-                    "id": "f891dd548f17c1aa",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
-                    "team2": "786cd27a3cb5c025",
-                    "team1Name": "Test Team 4",
-                    "team2Name": "Test Team 12",
-                    "score1": 8,
+                    "team1": "ac9013d10284eed1",
+                    "team2": "794cabbc7e9f280c",
+                    "team1Name": "le gessi girls",
+                    "team2Name": "Presi dalla squadra",
+                    "score1": 5,
                     "score2": 21,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "21:00",
-                    "endTime": "21:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "date": "2026-07-15",
+                    "startTime": "21:10",
+                    "endTime": "21:35",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 3,
-                    "time": "21:00"
-                },
-                {
-                    "id": "6174a1f6ec44d5d0",
-                    "groupName": "D",
-                    "team1": "5ad991ebd03fcdde",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 5",
-                    "team2Name": "Test Team 13",
-                    "score1": 21,
-                    "score2": 18,
-                    "status": "pending",
-                    "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "21:30",
-                    "endTime": "22:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
-                    "courtIdx": 0,
-                    "dateIdx": 3,
+                    "dateIdx": 2,
                     "slotIdx": 4,
-                    "time": "21:30"
+                    "time": "21:10"
                 },
                 {
-                    "id": "c9d2496527ad796e",
-                    "groupName": "D",
-                    "team1": "809f7659c7a39de2",
-                    "team2": "64436e658e469a00",
-                    "team1Name": "Test Team 4",
-                    "team2Name": "Test Team 13",
-                    "score1": 24,
-                    "score2": 25,
+                    "id": "ca9ffc20e014e052",
+                    "groupName": "C",
+                    "team1": "80f12b731f07292c",
+                    "team2": "794cabbc7e9f280c",
+                    "team1Name": "Misto Mare",
+                    "team2Name": "Presi dalla squadra",
+                    "score1": 21,
+                    "score2": 19,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "22:00",
-                    "endTime": "22:30",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "date": "2026-07-15",
+                    "startTime": "21:35",
+                    "endTime": "22:00",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
-                    "dateIdx": 3,
+                    "dateIdx": 2,
                     "slotIdx": 5,
+                    "time": "21:35"
+                },
+                {
+                    "id": "a4cf2843b902a1da",
+                    "groupName": "C",
+                    "team1": "7c892c6be40b3df2",
+                    "team2": "a4b9c61683587994",
+                    "team1Name": "Xxx",
+                    "team2Name": "Christmas crackers",
+                    "score1": 19,
+                    "score2": 21,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "22:00",
+                    "endTime": "22:25",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 6,
                     "time": "22:00"
                 },
                 {
-                    "id": "452266ba41f38ac9",
-                    "groupName": "D",
-                    "team1": "5ad991ebd03fcdde",
-                    "team2": "786cd27a3cb5c025",
-                    "team1Name": "Test Team 5",
-                    "team2Name": "Test Team 12",
+                    "id": "80c7779c2fe5e451",
+                    "groupName": "C",
+                    "team1": "7c892c6be40b3df2",
+                    "team2": "794cabbc7e9f280c",
+                    "team1Name": "Xxx",
+                    "team2Name": "Presi dalla squadra",
                     "score1": 25,
                     "score2": 24,
                     "status": "pending",
                     "sets": [],
-                    "date": "2026-07-16",
-                    "startTime": "22:30",
-                    "endTime": "23:00",
-                    "courtId": "court-1783537091369-0",
-                    "courtName": "Campo 1",
+                    "date": "2026-07-15",
+                    "startTime": "22:25",
+                    "endTime": "22:50",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
                     "courtIdx": 0,
-                    "dateIdx": 3,
-                    "slotIdx": 6,
-                    "time": "22:30"
+                    "dateIdx": 2,
+                    "slotIdx": 7,
+                    "time": "22:25"
+                },
+                {
+                    "id": "1862d0acef7beee8",
+                    "groupName": "C",
+                    "team1": "a4b9c61683587994",
+                    "team2": "794cabbc7e9f280c",
+                    "team1Name": "Christmas crackers",
+                    "team2Name": "Presi dalla squadra",
+                    "score1": 21,
+                    "score2": 11,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "22:50",
+                    "endTime": "23:15",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 8,
+                    "time": "22:50"
+                },
+                {
+                    "id": "333a76d5c76f11d7",
+                    "groupName": "C",
+                    "team1": "80f12b731f07292c",
+                    "team2": "a4b9c61683587994",
+                    "team1Name": "Misto Mare",
+                    "team2Name": "Christmas crackers",
+                    "score1": 21,
+                    "score2": 19,
+                    "status": "pending",
+                    "sets": [],
+                    "date": "2026-07-15",
+                    "startTime": "23:15",
+                    "endTime": "23:40",
+                    "courtId": "court-1783636718618-0",
+                    "courtName": "Dadda",
+                    "courtIdx": 0,
+                    "dateIdx": 2,
+                    "slotIdx": 9,
+                    "time": "23:15"
                 }
             ],
             "standings": [],
-            "createdAt": "2026-07-08T22:23:00+00:00",
+            "createdAt": "2026-07-10T12:31:42+00:00",
             "metadata": {
-                "teamCount": 16,
-                "numGroups": 4
+                "teamCount": 14,
+                "numGroups": 3
             }
         },
         {
-            "id": "phase_fdf11f48c95f80e1",
+            "id": "phase_cfb62df134cdf2cc",
             "phaseIdx": 1,
             "phaseNumber": 2,
             "name": "Castello",
@@ -1408,89 +1312,87 @@
             "teamSource": "phase",
             "matches": [
                 {
-                    "id": "92e98b7975616cf7",
+                    "id": "f2336c093dfc20bf",
                     "label": "QF1",
                     "type": "quarterFinal",
                     "round": 1,
                     "matchIndexInRound": 0,
-                    "team1": "9af9533b440769aa",
-                    "team1Id": "9af9533b440769aa",
-                    "team2": "5ad991ebd03fcdde",
-                    "team2Id": "5ad991ebd03fcdde",
+                    "team1": "9efb2a96e88c79b1",
+                    "team1Id": "9efb2a96e88c79b1",
+                    "team2": null,
+                    "team2Id": null,
                     "score1": null,
                     "score2": null,
-                    "bye": false,
+                    "bye": true,
                     "date": null,
                     "startTime": null,
                     "endTime": null,
-                    "team1Name": "Test Team 1",
-                    "team2Name": "Test Team 5"
+                    "team1Name": "Giuli-Alby"
                 },
                 {
-                    "id": "a94bc346829df9a8",
+                    "id": "3a8952888c8e99f7",
                     "label": "QF2",
                     "type": "quarterFinal",
                     "round": 1,
                     "matchIndexInRound": 1,
-                    "team1": "3556085be0676f32",
-                    "team1Id": "3556085be0676f32",
-                    "team2": "08ba93b19519ffb8",
-                    "team2Id": "08ba93b19519ffb8",
+                    "team1": "a4b9c61683587994",
+                    "team1Id": "a4b9c61683587994",
+                    "team2": "1c9376be821386e0",
+                    "team2Id": "1c9376be821386e0",
                     "score1": null,
                     "score2": null,
                     "bye": false,
                     "date": null,
                     "startTime": null,
                     "endTime": null,
-                    "team1Name": "Test Team 10",
-                    "team2Name": "Test Team 6"
+                    "team1Name": "Christmas crackers",
+                    "team2Name": "TuneSquad"
                 },
                 {
-                    "id": "6d5b3b7af862d675",
+                    "id": "3179c5d62c611656",
                     "label": "QF3",
                     "type": "quarterFinal",
                     "round": 1,
                     "matchIndexInRound": 2,
-                    "team1": "03da5cc18200c08f",
-                    "team1Id": "03da5cc18200c08f",
-                    "team2": "786cd27a3cb5c025",
-                    "team2Id": "786cd27a3cb5c025",
+                    "team1": "80f12b731f07292c",
+                    "team1Id": "80f12b731f07292c",
+                    "team2": null,
+                    "team2Id": null,
                     "score1": null,
                     "score2": null,
-                    "bye": false,
+                    "bye": true,
                     "date": null,
                     "startTime": null,
                     "endTime": null,
-                    "team1Name": "Test Team 8",
-                    "team2Name": "Test Team 12"
+                    "team1Name": "Misto Mare"
                 },
                 {
-                    "id": "b99e54b1d1850469",
+                    "id": "46e6b256ab081c81",
                     "label": "QF4",
                     "type": "quarterFinal",
                     "round": 1,
                     "matchIndexInRound": 3,
-                    "team1": "ec04760d8db46d82",
-                    "team1Id": "ec04760d8db46d82",
-                    "team2": "ce47d32b0dd3b7be",
-                    "team2Id": "ce47d32b0dd3b7be",
+                    "team1": "5e84627052d5c3b8",
+                    "team1Id": "5e84627052d5c3b8",
+                    "team2": "87eb6cc60e965894",
+                    "team2Id": "87eb6cc60e965894",
                     "score1": null,
                     "score2": null,
                     "bye": false,
                     "date": null,
                     "startTime": null,
                     "endTime": null,
-                    "team1Name": "Test Team 15",
-                    "team2Name": "Test Team 3"
+                    "team1Name": "Spingere",
+                    "team2Name": "Ginocchia disperse"
                 },
                 {
-                    "id": "7c33571b55f1c9dc",
+                    "id": "50241b2cbb7b6624",
                     "label": "SF1",
                     "type": "semiFinal",
                     "round": 2,
                     "matchIndexInRound": 0,
-                    "team1": null,
-                    "team1Id": null,
+                    "team1": "9efb2a96e88c79b1",
+                    "team1Id": "9efb2a96e88c79b1",
                     "team2": null,
                     "team2Id": null,
                     "score1": null,
@@ -1498,16 +1400,17 @@
                     "bye": false,
                     "date": null,
                     "startTime": null,
-                    "endTime": null
+                    "endTime": null,
+                    "team1Name": "Giuli-Alby"
                 },
                 {
-                    "id": "172bd9fb5229a9f1",
+                    "id": "cfa455577fd27c4f",
                     "label": "SF2",
                     "type": "semiFinal",
                     "round": 2,
                     "matchIndexInRound": 1,
-                    "team1": null,
-                    "team1Id": null,
+                    "team1": "80f12b731f07292c",
+                    "team1Id": "80f12b731f07292c",
                     "team2": null,
                     "team2Id": null,
                     "score1": null,
@@ -1515,10 +1418,11 @@
                     "bye": false,
                     "date": null,
                     "startTime": null,
-                    "endTime": null
+                    "endTime": null,
+                    "team1Name": "Misto Mare"
                 },
                 {
-                    "id": "e626fddafb070e32",
+                    "id": "3895ddd4a269c7ae",
                     "label": "F",
                     "type": "final",
                     "round": 3,
@@ -1535,7 +1439,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "4f96a1390e5bcf49",
+                    "id": "9dede170b0483cb0",
                     "label": "3P",
                     "type": "thirdPlace",
                     "team1": null,
@@ -1551,11 +1455,11 @@
             ],
             "groups": [],
             "standings": [],
-            "createdAt": "2026-07-12T06:48:58+00:00"
+            "createdAt": "2026-07-13T21:06:13+00:00"
         }
     ],
     "meta": {
-        "lastUpdated": "2026-07-12T17:58:56+00:00"
+        "lastUpdated": "2026-07-13T21:06:20+00:00"
     },
     "currentPhaseIdx": 2
 }

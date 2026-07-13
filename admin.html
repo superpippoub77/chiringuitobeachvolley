@@ -4172,6 +4172,39 @@
       const courts = schedule.courts || [];
       const today = new Date().toISOString().split('T')[0];
 
+      // 🔧 FIX: come nell'auto-scheduler, calcoliamo la durata di una partita per
+      // suddividere le fasce ampie configurate (es. 19:30-23:00) in più slot
+      // prenotabili distinti, invece di trattarle come UN unico slot.
+      const tCfg = config.tournament || {};
+      const setupMin = tCfg.setupTimeMinutes || 5;
+      const perSetMin = tCfg.timePerSetMinutes || 25;
+      const numSets = Math.max(1, tCfg.numSets || 1);
+      const matchDuration = Math.max(5, setupMin + (perSetMin * numSets));
+
+      function timeToMinutes(t) {
+        if (!t || !t.includes(':')) return null;
+        const parts = t.split(':').map(Number);
+        return parts[0] * 60 + parts[1];
+      }
+      function minutesToTime(mins) {
+        mins = ((mins % 1440) + 1440) % 1440;
+        const h = Math.floor(mins / 60), m = mins % 60;
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      }
+
+      // 🔧 FIX: l'occupazione ora si controlla sul reale (campo, data, orario di
+      // inizio), non più sull'indice grezzo della fascia configurata - così più
+      // partite possono condividere la stessa fascia ampia, purché non si
+      // sovrappongano nell'orario. Considera le partite di TUTTE le fasi.
+      const usedKeys = new Set();
+      (state.phases || []).forEach(ph => {
+        (ph.matches || []).forEach(m => {
+          if (m.courtIdx !== undefined && m.courtIdx !== null && m.date && m.startTime) {
+            usedKeys.add(m.courtIdx + '_' + m.date + '_' + m.startTime);
+          }
+        });
+      });
+
       courts.forEach((court, courtIdx) => {
         const availability = court.availability || [];
         availability.forEach((av, dateIdx) => {
@@ -4179,25 +4212,34 @@
           if (av.date && av.date < today) return;
 
           const timeSlots = av.timeSlots || [];
-          timeSlots.forEach((ts, slotIdx) => {
-            // 🔧 FIX: salta gli slot già assegnati a un'altra partita
-            // (prima venivano proposti anche quelli già occupati, apparendo
-            // "disponibili" nella dialog anche se in realtà erano già presi)
-            if (getMatchesInSlot(courtIdx, dateIdx, slotIdx) > 0) return;
+          timeSlots.forEach((ts, rangeIdx) => {
+            const startMin = timeToMinutes(ts.startTime);
+            const endMin = timeToMinutes(ts.endTime);
+            if (startMin === null || endMin === null || endMin <= startMin) return;
 
-            slots.push({
-              courtIdx: courtIdx,
-              dateIdx: dateIdx,
-              slotIdx: slotIdx,
-              // 🔧 FIX: il campo si chiama 'courtName', non 'name' (per questo
-              // il nome campo non compariva mai nella dialog)
-              courtLabel: court.courtName || court.name || `Campo ${courtIdx + 1}`,
-              dateLabel: formatDateIta(av.date),
-              startTime: ts.startTime || '00:00',
-              endTime: ts.endTime || '00:00',
-              date: av.date,
-              timeSlot: ts
-            });
+            const subCount = Math.max(1, Math.floor((endMin - startMin) / matchDuration));
+            for (let sub = 0; sub < subCount; sub++) {
+              const subStart = startMin + (sub * matchDuration);
+              const startTimeStr = minutesToTime(subStart);
+              const key = courtIdx + '_' + av.date + '_' + startTimeStr;
+
+              // 🔧 FIX: salta gli slot già assegnati a un'altra partita
+              if (usedKeys.has(key)) continue;
+
+              slots.push({
+                courtIdx: courtIdx,
+                dateIdx: dateIdx,
+                slotIdx: rangeIdx,
+                // 🔧 FIX: il campo si chiama 'courtName', non 'name' (per questo
+                // il nome campo non compariva mai nella dialog)
+                courtLabel: court.courtName || court.name || `Campo ${courtIdx + 1}`,
+                dateLabel: formatDateIta(av.date),
+                startTime: startTimeStr,
+                endTime: minutesToTime(subStart + matchDuration),
+                date: av.date,
+                timeSlot: ts
+              });
+            }
           });
         });
       });
@@ -6086,25 +6128,52 @@ html += `
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
 
-      function matchBox(m) {
+      function matchBox(m, marginTop) {
         const t1 = escapeHtml(m.team1Name || 'Da definire');
         const t2 = m.bye ? 'BYE' : escapeHtml(m.team2Name || 'Da definire');
-        return `<div class="bracket-match">
+        return `<div class="bracket-match" style="margin-top: ${marginTop}px">
           <div class="match-team"><strong>${t1}</strong><span class="match-score">${m.score1 ?? ''}</span></div>
           <div class="match-team"><strong>${t2}</strong><span class="match-score">${m.score2 ?? ''}</span></div>
         </div>`;
       }
 
+      // 🔧 FIX allineamento bracket: prima le colonne usavano solo "space-around",
+      // che distribuisce le partite in modo uniforme ma SENZA allinearle davvero al
+      // centro delle due partite del turno precedente da cui derivano. Calcoliamo qui
+      // il margine esatto di ogni riquadro in modo che ogni turno successivo sia
+      // centrato verticalmente tra le sue due partite "genitrici".
+      const BOX_H = 80, GAP = 20;
+      let prevCenters = null;
+      const marginsByRound = [];
+
+      mainTypes.forEach((type, roundIdx) => {
+        const count = byType[type].length;
+        let centers;
+        if (roundIdx === 0) {
+          centers = Array.from({ length: count }, (_, i) => i * (BOX_H + GAP) + BOX_H / 2);
+        } else {
+          centers = Array.from({ length: count }, (_, i) => (prevCenters[2 * i] + prevCenters[2 * i + 1]) / 2);
+        }
+
+        // Converti i centri in offset dall'inizio colonna, poi in margini top
+        // relativi al box precedente (come richiesto dal normale flusso CSS)
+        const tops = centers.map(c => c - BOX_H / 2);
+        const margins = tops.map((t, i) => i === 0 ? t : t - tops[i - 1] - BOX_H);
+
+        marginsByRound.push(margins);
+        prevCenters = centers;
+      });
+
       let html = '<div class="bracket">';
-      mainTypes.forEach(type => {
-        html += `<div class="bracket-column"><div class="bracket-title">${roundLabels[type] || escapeHtml(type)}</div>`;
-        byType[type].forEach(m => { html += matchBox(m); });
+      mainTypes.forEach((type, roundIdx) => {
+        html += `<div class="bracket-column" style="justify-content: flex-start"><div class="bracket-title">${roundLabels[type] || escapeHtml(type)}</div>`;
+        byType[type].forEach((m, i) => { html += matchBox(m, Math.round(marginsByRound[roundIdx][i])); });
         html += '</div>';
       });
 
       if (byType['thirdPlace']) {
         html += `<div class="bracket-column"><div class="bracket-title">${roundLabels['thirdPlace']}</div>`;
-        byType['thirdPlace'].forEach(m => { html += matchBox(m); });
+        byType['thirdPlace'].forEach(m => { html += matchBox(m, 0); });
         html += '</div>';
       }
 

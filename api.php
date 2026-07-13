@@ -5054,17 +5054,47 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
             return ['ok' => false, 'error' => 'Nessun campo/orario configurato. Vai in Impostazioni → Calendario e aggiungi disponibilità.'];
         }
 
-        // Costruisci l'elenco di tutte le fasce orarie configurate, in ordine cronologico
+        // Durata di una partita, per suddividere le fasce ampie (es. 19:30-23:00) in
+        // più slot prenotabili distinti, invece di trattarle come UN unico slot.
+        $tCfg = $config['tournament'] ?? [];
+        $setupMin = (int)($tCfg['setupTimeMinutes'] ?? 5);
+        $perSetMin = (int)($tCfg['timePerSetMinutes'] ?? 25);
+        $numSets = max(1, (int)($tCfg['numSets'] ?? 1));
+        $matchDuration = max(5, $setupMin + ($perSetMin * $numSets));
+
+        $timeToMinutes = function (?string $t): ?int {
+            if (!$t || !str_contains($t, ':')) return null;
+            [$h, $m] = array_map('intval', explode(':', $t));
+            return $h * 60 + $m;
+        };
+        $minutesToTime = function (int $mins): string {
+            $mins = ((int)$mins) % (24 * 60);
+            return sprintf('%02d:%02d', intdiv($mins, 60), $mins % 60);
+        };
+
+        // 🔧 FIX: prima ogni fascia configurata (es. 19:30-23:00) veniva trattata come
+        // UN SOLO slot prenotabile, quindi bastava una partita per "esaurirla" anche se
+        // durava 3 ore e mezza. Qui la dividiamo in tanti slot quanti ce ne stanno in base
+        // alla durata reale di una partita, ciascuno con il proprio orario di inizio/fine.
         $allSlots = [];
         foreach ($courts as $courtIdx => $court) {
             foreach (($court['availability'] ?? []) as $dateIdx => $avail) {
-                foreach (($avail['timeSlots'] ?? []) as $slotIdx => $ts) {
-                    $allSlots[] = [
-                        'courtIdx' => $courtIdx, 'dateIdx' => $dateIdx, 'slotIdx' => $slotIdx,
-                        'date' => $avail['date'] ?? null,
-                        'startTime' => $ts['startTime'] ?? null, 'endTime' => $ts['endTime'] ?? null,
-                        'courtName' => $court['courtName'] ?? ('Campo ' . ($courtIdx + 1))
-                    ];
+                foreach (($avail['timeSlots'] ?? []) as $rangeIdx => $ts) {
+                    $startMin = $timeToMinutes($ts['startTime'] ?? null);
+                    $endMin = $timeToMinutes($ts['endTime'] ?? null);
+                    if ($startMin === null || $endMin === null || $endMin <= $startMin) continue;
+
+                    $subCount = max(1, intdiv($endMin - $startMin, $matchDuration));
+                    for ($sub = 0; $sub < $subCount; $sub++) {
+                        $subStart = $startMin + ($sub * $matchDuration);
+                        $subEnd = $subStart + $matchDuration;
+                        $allSlots[] = [
+                            'courtIdx' => $courtIdx, 'dateIdx' => $dateIdx, 'slotIdx' => $rangeIdx,
+                            'date' => $avail['date'] ?? null,
+                            'startTime' => $minutesToTime($subStart), 'endTime' => $minutesToTime($subEnd),
+                            'courtName' => $court['courtName'] ?? ('Campo ' . ($courtIdx + 1))
+                        ];
+                    }
                 }
             }
         }
@@ -5074,12 +5104,15 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
             return strcmp($a['startTime'] ?? '', $b['startTime'] ?? '');
         });
 
-        // Segna come occupate le fasce già usate da qualsiasi partita di qualsiasi fase
+        // Segna come occupati gli orari già usati da qualsiasi partita di qualsiasi fase.
+        // 🔧 FIX: il confronto ora è per (campo, data, orario di inizio REALE), non più
+        // per l'indice grezzo della fascia configurata — così più partite possono
+        // condividere la stessa fascia ampia, purché non si sovrappongano nell'orario.
         $used = [];
         foreach ($state['phases'] as $ph) {
             foreach (($ph['matches'] ?? []) as $m) {
-                if (isset($m['courtIdx'], $m['dateIdx'], $m['slotIdx']) && !empty($m['date'])) {
-                    $used[$m['courtIdx'] . '_' . $m['dateIdx'] . '_' . $m['slotIdx']] = true;
+                if (isset($m['courtIdx']) && !empty($m['date']) && !empty($m['startTime'])) {
+                    $used[$m['courtIdx'] . '_' . $m['date'] . '_' . $m['startTime']] = true;
                 }
             }
         }
@@ -5099,7 +5132,7 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
             $foundSlot = null;
             foreach ($allSlots as $slot) {
-                $key = $slot['courtIdx'] . '_' . $slot['dateIdx'] . '_' . $slot['slotIdx'];
+                $key = $slot['courtIdx'] . '_' . $slot['date'] . '_' . $slot['startTime'];
                 if (!isset($used[$key])) {
                     $foundSlot = $slot;
                     $used[$key] = true;

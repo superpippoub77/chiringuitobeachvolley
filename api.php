@@ -895,6 +895,13 @@ function ensurePhases(array &$state): void {
         }
     }
     
+    // Reindicizza a un array 0-based sequenziale. Operazioni come l'array_filter
+    // in initializePhase o la sincronizzazione da config possono lasciare chiavi
+    // non sequenziali: serializzate in JSON diventano un oggetto ({"1":...,"2":...})
+    // e rompono i lookup array_search(array_column($phases, 'phaseNumber')) usati
+    // da getTeamsFromPhaseBranch/computeStandingsForPhase/admin_update_group_match.
+    $state['phases'] = array_values($state['phases']);
+
     if (!isset($state['currentPhaseIdx'])) {
         $state['currentPhaseIdx'] = !empty($state['phases']) ? 1 : 0;
     }
@@ -1192,10 +1199,12 @@ function initializePhase(array &$state, int $phaseIdx, string $name, string $typ
         'metadata' => $config['metadata'] ?? []
     ];
     
-    // Rimuovi fasi precedenti con lo stesso phaseIdx se esiste
-    $state['phases'] = array_filter($state['phases'], function($p) use ($phaseIdx) {
-        return $p['phaseIdx'] !== $phaseIdx;
-    });
+    // Rimuovi fasi precedenti con lo stesso phaseIdx se esiste.
+    // array_values() mantiene le chiavi sequenziali (0-based) per non produrre
+    // un oggetto JSON che romperebbe i lookup array_search(array_column(...)).
+    $state['phases'] = array_values(array_filter($state['phases'], function($p) use ($phaseIdx) {
+        return ($p['phaseIdx'] ?? $p['phaseNumber'] ?? null) !== $phaseIdx;
+    }));
     
     $state['phases'][] = $phase;
     $state['currentPhaseIdx'] = $phaseIdx;

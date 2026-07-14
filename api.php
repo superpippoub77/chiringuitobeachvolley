@@ -895,13 +895,6 @@ function ensurePhases(array &$state): void {
         }
     }
     
-    // Reindicizza a un array 0-based sequenziale. Operazioni come l'array_filter
-    // in initializePhase o la sincronizzazione da config possono lasciare chiavi
-    // non sequenziali: serializzate in JSON diventano un oggetto ({"1":...,"2":...})
-    // e rompono i lookup array_search(array_column($phases, 'phaseNumber')) usati
-    // da getTeamsFromPhaseBranch/computeStandingsForPhase/admin_update_group_match.
-    $state['phases'] = array_values($state['phases']);
-
     if (!isset($state['currentPhaseIdx'])) {
         $state['currentPhaseIdx'] = !empty($state['phases']) ? 1 : 0;
     }
@@ -1199,12 +1192,10 @@ function initializePhase(array &$state, int $phaseIdx, string $name, string $typ
         'metadata' => $config['metadata'] ?? []
     ];
     
-    // Rimuovi fasi precedenti con lo stesso phaseIdx se esiste.
-    // array_values() mantiene le chiavi sequenziali (0-based) per non produrre
-    // un oggetto JSON che romperebbe i lookup array_search(array_column(...)).
-    $state['phases'] = array_values(array_filter($state['phases'], function($p) use ($phaseIdx) {
-        return ($p['phaseIdx'] ?? $p['phaseNumber'] ?? null) !== $phaseIdx;
-    }));
+    // Rimuovi fasi precedenti con lo stesso phaseIdx se esiste
+    $state['phases'] = array_filter($state['phases'], function($p) use ($phaseIdx) {
+        return $p['phaseIdx'] !== $phaseIdx;
+    });
     
     $state['phases'][] = $phase;
     $state['currentPhaseIdx'] = $phaseIdx;
@@ -2222,12 +2213,13 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         $eliminated = [];
         $complete = !empty($standings);
 
+        $groupIdx = 0;
         foreach ($standings as $groupPosition => $g) {
             $rows = $g['rows'];
-            // Numero di qualificati per QUESTO girone: se è un array, usa la posizione
-            // del girone (0=A, 1=B...); se il girone non è nell'array, usa l'ultimo valore noto.
+            // Numero di qualificati per QUESTO girone: se è un array, usa l'indice numerico
+            // del girone (0=A, 1=B, 2=C...); se l'indice non è nell'array, usa l'ultimo valore noto.
             if (is_array($teamsAdvancePerGroup)) {
-                $advanceCount = $teamsAdvancePerGroup[$groupPosition]
+                $advanceCount = $teamsAdvancePerGroup[$groupIdx]
                     ?? end($teamsAdvancePerGroup)
                     ?: 2;
             } else {
@@ -2253,6 +2245,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                     $eliminated[] = $row['teamId'];
                 }
             }
+            $groupIdx++;
         }
 
         return ['qualified' => $qualified, 'eliminated' => $eliminated, 'complete' => $complete];
@@ -2334,8 +2327,10 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
  * diventano un "bye": chi le incontra passa automaticamente il turno.
  */
 function genericBalancedSeeding(array $teams, int $bracketSize): array {
+    // 🔧 MANTIENI L'ORDINE DI INPUT: le squadre arrivano dalla classifica girone
+    // (es. 2 da A, 3 da B, 3 da C), quindi rispetta quest'ordine per il seeding.
+    // NON riordinare per skill level, altrimenti rompi il ranking della classifica!
     $sorted = $teams;
-    usort($sorted, fn($a, $b) => getTeamWeight($b) <=> getTeamWeight($a));
 
     // Ordine di seeding standard (1 contro l'ultimo, 4 contro il quintultimo, ecc.)
     $order = [1];
@@ -4326,6 +4321,15 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
         
         // Genera la fase in base al tipo
         if ($type === 'groups') {
+            // Per la prima fase, usa squadre approvate
+            $approvedTeams = $state['teams'] ?? [];
+            $approvedTeams = array_filter($approvedTeams, function($t) { return !empty($t['approved']); });
+            $approvedTeams = array_values($approvedTeams);
+            
+            if (count($approvedTeams) === 0) {
+                jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
+            }
+            
             // Leggi i parametri della fase da CONFIG usando phaseNumber (join key)
             $config = readConfig();
             $configPhases = $config['phases'] ?? [];
@@ -4344,59 +4348,6 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             
             $numGroups = !empty($configPhase['numGroups']) ? (int)$configPhase['numGroups'] : 4;
             $teamsAdvance = !empty($configPhase['teamsAdvance']) ? (string)$configPhase['teamsAdvance'] : '2';
-            $branch = $configPhase['branch'] ?? 'root';
-
-            // 🔧 FIX: solo la prima fase (radice) parte da TUTTE le squadre iscritte.
-            // Le fasi successive prendono le squadre REALI del ramo della fase precedente:
-            // il ramo 'qualified' → le qualificate, il ramo 'eliminated'/'repescaggio'
-            // (fase dei perdenti) → le eliminate. Prima veniva usato sempre l'elenco
-            // completo delle iscritte, per cui la "fase dei perdenti" riceveva tutte le
-            // squadre invece delle sole perdenti.
-            if ($phaseIdx <= 1 || $branch === 'root') {
-                $approvedTeams = approvedTeams($state);
-                if (count($approvedTeams) === 0) {
-                    jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
-                }
-            } else {
-                $sourcePhaseNumber = $phaseIdx - 1;
-
-                // teamsAdvance della fase SORGENTE (quante squadre avanzano per girone),
-                // usato per distinguere qualificate/eliminate nella fase precedente
-                $sourceConfig = null;
-                foreach ($configPhases as $cp) {
-                    if (($cp['phaseNumber'] ?? null) === $sourcePhaseNumber) {
-                        $sourceConfig = $cp;
-                        break;
-                    }
-                }
-                $srcTeamsAdvanceRaw = $sourceConfig['teamsAdvance'] ?? 2;
-                if (is_string($srcTeamsAdvanceRaw) && str_contains($srcTeamsAdvanceRaw, ',')) {
-                    $teamsAdvancePerGroup = array_map('intval', array_map('trim', explode(',', $srcTeamsAdvanceRaw)));
-                } else {
-                    $teamsAdvancePerGroup = (int)$srcTeamsAdvanceRaw;
-                }
-
-                $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
-                if (!empty($branchResult['error'])) {
-                    jsonResponse(400, ['ok' => false, 'error' => $branchResult['error']]);
-                }
-                if (empty($branchResult['complete'])) {
-                    jsonResponse(400, ['ok' => false, 'error' => "La fase {$sourcePhaseNumber} non ha ancora tutti i risultati necessari per calcolare le squadre. Completa prima tutte le partite."]);
-                }
-
-                $sourceBranch = in_array($branch, ['eliminated', 'repescaggio'], true) ? 'eliminated' : 'qualified';
-                $teamIds = $branchResult[$sourceBranch] ?? [];
-
-                $teamMap = getTeamMap($state);
-                $approvedTeams = [];
-                foreach ($teamIds as $tid) {
-                    if (isset($teamMap[$tid])) $approvedTeams[] = $teamMap[$tid];
-                }
-
-                if (count($approvedTeams) === 0) {
-                    jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra disponibile nel ramo selezionato per questa fase (controlla i risultati della fase precedente)']);
-                }
-            }
             
             // Distribuisci squadre nei gironi usando lo snake-draft bilanciato per peso
             // (getTeamWeight = livello medio giocatori), NON il semplice ordine di iscrizione.
@@ -5286,6 +5237,10 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         $teamsAdvancePerGroup = (int)$teamsAdvanceRaw;
     }
     $numGroups = (int)($body['numGroups'] ?? 2);
+    // 🆕 Permette di "Ricalcolare" una fase già esistente (rigenerarla da zero con
+    // gli stessi parametri, es. dopo aver corretto le squadre-che-avanzano-per-girone),
+    // invece di dover cancellare tutto a mano.
+    $overwrite = !empty($body['overwrite']);
 
     if ($targetPhaseNumber < 1 || !in_array($type, ['groups', 'knockout'], true)) {
         jsonResponse(422, ['ok' => false, 'error' => 'Parametri non validi (targetPhaseNumber/type)']);
@@ -5300,12 +5255,17 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $teamsAdvancePerGroup, $numGroups) {
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $teamsAdvancePerGroup, $numGroups, $overwrite) {
         ensurePhases($state);
 
-        // Rifiuta se la fase target esiste già (evita di sovrascrivere per errore)
-        if (array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true) !== false) {
-            return ['ok' => false, 'error' => "La fase {$targetPhaseNumber} esiste già"];
+        $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
+        if ($existingIdx !== false) {
+            if (!$overwrite) {
+                return ['ok' => false, 'error' => "La fase {$targetPhaseNumber} esiste già"];
+            }
+            // 🆕 Ricalcolo: rimuove la fase esistente per rigenerarla da zero con i
+            // parametri (eventualmente corretti) appena inviati.
+            array_splice($state['phases'], $existingIdx, 1);
         }
 
         // 1) Risolvi l'elenco REALE di teamId per questa nuova fase
@@ -5314,13 +5274,39 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // "Nuovo torneo": tutte le squadre iscritte (approvate), a prescindere da qualsiasi fase precedente
             $teamIds = array_values(array_map(fn($t) => $t['id'], approvedTeams($state)));
         } else {
-            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
+            // 🔧 FIX: Quando estrai gli eliminati/qualificati DALLA FASE SORGENTE,
+            // NON usare il valore "teamsAdvance" della NUOVA fase (che è destinato
+            // alla prossima fase), ma il valore della FASE SORGENTE stessa.
+            // Es: per gli eliminati della Fase 1 (2,3,3), usa "2,3,3" per calcolare,
+            // non il "3" che l'utente ha messo per la Fase 3.
+            $teamsAdvanceForCalculation = $teamsAdvancePerGroup;
+            if ($sourceBranch === 'eliminated' || $sourceBranch === 'qualified') {
+                // Leggi il valore della fase sorgente dal config
+                $cfg = readConfig();
+                $sourceConfigPhase = null;
+                foreach ($cfg['phases'] ?? [] as $cp) {
+                    if (($cp['phaseNumber'] ?? null) === $sourcePhaseNumber) {
+                        $sourceConfigPhase = $cp;
+                        break;
+                    }
+                }
+                if ($sourceConfigPhase && !empty($sourceConfigPhase['teamsAdvance'])) {
+                    $teamsAdvanceForCalculation = $sourceConfigPhase['teamsAdvance'];
+                }
+            }
+            
+            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation);
             if (!empty($branchResult['error'])) {
                 return ['ok' => false, 'error' => $branchResult['error']];
             }
-            if (!$branchResult['complete']) {
-                return ['ok' => false, 'error' => "La fase {$sourcePhaseNumber} non ha ancora tutti i risultati necessari per calcolare le squadre {$sourceBranch}. Completa prima tutte le partite."];
-            }
+            // 🔧 FIX: NON richiedere che la fase sorgente sia completa quando si CREA
+            // una nuova fase. L'utente può creare la Fase 3 anche prima che la Fase 1
+            // abbia tutti i risultati. Se serve, farà un "Ricalcola" dopo.
+            // Questo permette di strutturare il torneo in anticipo e poi progressivamente
+            // inserire i risultati via via che le partite si concludono.
+            // if (!$branchResult['complete']) {
+            //     return ['ok' => false, 'error' => "La fase {$sourcePhaseNumber} non ha ancora tutti i risultati necessari per calcolare le squadre {$sourceBranch}. Completa prima tutte le partite."];
+            // }
             $teamIds = $branchResult[$sourceBranch] ?? [];
         }
 
@@ -5429,23 +5415,28 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
     if (!isset($cfg['phases']) || !is_array($cfg['phases'])) {
         $cfg['phases'] = [];
     }
-    $alreadyThere = false;
-    foreach ($cfg['phases'] as $cp) {
-        if (($cp['phaseNumber'] ?? null) === $targetPhaseNumber) { $alreadyThere = true; break; }
+    $existingCfgIdx = null;
+    foreach ($cfg['phases'] as $cpIdx => $cp) {
+        if (($cp['phaseNumber'] ?? null) === $targetPhaseNumber) { $existingCfgIdx = $cpIdx; break; }
     }
-    if (!$alreadyThere) {
-        $cfg['phases'][] = [
-            'phaseNumber' => $targetPhaseNumber,
-            'name' => $name ?: ("Fase {$targetPhaseNumber}"),
-            'type' => $type,
-            'branch' => $teamSource === 'phase' ? $sourceBranch : 'root',
-            'qualifiedGoTo' => '',
-            'eliminatedGoTo' => '',
-            'numGroups' => $type === 'groups' ? $numGroups : null,
-            'teamsAdvance' => $body['teamsAdvancePerGroup'] ?? '2',
-            'hasRepescage' => false,
-            'notes' => 'Creata con il motore automatico (squadre reali)'
-        ];
+    $newCfgEntry = [
+        'phaseNumber' => $targetPhaseNumber,
+        'name' => $name ?: ("Fase {$targetPhaseNumber}"),
+        'type' => $type,
+        'branch' => $teamSource === 'phase' ? $sourceBranch : 'root',
+        'qualifiedGoTo' => '',
+        'eliminatedGoTo' => '',
+        'numGroups' => $type === 'groups' ? $numGroups : null,
+        'teamsAdvance' => $body['teamsAdvancePerGroup'] ?? '2',
+        'hasRepescage' => false,
+        'notes' => 'Creata con il motore automatico (squadre reali)'
+    ];
+    if ($existingCfgIdx === null) {
+        $cfg['phases'][] = $newCfgEntry;
+        writeConfig($cfg);
+    } elseif ($overwrite) {
+        // 🆕 Ricalcolo: aggiorna anche i metadati (es. il nuovo teamsAdvance corretto)
+        $cfg['phases'][$existingCfgIdx] = $newCfgEntry;
         writeConfig($cfg);
     }
 

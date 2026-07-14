@@ -75,7 +75,19 @@
             "qualifiedGoTo": "",
             "eliminatedGoTo": "",
             "numGroups": null,
-            "teamsAdvance": "2",
+            "teamsAdvance": "2,3,3",
+            "hasRepescage": false,
+            "notes": "Creata con il motore automatico (squadre reali)"
+        },
+        {
+            "phaseNumber": 3,
+            "name": "gironcino",
+            "type": "groups",
+            "branch": "eliminated",
+            "qualifiedGoTo": "",
+            "eliminatedGoTo": "",
+            "numGroups": 1,
+            "teamsAdvance": "3",
             "hasRepescage": false,
             "notes": "Creata con il motore automatico (squadre reali)"
         }

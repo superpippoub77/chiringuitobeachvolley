@@ -3426,39 +3426,6 @@
     }
 
     /**
-     * Ricalcola una fase dal workflow tree: rigenera la fase riprendendo le squadre
-     * REALI del ramo (qualificate/eliminate) dalla fase precedente. Utile quando la
-     * generazione precedente non è andata a buon fine o ha incluso le squadre sbagliate
-     * (es. la fase dei perdenti che aveva recuperato tutte le iscritte).
-     */
-    async function recalculatePhaseFromWorkflow(phaseIdx, type) {
-      const confirmed = await showConfirmDialog(
-        '🔁 Ricalcola fase',
-        'Vuoi ricalcolare questa fase? Le squadre verranno riprese dai risultati reali della fase precedente e gironi/partite di questa fase verranno rigenerati (i punteggi già inseriti in questa fase andranno persi).'
-      );
-      if (!confirmed) return;
-
-      try {
-        const response = await callApi('admin_generate_phase', 'POST', {
-          phaseIdx: phaseIdx,
-          type: type
-        }, true);
-
-        if (!response.ok) {
-          await showInfoDialog('Errore', response.error || 'Non è stato possibile ricalcolare la fase');
-          return;
-        }
-
-        await refresh();
-        await showInfoDialog('✅ Fase Ricalcolata', `La fase ${phaseIdx} (${type}) è stata ricalcolata con successo`);
-        renderPhases();
-      } catch (e) {
-        console.error('Errore recalculatePhaseFromWorkflow:', e);
-        await showInfoDialog('Errore', e.message);
-      }
-    }
-
-    /**
      * Completa una fase dal workflow tree
      */
     async function completePhaseFromWorkflow(phaseIdx) {
@@ -5589,6 +5556,7 @@
           ${unscheduledGroupCount > 0 ? `<div style="color: #e65100"><strong>${unscheduledGroupCount}</strong> partite senza orario</div>` : ''}
         </div>
         ${unscheduledGroupCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
+        ${phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="openRecalculatePhaseModal(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera questa fase da zero, ripescando di nuovo le squadre reali dalla fase sorgente">🔄 Ricalcola</button>` : ''}
       </div>`;
 
       // Renderizza ogni girone
@@ -6097,6 +6065,7 @@ html += `
             <button class="btn" onclick="toggleKnockoutView()" style="font-size: 12px; padding: 6px 12px">
               🔀 Vista: ${knockoutViewMode === 'table' ? 'Tabella (passa a Bracket)' : 'Bracket (passa a Tabella)'}
             </button>
+            ${phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="openRecalculatePhaseModal(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera questa fase da zero, ripescando di nuovo le squadre reali dalla fase sorgente">🔄 Ricalcola</button>` : ''}
           </div>
         </div>
         <details style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
@@ -9739,12 +9708,6 @@ html += `
                       </button>
                     `}
                   ` : phase.status === 'active' ? `
-                    ${phase.type === 'groups' ? `
-                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #ff9800; border: 1px solid #ff9800; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                        onclick="recalculatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
-                        🔁 Ricalcola
-                      </button>
-                    ` : ''}
                     <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
                       onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
                       ✅ Completa
@@ -9831,30 +9794,6 @@ html += `
                     onclick="openPhaseWizard('qualified', 'eliminated')">
                     ✓ +Next Round
                   </button>
-                </div>
-                <!-- Pulsanti di azione fase (ramo perdenti) -->
-                <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
-                  ${(phase.status || 'pending') === 'pending' ? `
-                    ${phase.type === 'groups' ? `
-                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #0078d4; border: 1px solid #0078d4; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                        onclick="generatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
-                        🔨 Genera
-                      </button>
-                    ` : ''}
-                  ` : (phase.status === 'active' ? `
-                    ${phase.type === 'groups' ? `
-                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #ff9800; border: 1px solid #ff9800; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                        onclick="recalculatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
-                        🔁 Ricalcola
-                      </button>
-                    ` : ''}
-                    <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                      onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
-                      ✅ Completa
-                    </button>
-                  ` : `
-                    <span style="font-size: 10px; padding: 5px 6px; color: #ff9800; font-weight: bold">✓ Chiusa</span>
-                  `)}
                 </div>
               ` : `
                 <div style="padding: 8px; background: #fff3e0; border-radius: 4px; text-align: center; font-size: 12px; color: #ff9800; font-weight: bold">
@@ -10233,7 +10172,8 @@ html += `
     // Pannello nuovo, separato dal vecchio wizard "➕ Nuova Fase" (che resta invariato).
     // Usa gli endpoint admin_preview_phase_branch / admin_create_phase_from_source.
 
-    function openCreatePhaseFromSourceModal() {
+    function openCreatePhaseFromSourceModal(prefill) {
+      prefill = prefill || {};
       const phases = state.phases || [];
       const nextPhaseNumber = phases.length ? Math.max(...phases.map(p => p.phaseNumber || 0)) + 1 : 1;
 
@@ -10242,15 +10182,23 @@ html += `
         return;
       }
 
-      const phaseOptions = phases.map(p => `<option value="${p.phaseNumber}">${escapeHtml(p.name || ('Fase ' + p.phaseNumber))} (Fase ${p.phaseNumber})</option>`).join('');
+      // In modalità "Ricalcola" la fase sorgente possibile è solo quella PRIMA
+      // della fase che si sta ricalcolando (non ha senso far dipendere una fase
+      // da se stessa o da una successiva)
+      const selectablePhases = prefill.overwrite
+        ? phases.filter(p => p.phaseNumber < prefill.phaseNumber)
+        : phases;
+
+      const phaseOptions = selectablePhases.map(p => `<option value="${p.phaseNumber}" ${p.phaseNumber === prefill.sourcePhaseNumber ? 'selected' : ''}>${escapeHtml(p.name || ('Fase ' + p.phaseNumber))} (Fase ${p.phaseNumber})</option>`).join('');
 
       const bodyHtml = `
         <div style="display: flex; flex-direction: column; gap: 14px; min-width: 360px">
+          ${prefill.overwrite ? `<div style="background: #fff3e0; padding: 10px; border-radius: 4px; font-size: 13px; color: #e65100">⚠️ Stai ricalcolando la Fase ${prefill.phaseNumber}: le partite e i risultati già inseriti in questa fase andranno persi e verranno rigenerati da zero.</div>` : ''}
           <div>
             <label style="font-weight: bold; display: block; margin-bottom: 4px">Da dove arrivano le squadre?</label>
             <select id="npTeamSource" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">
-              <option value="phase">Da una fase precedente (vincenti/perdenti reali)</option>
-              <option value="registration">Nuovo torneo (da tutte le squadre iscritte)</option>
+              <option value="phase" ${(prefill.teamSource || 'phase') === 'phase' ? 'selected' : ''}>Da una fase precedente (vincenti/perdenti reali)</option>
+              <option value="registration" ${prefill.teamSource === 'registration' ? 'selected' : ''}>Nuovo torneo (da tutte le squadre iscritte)</option>
             </select>
           </div>
 
@@ -10262,8 +10210,8 @@ html += `
             <div>
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Ramo</label>
               <select id="npSourceBranch" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">
-                <option value="qualified">✅ Qualificati / Vincenti</option>
-                <option value="eliminated">❌ Eliminati / Perdenti</option>
+                <option value="qualified" ${(prefill.sourceBranch || 'qualified') === 'qualified' ? 'selected' : ''}>✅ Qualificati / Vincenti</option>
+                <option value="eliminated" ${prefill.sourceBranch === 'eliminated' ? 'selected' : ''}>❌ Eliminati / Perdenti</option>
               </select>
             </div>
             <div id="npPreview" style="font-size: 13px; color: #555">Caricamento anteprima...</div>
@@ -10272,19 +10220,19 @@ html += `
           <div>
             <label style="font-weight: bold; display: block; margin-bottom: 4px">Formula della nuova fase</label>
             <select id="npType" onchange="onNewPhaseTypeChange()" style="width: 100%; padding: 6px">
-              <option value="groups">🔄 Gironi</option>
-              <option value="knockout">🏆 Castello (eliminazione diretta)</option>
+              <option value="groups" ${(prefill.type || 'groups') === 'groups' ? 'selected' : ''}>🔄 Gironi</option>
+              <option value="knockout" ${prefill.type === 'knockout' ? 'selected' : ''}>🏆 Castello (eliminazione diretta)</option>
             </select>
           </div>
 
           <div id="npGroupsFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
             <div>
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Numero gironi</label>
-              <input id="npNumGroups" type="number" min="1" value="2" style="width: 100%; padding: 6px">
+              <input id="npNumGroups" type="number" min="1" value="${prefill.numGroups || 2}" style="width: 100%; padding: 6px">
             </div>
             <div>
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Squadre che avanzano per girone</label>
-              <input id="npTeamsAdvance" type="text" placeholder="es. 2  oppure  2,1,2,2 (diverso per girone)" value="2" style="width: 100%; padding: 6px">
+              <input id="npTeamsAdvance" type="text" placeholder="es. 2  oppure  2,1,2,2 (diverso per girone)" value="${prefill.teamsAdvance || '2'}" style="width: 100%; padding: 6px" ${prefill.teamsAdvance ? "data-user-edited='1'" : ''} oninput="this.dataset.userEdited = '1'; onNewPhaseSourceChange()">
               <p style="font-size: 12px; color: #777; margin: 4px 0 0 0">Usato per il collegamento della PROSSIMA fase da questa (non influisce su questa creazione).</p>
             </div>
           </div>
@@ -10292,28 +10240,63 @@ html += `
           <div style="display: flex; gap: 10px">
             <div style="flex: 1">
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Numero fase</label>
-              <input id="npTargetPhaseNumber" type="number" min="1" value="${nextPhaseNumber}" style="width: 100%; padding: 6px">
+              <input id="npTargetPhaseNumber" type="number" min="1" value="${prefill.phaseNumber || nextPhaseNumber}" style="width: 100%; padding: 6px" ${prefill.overwrite ? 'readonly' : ''}>
             </div>
             <div style="flex: 2">
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Nome fase</label>
-              <input id="npName" type="text" placeholder="es. Ottavi - Vincenti Girone" style="width: 100%; padding: 6px">
+              <input id="npName" type="text" placeholder="es. Ottavi - Vincenti Girone" value="${escapeHtml(prefill.name || '')}" style="width: 100%; padding: 6px">
             </div>
           </div>
         </div>
       `;
 
       openModal({
-        title: '🆕 Crea Fase Successiva',
+        title: prefill.overwrite ? `🔄 Ricalcola Fase ${prefill.phaseNumber}` : '🆕 Crea Fase Successiva',
         bodyHtml,
         buttons: [
           { text: 'Annulla', className: 'btn', closeOnClick: true },
-          { text: '✅ Crea Fase', className: 'btn btn-green', closeOnClick: false, onClick: submitCreatePhaseFromSource }
+          { text: prefill.overwrite ? '🔄 Ricalcola' : '✅ Crea Fase', className: 'btn btn-green', closeOnClick: false, onClick: () => submitCreatePhaseFromSource(!!prefill.overwrite) }
         ]
       });
 
       // Stato iniziale dei campi condizionali + prima anteprima
       onNewPhaseSourceChange();
       onNewPhaseTypeChange();
+    }
+
+    // Riapre il pannello di creazione precompilato con i parametri già usati per
+    // questa fase, per rigenerarla da zero (es. dopo aver corretto le squadre
+    // che avanzano per girone)
+    function openRecalculatePhaseModal(phaseNumber) {
+      const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return;
+
+      const configPhase = (config.phases || []).find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      
+      // 🔧 FIX: Quando ricalcoli una fase proveniente da eliminati/qualificati,
+      // il valore "teamsAdvance" del CAMPO è per la PROSSIMA fase, non per il calcolo.
+      // Il calcolo deve sempre usare il valore della FASE SORGENTE.
+      // Non precompilare il campo in modo che venga riempito automaticamente
+      // da onNewPhaseSourceChange() con il valore corretto della sorgente.
+      
+      let teamsAdvanceValue = '';
+      // Se la fase è una knockout da qualificati (non ha groups), il teamsAdvance
+      // non ha senso, lascialo vuoto
+      if (phase.type === 'groups' && configPhase?.teamsAdvance) {
+        teamsAdvanceValue = configPhase.teamsAdvance;
+      }
+
+      openCreatePhaseFromSourceModal({
+        overwrite: true,
+        phaseNumber: phase.phaseNumber,
+        name: phase.name,
+        type: phase.type,
+        teamSource: phase.teamSource || 'phase',
+        sourcePhaseNumber: phase.sourcePhaseNumber,
+        sourceBranch: phase.sourceBranch || 'qualified',
+        numGroups: (phase.groups || []).length || configPhase?.numGroups,
+        teamsAdvance: teamsAdvanceValue
+      });
     }
 
     function onNewPhaseTypeChange() {
@@ -10338,9 +10321,24 @@ html += `
       const branch = document.getElementById('npSourceBranch')?.value;
       if (!sourcePhaseNumber || !preview) return;
 
+      // 🔧 FIX: Il campo "squadre che avanzano per girone" è SOLO per la prossima fase.
+      // Quando calcoli l'anteprima degli eliminati/qualificati dalla fase SORGENTE,
+      // usa SEMPRE il valore della fase sorgente, non il valore modificato dall'utente.
+      const sourceConfigPhase = (config.phases || []).find(p => (p.phaseNumber || p.phaseIdx) === sourcePhaseNumber);
+      
+      let teamsAdvanceForPreview = sourceConfigPhase?.teamsAdvance || '2';
+      
+      // Il campo npTeamsAdvance è SOLO per precompilare la prossima fase, non per il calcolo
+      const npTeamsAdvanceInput = document.getElementById('npTeamsAdvance');
+      if (npTeamsAdvanceInput && !npTeamsAdvanceInput.dataset.userEdited) {
+        npTeamsAdvanceInput.value = teamsAdvanceForPreview;
+      }
+
       preview.textContent = '⏳ Calcolo squadre in base ai risultati reali...';
       try {
-        const res = await callApi('admin_preview_phase_branch', 'POST', { sourcePhaseNumber, teamsAdvancePerGroup: 2 }, true);
+        // 🔧 FIX: invia SEMPRE il valore della fase sorgente per il calcolo,
+        // non il valore modificato dall'utente nel campo (che è solo per la prossima fase)
+        const res = await callApi('admin_preview_phase_branch', 'POST', { sourcePhaseNumber, teamsAdvancePerGroup: teamsAdvanceForPreview }, true);
         const list = branch === 'eliminated' ? res.eliminated : res.qualified;
         if (!res.complete) {
           preview.innerHTML = `⚠️ La fase ${sourcePhaseNumber} non ha ancora tutti i risultati inseriti: l'elenco squadre potrebbe non essere definitivo.<br>Al momento risultano <b>${list.length}</b> squadre nel ramo selezionato.`;
@@ -10352,15 +10350,15 @@ html += `
       }
     }
 
-    async function submitCreatePhaseFromSource() {
+    async function submitCreatePhaseFromSource(overwrite) {
       const teamSource = document.getElementById('npTeamSource')?.value;
       const type = document.getElementById('npType')?.value;
       const targetPhaseNumber = parseInt(document.getElementById('npTargetPhaseNumber')?.value, 10);
       const name = document.getElementById('npName')?.value || '';
       const numGroups = parseInt(document.getElementById('npNumGroups')?.value, 10) || 2;
-      const teamsAdvancePerGroup = document.getElementById('npTeamsAdvance')?.value || '2';
+      const teamsAdvancePerGroup = document.getElementById('npTeamsAdvance')?.value ?? '2';
 
-      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup };
+      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite };
 
       if (teamSource === 'phase') {
         payload.sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);

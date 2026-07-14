@@ -754,6 +754,98 @@
     .sponsor-ticker-track:hover {
       animation-play-state: paused;
     }
+    /* Animazione "caduta a masso" per le notizie, una dopo l'altra */
+    @keyframes newsFall {
+      0% { transform: translateY(-160px) rotate(-3deg); opacity: 0; }
+      60% { transform: translateY(8px) rotate(1deg); opacity: 1; }
+      80% { transform: translateY(-4px) rotate(-0.5deg); }
+      100% { transform: translateY(0) rotate(0); opacity: 1; }
+    }
+
+    .news-card-fall {
+      animation: newsFall 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    /* Bracket knockout visualization */
+    .bracket {
+      display: flex;
+      gap: 20px;
+      overflow-x: auto;
+      padding: 20px 0;
+      justify-content: flex-start;
+    }
+
+    .bracket-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      min-width: 200px;
+    }
+
+    .bracket-title {
+      text-align: center;
+      font-weight: bold;
+      color: var(--sun);
+      margin-bottom: 12px;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+
+    .bracket-match {
+      border: 2px solid var(--sun);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+      min-width: 180px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+    }
+
+    .match-team {
+      padding: 4px 0;
+      font-size: 12px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .match-team:last-child {
+      border-bottom: 0;
+    }
+
+    .match-team strong {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+    }
+
+    .match-score {
+      font-weight: bold;
+      color: var(--sun);
+      min-width: 40px;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .bracket {
+        gap: 10px;
+      }
+
+      .bracket-column {
+        min-width: 160px;
+      }
+
+      .bracket-match {
+        min-width: 150px;
+        min-height: 70px;
+        font-size: 11px;
+      }
+    }
   </style>
 </head>
 
@@ -796,6 +888,7 @@
 
       <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
           href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
+      <div id="statsOverviewSection" style="display: contents">
       <div class="stat">
         <div class="n" id="statTeams">0</div>
         <div class="l">Squadre confermate</div>
@@ -811,6 +904,7 @@
       <div class="stat">
         <div class="n" id="statMatches">0</div>
         <div class="l">Partite</div>
+      </div>
       </div>
       </section>
 
@@ -1220,7 +1314,6 @@
       if (noticeEl) noticeEl.classList.add('hidden');
       if (mainContentEl) mainContentEl.style.display = 'block';
       if (heroEl) heroEl.style.display = 'block';
-      if (countdownEl) countdownEl.style.display = 'grid';
 
       // Controlla se le iscrizioni sono chiuse
       const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
@@ -1232,6 +1325,15 @@
         const deadline = new Date(registrationDeadline);
         isDeadlineExpired = now > deadline;
       }
+
+      const tournamentStarted = registrationsClosed || isDeadlineExpired;
+
+      // Se il torneo è iniziato, nascondi: hero-sub, hero-strip e countdown
+      const heroSub = document.querySelector('.hero-sub');
+      const heroStrip = document.querySelector('.hero-strip');
+      if (countdownEl) countdownEl.style.display = tournamentStarted ? 'none' : 'grid';
+      if (heroSub) heroSub.style.display = tournamentStarted ? 'none' : 'block';
+      if (heroStrip) heroStrip.style.display = tournamentStarted ? 'none' : 'flex';
 
       // Aggiorna hero section con dati dal config
       updateHeroSection();
@@ -1286,6 +1388,17 @@
       document.getElementById('statPending').textContent = state.pendingCount || 0;
       document.getElementById('statGroups').textContent = groupsCount;
       document.getElementById('statMatches').textContent = groupMatchesCount;
+
+      // 🆕 Nasconde i 4 riquadri riepilogativi (squadre/in attesa/gironi/partite)
+      // una volta che il torneo è iniziato (iscrizioni chiuse o scadenza superata):
+      // a torneo avviato quei numeri sono meno rilevanti della vista Gironi/Partite.
+      const regClosed = config?.tournament?.registrationsClosed ?? false;
+      const regDeadline = config?.tournament?.registrationDeadline ?? '';
+      let deadlineExpired = false;
+      if (regDeadline) deadlineExpired = new Date() > new Date(regDeadline);
+      const tournamentStarted = regClosed || deadlineExpired;
+      const statsSection = document.getElementById('statsOverviewSection');
+      if (statsSection) statsSection.style.display = tournamentStarted ? 'none' : 'contents';
 
       renderTeams();
       renderGroups();
@@ -1475,9 +1588,15 @@
     }
 
     let selectedPublicPhaseNumber = null; // 🆕 fase selezionata nella pagina pubblica Gironi/Fasi
+    let knockoutViewMode = 'bracket'; // 'bracket' oppure 'table' - toggle vista fase knockout
 
     function selectPublicPhase(phaseNumber) {
       selectedPublicPhaseNumber = phaseNumber;
+      renderGroups();
+    }
+
+    function toggleKnockoutViewMode() {
+      knockoutViewMode = knockoutViewMode === 'table' ? 'bracket' : 'table';
       renderGroups();
     }
 
@@ -1495,33 +1614,139 @@
       });
     }
 
-    // Vista pubblica di sola lettura per una fase a eliminazione diretta (castello):
-    // partite raggruppate per turno, senza possibilità di modifica.
-    function renderKnockoutPhasePublicHtml(phase) {
+    function renderKnockoutTableHtml(phaseData) {
       const roundLabels = {
-        round32: '🔹 Ottavi', round16: '🔹 Sedicesimi', quarterFinal: '🔹 Quarti di Finale',
-        semiFinal: '🔹 Semifinali', final: '🏆 Finale', thirdPlace: '🥉 Finale 3°/4° posto'
+        quarterFinal: '🔹 Quarti di Finale',
+        semiFinal: '🔹 Semifinali',
+        final: '🏆 Finale',
+        thirdPlace: '🥉 Finale 3°/4° posto'
       };
       const roundOrder = ['round32', 'round16', 'quarterFinal', 'semiFinal', 'final', 'thirdPlace'];
+      const matchesByType = {};
+      (phaseData.matches || []).forEach(match => {
+        const type = match.type || 'altro';
+        if (!matchesByType[type]) matchesByType[type] = [];
+        matchesByType[type].push(match);
+      });
 
-      const matches = phase.matches || [];
-      if (!matches.length) {
-        return '<p>Nessuna partita disponibile per questa fase.</p>';
-      }
+      const orderedTypes = Object.keys(matchesByType).sort((a, b) => {
+        const ia = roundOrder.indexOf(a);
+        const ib = roundOrder.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+
+      let html = '';
+      orderedTypes.forEach(type => {
+        const label = roundLabels[type] || `🔹 ${esc(type)}`;
+        html += `<div style="margin-bottom: 16px">
+          <h5 style="color: #ff9800; margin-bottom: 8px">${label}</h5>
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse">
+            <thead>
+              <tr style="background: #fff3e0">
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 1</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Score</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 2</th>
+              </tr>
+            </thead>
+            <tbody>`;
+
+        matchesByType[type].forEach(match => {
+          const t1 = match.bye ? `${esc(match.team1Name || '-')} (bye)` : esc(match.team1Name || '—');
+          const t2 = match.team2Name ? esc(match.team2Name) : '—';
+          html += `<tr style="border-bottom: 1px solid #eee">
+            <td style="padding: 8px">${t1}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px">${t2}</td>
+          </tr>`;
+        });
+
+        html += `</tbody></table></div>`;
+      });
+
+      return html;
+    }
+
+    function renderKnockoutBracketHtml(phaseData) {
+      const roundLabels = {
+        round32: 'OTTAVI', round16: 'SEDICESIMI', quarterFinal: 'QUARTI',
+        semiFinal: 'SEMIFINALI', final: 'FINALE', thirdPlace: '3°/4° POSTO'
+      };
+      const roundOrder = ['round32', 'round16', 'quarterFinal', 'semiFinal', 'final'];
 
       const byType = {};
-      matches.forEach(m => {
+      (phaseData.matches || []).forEach(m => {
         const t = m.type || 'altro';
         if (!byType[t]) byType[t] = [];
         byType[t].push(m);
       });
 
-      const orderedTypes = Object.keys(byType).sort((a, b) => {
+      const mainTypes = Object.keys(byType).filter(t => t !== 'thirdPlace').sort((a, b) => {
         const ia = roundOrder.indexOf(a), ib = roundOrder.indexOf(b);
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
 
+      function matchBox(m, marginTop) {
+        const t1 = esc(m.team1Name || 'Da definire');
+        const t2 = m.bye ? 'BYE' : esc(m.team2Name || 'Da definire');
+        return `<div class="bracket-match" style="margin-top: ${marginTop}px">
+          <div class="match-team"><strong>${t1}</strong><span class="match-score">${m.score1 ?? ''}</span></div>
+          <div class="match-team"><strong>${t2}</strong><span class="match-score">${m.score2 ?? ''}</span></div>
+        </div>`;
+      }
+
+      const BOX_H = 80, GAP = 20;
+      let prevCenters = null;
+      const marginsByRound = [];
+
+      mainTypes.forEach((type, roundIdx) => {
+        const count = byType[type].length;
+        let centers;
+        if (roundIdx === 0) {
+          centers = Array.from({ length: count }, (_, i) => i * (BOX_H + GAP) + BOX_H / 2);
+        } else {
+          centers = Array.from({ length: count }, (_, i) => (prevCenters[2 * i] + prevCenters[2 * i + 1]) / 2);
+        }
+
+        const tops = centers.map(c => c - BOX_H / 2);
+        const margins = tops.map((t, i) => i === 0 ? t : t - tops[i - 1] - BOX_H);
+
+        marginsByRound.push(margins);
+        prevCenters = centers;
+      });
+
+      let html = '<div class="bracket">';
+      mainTypes.forEach((type, roundIdx) => {
+        html += `<div class="bracket-column" style="justify-content: flex-start"><div class="bracket-title">${roundLabels[type] || esc(type)}</div>`;
+        byType[type].forEach((m, i) => { html += matchBox(m, Math.round(marginsByRound[roundIdx][i])); });
+        html += '</div>';
+      });
+
+      if (byType['thirdPlace']) {
+        html += `<div class="bracket-column"><div class="bracket-title">${roundLabels['thirdPlace']}</div>`;
+        byType['thirdPlace'].forEach(m => { html += matchBox(m, 0); });
+        html += '</div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    function renderKnockoutPhasePublicHtml(phase) {
+      const matches = phase.matches || [];
+      if (!matches.length) {
+        return '<p>Nessuna partita disponibile per questa fase.</p>';
+      }
+
       let html = '<div style="margin-top: 16px">';
+
+      html += `<div style="background: #fff3e0; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+        <div>🏆 <strong>${matches.length}</strong> partite in questa fase</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+          <button onclick="toggleKnockoutViewMode()" style="border: 1px solid #ff9800; background: #fff3e0; color: #ff9800; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px">
+            🔀 Vista: ${knockoutViewMode === 'table' ? 'Tabella (passa a Bracket)' : 'Bracket (passa a Tabella)'}
+          </button>
+        </div>
+      </div>`;
 
       html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 13px">
         <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">ℹ️ Come funziona il Castello (eliminazione diretta)</summary>
@@ -1534,30 +1759,12 @@
         </div>
       </details>`;
 
-      orderedTypes.forEach(type => {
-        html += `<div style="margin-bottom: 20px">
-          <h4 style="color: #6b5d45; margin-bottom: 8px">${roundLabels[type] || esc(type)}</h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px">`;
-
-        byType[type].forEach(m => {
-          const t1 = m.team1Name || 'Da definire';
-          const t2 = m.bye ? 'BYE' : (m.team2Name || 'Da definire');
-          const hasScore = m.score1 !== null && m.score1 !== undefined;
-          html += `<div style="border: 2px solid #8b7355; border-radius: 8px; padding: 10px; background: #faf5f0">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px">
-              <strong style="color: #6b5d45">${esc(t1)}</strong>
-              <span style="font-weight: bold">${hasScore ? m.score1 : ''}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center">
-              <strong style="color: #6b5d45">${esc(t2)}</strong>
-              <span style="font-weight: bold">${hasScore ? m.score2 : ''}</span>
-            </div>
-            ${m.date ? `<div style="margin-top: 6px; font-size: 11px; color: #999">${formatDateIta(m.date)} ${m.startTime || ''}</div>` : ''}
-          </div>`;
-        });
-
-        html += '</div></div>';
-      });
+      if (knockoutViewMode === 'bracket') {
+        html += renderKnockoutBracketHtml(phase);
+      } else {
+        html += renderKnockoutTableHtml(phase);
+      }
+      
       html += '</div>';
       return html;
     }
@@ -2299,6 +2506,18 @@
 
     // ==================== NEWS SECTION ====================
 
+    function shareNewsOnFacebook(item) {
+      // Crea il messaggio di condivisione con il titolo e una parte del contenuto
+      const quote = `${item.title}\n${item.content.substring(0, 100)}...`;
+      const url = window.location.href;
+      
+      // Costruisce l'URL di condivisione Facebook
+      const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(quote)}`;
+      
+      // Apre il dialog di condivisione in una nuova finestra
+      window.open(shareUrl, 'facebook-share', 'width=600,height=400');
+    }
+
     async function loadNews() {
       try {
         const response = await fetch(`${API}?action=public_get_news`);
@@ -2324,13 +2543,18 @@
       section.style.display = 'block';
       newsList.innerHTML = '';
 
-      news.forEach(item => {
+      news.forEach((item, index) => {
         const date = new Date(item.publishedAt || item.createdAt);
         const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
         const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
 
         const newsCard = document.createElement('div');
-        newsCard.style.cssText = `
+        // 🆕 Animazione "a caduta" (come un masso che atterra con un piccolo rimbalzo),
+        // una scheda dopo l'altra invece che tutte insieme: ogni card parte con un
+        // ritardo proporzionale alla sua posizione nell'elenco.
+        newsCard.className = 'news-card-fall';
+        newsCard.style.animationDelay = (index * 0.35) + 's';
+        newsCard.style.cssText += `
           background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
           border: 1px solid #e7cf9e;
           border-radius: 12px;
@@ -2339,6 +2563,7 @@
           transition: transform 0.2s, box-shadow 0.2s;
           display: flex;
           gap: 12px;
+          cursor: pointer;
         `;
 
         newsCard.onmouseover = () => {
@@ -2349,6 +2574,9 @@
           newsCard.style.transform = 'none';
           newsCard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
         };
+
+        // 🆕 Al click, apre la notizia completa in una finestra di dialogo
+        newsCard.onclick = () => showNewsDialog(item);
 
         // Immagine
         if (item.imageFile) {
@@ -2373,12 +2601,63 @@
         text.textContent = item.content;
         text.style.cssText = 'margin: 0; color: #333; line-height: 1.5; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden';
 
+        const readMore = document.createElement('div');
+        readMore.textContent = 'Leggi tutto →';
+        readMore.style.cssText = 'margin-top: 6px; font-size: 12px; color: #2e5d1f; font-weight: bold';
+
+        const shareBtn = document.createElement('button');
+        shareBtn.innerHTML = '👍 Condividi su Facebook';
+        shareBtn.style.cssText = 'margin-top: 10px; padding: 6px 10px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: background 0.2s';
+        shareBtn.onmouseover = () => shareBtn.style.background = '#166FE5';
+        shareBtn.onmouseout = () => shareBtn.style.background = '#1877F2';
+        shareBtn.onclick = (e) => {
+          e.stopPropagation();
+          shareNewsOnFacebook(item);
+        };
+
         content_div.appendChild(title);
         content_div.appendChild(date_el);
         content_div.appendChild(text);
+        content_div.appendChild(readMore);
+        content_div.appendChild(shareBtn);
         newsCard.appendChild(content_div);
         newsList.appendChild(newsCard);
       });
+    }
+
+    // 🆕 Mostra la notizia completa (titolo, immagine, testo integrale) in una
+    // finestra di dialogo, riusando la modale già presente nella pagina.
+    function showNewsDialog(item) {
+      const backdrop = document.getElementById('modalBackdrop');
+      const titleNode = document.getElementById('modalTitle');
+      const bodyNode = document.getElementById('modalBody');
+      const okBtn = document.getElementById('modalOk');
+      const closeBtn = document.getElementById('modalClose');
+      if (!backdrop || !titleNode || !bodyNode) return;
+
+      const date = new Date(item.publishedAt || item.createdAt);
+      const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+      const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+      titleNode.textContent = item.title;
+      bodyNode.innerHTML = `
+        ${item.imageFile ? `<img src="${esc(item.imageFile)}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 12px">` : ''}
+        <div style="font-size: 12px; color: #999; margin-bottom: 10px">${dateStr} • ${timeStr}</div>
+        <div style="white-space: pre-wrap; line-height: 1.6; color: #333">${esc(item.content)}</div>
+        <button id="shareNewsBtn" style="margin-top: 16px; padding: 10px 16px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; transition: background 0.2s">👍 Condividi su Facebook</button>
+      `;
+      backdrop.classList.remove('hidden');
+
+      const close = () => backdrop.classList.add('hidden');
+      const shareBtn = document.getElementById('shareNewsBtn');
+      if (shareBtn) {
+        shareBtn.onmouseover = () => shareBtn.style.background = '#166FE5';
+        shareBtn.onmouseout = () => shareBtn.style.background = '#1877F2';
+        shareBtn.onclick = () => shareNewsOnFacebook(item);
+      }
+      if (okBtn) okBtn.onclick = close;
+      if (closeBtn) closeBtn.onclick = close;
+      backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
     }
 
     // Carica notizie all'avvio

@@ -3426,6 +3426,39 @@
     }
 
     /**
+     * Ricalcola una fase dal workflow tree: rigenera la fase riprendendo le squadre
+     * REALI del ramo (qualificate/eliminate) dalla fase precedente. Utile quando la
+     * generazione precedente non è andata a buon fine o ha incluso le squadre sbagliate
+     * (es. la fase dei perdenti che aveva recuperato tutte le iscritte).
+     */
+    async function recalculatePhaseFromWorkflow(phaseIdx, type) {
+      const confirmed = await showConfirmDialog(
+        '🔁 Ricalcola fase',
+        'Vuoi ricalcolare questa fase? Le squadre verranno riprese dai risultati reali della fase precedente e gironi/partite di questa fase verranno rigenerati (i punteggi già inseriti in questa fase andranno persi).'
+      );
+      if (!confirmed) return;
+
+      try {
+        const response = await callApi('admin_generate_phase', 'POST', {
+          phaseIdx: phaseIdx,
+          type: type
+        }, true);
+
+        if (!response.ok) {
+          await showInfoDialog('Errore', response.error || 'Non è stato possibile ricalcolare la fase');
+          return;
+        }
+
+        await refresh();
+        await showInfoDialog('✅ Fase Ricalcolata', `La fase ${phaseIdx} (${type}) è stata ricalcolata con successo`);
+        renderPhases();
+      } catch (e) {
+        console.error('Errore recalculatePhaseFromWorkflow:', e);
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    /**
      * Completa una fase dal workflow tree
      */
     async function completePhaseFromWorkflow(phaseIdx) {
@@ -9706,6 +9739,12 @@ html += `
                       </button>
                     `}
                   ` : phase.status === 'active' ? `
+                    ${phase.type === 'groups' ? `
+                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #ff9800; border: 1px solid #ff9800; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="recalculatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
+                        🔁 Ricalcola
+                      </button>
+                    ` : ''}
                     <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
                       onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
                       ✅ Completa
@@ -9792,6 +9831,30 @@ html += `
                     onclick="openPhaseWizard('qualified', 'eliminated')">
                     ✓ +Next Round
                   </button>
+                </div>
+                <!-- Pulsanti di azione fase (ramo perdenti) -->
+                <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
+                  ${(phase.status || 'pending') === 'pending' ? `
+                    ${phase.type === 'groups' ? `
+                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #0078d4; border: 1px solid #0078d4; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="generatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
+                        🔨 Genera
+                      </button>
+                    ` : ''}
+                  ` : (phase.status === 'active' ? `
+                    ${phase.type === 'groups' ? `
+                      <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #ff9800; border: 1px solid #ff9800; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="recalculatePhaseFromWorkflow(${stage.phaseIdx}, '${phase.type}')">
+                        🔁 Ricalcola
+                      </button>
+                    ` : ''}
+                    <button class="btn" style="flex: 1; min-width: 70px; padding: 5px 6px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                      onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
+                      ✅ Completa
+                    </button>
+                  ` : `
+                    <span style="font-size: 10px; padding: 5px 6px; color: #ff9800; font-weight: bold">✓ Chiusa</span>
+                  `)}
                 </div>
               ` : `
                 <div style="padding: 8px; background: #fff3e0; border-radius: 4px; text-align: center; font-size: 12px; color: #ff9800; font-weight: bold">

@@ -4317,15 +4317,6 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
         
         // Genera la fase in base al tipo
         if ($type === 'groups') {
-            // Per la prima fase, usa squadre approvate
-            $approvedTeams = $state['teams'] ?? [];
-            $approvedTeams = array_filter($approvedTeams, function($t) { return !empty($t['approved']); });
-            $approvedTeams = array_values($approvedTeams);
-            
-            if (count($approvedTeams) === 0) {
-                jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
-            }
-            
             // Leggi i parametri della fase da CONFIG usando phaseNumber (join key)
             $config = readConfig();
             $configPhases = $config['phases'] ?? [];
@@ -4344,6 +4335,59 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             
             $numGroups = !empty($configPhase['numGroups']) ? (int)$configPhase['numGroups'] : 4;
             $teamsAdvance = !empty($configPhase['teamsAdvance']) ? (string)$configPhase['teamsAdvance'] : '2';
+            $branch = $configPhase['branch'] ?? 'root';
+
+            // 🔧 FIX: solo la prima fase (radice) parte da TUTTE le squadre iscritte.
+            // Le fasi successive prendono le squadre REALI del ramo della fase precedente:
+            // il ramo 'qualified' → le qualificate, il ramo 'eliminated'/'repescaggio'
+            // (fase dei perdenti) → le eliminate. Prima veniva usato sempre l'elenco
+            // completo delle iscritte, per cui la "fase dei perdenti" riceveva tutte le
+            // squadre invece delle sole perdenti.
+            if ($phaseIdx <= 1 || $branch === 'root') {
+                $approvedTeams = approvedTeams($state);
+                if (count($approvedTeams) === 0) {
+                    jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra approvata disponibile']);
+                }
+            } else {
+                $sourcePhaseNumber = $phaseIdx - 1;
+
+                // teamsAdvance della fase SORGENTE (quante squadre avanzano per girone),
+                // usato per distinguere qualificate/eliminate nella fase precedente
+                $sourceConfig = null;
+                foreach ($configPhases as $cp) {
+                    if (($cp['phaseNumber'] ?? null) === $sourcePhaseNumber) {
+                        $sourceConfig = $cp;
+                        break;
+                    }
+                }
+                $srcTeamsAdvanceRaw = $sourceConfig['teamsAdvance'] ?? 2;
+                if (is_string($srcTeamsAdvanceRaw) && str_contains($srcTeamsAdvanceRaw, ',')) {
+                    $teamsAdvancePerGroup = array_map('intval', array_map('trim', explode(',', $srcTeamsAdvanceRaw)));
+                } else {
+                    $teamsAdvancePerGroup = (int)$srcTeamsAdvanceRaw;
+                }
+
+                $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
+                if (!empty($branchResult['error'])) {
+                    jsonResponse(400, ['ok' => false, 'error' => $branchResult['error']]);
+                }
+                if (empty($branchResult['complete'])) {
+                    jsonResponse(400, ['ok' => false, 'error' => "La fase {$sourcePhaseNumber} non ha ancora tutti i risultati necessari per calcolare le squadre. Completa prima tutte le partite."]);
+                }
+
+                $sourceBranch = in_array($branch, ['eliminated', 'repescaggio'], true) ? 'eliminated' : 'qualified';
+                $teamIds = $branchResult[$sourceBranch] ?? [];
+
+                $teamMap = getTeamMap($state);
+                $approvedTeams = [];
+                foreach ($teamIds as $tid) {
+                    if (isset($teamMap[$tid])) $approvedTeams[] = $teamMap[$tid];
+                }
+
+                if (count($approvedTeams) === 0) {
+                    jsonResponse(400, ['ok' => false, 'error' => 'Nessuna squadra disponibile nel ramo selezionato per questa fase (controlla i risultati della fase precedente)']);
+                }
+            }
             
             // Distribuisci squadre nei gironi usando lo snake-draft bilanciato per peso
             // (getTeamWeight = livello medio giocatori), NON il semplice ordine di iscrizione.

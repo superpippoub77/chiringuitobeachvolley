@@ -4972,38 +4972,31 @@
             <tbody>`;
         
         // ✅ NUOVO: Leggi quante squadre passano da questo girone
-        console.log(`\n🔍 DEBUG renderPhaseStandings - INIZIO GIRONE ${groupLabel}:`);
-        console.log(`   groupIdx: ${groupIdx}`);
-        console.log(`   configPhase: `, configPhase);
-        console.log(`   configPhase.teamsAdvance: ${configPhase?.teamsAdvance}`);
-        console.log(`   type of configPhase.teamsAdvance: ${typeof configPhase?.teamsAdvance}`);
-        
         const teamsAdvanceConfig = configPhase?.teamsAdvance;
-        console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
-        console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
         
         let teamsAdvanceForThisGroup = 1;
         
+        // 🔧 FIX: la lista "2,3,3" è pensata per posizione ALFABETICA del girone
+        // (A=indice0, B=indice1, C=indice2...), non per la posizione dell'oggetto
+        // nell'array statePhase.groups - che la distribuzione bilanciata (snake-draft)
+        // può riordinare. Usiamo quindi l'indice ricavato da groupLabel (es. 'C' -> 2),
+        // non il grezzo groupIdx, altrimenti un girone finiva col numero di
+        // qualificati pensato per un girone diverso (stesso bug già visto per le
+        // etichette in classifica).
+        const alphabeticIdx = groupLabel && groupLabel.length === 1
+          ? groupLabel.toUpperCase().charCodeAt(0) - 65
+          : groupIdx;
+
         if (teamsAdvanceConfig !== undefined && teamsAdvanceConfig !== null && teamsAdvanceConfig !== '') {
-          console.log(`   ✅ teamsAdvanceConfig è valorizzato`);
           // Supporta sia numeri singoli che virgole-separati (es: "2,2,3")
           if (String(teamsAdvanceConfig).includes(',')) {
-            console.log(`   🔹 Formato COMMA-SEPARATED rilevato`);
             const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
-            console.log(`   📋 Values parsati: [${values.join(', ')}]`);
-            console.log(`   📍 Leggendo valore a indice [${groupIdx}]...`);
-            teamsAdvanceForThisGroup = values[groupIdx] || 0;
-            console.log(`   📊 Valore estratto: ${teamsAdvanceForThisGroup}`);
+            teamsAdvanceForThisGroup = values[alphabeticIdx] ?? 0;
           } else {
-            console.log(`   🔹 Formato SINGOLO NUMERO rilevato`);
             const parsed = parseInt(teamsAdvanceConfig);
-            console.log(`   📊 Numero parsato: ${parsed}`);
             teamsAdvanceForThisGroup = parsed || 1;
           }
-        } else {
-          console.log(`   ❌ teamsAdvanceConfig è vuoto/non definito, usando default: 1`);
         }
-        console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel} (idx=${groupIdx}): ${teamsAdvanceForThisGroup} squadre passano\n`);
         
         standings.forEach((row, idx) => {
           const isQualified = idx < teamsAdvanceForThisGroup;

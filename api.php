@@ -2163,6 +2163,16 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
         $out[] = ['group' => $groupName, 'rows' => $rows];
     }
 
+    // 🔧 FIX: i gironi possono essere salvati in un ordine diverso da quello
+    // alfabetico (la distribuzione bilanciata per peso squadra riordina gli
+    // oggetti nell'array durante la generazione). Chi consuma questo risultato
+    // (es. getTeamsFromPhaseBranch(), per applicare "2,3,3" squadre-che-passano
+    // per girone) si aspetta che la posizione nell'array corrisponda alla
+    // posizione alfabetica del girone (A=0, B=1, C=2...) — altrimenti un girone
+    // riceve il numero di qualificati pensato per un girone diverso. Ordiniamo
+    // qui, una volta sola, alla fonte.
+    usort($out, fn($a, $b) => strcmp($a['group'], $b['group']));
+
     return $out;
 }
 

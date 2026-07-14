@@ -2209,6 +2209,16 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
 
     if ($type === 'groups') {
         $standings = computeStandingsForPhase($state, $sourcePhaseNumber);
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: standings computed, groups count=" . count($standings) . ", teamsAdvancePerGroup=$teamsAdvancePerGroup");
+        
+        // 🔧 FIX: Converti stringa "2,3,3" in array [2,3,3]
+        if (is_string($teamsAdvancePerGroup) && strpos($teamsAdvancePerGroup, ',') !== false) {
+            $teamsAdvancePerGroup = array_map(fn($x) => (int)trim($x), explode(',', $teamsAdvancePerGroup));
+        } elseif (is_string($teamsAdvancePerGroup)) {
+            $teamsAdvancePerGroup = (int)$teamsAdvancePerGroup;
+        }
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: AFTER PARSING teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup));
+        
         $qualified = [];
         $eliminated = [];
         $complete = !empty($standings);
@@ -2216,6 +2226,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         $groupIdx = 0;
         foreach ($standings as $groupPosition => $g) {
             $rows = $g['rows'];
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition has " . count($rows) . " teams");
             // Numero di qualificati per QUESTO girone: se è un array, usa l'indice numerico
             // del girone (0=A, 1=B, 2=C...); se l'indice non è nell'array, usa l'ultimo valore noto.
             if (is_array($teamsAdvancePerGroup)) {
@@ -2225,6 +2236,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             } else {
                 $advanceCount = $teamsAdvancePerGroup;
             }
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition advanceCount=$advanceCount (groupIdx=$groupIdx)");
 
             // Se non tutte le squadre del girone hanno giocato tutte le partite tra loro,
             // la classifica non è ancora definitiva.
@@ -2247,6 +2259,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             }
             $groupIdx++;
         }
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated));
 
         return ['qualified' => $qualified, 'eliminated' => $eliminated, 'complete' => $complete];
     }
@@ -5058,13 +5071,15 @@ if ($action === 'admin_swap_match_slots' && $method === 'POST') {
 if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
     $body = bodyJson();
     $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+    $filterDates = $body['dates'] ?? [];      // Date selezionate dall'utente
+    $filterSlots = $body['timeSlots'] ?? [];  // Fasce selezionate dall'utente
 
     if ($phaseNumber < 1) {
         jsonResponse(422, ['ok' => false, 'error' => 'phaseNumber richiesto']);
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($phaseNumber) {
+    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots) {
         ensurePhases($state);
 
         $config = readConfig();
@@ -5108,6 +5123,12 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                     for ($sub = 0; $sub < $subCount; $sub++) {
                         $subStart = $startMin + ($sub * $matchDuration);
                         $subEnd = $subStart + $matchDuration;
+                        
+                        // 🔧 FILTRO: se l'utente ha selezionato date/slot specifici, scarta gli altri
+                        $slotKey = $minutesToTime($subStart) . '-' . $minutesToTime($subEnd);
+                        if (!empty($filterDates) && !in_array($avail['date'] ?? null, $filterDates, true)) continue;
+                        if (!empty($filterSlots) && !in_array($slotKey, $filterSlots, true)) continue;
+                        
                         $allSlots[] = [
                             'courtIdx' => $courtIdx, 'dateIdx' => $dateIdx, 'slotIdx' => $rangeIdx,
                             'date' => $avail['date'] ?? null,
@@ -5293,9 +5314,11 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                 if ($sourceConfigPhase && !empty($sourceConfigPhase['teamsAdvance'])) {
                     $teamsAdvanceForCalculation = $sourceConfigPhase['teamsAdvance'];
                 }
+                error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=$teamsAdvancePerGroup, teamsAdvanceForCalculation=$teamsAdvanceForCalculation");
             }
             
             $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation);
+            error_log("🔍 DEBUG admin_create_phase: branchResult qualified=" . count($branchResult['qualified'] ?? []) . ", eliminated=" . count($branchResult['eliminated'] ?? []) . ", complete=" . ($branchResult['complete'] ? 'true' : 'false'));
             if (!empty($branchResult['error'])) {
                 return ['ok' => false, 'error' => $branchResult['error']];
             }
@@ -5308,6 +5331,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             //     return ['ok' => false, 'error' => "La fase {$sourcePhaseNumber} non ha ancora tutti i risultati necessari per calcolare le squadre {$sourceBranch}. Completa prima tutte le partite."];
             // }
             $teamIds = $branchResult[$sourceBranch] ?? [];
+            error_log("🔍 DEBUG admin_create_phase: Using branch=$sourceBranch, teamIds count=" . count($teamIds));
         }
 
         if (count($teamIds) < 2) {

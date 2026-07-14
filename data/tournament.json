@@ -1458,7 +1458,7 @@
             "createdAt": "2026-07-14T21:37:57+00:00"
         },
         {
-            "id": "phase_cad2d5da8e9eb6ba",
+            "id": "phase_a91a7fa6c79b078f",
             "phaseIdx": 2,
             "phaseNumber": 3,
             "name": "gironcino",
@@ -1469,7 +1469,7 @@
             "teamSource": "phase",
             "matches": [
                 {
-                    "id": "4ad97c511ecc80ea",
+                    "id": "ca8acd4458b27d37",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1484,7 +1484,22 @@
                     "endTime": null
                 },
                 {
-                    "id": "447c08f4a46fb340",
+                    "id": "644ac3d4674f1f2f",
+                    "groupName": "A",
+                    "team1": "7c892c6be40b3df2",
+                    "team1Id": "7c892c6be40b3df2",
+                    "team2": "6b553b7f08e9b21a",
+                    "team2Id": "6b553b7f08e9b21a",
+                    "team1Name": "Xxx",
+                    "team2Name": "Prina Colada",
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "9703543c110bb823",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1499,7 +1514,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "0c722d9343933a2a",
+                    "id": "3e1e5716153b418c",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1514,7 +1529,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "437c32b488758c42",
+                    "id": "3d014953e9dffb95",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1529,7 +1544,22 @@
                     "endTime": null
                 },
                 {
-                    "id": "16091ee72d393a00",
+                    "id": "a7a55443d7701fdb",
+                    "groupName": "A",
+                    "team1": "794cabbc7e9f280c",
+                    "team1Id": "794cabbc7e9f280c",
+                    "team2": "6b553b7f08e9b21a",
+                    "team2Id": "6b553b7f08e9b21a",
+                    "team1Name": "Presi dalla squadra",
+                    "team2Name": "Prina Colada",
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "434a729f512406e7",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1544,7 +1574,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "51b77e1c87c91557",
+                    "id": "c1921d29690854f6",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1559,7 +1589,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "46b8adfcfad65d36",
+                    "id": "01ba5a7eff6c589d",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1574,7 +1604,52 @@
                     "endTime": null
                 },
                 {
-                    "id": "664b592e6855ef88",
+                    "id": "b92a4a0e6c3d3b92",
+                    "groupName": "A",
+                    "team1": "6b553b7f08e9b21a",
+                    "team1Id": "6b553b7f08e9b21a",
+                    "team2": "fd7614b3cb7e9fed",
+                    "team2Id": "fd7614b3cb7e9fed",
+                    "team1Name": "Prina Colada",
+                    "team2Name": "Finché beach non ci separi",
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "d3fcb631868808ba",
+                    "groupName": "A",
+                    "team1": "6b553b7f08e9b21a",
+                    "team1Id": "6b553b7f08e9b21a",
+                    "team2": "e742f0df5bfa0cce",
+                    "team2Id": "e742f0df5bfa0cce",
+                    "team1Name": "Prina Colada",
+                    "team2Name": "Double B",
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "969c990fe3bd48d8",
+                    "groupName": "A",
+                    "team1": "6b553b7f08e9b21a",
+                    "team1Id": "6b553b7f08e9b21a",
+                    "team2": "8af4dd33a176fb7f",
+                    "team2Id": "8af4dd33a176fb7f",
+                    "team1Name": "Prina Colada",
+                    "team2Name": "I nonni del buco",
+                    "score1": null,
+                    "score2": null,
+                    "date": null,
+                    "startTime": null,
+                    "endTime": null
+                },
+                {
+                    "id": "494676f6c95e8f12",
                     "groupName": "A",
                     "team1": "fd7614b3cb7e9fed",
                     "team1Id": "fd7614b3cb7e9fed",
@@ -1589,7 +1664,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "ac2714079a6a08eb",
+                    "id": "5c53afa59f1ad7f9",
                     "groupName": "A",
                     "team1": "fd7614b3cb7e9fed",
                     "team1Id": "fd7614b3cb7e9fed",
@@ -1604,7 +1679,7 @@
                     "endTime": null
                 },
                 {
-                    "id": "2580952dd2eb8634",
+                    "id": "7833a64500f0eb50",
                     "groupName": "A",
                     "team1": "e742f0df5bfa0cce",
                     "team1Id": "e742f0df5bfa0cce",
@@ -1626,6 +1701,7 @@
                     "teamIds": [
                         "7c892c6be40b3df2",
                         "794cabbc7e9f280c",
+                        "6b553b7f08e9b21a",
                         "fd7614b3cb7e9fed",
                         "e742f0df5bfa0cce",
                         "8af4dd33a176fb7f"
@@ -1633,11 +1709,11 @@
                 }
             ],
             "standings": [],
-            "createdAt": "2026-07-14T22:15:13+00:00"
+            "createdAt": "2026-07-14T22:32:35+00:00"
         }
     ],
     "meta": {
-        "lastUpdated": "2026-07-14T22:15:13+00:00"
+        "lastUpdated": "2026-07-14T22:32:35+00:00"
     },
     "currentPhaseIdx": 1
 }

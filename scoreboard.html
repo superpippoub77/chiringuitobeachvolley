@@ -2544,85 +2544,77 @@
       newsList.innerHTML = '';
 
       news.forEach((item, index) => {
+        // 🔧 Mostra solo il titolo nella lista
+        const newsItem = document.createElement('div');
+        newsItem.style.cssText = `
+          padding: 12px 14px;
+          border-bottom: 1px solid #e7cf9e;
+          background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
+          cursor: pointer;
+          transition: background 0.2s, transform 0.2s;
+          animation: slideInFromLeft 0.5s ease-out;
+          animation-delay: ${index * 0.1}s;
+          animation-fill-mode: both;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+        `;
+        
+        newsItem.onmouseover = () => {
+          newsItem.style.background = 'linear-gradient(135deg, #fff5d4 0%, #f0d480 55%)';
+          newsItem.style.transform = 'translateX(4px)';
+        };
+        newsItem.onmouseout = () => {
+          newsItem.style.background = 'linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%)';
+          newsItem.style.transform = 'none';
+        };
+        
+        newsItem.onclick = () => showNewsDialog(item);
+        
+        const titleEl = document.createElement('div');
+        titleEl.textContent = item.title;
+        titleEl.style.cssText = 'color: #2e5d1f; font-size: 15px; font-weight: 500; line-height: 1.4; flex: 1';
+        
+        // 🔧 Data con background verde e testo bianco
+        const dateEl = document.createElement('div');
         const date = new Date(item.publishedAt || item.createdAt);
         const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-
-        const newsCard = document.createElement('div');
-        // 🆕 Animazione "a caduta" (come un masso che atterra con un piccolo rimbalzo),
-        // una scheda dopo l'altra invece che tutte insieme: ogni card parte con un
-        // ritardo proporzionale alla sua posizione nell'elenco.
-        newsCard.className = 'news-card-fall';
-        newsCard.style.animationDelay = (index * 0.35) + 's';
-        newsCard.style.cssText += `
-          background: linear-gradient(135deg, #fff8e7 0%, #f6deb0 55%);
-          border: 1px solid #e7cf9e;
-          border-radius: 12px;
-          padding: 16px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-          transition: transform 0.2s, box-shadow 0.2s;
-          display: flex;
-          gap: 12px;
-          cursor: pointer;
+        dateEl.textContent = dateStr;
+        dateEl.style.cssText = `
+          background: #4caf50;
+          color: white;
+          padding: 4px 10px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: bold;
+          white-space: nowrap;
+          flex-shrink: 0;
         `;
-
-        newsCard.onmouseover = () => {
-          newsCard.style.transform = 'translateY(-2px)';
-          newsCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-        };
-        newsCard.onmouseout = () => {
-          newsCard.style.transform = 'none';
-          newsCard.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
-        };
-
-        // 🆕 Al click, apre la notizia completa in una finestra di dialogo
-        newsCard.onclick = () => showNewsDialog(item);
-
-        // Immagine
-        if (item.imageFile) {
-          const img = document.createElement('img');
-          img.src = item.imageFile;
-          img.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 8px; flex-shrink: 0';
-          newsCard.appendChild(img);
-        }
-
-        const content_div = document.createElement('div');
-        content_div.style.cssText = 'flex: 1; display: flex; flex-direction: column; justify-content: space-between';
-
-        const title = document.createElement('h4');
-        title.textContent = item.title;
-        title.style.cssText = 'margin: 0 0 8px 0; color: #2e5d1f; font-size: 18px';
-
-        const date_el = document.createElement('div');
-        date_el.textContent = `${dateStr} • ${timeStr}`;
-        date_el.style.cssText = 'font-size: 12px; color: #999; margin-bottom: 10px';
-
-        const text = document.createElement('p');
-        text.textContent = item.content;
-        text.style.cssText = 'margin: 0; color: #333; line-height: 1.5; font-size: 14px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden';
-
-        const readMore = document.createElement('div');
-        readMore.textContent = 'Leggi tutto →';
-        readMore.style.cssText = 'margin-top: 6px; font-size: 12px; color: #2e5d1f; font-weight: bold';
-
-        const shareBtn = document.createElement('button');
-        shareBtn.innerHTML = '👍 Condividi su Facebook';
-        shareBtn.style.cssText = 'margin-top: 10px; padding: 6px 10px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: background 0.2s';
-        shareBtn.onmouseover = () => shareBtn.style.background = '#166FE5';
-        shareBtn.onmouseout = () => shareBtn.style.background = '#1877F2';
-        shareBtn.onclick = (e) => {
-          e.stopPropagation();
-          shareNewsOnFacebook(item);
-        };
-
-        content_div.appendChild(title);
-        content_div.appendChild(date_el);
-        content_div.appendChild(text);
-        content_div.appendChild(readMore);
-        content_div.appendChild(shareBtn);
-        newsCard.appendChild(content_div);
-        newsList.appendChild(newsCard);
+        
+        newsItem.appendChild(titleEl);
+        newsItem.appendChild(dateEl);
+        newsList.appendChild(newsItem);
       });
+      
+      // Aggiungi stile di animazione slideInFromLeft
+      if (!document.getElementById('newsSlideAnimationStyle')) {
+        const style = document.createElement('style');
+        style.id = 'newsSlideAnimationStyle';
+        style.textContent = `
+          @keyframes slideInFromLeft {
+            from {
+              opacity: 0;
+              transform: translateX(-10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      }
     }
 
     // 🆕 Mostra la notizia completa (titolo, immagine, testo integrale) in una

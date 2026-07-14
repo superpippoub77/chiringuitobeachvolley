@@ -1403,6 +1403,7 @@
             <button class="settings-subtab-btn active" onclick="showSettingsTab('tournament', this)">📋 Torneo</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('communications', this)">📧 Comunicazioni</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('calendar', this)">📅 Calendario</button>
+            <button class="settings-subtab-btn" onclick="showSettingsTab('phases', this)">🏆 Fasi</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('display', this)">🎨 Visualizzazione</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('advanced', this)">📦 Avanzate</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('jsoneditor', this)">💾 JSON Editor</button>
@@ -1558,6 +1559,15 @@
               <h4 style="margin-top: 0">📅 Schedule Giorni</h4>
               <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
               <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
+            </div>
+          </div>
+
+          <!-- TAB 3B: FASI -->
+          <div class="settings-tab-content" id="settings-phases">
+            <div class="card" style="background: #e8f1f5; padding: 12px">
+              <h4 style="margin-top: 0">🏆 Assegna Giornate e Slot alle Fasi</h4>
+              <p class="muted">Configura giornate e orari per ogni fase del torneo.</p>
+              <div id="phasesScheduleContainer" style="margin-top: 14px"></div>
             </div>
           </div>
 
@@ -2003,6 +2013,9 @@
       
       // Carica la lista dei backup dal server
       loadBackupsList().catch(e => console.error('Errore caricamento backup list:', e));
+      
+      // Renderizza lo schedule delle fasi
+      renderPhasesScheduleConfig();
     }
 
     function showSettingsTab(tabName, button) {
@@ -2031,6 +2044,108 @@
 
     function showScheduleConfig() {
       showPage('schedule', document.querySelector('[data-page="schedule"]'));
+    }
+
+    function renderPhasesScheduleConfig() {
+      const container = document.getElementById('phasesScheduleContainer');
+      if (!container) return;
+      
+      const phases = config.phases || [];
+      const schedule = config.schedule || { courts: [] };
+      
+      // Estrai liste uniche di date e timeSlots da tutti i court
+      const allDates = new Set();
+      const allTimeSlots = new Set();
+      (schedule.courts || []).forEach(court => {
+        (court.availability || []).forEach(avail => {
+          allDates.add(avail.date);
+          (avail.timeSlots || []).forEach(slot => {
+            const key = `${slot.startTime}-${slot.endTime}`;
+            allTimeSlots.add(key);
+          });
+        });
+      });
+      
+      const datesList = Array.from(allDates).sort();
+      const timeSlotsList = Array.from(allTimeSlots).sort();
+      const courtsList = (schedule.courts || []).map(c => ({ id: c.courtId, name: c.courtName }));
+      
+      let html = '';
+      phases.forEach(phase => {
+        const phaseConfig = phase;
+        const schedule = phaseConfig.schedule || { courtIds: [], dates: [], timeSlots: [] };
+        
+        html += `
+          <div style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 12px">
+            <h5 style="margin: 0 0 12px 0; color: #333">🏆 Fase ${phase.phaseNumber || '?'} - ${escapeHtml(phase.name || '')}</h5>
+            
+            <div style="margin-bottom: 12px">
+              <label style="font-weight: bold; display: block; margin-bottom: 6px">🏟️ Campi</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                ${courtsList.map(court => `
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.courtIds || []).includes(court.id) ? '#d9f1d2' : '#f5f5f5'}; border-radius: 4px; border: 1px solid #ddd">
+                    <input type="checkbox" ${(schedule.courtIds || []).includes(court.id) ? 'checked' : ''} 
+                           onchange="updatePhaseScheduleField(${phase.phaseNumber}, 'courtIds', '${court.id}', this.checked)">
+                    <span>${escapeHtml(court.name)}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 12px">
+              <label style="font-weight: bold; display: block; margin-bottom: 6px">📅 Giornate</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                ${datesList.map(date => `
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.dates || []).includes(date) ? '#d9f1d2' : '#f5f5f5'}; border-radius: 4px; border: 1px solid #ddd">
+                    <input type="checkbox" ${(schedule.dates || []).includes(date) ? 'checked' : ''} 
+                           onchange="updatePhaseScheduleField(${phase.phaseNumber}, 'dates', '${date}', this.checked)">
+                    <span>${date}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <div>
+              <label style="font-weight: bold; display: block; margin-bottom: 6px">⏰ Fasce Orarie</label>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                ${timeSlotsList.map(slot => `
+                  <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.timeSlots || []).includes(slot) ? '#d9f1d2' : '#f5f5f5'}; border-radius: 4px; border: 1px solid #ddd">
+                    <input type="checkbox" ${(schedule.timeSlots || []).includes(slot) ? 'checked' : ''} 
+                           onchange="updatePhaseScheduleField(${phase.phaseNumber}, 'timeSlots', '${slot}', this.checked)">
+                    <span>${slot}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      
+      if (phases.length === 0) {
+        html = '<p style="color: #999; text-align: center; padding: 20px">Nessuna fase creata. Crea almeno una fase per assegnare lo schedule.</p>';
+      }
+      
+      container.innerHTML = html;
+    }
+    
+    function updatePhaseScheduleField(phaseNumber, fieldName, value, isChecked) {
+      if (!config.phases) config.phases = [];
+      
+      const phase = config.phases.find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return;
+      
+      if (!phase.schedule) phase.schedule = { courtIds: [], dates: [], timeSlots: [] };
+      
+      const arr = phase.schedule[fieldName] = phase.schedule[fieldName] || [];
+      if (isChecked) {
+        if (!arr.includes(value)) arr.push(value);
+      } else {
+        const idx = arr.indexOf(value);
+        if (idx >= 0) arr.splice(idx, 1);
+      }
+      
+      // Auto-save
+      saveSettings().catch(e => console.error('Errore salvataggio schedule fase:', e));
     }
 
     function selectTheme(themeId) {
@@ -6022,23 +6137,172 @@ html += `
     }
 
     async function autoSchedulePhase(phaseNumber) {
-      const confirmed = await showConfirmDialog('Genera Orari', 'Assegnare automaticamente data/ora/campo alle partite di questa fase che non ce l\'hanno ancora? Potrai comunque modificare ogni singola partita dopo con il pulsante "📅 Slot".');
-      if (!confirmed) return;
-
-      try {
-        const res = await callApi('admin_auto_schedule_phase', 'POST', { phaseNumber }, true);
-        await refresh();
-        const playable = res.totalMatches - res.skippedByes;
-        if (res.scheduled === 0 && playable > 0) {
-          await showInfoDialog('⚠️ Nessuno slot disponibile', 'Non ci sono fasce orarie libere configurate per assegnare queste partite. Vai in Impostazioni → Calendario per aggiungerne (campi, date, orari), poi riprova.');
-        } else if (res.scheduled < playable) {
-          await showInfoDialog('⚠️ Slot parzialmente assegnati', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare: le fasce disponibili configurate sono finite. Aggiungine altre in Impostazioni → Calendario per completare.`);
-        } else {
-          await showInfoDialog('✅ Fatto', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare.`);
-        }
-      } catch (e) {
-        await showInfoDialog('Errore', 'Errore nella generazione orari: ' + e.message);
-      }
+      const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return;
+      
+      const configPhase = (config.phases || []).find(p => p.phaseNumber === phaseNumber);
+      const schedule = configPhase?.schedule || { courtIds: [], dates: [], timeSlots: [] };
+      const allCourts = (config.schedule?.courts || []).map(c => ({ id: c.courtId, name: c.courtName }));
+      const allDates = new Set();
+      const allTimeSlots = new Set();
+      (config.schedule?.courts || []).forEach(court => {
+        (court.availability || []).forEach(avail => {
+          allDates.add(avail.date);
+          (avail.timeSlots || []).forEach(slot => {
+            const key = `${slot.startTime}-${slot.endTime}`;
+            allTimeSlots.add(key);
+          });
+        });
+      });
+      
+      const datesList = Array.from(allDates).sort();
+      const timeSlotsList = Array.from(allTimeSlots).sort();
+      
+      // 🔧 Calcola quali slot sono già occupati dalle partite di TUTTE le fasi
+      const usedSlots = new Set();
+      (state.phases || []).forEach(p => {
+        (p.matches || []).forEach(m => {
+          if (m.date && m.startTime && m.endTime) {
+            const slotKey = `${m.startTime}-${m.endTime}`;
+            usedSlots.add(slotKey);
+          }
+        });
+      });
+      
+      // Filtra gli slot per mostrare solo quelli liberi
+      const availableTimeSlots = timeSlotsList.filter(slot => !usedSlots.has(slot));
+      
+      // Conta match non-bye della fase
+      const totalMatches = phase.matches?.length || 0;
+      const byeMatches = phase.matches?.filter(m => m.bye).length || 0;
+      const playableMatches = totalMatches - byeMatches;
+      
+      // Modal per selezione giorni/slot
+      const bodyHtml = `
+        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 400px">
+          <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; border-left: 4px solid #2196F3">
+            <strong>📊 Statistiche partite:</strong><br>
+            Totali: ${totalMatches} | Bye: ${byeMatches} | Da giocare: <strong style="color: #d32f2f">${playableMatches}</strong>
+          </div>
+          
+          <div>
+            <label style="font-weight: bold; display: block; margin-bottom: 8px">📅 Giornate per questa fase</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px">
+              ${datesList.map(date => `
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.dates || []).includes(date) ? '#c8e6c9' : '#fff'}; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="checkbox" class="phaseScheduleDate" value="${date}" ${(schedule.dates || []).includes(date) ? 'checked' : ''}>
+                  ${date}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div>
+            <label style="font-weight: bold; display: block; margin-bottom: 8px">⏰ Fasce orarie disponibili (non occupate)</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px">
+              ${availableTimeSlots.length > 0 ? availableTimeSlots.map(slot => `
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.timeSlots || []).includes(slot) ? '#c8e6c9' : '#fff'}; border: 1px solid #4caf50; border-radius: 4px">
+                  <input type="checkbox" class="phaseScheduleSlot" value="${slot}" ${(schedule.timeSlots || []).includes(slot) ? 'checked' : ''}>
+                  <span style="color: #2e5d1f; font-weight: bold">${slot}</span>
+                </label>
+              `).join('') : '<span style="color: #d32f2f; font-weight: bold">❌ Nessun slot disponibile!</span>'}
+            </div>
+            ${usedSlots.size > 0 ? `<div style="font-size: 12px; color: #666; margin-top: 6px">📌 <strong>${usedSlots.size}</strong> fasce già occupate da altre partite</div>` : ''}
+          </div>
+          
+          <div id="scheduleVerification" style="background: #fff3e0; padding: 10px; border-radius: 4px; border-left: 4px solid #ff9800; display: none">
+            <strong id="verificationMessage"></strong>
+          </div>
+        </div>
+      `;
+      
+      let selectedDates = [...(schedule.dates || [])];
+      let selectedSlots = [...(schedule.timeSlots || [])];
+      
+      openModal({
+        title: `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
+        bodyHtml,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          { text: '✅ Genera Orari', className: 'btn btn-green', closeOnClick: false, onClick: async () => {
+            selectedDates = Array.from(document.querySelectorAll('.phaseScheduleDate:checked')).map(el => el.value);
+            selectedSlots = Array.from(document.querySelectorAll('.phaseScheduleSlot:checked')).map(el => el.value);
+            
+            if (selectedDates.length === 0 || selectedSlots.length === 0) {
+              const msg = document.getElementById('verificationMessage');
+              msg.textContent = '❌ Seleziona almeno una giornata e una fascia oraria!';
+              document.getElementById('scheduleVerification').style.display = 'block';
+              return;
+            }
+            
+            // Verifica automatica: numero di slot disponibili
+            const totalSlots = selectedDates.length * selectedSlots.length;
+            if (playableMatches > totalSlots) {
+              const msg = document.getElementById('verificationMessage');
+              msg.textContent = `❌ Slot insufficienti! Servono almeno ${playableMatches} slot (${selectedDates.length} giorni × ${selectedSlots.length} fasce = ${totalSlots} slot)`;
+              document.getElementById('scheduleVerification').style.display = 'block';
+              return;
+            }
+            
+            const msg = document.getElementById('verificationMessage');
+            msg.innerHTML = `✅ Verificato! ${playableMatches} partite in ${totalSlots} slot disponibili`;
+            document.getElementById('scheduleVerification').style.display = 'block';
+            
+            closeModal(true);
+            
+            // Procedi con lo scheduling usando i giorni/slot selezionati
+            try {
+              const res = await callApi('admin_auto_schedule_phase', 'POST', { 
+                phaseNumber,
+                dates: selectedDates,
+                timeSlots: selectedSlots
+              }, true);
+              
+              await refresh();
+              const playable = res.totalMatches - res.skippedByes;
+              if (res.scheduled === 0 && playable > 0) {
+                await showInfoDialog('⚠️ Errore', 'Nessuna partita è stata assegnata.');
+              } else if (res.scheduled < playable) {
+                await showInfoDialog('⚠️ Slot parzialmente assegnati', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare.`);
+              } else {
+                await showInfoDialog('✅ Fatto', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare in ${selectedDates.length} giorni × ${selectedSlots.length} fasce.`);
+              }
+            } catch (e) {
+              await showInfoDialog('Errore', 'Errore nella generazione orari: ' + e.message);
+            }
+          } }
+        ]
+      });
+      
+      // Aggiungi listener per verificare automaticamente quando cambiano i checkbox
+      setTimeout(() => {
+        document.querySelectorAll('.phaseScheduleDate, .phaseScheduleSlot').forEach(el => {
+          el.addEventListener('change', () => {
+            const dates = Array.from(document.querySelectorAll('.phaseScheduleDate:checked')).map(e => e.value);
+            const slots = Array.from(document.querySelectorAll('.phaseScheduleSlot:checked')).map(e => e.value);
+            const totalSlots = dates.length * slots.length;
+            
+            const verDiv = document.getElementById('scheduleVerification');
+            const msgEl = document.getElementById('verificationMessage');
+            
+            if (dates.length === 0 || slots.length === 0) {
+              verDiv.style.display = 'none';
+              return;
+            }
+            
+            if (playableMatches > totalSlots) {
+              msgEl.textContent = `⚠️ Slot insufficienti! Servono ${playableMatches}, avrai ${totalSlots}`;
+              verDiv.style.background = '#ffebee';
+              verDiv.style.borderLeftColor = '#d32f2f';
+            } else {
+              msgEl.textContent = `✅ OK! ${playableMatches} partite in ${totalSlots} slot (${dates.length}gg × ${slots.length} fasce)`;
+              verDiv.style.background = '#e8f5e9';
+              verDiv.style.borderLeftColor = '#2e7d32';
+            }
+            verDiv.style.display = 'block';
+          });
+        });
+      }, 100);
     }
 
     function renderPhaseKnockout(phaseData, container) {

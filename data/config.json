@@ -65,7 +65,18 @@
             "numGroups": 3,
             "teamsAdvance": "2,3,3",
             "hasRepescage": true,
-            "notes": ""
+            "notes": "",
+            "schedule": {
+                "courtIds": [
+                    "court-1783636718618-0"
+                ],
+                "dates": [
+                    "2026-07-13"
+                ],
+                "timeSlots": [
+                    "19:30-22:00"
+                ]
+            }
         },
         {
             "phaseNumber": 2,
@@ -77,7 +88,12 @@
             "numGroups": null,
             "teamsAdvance": "2,3,3",
             "hasRepescage": false,
-            "notes": "Creata con il motore automatico (squadre reali)"
+            "notes": "Creata con il motore automatico (squadre reali)",
+            "schedule": {
+                "courtIds": [],
+                "dates": [],
+                "timeSlots": []
+            }
         },
         {
             "phaseNumber": 3,

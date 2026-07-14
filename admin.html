@@ -5841,7 +5841,16 @@ html += `
         
         // Check fase precedente
         const prevPhase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber - 1);
-        const prevHasGroups = prevPhase && prevPhase.type === 'groups' ? (state?.groups?.length > 0) : true;
+        // 🔧 FIX: prima si controllava state.groups, un campo "di comodo" che il
+        // server valorizza SOLO nell'endpoint pubblico (scoreboard.html) e che
+        // riflette sempre e solo la Fase 1 - nel pannello admin questo campo non
+        // esiste mai, quindi il controllo falliva sempre a prescindere dalla realtà.
+        // Verifichiamo invece la fase precedente VERA in state.phases: ha gironi
+        // con squadre assegnate, oppure (per un castello) partite generate?
+        const realPrevPhase = (state?.phases || []).find(p => p.phaseNumber === (phaseNumber - 1));
+        const prevHasGroups = prevPhase && prevPhase.type === 'groups'
+          ? !!(realPrevPhase && (realPrevPhase.groups || []).some(g => ((g.teamIds || g.teams || []).length > 0)))
+          : !!(realPrevPhase && (realPrevPhase.matches || []).length > 0);
         const hasPrevPhase = phaseNumber === 1 ? true : prevPhase && prevHasGroups;
         
         requirements.push({
@@ -6057,6 +6066,19 @@ html += `
             </button>
           </div>
         </div>
+        <details style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 16px; font-size: 13px">
+          <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #555">ℹ️ Come funziona il Castello (eliminazione diretta)</summary>
+          <div style="padding: 0 14px 14px 14px; color: #555; line-height: 1.6">
+            <ul style="margin: 0; padding-left: 18px">
+              <li><strong>Squadre di partenza:</strong> vengono prese automaticamente dai risultati REALI della fase sorgente — le vincenti (qualificate) o le perdenti (eliminate) di un girone/castello precedente, oppure tutte le squadre iscritte al torneo se hai scelto "nuovo torneo".</li>
+              <li><strong>Accoppiamenti:</strong> le squadre vengono seminate per livello/peso (la più forte contro la più debole, ecc.), così i più forti si incontrano il più tardi possibile.</li>
+              <li><strong>Numero dispari di squadre (bye):</strong> se le squadre non sono una potenza di 2 (4, 8, 16...), alle squadre di livello più alto viene assegnato un "bye" — passano il turno senza giocare.</li>
+              <li><strong>Avanzamento automatico:</strong> quando inserisci il risultato di una partita, il vincitore passa da solo al turno successivo (es. da un Quarto alla Semifinale corrispondente) — non serve inserirlo a mano.</li>
+              <li><strong>Finale 3°/4° posto:</strong> le due squadre eliminate in semifinale si affrontano automaticamente per il podio.</li>
+              <li><strong>Orari:</strong> usa "📅 Genera Orari" per assegnare in automatico data/campo alle partite senza orario (sempre modificabili singolarmente dopo).</li>
+            </ul>
+          </div>
+        </details>
       `;
 
       if (knockoutViewMode === 'bracket') {
@@ -9404,6 +9426,18 @@ html += `
           numTeams: teamIds.size,
           hasRepescage: false
         });
+      });
+
+      // 🔧 FIX: le fasi in config.phases (il vecchio wizard) non hanno mai avuto
+      // un campo "status" - per questo il diagramma mostrava SEMPRE "⏳ In sospeso"
+      // per qualunque fase, anche quelle completate. Lo stato reale esiste solo in
+      // state.phases: lo sovrapponiamo qui per tutte le fasi, non solo per quelle
+      // sintetizzate sopra.
+      const statusByPhaseNumber = {};
+      statePhases.forEach(sp => { statusByPhaseNumber[sp.phaseNumber] = sp.status; });
+      configPhases.forEach(p => {
+        const num = p.phaseNumber || p.phaseIdx;
+        if (statusByPhaseNumber[num]) p.status = statusByPhaseNumber[num];
       });
 
       return configPhases.sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));

@@ -1522,6 +1522,18 @@
       });
 
       let html = '<div style="margin-top: 16px">';
+
+      html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 13px">
+        <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">ℹ️ Come funziona il Castello (eliminazione diretta)</summary>
+        <div style="padding: 0 14px 14px 14px; color: #6b5d45; line-height: 1.6">
+          <ul style="margin: 0; padding-left: 18px">
+            <li>Le squadre di questa fase sono quelle qualificate (o eliminate) dai risultati reali della fase precedente, seminate per livello: le più forti incontrano le più deboli, così i big si scontrano il più tardi possibile.</li>
+            <li>Se il numero di squadre non è una potenza di 2, alle squadre più forti viene assegnato un "bye": passano il turno senza giocare.</li>
+            <li>Il vincitore di ogni partita passa automaticamente al turno successivo; le due sconfitte in semifinale si giocano il 3°/4° posto.</li>
+          </ul>
+        </div>
+      </details>`;
+
       orderedTypes.forEach(type => {
         html += `<div style="margin-bottom: 20px">
           <h4 style="color: #6b5d45; margin-bottom: 8px">${roundLabels[type] || esc(type)}</h4>

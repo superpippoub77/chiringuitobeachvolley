@@ -3,6 +3,41 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+// 🔧 GLOBAL ERROR HANDLER: cattura tutti gli errori PHP non gestiti e li restituisce come JSON
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    error_log("❌ PHP Error [$errno]: $errstr in $errfile:$errline");
+    http_response_code(500);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Errore interno del server: ' . $errstr
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
+set_exception_handler(function ($e) {
+    error_log("❌ Exception: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+    error_log("❌ Stack trace: " . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Errore interno del server: ' . $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
+// Handler per errori fatali PHP
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log("❌ FATAL ERROR: " . $error['message'] . " in " . $error['file'] . ":" . $error['line']);
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'Errore fatale del server: ' . $error['message']
+        ], JSON_UNESCAPED_UNICODE);
+    }
+});
+
 const DATA_FILE = __DIR__ . '/data/tournament.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
@@ -1657,11 +1692,22 @@ function getInitialTeamsCount(array $config, array $state): int {
 }
 
 function getTeamMap(array $state): array {
-    $map = [];
-    foreach ($state['teams'] as $team) {
-        $map[$team['id']] = $team;
+    try {
+        error_log("🔍 DEBUG getTeamMap: START teams count=" . count($state['teams'] ?? []));
+        
+        $map = [];
+        foreach ($state['teams'] ?? [] as $team) {
+            if (isset($team['id'])) {
+                $map[$team['id']] = $team;
+            }
+        }
+        
+        error_log("🔍 DEBUG getTeamMap: END map size=" . count($map));
+        return $map;
+    } catch (Exception $e) {
+        error_log("❌ getTeamMap error: " . $e->getMessage());
+        return [];
     }
-    return $map;
 }
 
 function approvedTeams(array $state): array {
@@ -1937,9 +1983,10 @@ function publicState(array $state): array {
         'finalRanking' => computeFinalRanking($state),
         'meta' => $state['meta'],
         'phases' => array_map(function ($phase, $idx) use ($state) {
-            // ✅ Aggiungi standings al primo phase (gironi) per compatibilità con frontend
-            if ($idx === 0) {
-                $phase['standings'] = computeStandings($state);
+            // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
+            if (($phase['type'] ?? '') === 'groups') {
+                $phaseNumber = $phase['phaseNumber'] ?? ($idx + 1);
+                $phase['standings'] = computeStandingsForPhase($state, $phaseNumber);
             }
             return $phase;
         }, $state['phases'] ?? [], array_keys($state['phases'] ?? []))
@@ -1971,23 +2018,28 @@ function playoffView(array $state): array {
     ];
 
     // Estrai matches dalle fasi knockout
-    foreach ($state['phases'] ?? [] as $phaseIdx => $phase) {
-        if ($phaseIdx === 0) continue; // Salta la fase dei gironi
-        
+    // 🔧 FIX: prima si saltava "$phaseIdx === 0" assumendo che la fase gironi
+    // fosse sempre in POSIZIONE 0 dell'array $state['phases']. Ma $phaseIdx
+    // qui è solo la posizione nell'array (dal foreach), non l'identità della
+    // fase (phaseNumber) — se una fase 'groups' non è in prima posizione (es.
+    // un torneo con più fasi a gironi, come Gold/Silver), il controllo per
+    // posizione non fa quello che deve. Il controllo giusto è già quello
+    // interno su $phase['type'] === 'knockout', quindi lo rendiamo l'unico.
+    foreach ($state['phases'] ?? [] as $phase) {
+        if (($phase['type'] ?? null) !== 'knockout') continue;
+
         foreach ($phase['matches'] ?? [] as $match) {
-            if ($phase['type'] === 'knockout') {
-                // Classifica in base al tipo di match (se presente)
-                $matchType = $match['type'] ?? '';
-                
-                if ($matchType === 'quarterFinal' || strpos($match['label'] ?? '', 'Quarti') !== false) {
-                    $playoff['quarterFinals'][] = $mapFn($match);
-                } elseif ($matchType === 'semiFinal' || strpos($match['label'] ?? '', 'Semi') !== false) {
-                    $playoff['semiFinals'][] = $mapFn($match);
-                } elseif ($matchType === 'thirdPlace' || strpos($match['label'] ?? '', 'Terzo') !== false) {
-                    $playoff['thirdPlace'] = $mapFn($match);
-                } elseif ($matchType === 'final' || strpos($match['label'] ?? '', 'Final') !== false) {
-                    $playoff['final'] = $mapFn($match);
-                }
+            // Classifica in base al tipo di match (se presente)
+            $matchType = $match['type'] ?? '';
+
+            if ($matchType === 'quarterFinal' || strpos($match['label'] ?? '', 'Quarti') !== false) {
+                $playoff['quarterFinals'][] = $mapFn($match);
+            } elseif ($matchType === 'semiFinal' || strpos($match['label'] ?? '', 'Semi') !== false) {
+                $playoff['semiFinals'][] = $mapFn($match);
+            } elseif ($matchType === 'thirdPlace' || strpos($match['label'] ?? '', 'Terzo') !== false) {
+                $playoff['thirdPlace'] = $mapFn($match);
+            } elseif ($matchType === 'final' || strpos($match['label'] ?? '', 'Final') !== false) {
+                $playoff['final'] = $mapFn($match);
             }
         }
     }
@@ -2118,36 +2170,54 @@ function computeStandings(array $state): array {
  * Restituisce la classifica di ogni girone della fase indicata.
  */
 function computeStandingsForPhase(array $state, int $phaseNumber): array {
+    error_log("🔍 DEBUG computeStandingsForPhase: START phaseNumber=$phaseNumber");
+    
     $teamMap = getTeamMap($state);
+    error_log("🔍 DEBUG computeStandingsForPhase: teamMap size=" . count($teamMap));
+    
     $out = [];
 
     $phaseIdx = array_search($phaseNumber, array_column($state['phases'] ?? [], 'phaseNumber'), true);
+    error_log("🔍 DEBUG computeStandingsForPhase: phaseIdx=$phaseIdx");
+    
     if ($phaseIdx === false) {
+        error_log("❌ computeStandingsForPhase: fase $phaseNumber non trovata");
         return $out;
     }
 
     $groupsPhase = $state['phases'][$phaseIdx];
     $groups = $groupsPhase['groups'] ?? [];
     $allMatches = $groupsPhase['matches'] ?? [];
+    
+    error_log("🔍 DEBUG computeStandingsForPhase: groups count=" . count($groups) . ", matches count=" . count($allMatches));
 
     foreach ($groups as $groupIdx => $group) {
+        error_log("🔍 DEBUG computeStandingsForPhase: processing group $groupIdx");
+        
         $rows = [];
         $groupName = (is_array($group) ? ($group['name'] ?? $group['label'] ?? null) : null) ?? chr(65 + $groupIdx);
 
+        error_log("🔍 DEBUG computeStandingsForPhase: groupName=$groupName, group type=" . gettype($group));
+        
         $teamIds = [];
         if (is_array($group)) {
             if (isset($group['teamIds']) && is_array($group['teamIds'])) {
                 $teamIds = $group['teamIds'];
+                error_log("🔍 DEBUG computeStandingsForPhase: using teamIds field");
             } elseif (isset($group['teams']) && is_array($group['teams'])) {
                 foreach ($group['teams'] as $t) {
                     if (is_array($t) && !empty($t['id'])) $teamIds[] = $t['id'];
                 }
+                error_log("🔍 DEBUG computeStandingsForPhase: using teams field");
             } else {
                 foreach ($group as $t) {
                     if (is_array($t) && !empty($t['id'])) $teamIds[] = $t['id'];
                 }
+                error_log("🔍 DEBUG computeStandingsForPhase: using direct iteration");
             }
         }
+        
+        error_log("🔍 DEBUG computeStandingsForPhase: group $groupName teamIds count=" . count($teamIds));
 
         foreach ($teamIds as $teamId) {
             $team = $teamMap[$teamId] ?? null;
@@ -2190,6 +2260,7 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
             return strcmp($a['name'], $b['name']);
         });
 
+        error_log("🔍 DEBUG computeStandingsForPhase: group $groupName final rows count=" . count($rows));
         $out[] = ['group' => $groupName, 'rows' => $rows];
     }
 
@@ -2203,6 +2274,7 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
     // qui, una volta sola, alla fonte.
     usort($out, fn($a, $b) => strcmp($a['group'], $b['group']));
 
+    error_log("🔍 DEBUG computeStandingsForPhase: END out count=" . count($out));
     return $out;
 }
 
@@ -2229,25 +2301,33 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
  *    che permette gironi con un numero diverso di qualificati.
  */
 function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdvancePerGroup = 2): array {
+    error_log("🔍 DEBUG getTeamsFromPhaseBranch: START sourcePhaseNumber=$sourcePhaseNumber, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup));
+    
     $phaseIdx = array_search($sourcePhaseNumber, array_column($state['phases'] ?? [], 'phaseNumber'), true);
+    error_log("🔍 DEBUG getTeamsFromPhaseBranch: phaseIdx=$phaseIdx");
+    
     if ($phaseIdx === false) {
+        error_log("❌ getTeamsFromPhaseBranch: fase $sourcePhaseNumber non trovata");
         return ['qualified' => [], 'eliminated' => [], 'complete' => false, 'error' => "Fase {$sourcePhaseNumber} non trovata"];
     }
 
     $phase = $state['phases'][$phaseIdx];
     $type = $phase['type'] ?? 'groups';
+    error_log("🔍 DEBUG getTeamsFromPhaseBranch: type=$type");
 
     if ($type === 'groups') {
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: calcolando standings per fase groups");
         $standings = computeStandingsForPhase($state, $sourcePhaseNumber);
-        error_log("🔍 DEBUG getTeamsFromPhaseBranch: standings computed, groups count=" . count($standings) . ", teamsAdvancePerGroup=$teamsAdvancePerGroup");
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: standings computed, groups count=" . count($standings) . ", teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup));
         
         // 🔧 FIX: Converti stringa "2,3,3" in array [2,3,3]
         if (is_string($teamsAdvancePerGroup) && strpos($teamsAdvancePerGroup, ',') !== false) {
             $teamsAdvancePerGroup = array_map(fn($x) => (int)trim($x), explode(',', $teamsAdvancePerGroup));
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: converted string to array: " . json_encode($teamsAdvancePerGroup));
         } elseif (is_string($teamsAdvancePerGroup)) {
             $teamsAdvancePerGroup = (int)$teamsAdvancePerGroup;
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: converted string to int: " . json_encode($teamsAdvancePerGroup));
         }
-        error_log("🔍 DEBUG getTeamsFromPhaseBranch: AFTER PARSING teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup));
         
         $qualified = [];
         $eliminated = [];
@@ -2256,7 +2336,8 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         $groupIdx = 0;
         foreach ($standings as $groupPosition => $g) {
             $rows = $g['rows'];
-            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition has " . count($rows) . " teams");
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition (groupIdx=$groupIdx) has " . count($rows) . " teams");
+            
             // Numero di qualificati per QUESTO girone: se è un array, usa l'indice numerico
             // del girone (0=A, 1=B, 2=C...); se l'indice non è nell'array, usa l'ultimo valore noto.
             if (is_array($teamsAdvancePerGroup)) {
@@ -2266,7 +2347,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             } else {
                 $advanceCount = $teamsAdvancePerGroup;
             }
-            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition advanceCount=$advanceCount (groupIdx=$groupIdx)");
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP $groupPosition advanceCount=$advanceCount");
 
             // Se non tutte le squadre del girone hanno giocato tutte le partite tra loro,
             // la classifica non è ancora definitiva.
@@ -2278,6 +2359,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                     $playedMatches++;
                 }
             }
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP {$g['group']} expectedMatches=$expectedMatches, playedMatches=$playedMatches");
             if ($playedMatches < $expectedMatches) $complete = false;
 
             foreach ($rows as $idx => $row) {
@@ -2289,14 +2371,16 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             }
             $groupIdx++;
         }
-        error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated));
-
+        
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated) . ", complete=" . ($complete ? 'true' : 'false'));
         return ['qualified' => $qualified, 'eliminated' => $eliminated, 'complete' => $complete];
     }
 
     if ($type === 'knockout') {
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: calcolando per knockout");
         $matches = $phase['matches'] ?? [];
         if (empty($matches)) {
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: no matches in knockout phase");
             return ['qualified' => [], 'eliminated' => [], 'complete' => false];
         }
 
@@ -2310,6 +2394,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             }
         }
         $lastRoundType = end($roundsOrder) ?: null;
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: knockout roundsOrder=" . json_encode($roundsOrder) . ", lastRoundType=$lastRoundType");
 
         $qualified = [];
         $eliminated = [];
@@ -2345,9 +2430,11 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             }
         }
 
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: knockout FINAL qualified=" . count($qualified) . ", eliminated=" . count($eliminated) . ", complete=" . ($complete ? 'true' : 'false'));
         return ['qualified' => array_values(array_unique($qualified)), 'eliminated' => array_values(array_unique($eliminated)), 'complete' => $complete];
     }
 
+    error_log("❌ getTeamsFromPhaseBranch: tipo fase '{$type}' non gestito");
     return ['qualified' => [], 'eliminated' => [], 'complete' => false, 'error' => "Tipo fase '{$type}' non gestito"];
 }
 
@@ -2921,9 +3008,15 @@ function computeFinalRanking(array $state): array {
     $rankingIds = [];
 
     // Estrai matches dalle fasi knockout (a partire dalla fase 2)
-    foreach ($state['phases'] ?? [] as $phaseIdx => $phase) {
-        if ($phaseIdx === 0) continue; // Salta la fase dei gironi
-        
+    // 🔧 FIX: il controllo precedente saltava solo "$phaseIdx === 0" (la
+    // POSIZIONE nell'array, non l'identità della fase), assumendo che ci
+    // fosse un'unica fase a gironi e che fosse sempre la prima. Con più fasi
+    // a gironi (es. Gold a knockout + Silver a gironi come Fase 3), le
+    // partite della Fase 3 finivano incluse qui insieme a quelle knockout,
+    // sballando la classifica finale. Ora filtriamo esplicitamente per tipo.
+    foreach ($state['phases'] ?? [] as $phase) {
+        if (($phase['type'] ?? null) !== 'knockout') continue;
+
         foreach ($phase['matches'] ?? [] as $match) {
             // Determina il vincitore e il perdente di ogni match
             $wl = winnerLoser($match);
@@ -5210,17 +5303,16 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         });
 
         // Segna come occupati gli INTERVALLI orari già usati da qualsiasi
-        // partita di qualsiasi fase, per campo e data.
-        // 🔧 FIX: il confronto ora è per SOVRAPPOSIZIONE REALE di orario (in
-        // minuti), non più per uguaglianza esatta della stringa di orario di
-        // inizio. Da quando ogni fase può avere una propria durata-partita
-        // (matchRules), due fasi possono generare griglie orarie diverse sullo
-        // stesso campo/giorno (es. partite da 25' che iniziano a :30/:55/:20 e
-        // partite da 16' che iniziano a :00/:16/:32); il vecchio confronto per
-        // chiave esatta non rilevava la sovrapposizione reale e proponeva come
-        // "liberi" giorni in realtà già saturi con un'altra fase.
+        // partita di qualsiasi ALTRA fase, per campo e data.
+        // 🔧 IMPORTANTE: NON includiamo le partite della FASE CORRENTE, così
+        // i Quarti e Semifinali della stessa fase possono competere per gli stessi
+        // slot. Questo assicura che le partite vengono assegnate in ordine di
+        // processing (primo turno prima), non per occupazione preesistente.
         $occupiedIntervals = []; // "courtIdx_date" => [[startMin, endMin], ...]
         foreach ($state['phases'] as $ph) {
+            // Salta la fase corrente: le sue partite competono tra loro
+            if (($ph['phaseNumber'] ?? null) === $phaseNumber) continue;
+            
             foreach (($ph['matches'] ?? []) as $m) {
                 if (isset($m['courtIdx']) && !empty($m['date']) && !empty($m['startTime']) && !empty($m['endTime'])) {
                     $s = $timeToMinutes($m['startTime']);
@@ -5245,38 +5337,204 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         }
         $currentPhase = &$state['phases'][$phaseIdx];
 
+        // 🔧 Riposo squadre: chi ha giocato l'ultima partita più tempo fa ha la
+        // priorità sugli slot successivi, così nessuna squadra gioca tante
+        // partite di fila senza pause — stesso criterio già usato per generare
+        // automaticamente i gironi in scheduleMatches(), ora applicato anche
+        // qui (fasi successive alla prima incluse). Le date/ore sono convertite
+        // in minuti assoluti (con strtotime) così il confronto resta corretto
+        // anche tra giorni diversi, non solo all'interno dello stesso giorno.
+        $absMinutes = function (string $date, string $time): int {
+            return intdiv(strtotime("$date $time"), 60);
+        };
+        $teamBusyIntervals = []; // teamId => [[startAbsMin, endAbsMin], ...]
+        $teamLastEndAbs = [];    // teamId => orario abs di fine dell'ultima partita nota
+        foreach ($state['phases'] as $ph) {
+            foreach (($ph['matches'] ?? []) as $m) {
+                if (empty($m['date']) || empty($m['startTime']) || empty($m['endTime'])) continue;
+                $s = $absMinutes($m['date'], $m['startTime']);
+                $e = $absMinutes($m['date'], $m['endTime']);
+                foreach ([$m['team1'] ?? $m['team1Id'] ?? null, $m['team2'] ?? $m['team2Id'] ?? null] as $tid) {
+                    if (!$tid) continue;
+                    $teamBusyIntervals[$tid][] = [$s, $e];
+                    if (!isset($teamLastEndAbs[$tid]) || $e > $teamLastEndAbs[$tid]) $teamLastEndAbs[$tid] = $e;
+                }
+            }
+        }
+        $teamOverlapsBusy = function ($teamId, int $startAbs, int $endAbs) use (&$teamBusyIntervals): bool {
+            if (!$teamId) return false;
+            foreach (($teamBusyIntervals[$teamId] ?? []) as [$s, $e]) {
+                if ($startAbs < $e && $s < $endAbs) return true;
+            }
+            return false;
+        };
+
         $scheduled = 0;
         $skippedByes = 0;
 
-        foreach ($currentPhase['matches'] as &$m) {
+        // Partite ancora da schedulare in questa fase (bye e già-schedulate escluse)
+        $pendingMatches = [];
+        foreach ($currentPhase['matches'] as $idx => $m) {
             if (!empty($m['bye'])) { $skippedByes++; continue; }
-            if (!empty($m['date'])) continue; // già schedulata, non toccarla
+            if (!empty($m['date'])) continue;
+            $pendingMatches[] = ['idx' => $idx, 'match' => $m];
+        }
 
-            $foundSlot = null;
+        if (empty($pendingMatches)) {
+            // Nessuna partita da schedulare
+            return [
+                'ok' => true,
+                'scheduled' => 0,
+                'skippedByes' => $skippedByes,
+                'totalMatches' => count($currentPhase['matches'])
+            ];
+        }
+
+        error_log("📅 admin_auto_schedule_phase: Fase {$phaseNumber} (tipo={$currentPhase['type']}), " . count($pendingMatches) . " partite da schedulare, " . count($allSlots) . " slot disponibili");
+
+        // 🔧 LOGICA SEMPLIFICATA PER KNOCKOUT:
+        // Assegna sequenzialmente: match[0]→slot[0], match[1]→slot[1], etc.
+        if ($currentPhase['type'] === 'knockout') {
+            error_log("⚡ KNOCKOUT: assegnazione sequenziale semplificata");
+            
+            $slotCount = count($allSlots);
+            foreach ($pendingMatches as $matchPos => $item) {
+                if ($matchPos >= $slotCount) {
+                    error_log("⚠️ KNOCKOUT: non ci sono abbastanza slot ({$slotCount}) per le " . count($pendingMatches) . " partite rimaste");
+                    break;
+                }
+                
+                $slot = $allSlots[$matchPos];
+                $idx = $item['idx'];
+                
+                $currentPhase['matches'][$idx]['date'] = $slot['date'];
+                $currentPhase['matches'][$idx]['startTime'] = $slot['startTime'];
+                $currentPhase['matches'][$idx]['endTime'] = $slot['endTime'];
+                $currentPhase['matches'][$idx]['courtIdx'] = $slot['courtIdx'];
+                $currentPhase['matches'][$idx]['dateIdx'] = $slot['dateIdx'];
+                $currentPhase['matches'][$idx]['slotIdx'] = $slot['slotIdx'];
+                $currentPhase['matches'][$idx]['courtName'] = $slot['courtName'];
+                $currentPhase['matches'][$idx]['time'] = $slot['startTime'];
+                
+                $scheduled++;
+                error_log("  ✅ {$item['match']['label']}: {$slot['date']} {$slot['startTime']}-{$slot['endTime']} @{$slot['courtName']}");
+            }
+        } else {
+            // LOGICA PER GIRONI: rispetta vincoli di riposo squadre
+            error_log("📚 GIRONI: assegnazione con vincoli di riposo squadre");
+            
+            $timeToMinutes = function (?string $t): ?int {
+                if (!$t || !str_contains($t, ':')) return null;
+                [$h, $m] = array_map('intval', explode(':', $t));
+                return $h * 60 + $m;
+            };
+            $absMinutes = function (string $date, string $time): int {
+                return intdiv(strtotime("$date $time"), 60);
+            };
+            
+            $occupiedIntervals = [];
+            foreach ($state['phases'] as $ph) {
+                if (($ph['phaseNumber'] ?? null) === $phaseNumber) continue;
+                foreach (($ph['matches'] ?? []) as $m) {
+                    if (isset($m['courtIdx']) && !empty($m['date']) && !empty($m['startTime']) && !empty($m['endTime'])) {
+                        $s = $timeToMinutes($m['startTime']);
+                        $e = $timeToMinutes($m['endTime']);
+                        if ($s === null || $e === null) continue;
+                        $ckey = $m['courtIdx'] . '_' . $m['date'];
+                        $occupiedIntervals[$ckey][] = [$s, $e];
+                    }
+                }
+            }
+            $slotOverlapsOccupied = function (string $ckey, int $startMin, int $endMin) use (&$occupiedIntervals): bool {
+                foreach (($occupiedIntervals[$ckey] ?? []) as $interval) {
+                    [$s, $e] = $interval;
+                    if ($startMin < $e && $s < $endMin) return true;
+                }
+                return false;
+            };
+
+            $teamBusyIntervals = [];
+            $teamLastEndAbs = [];
+            foreach ($state['phases'] as $ph) {
+                foreach (($ph['matches'] ?? []) as $m) {
+                    if (empty($m['date']) || empty($m['startTime']) || empty($m['endTime'])) continue;
+                    $s = $absMinutes($m['date'], $m['startTime']);
+                    $e = $absMinutes($m['date'], $m['endTime']);
+                    foreach ([$m['team1'] ?? $m['team1Id'] ?? null, $m['team2'] ?? $m['team2Id'] ?? null] as $tid) {
+                        if (!$tid) continue;
+                        $teamBusyIntervals[$tid][] = [$s, $e];
+                        if (!isset($teamLastEndAbs[$tid]) || $e > $teamLastEndAbs[$tid]) $teamLastEndAbs[$tid] = $e;
+                    }
+                }
+            }
+            $teamOverlapsBusy = function ($teamId, int $startAbs, int $endAbs) use (&$teamBusyIntervals): bool {
+                if (!$teamId) return false;
+                foreach (($teamBusyIntervals[$teamId] ?? []) as [$s, $e]) {
+                    if ($startAbs < $e && $s < $endAbs) return true;
+                }
+                return false;
+            };
+
+            $pendingIdx = array_column($pendingMatches, 'idx');
+            
             foreach ($allSlots as $slot) {
+                if (empty($pendingIdx)) break;
+
                 $ckey = $slot['courtIdx'] . '_' . $slot['date'];
                 $sMin = $timeToMinutes($slot['startTime']);
                 $eMin = $timeToMinutes($slot['endTime']);
-                if ($sMin === null || $eMin === null || $slotOverlapsOccupied($ckey, $sMin, $eMin)) continue;
+                if ($sMin === null || $eMin === null) continue;
+                
+                if ($slotOverlapsOccupied($ckey, $sMin, $eMin)) continue;
 
-                $foundSlot = $slot;
-                $occupiedIntervals[$ckey][] = [$sMin, $eMin]; // occupa subito, evita doppia assegnazione in questo stesso giro
-                break;
+                $slotStartAbs = $absMinutes($slot['date'], $slot['startTime']);
+                $slotEndAbs = $absMinutes($slot['date'], $slot['endTime']);
+
+                $bestPos = null;
+                $bestScore = -INF;
+                foreach ($pendingIdx as $pos => $idx) {
+                    $m = $currentPhase['matches'][$idx];
+                    $t1 = $m['team1'] ?? $m['team1Id'] ?? null;
+                    $t2 = $m['team2'] ?? $m['team2Id'] ?? null;
+
+                    if ($teamOverlapsBusy($t1, $slotStartAbs, $slotEndAbs) || $teamOverlapsBusy($t2, $slotStartAbs, $slotEndAbs)) continue;
+
+                    $gap1 = isset($teamLastEndAbs[$t1]) ? ($slotStartAbs - $teamLastEndAbs[$t1]) : PHP_INT_MAX;
+                    $gap2 = isset($teamLastEndAbs[$t2]) ? ($slotStartAbs - $teamLastEndAbs[$t2]) : PHP_INT_MAX;
+                    $score = min($gap1, $gap2);
+
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestPos = $pos;
+                    }
+                }
+
+                if ($bestPos === null) continue;
+
+                $idx = $pendingIdx[$bestPos];
+                array_splice($pendingIdx, $bestPos, 1);
+
+                $currentPhase['matches'][$idx]['date'] = $slot['date'];
+                $currentPhase['matches'][$idx]['startTime'] = $slot['startTime'];
+                $currentPhase['matches'][$idx]['endTime'] = $slot['endTime'];
+                $currentPhase['matches'][$idx]['courtIdx'] = $slot['courtIdx'];
+                $currentPhase['matches'][$idx]['dateIdx'] = $slot['dateIdx'];
+                $currentPhase['matches'][$idx]['slotIdx'] = $slot['slotIdx'];
+                $currentPhase['matches'][$idx]['courtName'] = $slot['courtName'];
+                $currentPhase['matches'][$idx]['time'] = $slot['startTime'];
+
+                $occupiedIntervals[$ckey][] = [$sMin, $eMin];
+                $t1 = $currentPhase['matches'][$idx]['team1'] ?? $currentPhase['matches'][$idx]['team1Id'] ?? null;
+                $t2 = $currentPhase['matches'][$idx]['team2'] ?? $currentPhase['matches'][$idx]['team2Id'] ?? null;
+                foreach ([$t1, $t2] as $tid) {
+                    if (!$tid) continue;
+                    $teamBusyIntervals[$tid][] = [$slotStartAbs, $slotEndAbs];
+                    $teamLastEndAbs[$tid] = $slotEndAbs;
+                }
+
+                $scheduled++;
             }
-
-            if ($foundSlot === null) break; // niente più fasce libere configurate
-
-            $m['date'] = $foundSlot['date'];
-            $m['startTime'] = $foundSlot['startTime'];
-            $m['endTime'] = $foundSlot['endTime'];
-            $m['courtIdx'] = $foundSlot['courtIdx'];
-            $m['dateIdx'] = $foundSlot['dateIdx'];
-            $m['slotIdx'] = $foundSlot['slotIdx'];
-            $m['courtName'] = $foundSlot['courtName'];
-            $m['time'] = $foundSlot['startTime'];
-            $scheduled++;
         }
-        unset($m);
 
         return [
             'ok' => true,
@@ -5359,7 +5617,25 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $teamsAdvancePerGroup, $numGroups, $overwrite) {
+    // 🔧 FIX: Leggi le matchRules PRIMA della closure, così sono disponibili
+    // sia dentro (per la nuova fase nello state) che fuori (per il config.json)
+    $preservedMatchRules = null;
+    if ($overwrite) {
+        $cfg = readConfig();
+        $existingConfigPhase = null;
+        foreach ($cfg['phases'] ?? [] as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $targetPhaseNumber && !empty($cp['matchRules'])) {
+                $existingConfigPhase = $cp;
+                break;
+            }
+        }
+        if ($existingConfigPhase && !empty($existingConfigPhase['matchRules'])) {
+            $preservedMatchRules = $existingConfigPhase['matchRules'];
+            error_log("🔧 Preserving matchRules for phase $targetPhaseNumber: " . json_encode($preservedMatchRules));
+        }
+    }
+
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $teamsAdvancePerGroup, $numGroups, $overwrite, $preservedMatchRules) {
         ensurePhases($state);
 
         $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
@@ -5397,7 +5673,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                 if ($sourceConfigPhase && !empty($sourceConfigPhase['teamsAdvance'])) {
                     $teamsAdvanceForCalculation = $sourceConfigPhase['teamsAdvance'];
                 }
-                error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=$teamsAdvancePerGroup, teamsAdvanceForCalculation=$teamsAdvanceForCalculation");
+                error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", teamsAdvanceForCalculation=" . json_encode($teamsAdvanceForCalculation));
             }
             
             $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation);
@@ -5428,9 +5704,18 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         }
 
         // 2) Crea la struttura della fase in base al tipo scelto
+        // 🔧 FIX: 'phaseIdx' deve essere un puro alias di 'phaseNumber' (come fa
+        // initializePhase() e come lo trattano tutte le ricerche lato frontend,
+        // es. `.find(p => p.phaseNumber === X || p.phaseIdx === X)`). Prima veniva
+        // calcolato come count($state['phases']) — la posizione nell'array al
+        // momento della creazione — che NON coincide con phaseNumber se le fasi
+        // non vengono create in ordine stretto 1,2,3... (es. generando prima la
+        // fase 3 e poi la fase 2, o rigenerando una fase). Quando divergeva, la
+        // ricerca per fallback su phaseIdx poteva far trovare la fase sbagliata
+        // (es. selezionando "Fase 2" si apriva il modale della Fase 3).
         $newPhase = [
             'id' => 'phase_' . uid(),
-            'phaseIdx' => count($state['phases']),
+            'phaseIdx' => $targetPhaseNumber,
             'phaseNumber' => $targetPhaseNumber,
             'name' => $name ?: ("Fase {$targetPhaseNumber}"),
             'type' => $type,
@@ -5443,6 +5728,13 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             'standings' => [],
             'createdAt' => gmdate('c')
         ];
+        
+        // 🔧 FIX: Se stiamo ricalcolando una fase e abbiamo salvato le matchRules,
+        // ripristinale nella nuova fase. Altrimenti anderebbero perse.
+        if (!empty($preservedMatchRules)) {
+            $newPhase['matchRules'] = $preservedMatchRules;
+            error_log("✅ Restored matchRules for phase $targetPhaseNumber");
+        }
 
         if ($type === 'groups') {
             $groupCount = max(1, $numGroups);
@@ -5543,6 +5835,11 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         writeConfig($cfg);
     } elseif ($overwrite) {
         // 🆕 Ricalcolo: aggiorna anche i metadati (es. il nuovo teamsAdvance corretto)
+        // 🔧 FIX: Preserva le matchRules se erano state precedentemente salvate
+        if (!empty($preservedMatchRules)) {
+            $newCfgEntry['matchRules'] = $preservedMatchRules;
+            error_log("✅ Preserved matchRules in config for phase $targetPhaseNumber: " . json_encode($preservedMatchRules));
+        }
         $cfg['phases'][$existingCfgIdx] = $newCfgEntry;
         writeConfig($cfg);
     }
@@ -5554,33 +5851,65 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
 // in base ai risultati REALI attuali (utile per la UI prima di creare la fase successiva)
 if ($action === 'admin_preview_phase_branch' && $method === 'POST') {
     validSession();
-    $body = bodyJson();
-    $sourcePhaseNumber = (int)($body['sourcePhaseNumber'] ?? 0);
-    $teamsAdvanceRaw = $body['teamsAdvancePerGroup'] ?? 2;
-    if (is_string($teamsAdvanceRaw) && str_contains($teamsAdvanceRaw, ',')) {
-        $teamsAdvancePerGroup = array_map('intval', array_map('trim', explode(',', $teamsAdvanceRaw)));
-    } else {
-        $teamsAdvancePerGroup = (int)$teamsAdvanceRaw;
+    
+    try {
+        error_log("🔍 DEBUG admin_preview_phase_branch INIZIO");
+        
+        $body = bodyJson();
+        error_log("🔍 DEBUG body ricevuto: " . json_encode($body));
+        
+        $sourcePhaseNumber = (int)($body['sourcePhaseNumber'] ?? 0);
+        error_log("🔍 DEBUG sourcePhaseNumber: $sourcePhaseNumber");
+        
+        $teamsAdvanceRaw = $body['teamsAdvancePerGroup'] ?? 2;
+        error_log("🔍 DEBUG teamsAdvanceRaw: " . json_encode($teamsAdvanceRaw));
+        
+        if (is_string($teamsAdvanceRaw) && str_contains($teamsAdvanceRaw, ',')) {
+            $teamsAdvancePerGroup = array_map('intval', array_map('trim', explode(',', $teamsAdvanceRaw)));
+        } else {
+            $teamsAdvancePerGroup = (int)$teamsAdvanceRaw;
+        }
+        error_log("🔍 DEBUG teamsAdvancePerGroup dopo parsing: " . json_encode($teamsAdvancePerGroup));
+
+        if ($sourcePhaseNumber < 1) {
+            error_log("❌ sourcePhaseNumber non valido: $sourcePhaseNumber");
+            jsonResponse(422, ['ok' => false, 'error' => 'sourcePhaseNumber richiesto']);
+            return;
+        }
+
+        error_log("🔍 DEBUG: lettura state file");
+        $state = readJsonFile(DATA_FILE, []);
+        error_log("🔍 DEBUG: state caricato, fasi: " . count($state['phases'] ?? []));
+        
+        error_log("🔍 DEBUG: ensurePhases");
+        ensurePhases($state);
+        error_log("🔍 DEBUG: ensurePhases completato");
+        
+        error_log("🔍 DEBUG: getTeamsFromPhaseBranch per fase $sourcePhaseNumber");
+        $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
+        error_log("🔍 DEBUG: branchResult: " . json_encode($branchResult));
+        
+        error_log("🔍 DEBUG: getTeamMap");
+        $teamMap = getTeamMap($state);
+        error_log("🔍 DEBUG: teamMap caricato, squadre: " . count($teamMap));
+
+        $resolve = fn($ids) => array_values(array_map(fn($id) => ['id' => $id, 'name' => $teamMap[$id]['name'] ?? '?'], $ids));
+
+        $response = [
+            'ok' => true,
+            'complete' => $branchResult['complete'],
+            'qualified' => $resolve($branchResult['qualified'] ?? []),
+            'eliminated' => $resolve($branchResult['eliminated'] ?? [])
+        ];
+        
+        error_log("🔍 DEBUG: response preparato: " . json_encode($response));
+        jsonResponse(200, $response);
+        
+    } catch (Exception $e) {
+        error_log('❌ Exception in admin_preview_phase_branch: ' . $e->getMessage() . ' - ' . $e->getFile() . ':' . $e->getLine());
+        error_log('❌ Stack trace: ' . $e->getTraceAsString());
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore nel calcolo dei rami: ' . $e->getMessage()]);
     }
-
-    if ($sourcePhaseNumber < 1) {
-        jsonResponse(422, ['ok' => false, 'error' => 'sourcePhaseNumber richiesto']);
-        return;
-    }
-
-    $state = readJsonFile(DATA_FILE, []);
-    ensurePhases($state);
-    $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
-    $teamMap = getTeamMap($state);
-
-    $resolve = fn($ids) => array_values(array_map(fn($id) => ['id' => $id, 'name' => $teamMap[$id]['name'] ?? '?'], $ids));
-
-    jsonResponse(200, [
-        'ok' => true,
-        'complete' => $branchResult['complete'],
-        'qualified' => $resolve($branchResult['qualified'] ?? []),
-        'eliminated' => $resolve($branchResult['eliminated'] ?? [])
-    ]);
 }
 
 if ($action === 'admin_get_phase_details' && $method === 'GET') {
@@ -8070,6 +8399,176 @@ if ($action === 'admin_upload_news_image' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
 }
 
+if ($action === 'admin_upload_gallery_image' && $method === 'POST') {
+    requireAdmin();
+    
+    if (!isset($_FILES['image'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+    
+    $file = $_FILES['image'];
+    
+    // Validazione file
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+    
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa JPEG, PNG, GIF o WebP']);
+        return;
+    }
+    
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+        return;
+    }
+    
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+    
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $newFilename = 'gallery-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+    
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+    
+    jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
+}
+
+// ==================== GALLERY MANAGEMENT ====================
+
+if ($action === 'admin_get_gallery' && $method === 'GET') {
+    requireAdmin();
+    $config = readConfig();
+    $gallery = $config['gallery'] ?? [];
+    // Ordina per data di creazione (più recente prima)
+    usort($gallery, function($a, $b) {
+        $dateA = strtotime($a['publishedAt'] ?? $a['createdAt']);
+        $dateB = strtotime($b['publishedAt'] ?? $b['createdAt']);
+        return $dateB - $dateA;
+    });
+    jsonResponse(200, ['ok' => true, 'gallery' => array_values($gallery)]);
+}
+
+if ($action === 'public_get_gallery' && $method === 'GET') {
+    $config = readConfig();
+    $published = array_filter($config['gallery'] ?? [], function($item) {
+        return ($item['published'] ?? false) === true;
+    });
+    
+    // Ordina per data di pubblicazione (più recente prima)
+    usort($published, function($a, $b) {
+        $dateA = strtotime($a['publishedAt'] ?? $a['createdAt']);
+        $dateB = strtotime($b['publishedAt'] ?? $b['createdAt']);
+        return $dateB - $dateA;
+    });
+    jsonResponse(200, ['ok' => true, 'gallery' => array_values($published)]);
+}
+
+if ($action === 'admin_create_gallery' && $method === 'POST') {
+    requireAdmin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['title']) || empty($data['imageFile'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Titolo e foto sono obbligatori']);
+        return;
+    }
+    
+    $config = readConfig();
+    if (!isset($config['gallery'])) {
+        $config['gallery'] = [];
+    }
+    
+    $item = [
+        'id' => bin2hex(random_bytes(16)),
+        'title' => $data['title'],
+        'description' => $data['description'] ?? '',
+        'imageFile' => $data['imageFile'],
+        'published' => $data['published'] ?? false,
+        'createdAt' => date('c'),
+        'publishedAt' => ($data['published'] ?? false) ? date('c') : null
+    ];
+    
+    $config['gallery'][] = $item;
+    writeConfig($config);
+    
+    jsonResponse(200, ['ok' => true, 'gallery' => $item]);
+}
+
+if ($action === 'admin_update_gallery' && $method === 'POST') {
+    requireAdmin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID obbligatorio']);
+        return;
+    }
+    
+    $config = readConfig();
+    $gallery = $config['gallery'] ?? [];
+    
+    $found = false;
+    foreach ($gallery as &$item) {
+        if ($item['id'] === $data['id']) {
+            $item['title'] = $data['title'] ?? $item['title'];
+            $item['description'] = $data['description'] ?? $item['description'];
+            $item['imageFile'] = $data['imageFile'] ?? $item['imageFile'];
+            
+            $wasPublished = $item['published'] ?? false;
+            $isPublishing = ($data['published'] ?? false) === true && !$wasPublished;
+            
+            $item['published'] = $data['published'] ?? $item['published'];
+            if ($isPublishing) {
+                $item['publishedAt'] = date('c');
+            }
+            
+            $found = true;
+            break;
+        }
+    }
+    
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Foto non trovata']);
+        return;
+    }
+    
+    $config['gallery'] = $gallery;
+    writeConfig($config);
+    
+    jsonResponse(200, ['ok' => true, 'gallery' => array_values($gallery)]);
+}
+
+if ($action === 'admin_delete_gallery' && $method === 'POST') {
+    requireAdmin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'ID obbligatorio']);
+        return;
+    }
+    
+    $config = readConfig();
+    $gallery = $config['gallery'] ?? [];
+    
+    $gallery = array_filter($gallery, function($item) use ($data) {
+        return $item['id'] !== $data['id'];
+    });
+    
+    $config['gallery'] = array_values($gallery);
+    writeConfig($config);
+    
+    jsonResponse(200, ['ok' => true, 'gallery' => $config['gallery']]);
+}
+
 // ==================== BACKUP E RIPRISTINO ====================
 
 if ($action === 'admin_export_backup' && $method === 'GET') {
@@ -8586,15 +9085,60 @@ if ($action === 'create_tournament' && $method === 'POST') {
     
     error_log("📌 create_tournament: tournamentCode=$tournamentCode, dir=$tournamentDir");
     
-    // Copia il progetto nella nuova directory, escludendo il torneo stesso per evitare loop
-    error_log("📌 create_tournament: starting copyDirectory...");
-    if (!copyDirectory(__DIR__, $tournamentDir, [$tournamentCode])) {
-        error_log("📌 create_tournament: copyDirectory FAILED");
-        jsonResponse(500, ['ok' => false, 'error' => 'Errore nella creazione del torneo']);
-    }
-    error_log("📌 create_tournament: copyDirectory completed");
+    // ✅ NON copiare l'intera directory (che include dati di altri tornei)
+    // Crea una struttura minimale con solo i file necessari
+    error_log("📌 create_tournament: creating minimal structure...");
     
-    // Nel torneo copiato: gestisci i file HTML
+    // Crea directory principali
+    $dirsToCreate = [
+        $tournamentDir,
+        $tournamentDir . '/data',
+        $tournamentDir . '/data/backups',
+        $tournamentDir . '/data/updates',
+        $tournamentDir . '/data/uploads',
+        $tournamentDir . '/config',
+        $tournamentDir . '/images',
+        $tournamentDir . '/images/default',
+        $tournamentDir . '/images/favicon',
+        $tournamentDir . '/plugins/phpmailer',
+        $tournamentDir . '/plugins/phpmailer/src',
+        $tournamentDir . '/plugins/phpmailer/language',
+        $tournamentDir . '/scripts'
+    ];
+    
+    foreach ($dirsToCreate as $dir) {
+        if (!is_dir($dir)) {
+            if (!mkdir($dir, 0755, true)) {
+                error_log("❌ create_tournament: failed to create dir $dir");
+                jsonResponse(500, ['ok' => false, 'error' => "Errore nella creazione della directory $dir"]);
+            }
+        }
+    }
+    
+    // Copia SOLO i file HTML e CSS necessari (non le directory di altri tornei)
+    $filesToCopy = [
+        'admin.html', 'scoreboard.html', 'index.html', 'policy.html', 'regolamento.html', 'cookie.html',
+        'tournament-flow-editor.html', 'test_logo.html', 'test_sponsors.html', 'test_workflow_tree.html',
+        'theme-chiringuito.css', 'theme-scuro.css', 'theme-minimalista.css', 'theme-moderno.css', 'theme-metro.css', 'theme-beachmaster.css',
+        'api.php', 'seed-data.php', 'test_group_scheduling.php',
+        'composer.json'
+    ];
+    
+    foreach ($filesToCopy as $file) {
+        $srcFile = __DIR__ . '/' . $file;
+        $dstFile = $tournamentDir . '/' . $file;
+        if (file_exists($srcFile) && !is_dir($srcFile)) {
+            if (!copy($srcFile, $dstFile)) {
+                error_log("❌ create_tournament: failed to copy $file");
+                // Continua comunque, non è critico
+            }
+        }
+    }
+    
+    // Copia le directory plugin (necessarie per phpmailer)
+    copyDirectory(__DIR__ . '/plugins/phpmailer', $tournamentDir . '/plugins/phpmailer', []);
+    
+    // Nel torneo creato: gestisci i file HTML
     // Elimina index.html (landing page del root che non serve nel torneo)
     // Rinomina scoreboard.html a index.html (homepage pubblica del torneo)
     $indexFile = $tournamentDir . '/index.html';

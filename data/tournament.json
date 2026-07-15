@@ -1301,8 +1301,8 @@
             }
         },
         {
-            "id": "phase_ffbec9ec15df6147",
-            "phaseIdx": 1,
+            "id": "phase_a3b56ac9c4e95fa2",
+            "phaseIdx": 2,
             "phaseNumber": 2,
             "name": "Castello",
             "type": "knockout",
@@ -1312,7 +1312,7 @@
             "teamSource": "phase",
             "matches": [
                 {
-                    "id": "055cfa01a1255006",
+                    "id": "f62f2058e79513a8",
                     "label": "QF1",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1324,14 +1324,19 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null,
+                    "date": "2026-07-18",
+                    "startTime": "16:00",
+                    "endTime": "16:16",
                     "team1Name": "Spingere",
-                    "team2Name": "le gessi girls"
+                    "team2Name": "le gessi girls",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "16:00"
                 },
                 {
-                    "id": "d62474def83fbfa2",
+                    "id": "8df6dc1630994287",
                     "label": "QF2",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1343,14 +1348,19 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null,
+                    "date": "2026-07-18",
+                    "startTime": "16:16",
+                    "endTime": "16:32",
                     "team1Name": "Giuli-Alby",
-                    "team2Name": "Dustinucci"
+                    "team2Name": "Dustinucci",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "16:16"
                 },
                 {
-                    "id": "777e74914991f1c9",
+                    "id": "cbd764f8ead63c0f",
                     "label": "QF3",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1362,14 +1372,19 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null,
+                    "date": "2026-07-18",
+                    "startTime": "16:32",
+                    "endTime": "16:48",
                     "team1Name": "Ginocchia disperse",
-                    "team2Name": "Christmas crackers"
+                    "team2Name": "Christmas crackers",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "16:32"
                 },
                 {
-                    "id": "6aa60e0276c94680",
+                    "id": "7daa24e99af4cee6",
                     "label": "QF4",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1381,14 +1396,19 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null,
+                    "date": "2026-07-18",
+                    "startTime": "16:48",
+                    "endTime": "17:04",
                     "team1Name": "TuneSquad",
-                    "team2Name": "Misto Mare"
+                    "team2Name": "Misto Mare",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "16:48"
                 },
                 {
-                    "id": "266d2fafcf5269ef",
+                    "id": "a6721981a42dda75",
                     "label": "SF1",
                     "type": "semiFinal",
                     "round": 2,
@@ -1400,12 +1420,17 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-18",
+                    "startTime": "17:04",
+                    "endTime": "17:20",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "17:04"
                 },
                 {
-                    "id": "5b3c06ae7e50bed4",
+                    "id": "3aeb1b3bdb8e7141",
                     "label": "SF2",
                     "type": "semiFinal",
                     "round": 2,
@@ -1417,12 +1442,17 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-18",
+                    "startTime": "17:20",
+                    "endTime": "17:36",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "17:20"
                 },
                 {
-                    "id": "d484453af556ce7e",
+                    "id": "623122dcea2e6c2f",
                     "label": "F",
                     "type": "final",
                     "round": 3,
@@ -1434,12 +1464,17 @@
                     "score1": null,
                     "score2": null,
                     "bye": false,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-18",
+                    "startTime": "17:36",
+                    "endTime": "17:52",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "17:36"
                 },
                 {
-                    "id": "ed09236545e79197",
+                    "id": "a89ab7c6c9e5422c",
                     "label": "3P",
                     "type": "thirdPlace",
                     "team1": null,
@@ -1448,18 +1483,30 @@
                     "team2Id": null,
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-18",
+                    "startTime": "17:52",
+                    "endTime": "18:08",
+                    "courtIdx": 0,
+                    "dateIdx": 3,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "17:52"
                 }
             ],
             "groups": [],
             "standings": [],
-            "createdAt": "2026-07-14T21:37:57+00:00"
+            "createdAt": "2026-07-15T19:37:58+00:00",
+            "matchRules": {
+                "numSets": 1,
+                "timePerSetMinutes": 15,
+                "setupTimeMinutes": 1,
+                "winScore": 21,
+                "maxTimeoutsPerSet": 1
+            }
         },
         {
-            "id": "phase_a91a7fa6c79b078f",
-            "phaseIdx": 2,
+            "id": "phase_3edebafa57e8602f",
+            "phaseIdx": 3,
             "phaseNumber": 3,
             "name": "gironcino",
             "type": "groups",
@@ -1469,7 +1516,7 @@
             "teamSource": "phase",
             "matches": [
                 {
-                    "id": "ca8acd4458b27d37",
+                    "id": "4e255b3dfe69921d",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1479,12 +1526,17 @@
                     "team2Name": "Presi dalla squadra",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "19:32",
+                    "endTime": "19:48",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "19:32"
                 },
                 {
-                    "id": "644ac3d4674f1f2f",
+                    "id": "8e5a3f5fccb592c7",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1494,12 +1546,17 @@
                     "team2Name": "Prina Colada",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "20:20",
+                    "endTime": "20:36",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "20:20"
                 },
                 {
-                    "id": "9703543c110bb823",
+                    "id": "0bd4233d136da545",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1509,12 +1566,17 @@
                     "team2Name": "Finché beach non ci separi",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "20:52",
+                    "endTime": "21:08",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "20:52"
                 },
                 {
-                    "id": "3e1e5716153b418c",
+                    "id": "1f17b3fe8d575ce9",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1524,12 +1586,17 @@
                     "team2Name": "Double B",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "21:24",
+                    "endTime": "21:40",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "21:24"
                 },
                 {
-                    "id": "3d014953e9dffb95",
+                    "id": "26d08eb6a65bc56e",
                     "groupName": "A",
                     "team1": "7c892c6be40b3df2",
                     "team1Id": "7c892c6be40b3df2",
@@ -1539,12 +1606,17 @@
                     "team2Name": "I nonni del buco",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "21:56",
+                    "endTime": "22:12",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "21:56"
                 },
                 {
-                    "id": "a7a55443d7701fdb",
+                    "id": "6c101e18b4f7d7f1",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1554,12 +1626,17 @@
                     "team2Name": "Prina Colada",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "22:12",
+                    "endTime": "22:28",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "22:12"
                 },
                 {
-                    "id": "434a729f512406e7",
+                    "id": "907672c6fa136f70",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1569,12 +1646,17 @@
                     "team2Name": "Finché beach non ci separi",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "21:40",
+                    "endTime": "21:56",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "21:40"
                 },
                 {
-                    "id": "c1921d29690854f6",
+                    "id": "b1ca16cdf3ef90b5",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1584,12 +1666,17 @@
                     "team2Name": "Double B",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "20:36",
+                    "endTime": "20:52",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "20:36"
                 },
                 {
-                    "id": "01ba5a7eff6c589d",
+                    "id": "540fb107586f0033",
                     "groupName": "A",
                     "team1": "794cabbc7e9f280c",
                     "team1Id": "794cabbc7e9f280c",
@@ -1599,12 +1686,17 @@
                     "team2Name": "I nonni del buco",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "22:44",
+                    "endTime": "23:00",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "22:44"
                 },
                 {
-                    "id": "b92a4a0e6c3d3b92",
+                    "id": "b86a6bbd62759a26",
                     "groupName": "A",
                     "team1": "6b553b7f08e9b21a",
                     "team1Id": "6b553b7f08e9b21a",
@@ -1614,12 +1706,17 @@
                     "team2Name": "Finché beach non ci separi",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "19:00",
+                    "endTime": "19:16",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "19:00"
                 },
                 {
-                    "id": "d3fcb631868808ba",
+                    "id": "f96e1dae63d778fe",
                     "groupName": "A",
                     "team1": "6b553b7f08e9b21a",
                     "team1Id": "6b553b7f08e9b21a",
@@ -1629,12 +1726,17 @@
                     "team2Name": "Double B",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "19:48",
+                    "endTime": "20:04",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "19:48"
                 },
                 {
-                    "id": "969c990fe3bd48d8",
+                    "id": "1aacb889feba3a20",
                     "groupName": "A",
                     "team1": "6b553b7f08e9b21a",
                     "team1Id": "6b553b7f08e9b21a",
@@ -1644,12 +1746,17 @@
                     "team2Name": "I nonni del buco",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "21:08",
+                    "endTime": "21:24",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "21:08"
                 },
                 {
-                    "id": "494676f6c95e8f12",
+                    "id": "49abe9623e79a3a5",
                     "groupName": "A",
                     "team1": "fd7614b3cb7e9fed",
                     "team1Id": "fd7614b3cb7e9fed",
@@ -1659,12 +1766,17 @@
                     "team2Name": "Double B",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "22:28",
+                    "endTime": "22:44",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "22:28"
                 },
                 {
-                    "id": "5c53afa59f1ad7f9",
+                    "id": "855b5fd955565a6a",
                     "groupName": "A",
                     "team1": "fd7614b3cb7e9fed",
                     "team1Id": "fd7614b3cb7e9fed",
@@ -1674,12 +1786,17 @@
                     "team2Name": "I nonni del buco",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "20:04",
+                    "endTime": "20:20",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "20:04"
                 },
                 {
-                    "id": "7833a64500f0eb50",
+                    "id": "712125af91b6a6b5",
                     "groupName": "A",
                     "team1": "e742f0df5bfa0cce",
                     "team1Id": "e742f0df5bfa0cce",
@@ -1689,9 +1806,14 @@
                     "team2Name": "I nonni del buco",
                     "score1": null,
                     "score2": null,
-                    "date": null,
-                    "startTime": null,
-                    "endTime": null
+                    "date": "2026-07-17",
+                    "startTime": "19:16",
+                    "endTime": "19:32",
+                    "courtIdx": 0,
+                    "dateIdx": 4,
+                    "slotIdx": 0,
+                    "courtName": "Dadda",
+                    "time": "19:16"
                 }
             ],
             "groups": [
@@ -1709,11 +1831,16 @@
                 }
             ],
             "standings": [],
-            "createdAt": "2026-07-14T22:32:35+00:00"
+            "createdAt": "2026-07-15T20:09:35+00:00",
+            "matchRules": {
+                "numSets": 1,
+                "timePerSetMinutes": 15,
+                "setupTimeMinutes": 1
+            }
         }
     ],
     "meta": {
-        "lastUpdated": "2026-07-14T22:32:35+00:00"
+        "lastUpdated": "2026-07-15T20:09:41+00:00"
     },
     "currentPhaseIdx": 1
 }

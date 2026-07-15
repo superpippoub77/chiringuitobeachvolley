@@ -47,6 +47,24 @@
                                 "endTime": "24:00"
                             }
                         ]
+                    },
+                    {
+                        "date": "2026-07-18",
+                        "timeSlots": [
+                            {
+                                "startTime": "16:00",
+                                "endTime": "19:30"
+                            }
+                        ]
+                    },
+                    {
+                        "date": "2026-07-17",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:00",
+                                "endTime": "24:00"
+                            }
+                        ]
                     }
                 ]
             }
@@ -89,10 +107,12 @@
             "teamsAdvance": "2,3,3",
             "hasRepescage": false,
             "notes": "Creata con il motore automatico (squadre reali)",
-            "schedule": {
-                "courtIds": [],
-                "dates": [],
-                "timeSlots": []
+            "matchRules": {
+                "numSets": 1,
+                "timePerSetMinutes": 15,
+                "setupTimeMinutes": 1,
+                "winScore": 21,
+                "maxTimeoutsPerSet": 1
             }
         },
         {
@@ -105,7 +125,12 @@
             "numGroups": 1,
             "teamsAdvance": "3",
             "hasRepescage": false,
-            "notes": "Creata con il motore automatico (squadre reali)"
+            "notes": "Creata con il motore automatico (squadre reali)",
+            "matchRules": {
+                "numSets": 1,
+                "timePerSetMinutes": 15,
+                "setupTimeMinutes": 1
+            }
         }
     ],
     "contact": {
@@ -165,11 +190,11 @@
         {
             "id": "a6cbfe7b2dab1b80",
             "title": "Iscrizione ufficiale al torneo",
-            "content": "Per completare l'iscrizione ufficiale sarà necessario recarsi presso il Chiringhito, situato all’ingresso dell’Alpàa, ed effettuare il pagamento della quota di partecipazione.\n\nAl momento dell’iscrizione verranno consegnati il kit del torneo e i relativi coupon.\n\nL’iscrizione e il ritiro del materiale dovranno essere effettuati prima dell’inizio del torneo oppure comunque prima dell’inizio del proprio girone.",
+            "content": "<p>Per completare l'iscrizione ufficiale sarà necessario recarsi presso il Chiringhito, situato all’ingresso dell’Alpàa, ed effettuare il pagamento della quota di partecipazione.\n\nAl momento dell’iscrizione verranno consegnati il kit del torneo e i relativi coupon.\n\nL’iscrizione e il ritiro del materiale dovranno essere effettuati prima dell’inizio del torneo oppure comunque prima dell’inizio del proprio girone.<\/p>",
             "imageFile": "data\/uploads\/news-e06963e4aa06950c.png",
             "published": false,
             "createdAt": "2026-07-10T00:38:26+02:00",
-            "updatedAt": "2026-07-13T22:58:14+02:00",
+            "updatedAt": "2026-07-15T19:52:58+00:00",
             "publishedAt": "2026-07-10T00:38:26+02:00"
         },
         {

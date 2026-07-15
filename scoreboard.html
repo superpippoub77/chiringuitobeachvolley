@@ -1403,6 +1403,7 @@
       renderTeams();
       renderGroups();
       renderPlayoff();
+      renderStandings();
       renderRanking();
       renderIscrizione();
     }
@@ -1576,9 +1577,9 @@
       const tabs = groupsContainer.querySelectorAll('[data-tab]');
       tabs.forEach(t => {
         if (t.dataset.tab === tab) {
-          t.style.color = '#2e5d1f';
+          t.style.color = '#2196F3';
           t.style.fontWeight = 'bold';
-          t.style.background = '#e8f5e9';
+          t.style.background = '#e3f2fd';
         } else {
           t.style.color = '#666';
           t.style.fontWeight = 'normal';
@@ -1635,28 +1636,61 @@
         return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
       });
 
+      // 🔧 FIX: la tabella mostrava solo squadre e punteggio, senza data/ora/campo
+      // della partita — a differenza del Calendario dei gironi. Aggiunte le
+      // colonne Data/Ora/Campo e un ordinamento cronologico all'interno di ogni turno.
       let html = '';
       orderedTypes.forEach(type => {
         const label = roundLabels[type] || `🔹 ${esc(type)}`;
+        const roundMatches = matchesByType[type].slice().sort((a, b) => {
+          const dateA = a.date || '', dateB = b.date || '';
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+          const timeA = a.startTime || a.time || '', timeB = b.startTime || b.time || '';
+          return timeA.localeCompare(timeB);
+        });
         html += `<div style="margin-bottom: 16px">
           <h5 style="color: #ff9800; margin-bottom: 8px">${label}</h5>
           <table style="width: 100%; font-size: 13px; border-collapse: collapse">
             <thead>
               <tr style="background: #fff3e0">
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 1</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Score</th>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra 2</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 30px"></th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Data</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Ora</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Campo</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Match</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Risultato</th>
               </tr>
             </thead>
             <tbody>`;
 
-        matchesByType[type].forEach(match => {
+        roundMatches.forEach(match => {
           const t1 = match.bye ? `${esc(match.team1Name || '-')} (bye)` : esc(match.team1Name || '—');
           const t2 = match.team2Name ? esc(match.team2Name) : '—';
+          const dateLabel = match.date ? formatDateIta(match.date) : (match.bye ? '—' : 'Da definire');
+          const timeLabel = (match.startTime || match.time) ? `${esc(match.startTime || match.time)}${match.endTime ? ' - ' + esc(match.endTime) : ''}` : (match.bye ? '—' : 'Da definire');
+          const courtLabel = esc(match.courtName || '—');
+          
+          // Status icon
+          let statusIcon = '';
+          let statusClass = '';
+          if ((match.score1 === null || match.score1 === undefined) && (match.score2 === null || match.score2 === undefined)) {
+            statusIcon = '⚪';
+            statusClass = 'status-pending';
+          } else if (match.score1 !== null && match.score1 !== undefined && match.score2 !== null && match.score2 !== undefined) {
+            statusIcon = '✅';
+            statusClass = 'status-concluded';
+          } else {
+            statusIcon = '🔴';
+            statusClass = 'status-online';
+          }
+          
           html += `<tr style="border-bottom: 1px solid #eee">
-            <td style="padding: 8px">${t1}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
-            <td style="padding: 8px">${t2}</td>
+            <td style="padding: 8px; text-align: center"><span style="font-size: 14px">${statusIcon}</span></td>
+            <td style="padding: 8px">${dateLabel}</td>
+            <td style="padding: 8px">${timeLabel}</td>
+            <td style="padding: 8px">${courtLabel}</td>
+            <td style="padding: 8px">${t1} - ${t2}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} : ${match.score2 ?? '-'}</td>
           </tr>`;
         });
 
@@ -1688,13 +1722,20 @@
       function matchBox(m, marginTop) {
         const t1 = esc(m.team1Name || 'Da definire');
         const t2 = m.bye ? 'BYE' : esc(m.team2Name || 'Da definire');
+        // 🔧 FIX: il bracket mostrava solo squadre e punteggio, senza indicare
+        // quando si gioca. Aggiunta una riga con data/ora (se già assegnati).
+        const dateTimeLabel = m.date && (m.startTime || m.time)
+          ? `${formatDateIta(m.date)} · ${esc(m.startTime || m.time)}`
+          : '';
         return `<div class="bracket-match" style="margin-top: ${marginTop}px">
           <div class="match-team"><strong>${t1}</strong><span class="match-score">${m.score1 ?? ''}</span></div>
           <div class="match-team"><strong>${t2}</strong><span class="match-score">${m.score2 ?? ''}</span></div>
+          ${dateTimeLabel ? `<div style="font-size: 11px; color: #888; text-align: center; padding: 2px 0">${dateTimeLabel}</div>` : ''}
         </div>`;
       }
 
-      const BOX_H = 80, GAP = 20;
+      // BOX_H aumentato leggermente per tenere conto della riga data/ora aggiunta ai riquadri
+      const BOX_H = 96, GAP = 20;
       let prevCenters = null;
       const marginsByRound = [];
 
@@ -1769,6 +1810,20 @@
       return html;
     }
 
+    // 🔧 FIX: Calendario e Classifiche restavano sempre agganciati a phases[0]
+    // (Fase 1) anche quando l'utente selezionava un'altra fase con i pulsanti
+    // sopra. Questo helper centralizza la scelta della "fase attiva" (quella
+    // selezionata, o la prima di default) così tutte le viste la usano allo
+    // stesso modo e restano coerenti tra loro.
+    function getActivePublicPhase() {
+      const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
+      if (!allPhases.length) return null;
+      if (selectedPublicPhaseNumber === null) {
+        selectedPublicPhaseNumber = allPhases[0].phaseNumber;
+      }
+      return allPhases.find(p => p.phaseNumber === selectedPublicPhaseNumber) || allPhases[0];
+    }
+
     function renderGroups() {
       const c = document.getElementById('page-groups');
       const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
@@ -1778,11 +1833,7 @@
         return;
       }
 
-      // Di default mostra la prima fase (comportamento invariato rispetto a prima)
-      if (selectedPublicPhaseNumber === null) {
-        selectedPublicPhaseNumber = allPhases[0].phaseNumber;
-      }
-      const activePhase = allPhases.find(p => p.phaseNumber === selectedPublicPhaseNumber) || allPhases[0];
+      const activePhase = getActivePublicPhase();
 
       let html = '<h3>### 📊 Gironi e Fasi</h3>';
 
@@ -1792,7 +1843,7 @@
         allPhases.forEach(p => {
           const isActive = p.phaseNumber === activePhase.phaseNumber;
           const icon = p.type === 'knockout' ? '🏆' : (p.type === 'subtournament' ? '🎪' : '📊');
-          html += `<button onclick="selectPublicPhase(${p.phaseNumber})" style="padding: 8px 14px; border-radius: 6px; border: 2px solid ${isActive ? '#2e5d1f' : '#ddd'}; background: ${isActive ? '#e8f5e9' : 'white'}; color: ${isActive ? '#2e5d1f' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; cursor: pointer">${icon} ${esc(p.name || ('Fase ' + p.phaseNumber))}</button>`;
+          html += `<button onclick="selectPublicPhase(${p.phaseNumber})" style="padding: 8px 14px; border-radius: 6px; border: 2px solid ${isActive ? '#2196F3' : '#ddd'}; background: ${isActive ? '#e3f2fd' : 'white'}; color: ${isActive ? '#2196F3' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; cursor: pointer">${icon} ${esc(p.name || ('Fase ' + p.phaseNumber))}</button>`;
         });
         html += '</div>';
       }
@@ -1816,8 +1867,8 @@
       }
 
       // Tab interni per Gironi/Partite/Classifiche
-      html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 16px; flex-wrap: wrap">';
-      html += '<a href="#" onclick="showGironiTab(\'groups\'); return false;" data-tab="groups" style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'#e8f5e9\'">📊 Gironi</a>';
+      html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2196F3; display: flex; gap: 16px; flex-wrap: wrap">';
+      html += '<a href="#" onclick="showGironiTab(\'groups\'); return false;" data-tab="groups" style="color: #2196F3; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e3f2fd" onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'#e3f2fd\'">📊 Gironi</a>';
       html += '<a href="#" onclick="showGironiTab(\'matches\'); return false;" data-tab="matches" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">🏆 Partite</a>';
       html += '<a href="#" onclick="showGironiTab(\'standings\'); return false;" data-tab="standings" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">📈 Classifiche</a>';
       html += '</div>';
@@ -1906,8 +1957,11 @@
 
     function renderGironiMatches() {
       const c = document.getElementById('gironi-matches-content');
-      // ✅ REFACTORED: Leggi partite da phases[0].matches
-      const groupMatches = state.phases?.[0]?.matches || [];
+      if (!c) return;
+      // 🔧 FIX: prima leggeva sempre da phases[0].matches, quindi il Calendario
+      // mostrava sempre e solo la Fase 1 anche selezionando un'altra fase.
+      const activePhase = getActivePublicPhase();
+      const groupMatches = activePhase?.matches || [];
 
       if (!groupMatches.length) {
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
@@ -1977,8 +2031,12 @@
 
     function renderGironiStandings() {
       const c = document.getElementById('gironi-standings-content');
-      // ✅ REFACTORED: Leggi classifiche da phases[0].standings
-      const standings = state.phases?.[0]?.standings || [];
+      if (!c) return;
+      // 🔧 FIX: prima leggeva sempre da phases[0].standings, quindi le
+      // Classifiche mostravano sempre e solo la Fase 1 anche selezionando
+      // un'altra fase a gironi (es. Fase 3 - Silver).
+      const activePhase = getActivePublicPhase();
+      const standings = activePhase?.standings || [];
 
       if (!standings.length) {
         c.innerHTML = '<h3>📈 Classifiche</h3><p>Classifiche non ancora disponibili.</p>';
@@ -1990,82 +2048,77 @@
       let html = '<h3>📈 Classifiche Gironi</h3>';
       standings.forEach((standing, idx) => {
         const teamsAdvance = getTeamsAdvanceForGroup(standing.group);
-        html += `<h4>Girone ${standing.group}</h4><table><thead><tr><th>Pos</th><th>Squadra</th><th>G</th><th>V</th><th>S</th><th>Pt</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>`;
+        html += `<h4>Girone ${standing.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">Pos</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">Pt</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">G</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">V</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">S</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PF</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PS</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">Diff</th></tr></thead><tbody>`;
         (standing.rows || []).forEach((t, pos) => {
           const isQualified = pos < teamsAdvance;
           const isLastQualified = pos === teamsAdvance - 1;
           const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
-          html += `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td>${pos + 1}</td><td>${esc(t.name)}</td><td>${t.played || 0}</td><td>${t.won || 0}</td><td>${t.lost || 0}</td><td>${t.points || 0}</td><td>${t.scored || 0}</td><td>${t.conceded || 0}</td><td>${t.diff || 0}</td></tr>`;
+          html += `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td style="text-align: center; padding: 8px">${pos + 1}</td><td style="text-align: left; padding: 8px">${esc(t.name)}</td><td style="text-align: center; padding: 8px; font-weight: bold; color: #d32f2f">${t.points || 0}</td><td style="text-align: center; padding: 8px">${t.played || 0}</td><td style="text-align: center; padding: 8px">${t.won || 0}</td><td style="text-align: center; padding: 8px">${t.lost || 0}</td><td style="text-align: center; padding: 8px">${t.scored || 0}</td><td style="text-align: center; padding: 8px">${t.conceded || 0}</td><td style="text-align: center; padding: 8px">${t.diff || 0}</td></tr>`;
         });
         html += `</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
       });
       c.innerHTML = html;
     }
 
-    // ✅ HELPER: Parsa teamsAdvance e ritorna quante squadre passano da questo girone (PATTERN ADMIN)
-    function getTeamsAdvanceForGroup(groupLabel) {
-      if (!config?.phases?.[0]) {
-        console.log('⚠️ getTeamsAdvanceForGroup: config.phases[0] non trovato');
-        return 1; // Default: 1 squadra
+    // Ritorna quante squadre passano dal girone indicato, leggendo la config
+    // della fase giusta (per default la fase attualmente selezionata).
+    // 🔧 FIX: prima usava sempre config.phases[0], quindi per qualunque fase
+    // a gironi diversa dalla prima (es. Fase 3 - Silver) mostrava la soglia
+    // di avanzamento sbagliata (quella della Fase 1).
+    function getTeamsAdvanceForGroup(groupLabel, phaseNumber) {
+      if (phaseNumber === undefined) {
+        phaseNumber = getActivePublicPhase()?.phaseNumber;
       }
-
-      const configPhase = config.phases[0];
-      console.log(`\n🔍 DEBUG getTeamsAdvanceForGroup - INIZIO GIRONE ${groupLabel}:`);
-      console.log(`   groupLabel: ${groupLabel}`);
-      console.log(`   configPhase: `, configPhase);
-      console.log(`   configPhase.teamsAdvance: ${configPhase?.teamsAdvance}`);
+      const configPhase = (config?.phases || []).find(p => p.phaseNumber === phaseNumber);
+      if (!configPhase) return 1; // Default: 1 squadra
 
       const teamsAdvanceConfig = configPhase.teamsAdvance;
-      console.log(`   teamsAdvanceConfig RAW: "${teamsAdvanceConfig}"`);
-      console.log(`   teamsAdvanceConfig type: ${typeof teamsAdvanceConfig}`);
+      if (!teamsAdvanceConfig) return 1;
 
-      if (!teamsAdvanceConfig) {
-        console.log(`   ❌ teamsAdvanceConfig è vuoto, usando default: 1`);
-        return 1;
-      }
-
-      // Se contiene virgola, è un array di valori (es: "2,2,3")
+      // Se contiene virgola, è un array di valori per girone (es: "2,2,3")
       if (String(teamsAdvanceConfig).includes(',')) {
-        console.log(`   🔹 Formato COMMA-SEPARATED rilevato`);
         const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
-        console.log(`   📋 Values parsati: [${values.join(', ')}]`);
         // Converte label (A, B, C, D) a indice (0, 1, 2, 3)
         const groupIndex = groupLabel.charCodeAt(0) - 'A'.charCodeAt(0);
-        console.log(`   📍 groupLabel "${groupLabel}" -> indice [${groupIndex}]`);
-        const result = values[groupIndex] || 0;
-        console.log(`   📊 Valore estratto: ${result}`);
-        console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel}: ${result} squadre passano\n`);
-        return result;
+        return values[groupIndex] || 0;
       }
 
       // Singolo numero per tutti i gironi
-      console.log(`   🔹 Formato SINGOLO NUMERO rilevato`);
-      const parsed = parseInt(teamsAdvanceConfig);
-      console.log(`   📊 Numero parsato: ${parsed}`);
-      console.log(`   ✅ RISULTATO FINALE: Girone ${groupLabel}: ${parsed || 1} squadre passano\n`);
-      return parsed || 1;
+      return parseInt(teamsAdvanceConfig) || 1;
     }
 
     function renderStandings() {
       const c = document.getElementById('page-standings');
-      // ✅ REFACTORED: Leggi classifiche da phases[0].standings
-      const standings = state.phases?.[0]?.standings || [];
+      // 🔧 FIX: prima leggeva sempre e solo state.phases[0].standings, quindi
+      // qualunque fase a gironi successiva alla prima (es. Fase 3 - Silver)
+      // non compariva mai qui. Ora mostriamo le classifiche di TUTTE le fasi
+      // che ne hanno (i gironi), con un titolo per fase quando sono più di una.
+      const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
+      const phasesWithStandings = allPhases.filter(p => {
+        const standings = p.standings || [];
+        return standings.length > 0;
+      });
 
-      if (!standings.length) {
+      if (!phasesWithStandings.length) {
         c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
         return;
       }
 
-      // ✅ NUOVO: Sottolinea in verde le squadre che passano con soglia visibile
-      c.innerHTML = '<h3>Classifiche gironi</h3>' + standings.map(s => {
-        const teamsAdvance = getTeamsAdvanceForGroup(s.group);
-        const tableHtml = `<h4>Girone ${s.group}</h4><table><thead><tr><th>#</th><th>Squadra</th><th>Pt</th><th>V</th><th>S</th><th>PF</th><th>PS</th><th>Diff</th></tr></thead><tbody>${s.rows.map((r, i) => {
-          const isQualified = i < teamsAdvance;
-          const isLastQualified = i === teamsAdvance - 1;
-          const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
-          return `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}">${i + 1}</td><td style="text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td>${r.points}</td><td>${r.won}</td><td>${r.lost}</td><td>${r.scored}</td><td>${r.conceded}</td><td>${r.diff}</td></tr>`
-        }).join('')}</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
-        return tableHtml;
+      c.innerHTML = '<h3>Classifiche gironi</h3>' + phasesWithStandings.map(phase => {
+        const phaseHeading = phasesWithStandings.length > 1
+          ? `<h4 style="margin-top: 24px; color: #6b5d45">${esc(phase.name || ('Fase ' + phase.phaseNumber))}</h4>`
+          : '';
+        const standings = phase.standings || [];
+        return phaseHeading + standings.map(s => {
+          const teamsAdvance = getTeamsAdvanceForGroup(s.group, phase.phaseNumber);
+          const tableHtml = `<h4>Girone ${s.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">#</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">Pt</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">V</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">S</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PF</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PS</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">Diff</th></tr></thead><tbody>${s.rows.map((r, i) => {
+            const isQualified = i < teamsAdvance;
+            const isLastQualified = i === teamsAdvance - 1;
+            const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
+            return `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}" style="text-align: center; padding: 8px">${i + 1}</td><td style="text-align: left; padding: 8px; text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td style="text-align: center; padding: 8px; font-weight: bold; color: #d32f2f">${r.points}</td><td style="text-align: center; padding: 8px">${r.won}</td><td style="text-align: center; padding: 8px">${r.lost}</td><td style="text-align: center; padding: 8px">${r.scored}</td><td style="text-align: center; padding: 8px">${r.conceded}</td><td style="text-align: center; padding: 8px">${r.diff}</td></tr>`
+          }).join('')}</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
+          return tableHtml;
+        }).join('');
       }).join('');
     }
 
@@ -2079,8 +2132,13 @@
 
     function renderPlayoff() {
       const c = document.getElementById('page-playoff');
-      // ✅ REFACTORED: Leggi partite da phases[1+] invece di state.playoff
-      const playoffPhases = state.phases?.slice(1) || [];
+      // 🔧 FIX: prima prendeva "tutte le fasi tranne la prima" (state.phases.slice(1)),
+      // quindi una fase a gironi successiva alla prima (es. Fase 3 - Silver) finiva
+      // mescolata qui, in un elenco pensato per l'eliminazione diretta e senza le
+      // sue classifiche — che invece sono già mostrate correttamente nella scheda
+      // "Gironi e Fasi". Qui restano solo le fasi effettivamente knockout.
+      const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
+      const playoffPhases = allPhases.filter(p => p.type === 'knockout');
 
       if (!playoffPhases.length) {
         c.innerHTML = '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
@@ -2572,9 +2630,22 @@
         
         newsItem.onclick = () => showNewsDialog(item);
         
+        // Contenitore con immagine preview + titolo
+        const contentWrapper = document.createElement('div');
+        contentWrapper.style.cssText = 'display: flex; gap: 10px; align-items: center; flex: 1; min-width: 0';
+        
+        // Aggiungi immagine preview se disponibile
+        if (item.imageFile) {
+          const imgEl = document.createElement('img');
+          imgEl.src = item.imageFile;
+          imgEl.style.cssText = 'width: 40px; height: 40px; object-fit: cover; border-radius: 4px; flex-shrink: 0';
+          contentWrapper.appendChild(imgEl);
+        }
+        
         const titleEl = document.createElement('div');
         titleEl.textContent = item.title;
-        titleEl.style.cssText = 'color: #2e5d1f; font-size: 15px; font-weight: 500; line-height: 1.4; flex: 1';
+        titleEl.style.cssText = 'color: #2e5d1f; font-size: 15px; font-weight: 500; line-height: 1.4; flex: 1; min-width: 0';
+        contentWrapper.appendChild(titleEl);
         
         // 🔧 Data con background verde e testo bianco
         const dateEl = document.createElement('div');
@@ -2592,7 +2663,7 @@
           flex-shrink: 0;
         `;
         
-        newsItem.appendChild(titleEl);
+        newsItem.appendChild(contentWrapper);
         newsItem.appendChild(dateEl);
         newsList.appendChild(newsItem);
       });
@@ -2633,9 +2704,9 @@
 
       titleNode.textContent = item.title;
       bodyNode.innerHTML = `
-        ${item.imageFile ? `<img src="${esc(item.imageFile)}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; margin-bottom: 12px">` : ''}
+        ${item.imageFile ? `<img src="${esc(item.imageFile)}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 12px">` : ''}
         <div style="font-size: 12px; color: #999; margin-bottom: 10px">${dateStr} • ${timeStr}</div>
-        <div style="white-space: pre-wrap; line-height: 1.6; color: #333">${esc(item.content)}</div>
+        <div style="line-height: 1.6; color: #333">${item.content}</div>
         <button id="shareNewsBtn" style="margin-top: 16px; padding: 10px 16px; background: #1877F2; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; transition: background 0.2s">👍 Condividi su Facebook</button>
       `;
       backdrop.classList.remove('hidden');
@@ -2652,8 +2723,94 @@
       backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
     }
 
-    // Carica notizie all'avvio
+    // ==================== GALLERY FUNCTIONS ====================
+    // Temporaneamente disabilitato - da rifare
+    /*
+    let galleryData = [];
+    let currentGalleryIndex = 0;
+
+    async function loadGallery() {
+      try {
+        const response = await fetch(`${API}?action=public_get_gallery`);
+        const data = await response.json();
+
+        if (data.ok && data.gallery && data.gallery.length > 0) {
+          galleryData = data.gallery;
+          document.getElementById('gallerySection').style.display = 'block';
+          renderGallerySlide();
+          
+          // Auto-rotate every 5 seconds
+          setInterval(() => {
+            currentGalleryIndex = (currentGalleryIndex + 1) % galleryData.length;
+            renderGallerySlide();
+          }, 5000);
+        } else {
+          document.getElementById('gallerySection').style.display = 'none';
+        }
+      } catch (e) {
+        console.error('Error loading gallery:', e);
+        document.getElementById('gallerySection').style.display = 'none';
+      }
+    }
+
+    function renderGallerySlide() {
+      if (galleryData.length === 0) return;
+      
+      const item = galleryData[currentGalleryIndex];
+      const slider = document.getElementById('gallerySlider');
+      
+      slider.innerHTML = `
+        <div style="display: flex; gap: 12px; width: 100%; flex-shrink: 0">
+          <img src="${esc(item.imageFile)}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; cursor: pointer" onclick="showGalleryDetail(${currentGalleryIndex})">
+          <div style="flex: 0 0 200px; padding: 12px; background: white; border-radius: 8px; display: flex; flex-direction: column; justify-content: center">
+            <h4 style="margin: 0 0 8px 0; color: #ff9800; font-size: 16px">${esc(item.title)}</h4>
+            <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.4">${esc(item.description || '')}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    function nextGallerySlide() {
+      currentGalleryIndex = (currentGalleryIndex + 1) % galleryData.length;
+      renderGallerySlide();
+    }
+
+    function prevGallerySlide() {
+      currentGalleryIndex = (currentGalleryIndex - 1 + galleryData.length) % galleryData.length;
+      renderGallerySlide();
+    }
+
+    function showGalleryDetail(index) {
+      if (!galleryData[index]) return;
+      
+      const item = galleryData[index];
+      const backdrop = document.getElementById('modalBackdrop');
+      const titleNode = backdrop.querySelector('h2');
+      const bodyNode = backdrop.querySelector('.modal-body');
+      const okBtn = backdrop.querySelector('button[style*="background"]');
+      const closeBtn = backdrop.querySelector('button:last-child');
+      
+      const date = new Date(item.publishedAt || item.createdAt);
+      const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+      
+      titleNode.textContent = item.title;
+      bodyNode.innerHTML = `
+        <img src="${esc(item.imageFile)}" style="width: 100%; max-height: 500px; object-fit: cover; border-radius: 8px; margin-bottom: 12px">
+        <div style="font-size: 12px; color: #999; margin-bottom: 10px">${dateStr}</div>
+        <div style="line-height: 1.6; color: #333">${esc(item.description || '')}</div>
+      `;
+      backdrop.classList.remove('hidden');
+      
+      const close = () => backdrop.classList.add('hidden');
+      if (okBtn) okBtn.onclick = close;
+      if (closeBtn) closeBtn.onclick = close;
+      backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
+    }
+    */
+
+    // Carica notizie e gallery all'avvio
     loadNews();
+    // loadGallery(); // Temporaneamente disabilitato
   </script>
 </body>
 

@@ -594,6 +594,9 @@
   <!-- PDF Generation Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- Jodit WYSIWYG Editor -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jodit/3.24.3/jodit.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jodit/3.24.3/jodit.min.js"></script>
 </head>
 
 <body>
@@ -638,6 +641,7 @@
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
+        <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="multitenant-admin" onclick="showPage('multitenant-admin', this)" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white">⚙️ Multi-Tenant Admin</button>
       </div>
@@ -866,7 +870,7 @@
           </div>
           <div class="field">
             <label>Contenuto</label>
-            <textarea id="newsContent" placeholder="Scrivi il contenuto della notizia..." rows="6" maxlength="2000"></textarea>
+            <div id="newsContent" style="border: 1px solid #ddd; border-radius: 4px; min-height: 300px; background: white"></div>
           </div>
           <div class="field">
             <label>Immagine (opzionale)</label>
@@ -892,6 +896,50 @@
         <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">📋 Notizie Pubblicate</h4>
           <div id="newsList" style="margin-top: 12px"></div>
+        </div>
+      </div>
+
+      <div id="page-gallery" class="card page hidden">
+        <h3>🖼️ Gallery Foto</h3>
+        <p class="muted">Carica foto con titolo e descrizione. Appariranno come carousel compatto in homepage.</p>
+        
+        <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">📸 Nuova Foto</h4>
+          <div class="field">
+            <label>Titolo *</label>
+            <input id="galleryTitle" type="text" placeholder="Es: Finale evento 2024" maxlength="100">
+          </div>
+          <div class="field">
+            <label>Descrizione</label>
+            <textarea id="galleryDescription" placeholder="Descrivi la foto..." rows="3" maxlength="500"></textarea>
+          </div>
+          <div class="field">
+            <label>Foto (obbligatoria) *</label>
+            <div id="galleryDropZone" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 24px; text-align: center; background: #f5f9ff; cursor: pointer; transition: all 0.2s">
+              <div style="font-size: 32px; margin-bottom: 8px">📸</div>
+              <div style="font-weight: bold; color: #1976d2; margin-bottom: 4px">Trascina la foto qui</div>
+              <div style="color: #666; font-size: 13px; margin-bottom: 12px">o clicca per selezionare</div>
+              <input type="file" id="galleryImageInput" accept="image/*" style="display: none">
+              <small style="color: #999">PNG, JPG, GIF o WebP - Max 5MB</small>
+            </div>
+            <div id="galleryImagePreviewContainer" style="margin-top: 12px"></div>
+          </div>
+          <div class="field">
+            <label>
+              <input type="checkbox" id="galleryPublished"> 
+              Pubblica immediatamente
+            </label>
+            <small style="color: #666">Se non abilitato, la foto rimarrà in bozza</small>
+          </div>
+          <div class="row" style="margin-top: 10px; gap: 8px">
+            <button class="btn btn-green" onclick="saveGalleryPhoto()" style="flex: 1">✅ Salva Foto</button>
+            <button class="btn btn-secondary" onclick="clearGalleryForm()" style="flex: 1">Cancella</button>
+          </div>
+        </div>
+        
+        <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">📸 Foto Gallery</h4>
+          <div id="galleryList" style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px"></div>
         </div>
       </div>
 
@@ -1199,7 +1247,18 @@
         }
         
         const res = await fetch(`${API}?action=${action}`, opts);
-        const json = await res.json();
+        
+        // 🔧 Leggi il testo UNA SOLA VOLTA: il body stream può essere consumato una sola volta
+        const text = await res.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (parseErr) {
+          console.error('❌ Errore parsing JSON per azione:', action);
+          console.error('Risposta ricevuta:', text.substring(0, 500));
+          throw new Error(`Risposta non valida dal server (non JSON): ${parseErr.message}`);
+        }
+        
         if (!res.ok || !json.ok) {
           // Se c'è un campo details, crea un messaggio più dettagliato
           let errorMsg = json.error || 'Errore API';
@@ -1275,6 +1334,8 @@
         renderPaymentAndNotes();
       } else if (page === 'news') {
         renderNews();
+      } else if (page === 'gallery') {
+        renderGallery();
       } else if (page === 'groups') {
         loadPhaseStatus();
       } else if (page === 'fasi-torneo') {
@@ -4089,7 +4150,7 @@
       }
       
       // Leggi le partite dalla fase selezionata
-      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
       let m = (phase && phase.matches) ? phase.matches : [];
       
       if (!m.length) {
@@ -4454,7 +4515,7 @@
           return;
         }
         
-        const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+        const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
         const matches = (phase && phase.matches) ? phase.matches : [];
         
         if (matches.length === 0) {
@@ -4515,7 +4576,7 @@
           return;
         }
 
-        const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+        const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
         if (!phase || !phase.matches || phase.matches.length === 0) {
           await showInfoDialog('Errore', 'Nessuna partita disponibile per questa fase');
           return;
@@ -4839,6 +4900,21 @@
     }
 
     // ===== GESTIONE FASI UNIFICATA =====
+    // 🔧 FIX: 'phaseIdx' dovrebbe essere sempre uguale a 'phaseNumber' (vedi
+    // initializePhase/admin_create_phase lato server), ma fasi create prima di
+    // una correzione lì potrebbero avere ancora un phaseIdx diverso dal proprio
+    // phaseNumber. Per essere resilienti anche a questi dati "vecchi", cerchiamo
+    // PRIMA una corrispondenza esatta su phaseNumber in TUTTO l'array, e solo
+    // se non la troviamo ripieghiamo su phaseIdx — così il phaseIdx "sporco" di
+    // un'altra fase non può più rubare la selezione a quella giusta (es.
+    // selezionare "Fase 2" apriva erroneamente i dati della Fase 3).
+    function findPhaseByNumber(phasesArray, phaseNumber) {
+      if (!phasesArray) return undefined;
+      const byNumber = phasesArray.find(p => p.phaseNumber === phaseNumber);
+      if (byNumber) return byNumber;
+      return phasesArray.find(p => p.phaseIdx === phaseNumber);
+    }
+
     let currentSelectedPhaseNumber = 1; // Fase selezionata attualmente
     let currentPhaseSubTab = 'groups'; // Sottotab della fase: 'groups', 'matches', 'standings'
 
@@ -4879,7 +4955,7 @@
         statePhases: state.phases.map(p => ({ phaseIdx: p.phaseIdx, phaseNumber: p.phaseNumber, name: p.name, type: p.type }))
       });
       
-      const phase = state.phases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
       console.log('🔍 PARTITE: fase trovata?', phase ? '✅ Sì' : '❌ No', phase);
       
       let m = (phase && phase.matches) ? phase.matches : [];
@@ -4947,12 +5023,12 @@
         statePhases: statePhases.map(p => ({ phaseIdx: p.phaseIdx, phaseNumber: p.phaseNumber, name: p.name, type: p.type, matchCount: p.matches?.length, groupCount: p.groups?.length }))
       });
       
-      const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      const statePhase = findPhaseByNumber(statePhases, currentSelectedPhaseNumber);
       console.log('🔍 CLASSIFICHE: fase trovata?', statePhase ? '✅ Sì' : '❌ No', statePhase);
       
       // Leggi anche la fase dalla config per ottenere teamsAdvance
       const configPhases = config.phases || [];
-      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === currentSelectedPhaseNumber);
+      const configPhase = findPhaseByNumber(configPhases, currentSelectedPhaseNumber);
       console.log('🔍 CONFIG FASE trovata?', configPhase ? '✅ Sì' : '❌ No', configPhase);
       
       if (!statePhase) {
@@ -5070,18 +5146,18 @@
 
         html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 16px">
           <h5 style="margin: 0 0 10px 0; color: #2196F3">📊 Girone ${groupLabel}</h5>
-          <table style="width: 100%; font-size: 12px; border-collapse: collapse">
+          <table style="width: 100%; font-size: 12px; border-collapse: collapse; table-layout: fixed">
             <thead>
               <tr style="background: #e3f2fd">
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">#</th>
-                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">G</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">V</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">S</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Pt</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">PF</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">PS</th>
-                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Diff</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">#</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; width: auto">Squadra</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">Pt</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">G</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">V</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">S</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PF</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PS</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">Diff</th>
               </tr>
             </thead>
             <tbody>`;
@@ -5119,10 +5195,10 @@
           html += `<tr style="border-bottom: 3px solid ${isLastQualified ? '#4caf50' : '#eee'}; background: ${isQualified ? '#e8f5e9' : ''}; font-weight: ${isQualified ? '600' : 'normal'}">
             <td style="padding: 8px; font-weight: bold; color: #2196F3">${idx + 1}</td>
             <td style="padding: 8px; text-decoration: none">${escapeHtml(row.name)}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f; font-size: 14px">${row.points}</td>
             <td style="padding: 8px; text-align: center">${row.matches}</td>
             <td style="padding: 8px; text-align: center">${row.wins}</td>
             <td style="padding: 8px; text-align: center">${row.losses}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f">${row.points}</td>
             <td style="padding: 8px; text-align: center">${row.pointsFor}</td>
             <td style="padding: 8px; text-align: center">${row.pointsAgainst}</td>
             <td style="padding: 8px; text-align: center">${row.pointsDiff >= 0 ? '+' : ''}${row.pointsDiff}</td>
@@ -5289,6 +5365,9 @@
         btn.style.background = btn.id === 'subtab-groups' ? '#2196F3' : '#0277BD';
       });
       
+      // Renderizza il selettore delle fasi per evidenziare il nuovo button blu
+      renderPhaseSelector();
+      
       // Renderizza il contenuto della fase con il sotto-tab selezionato
       renderPhaseContentForSubTab();
       
@@ -5321,7 +5400,7 @@
     // di fallire, ricostruiamo un oggetto minimo di metadati da state.phases.
     function getPhaseMetadata(phaseNumber) {
       const configPhases = config.phases || [];
-      const configPhase = configPhases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      const configPhase = findPhaseByNumber(configPhases, phaseNumber);
       if (configPhase) return configPhase;
 
       const statePhase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
@@ -5643,7 +5722,7 @@
       console.log('📊 renderPhaseContent - currentSelectedPhaseNumber:', currentSelectedPhaseNumber);
       
       // currentSelectedPhaseNumber è 1-based (Fase 1, 2, 3...), ma phaseIdx è 1-based in state.phases
-      const statePhase = statePhases.find(p => p.phaseNumber === currentSelectedPhaseNumber || p.phaseIdx === currentSelectedPhaseNumber);
+      const statePhase = findPhaseByNumber(statePhases, currentSelectedPhaseNumber);
       console.log('� RICERCA FASE:', {
         searchingFor: currentSelectedPhaseNumber,
         matchType: 'phaseNumber OR phaseIdx',
@@ -5956,7 +6035,7 @@ html += `
       console.log('🚀 showPhaseRequirements CHIAMATA:', { phaseNumber, phaseType });
       const phases = config.phases || [];
       console.log('📋 config.phases:', phases);
-      const phase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      const phase = findPhaseByNumber(phases, phaseNumber);
       
       if (!phase) {
         console.error('❌ ERRORE: Fase non trovata con phaseNumber=', phaseNumber);
@@ -6010,7 +6089,7 @@ html += `
         title += `Knockout (Fase ${phaseNumber})`;
         
         // Check fase precedente
-        const prevPhase = phases.find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber - 1);
+        const prevPhase = findPhaseByNumber(phases, phaseNumber - 1);
         // 🔧 FIX: prima si controllava state.groups, un campo "di comodo" che il
         // server valorizza SOLO nell'endpoint pubblico (scoreboard.html) e che
         // riflette sempre e solo la Fase 1 - nel pannello admin questo campo non
@@ -7981,6 +8060,22 @@ html += `
     let newsData = [];
     let editingNewsId = null;
     let currentNewsImageFile = '';
+    let newsEditor = null;
+
+    function initNewsEditor() {
+      if (!newsEditor && typeof Jodit !== 'undefined') {
+        newsEditor = new Jodit('#newsContent', {
+          height: 300,
+          width: '100%',
+          toolbarButtonSize: 'small',
+          showCharsCounter: true,
+          showWordsCounter: true,
+          maxChars: 2000,
+          buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'link', '|', 'hr', 'eraser', 'fullsize'],
+          placeholder: 'Scrivi il contenuto della notizia... puoi usare grassetto, corsivo, liste e link'
+        });
+      }
+    }
 
     async function uploadNewsImage() {
       const fileInput = document.getElementById('newsImageInput');
@@ -8029,6 +8124,7 @@ html += `
     }
 
     async function renderNews() {
+      initNewsEditor();
       try {
         const result = await callApi('admin_get_news', 'GET', null, true);
         newsData = result.news || [];
@@ -8070,7 +8166,7 @@ html += `
 
     function clearNewsForm() {
       document.getElementById('newsTitle').value = '';
-      document.getElementById('newsContent').value = '';
+      if (newsEditor) newsEditor.value = '';
       document.getElementById('newsPublished').checked = false;
       document.getElementById('newsImageInput').value = '';
       document.getElementById('imagePreviewContainer').innerHTML = '';
@@ -8083,7 +8179,7 @@ html += `
       if (!item) return;
       
       document.getElementById('newsTitle').value = item.title;
-      document.getElementById('newsContent').value = item.content;
+      if (newsEditor) newsEditor.value = item.content;
       document.getElementById('newsPublished').checked = item.published;
       currentNewsImageFile = item.imageFile || '';
       
@@ -8102,7 +8198,7 @@ html += `
     async function saveNews() {
       try {
         const title = document.getElementById('newsTitle').value.trim();
-        const content = document.getElementById('newsContent').value.trim();
+        const content = newsEditor ? newsEditor.value.trim() : '';
         const published = document.getElementById('newsPublished').checked;
         
         if (!title || !content) {
@@ -8148,6 +8244,248 @@ html += `
         newsData = result.news;
         await showInfoDialog('Successo', '✅ Notizia eliminata');
         renderNews();
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+    }
+
+    // ==================== GALLERY MANAGEMENT ====================
+    let galleryData = [];
+    let editingGalleryId = null;
+    let currentGalleryImageFile = '';
+
+    async function renderGallery() {
+      try {
+        const result = await callApi('admin_get_gallery', 'GET', null, true);
+        galleryData = result.gallery || [];
+        
+        const container = document.getElementById('galleryList');
+        if (!galleryData || galleryData.length === 0) {
+          container.innerHTML = '<p class="muted">Nessuna foto. Caricane una nuova.</p>';
+          return;
+        }
+        
+        let html = '';
+        galleryData.forEach((item) => {
+          const status = item.published ? '📤' : '📝';
+          const date = new Date(item.publishedAt || item.createdAt);
+          const dateStr = date.toLocaleDateString('it-IT');
+          
+          html += `<div style="position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <img src="${escapeHtml(item.imageFile)}" style="width: 100%; height: 150px; object-fit: cover; display: block">
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 8px; font-size: 11px">
+              <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">${escapeHtml(item.title)}</div>
+              <div style="font-size: 10px; opacity: 0.8">${status} ${dateStr}</div>
+            </div>
+            <div style="position: absolute; top: 4px; right: 4px; display: flex; gap: 4px">
+              <button onclick="editGalleryPhoto('${item.id}')" style="background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px">✏️</button>
+              <button onclick="deleteGalleryPhoto('${item.id}')" style="background: #d32f2f; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px">🗑️</button>
+            </div>
+          </div>`;
+        });
+        container.innerHTML = html;
+        
+        // Inizializza drag and drop
+        initGalleryUpload();
+      } catch (e) {
+        document.getElementById('galleryList').innerHTML = '<p style="color: #d32f2f">Errore caricamento: ' + e.message + '</p>';
+      }
+    }
+
+    function initGalleryUpload() {
+      const dropZone = document.getElementById('galleryDropZone');
+      const fileInput = document.getElementById('galleryImageInput');
+      
+      if (!dropZone) return;
+      
+      // Click per aprire file dialog
+      dropZone.onclick = () => fileInput.click();
+      
+      // Drag and drop
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.background = '#e3f2fd';
+        dropZone.style.borderColor = '#1976d2';
+      });
+      
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.style.background = '#f5f9ff';
+        dropZone.style.borderColor = '#2196F3';
+      });
+      
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.background = '#f5f9ff';
+        dropZone.style.borderColor = '#2196F3';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          handleGalleryImageSelect();
+        }
+      });
+      
+      // Change event per file input
+      fileInput.addEventListener('change', handleGalleryImageSelect);
+    }
+
+    async function handleGalleryImageSelect() {
+      const fileInput = document.getElementById('galleryImageInput');
+      const file = fileInput.files[0];
+      
+      if (!file) return;
+      
+      if (!file.type.startsWith('image/')) {
+        await showInfoDialog('Errore', '❌ Il file deve essere un\'immagine');
+        fileInput.value = '';
+        return;
+      }
+      
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        await showInfoDialog('Errore', '❌ File troppo grande (max 5MB)');
+        fileInput.value = '';
+        return;
+      }
+      
+      // Upload automatico
+      uploadGalleryImage();
+    }
+
+    async function uploadGalleryImage() {
+      const fileInput = document.getElementById('galleryImageInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        await showInfoDialog('Errore', 'Seleziona un file immagine');
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        await showInfoDialog('Errore', 'Il file deve essere un\'immagine');
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      try {
+        const response = await fetch('api.php?action=admin_upload_gallery_image', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        if (data.ok) {
+          currentGalleryImageFile = data.imageFile;
+          const preview = document.getElementById('galleryImagePreviewContainer');
+          const dropZone = document.getElementById('galleryDropZone');
+          
+          preview.innerHTML = `<div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 8px; padding: 12px; text-align: center">
+            <img src="${escapeHtml(data.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block; margin-bottom: 8px">
+            <div style="font-size: 12px; color: #2e7d32; font-weight: bold">✅ Foto caricata - ${file.name}</div>
+          </div>`;
+          
+          dropZone.style.background = '#f5f9ff';
+          dropZone.style.borderColor = '#4caf50';
+          dropZone.style.borderWidth = '2px';
+        } else {
+          await showInfoDialog('Errore', data.error || 'Errore upload');
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore upload: ' + e.message);
+      }
+    }
+
+    function clearGalleryForm() {
+      document.getElementById('galleryTitle').value = '';
+      document.getElementById('galleryDescription').value = '';
+      document.getElementById('galleryPublished').checked = false;
+      document.getElementById('galleryImageInput').value = '';
+      document.getElementById('galleryImagePreviewContainer').innerHTML = '';
+      const dropZone = document.getElementById('galleryDropZone');
+      if (dropZone) {
+        dropZone.style.background = '#f5f9ff';
+        dropZone.style.borderColor = '#2196F3';
+      }
+      currentGalleryImageFile = '';
+      editingGalleryId = null;
+      setTimeout(() => document.getElementById('galleryTitle').focus(), 100);
+    }
+
+    function editGalleryPhoto(photoId) {
+      const item = galleryData.find(g => g.id === photoId);
+      if (!item) return;
+      
+      document.getElementById('galleryTitle').value = item.title;
+      document.getElementById('galleryDescription').value = item.description || '';
+      document.getElementById('galleryPublished').checked = item.published;
+      currentGalleryImageFile = item.imageFile || '';
+      
+      const preview = document.getElementById('galleryImagePreviewContainer');
+      if (item.imageFile) {
+        preview.innerHTML = `<img src="${escapeHtml(item.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block">`;
+      } else {
+        preview.innerHTML = '';
+      }
+      
+      editingGalleryId = photoId;
+      document.getElementById('galleryTitle').focus();
+    }
+
+    async function saveGalleryPhoto() {
+      try {
+        const titleInput = document.getElementById('galleryTitle');
+        const title = (titleInput.value || '').trim();
+        const description = (document.getElementById('galleryDescription').value || '').trim();
+        const published = document.getElementById('galleryPublished').checked;
+        
+        // Validazione
+        if (!title) {
+          await showInfoDialog('Errore', '❌ Inserisci un titolo per la foto');
+          titleInput.focus();
+          return;
+        }
+        
+        if (!currentGalleryImageFile) {
+          await showInfoDialog('Errore', '❌ Carica una foto prima di salvare');
+          return;
+        }
+        
+        if (editingGalleryId) {
+          const result = await callApi('admin_update_gallery', 'POST', {
+            id: editingGalleryId,
+            title,
+            description,
+            imageFile: currentGalleryImageFile,
+            published
+          }, true);
+          galleryData = result.gallery;
+          await showInfoDialog('Successo', '✅ Foto aggiornata');
+        } else {
+          const result = await callApi('admin_create_gallery', 'POST', {
+            title,
+            description,
+            imageFile: currentGalleryImageFile,
+            published
+          }, true);
+          galleryData.push(result.gallery);
+          await showInfoDialog('Successo', '✅ Foto caricata');
+        }
+        
+        clearGalleryForm();
+        renderGallery();
+      } catch (e) {
+        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+    }
+
+    async function deleteGalleryPhoto(photoId) {
+      if (!confirm('Sei sicuro di voler eliminare questa foto?')) return;
+      
+      try {
+        const result = await callApi('admin_delete_gallery', 'POST', { id: photoId }, true);
+        galleryData = result.gallery;
+        await showInfoDialog('Successo', '✅ Foto eliminata');
+        renderGallery();
       } catch (e) {
         await showInfoDialog('Errore', '❌ ' + e.message);
       }
@@ -10703,7 +11041,7 @@ html += `
       const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
       if (!phase) return;
 
-      const configPhase = (config.phases || []).find(p => (p.phaseNumber || p.phaseIdx) === phaseNumber);
+      const configPhase = findPhaseByNumber(config.phases || [], phaseNumber);
       
       // 🔧 FIX: Quando ricalcoli una fase proveniente da eliminati/qualificati,
       // il valore "teamsAdvance" del CAMPO è per la PROSSIMA fase, non per il calcolo.
@@ -10756,7 +11094,7 @@ html += `
       // 🔧 FIX: Il campo "squadre che avanzano per girone" è SOLO per la prossima fase.
       // Quando calcoli l'anteprima degli eliminati/qualificati dalla fase SORGENTE,
       // usa SEMPRE il valore della fase sorgente, non il valore modificato dall'utente.
-      const sourceConfigPhase = (config.phases || []).find(p => (p.phaseNumber || p.phaseIdx) === sourcePhaseNumber);
+      const sourceConfigPhase = findPhaseByNumber(config.phases || [], sourcePhaseNumber);
       
       let teamsAdvanceForPreview = sourceConfigPhase?.teamsAdvance || '2';
       

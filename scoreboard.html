@@ -1883,8 +1883,8 @@
           const sourcePhaseNameStr = sourcePhaseObj?.name || `Fase ${sourcePhaseNumber}`;
           const branchStr = sourceBranch === 'qualified' ? 'Vincenti/Qualificati' : 'Perdenti/Eliminati';
           
-          html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 12px">
-            <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">📊 Seeding Knockout - Ordinamento Squadre</summary>
+          html += `<details open style="background: #faf5f0; border: 2px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1)">
+            <summary style="cursor: pointer; padding: 12px 10px; font-weight: bold; color: #6b5d45; background: #fef5e7; border-radius: 4px">📊 Seeding Knockout - Ordinamento Squadre</summary>
             <div style="padding: 0 14px 14px 14px; overflow-x: auto">
               <div style="padding: 10px; background: #fef5e7; border-radius: 4px; margin-bottom: 10px; font-size: 12px; border-left: 3px solid #f39c12">
                 <strong>Criterio di ordinamento:</strong> ${criterionNames[sortCriterion]}<br>

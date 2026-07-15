@@ -5148,8 +5148,9 @@
           return sorted;
         };
         
-        // Ordinamento di default (Opzione 1: Media punti)
-        let currentSortCriterion = 1;
+        // Ordinamento di default: usa quello salvato quando è stato creato il knockout
+        const savedSortCriterion = statePhase.sortCriterion ?? 1;
+        let currentSortCriterion = savedSortCriterion;
         let sortedTeams = sortTeams(allQualifiedTeams, currentSortCriterion);
         
         // Funzione per renderizzare la tabella
@@ -5160,9 +5161,21 @@
             3: '⚖️ Media + Quoziente + Diff'
           };
           
+          // Messaggio con il criterio utilizzato per creare il knockout
+          const criterionUsedMsg = criterion === savedSortCriterion 
+            ? `<div style="padding: 12px; background: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 2px; margin-bottom: 12px; font-size: 12px; color: #2e7d32">
+                ✅ <strong>Criterio di seeding utilizzato:</strong> ${criterionLabels[savedSortCriterion]}<br>
+                <span style="font-size: 11px">Questa fase knockout è stata creata con questo criterio.</span>
+              </div>`
+            : `<div style="padding: 12px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 2px; margin-bottom: 12px; font-size: 12px; color: #e65100">
+                ℹ️ <strong>Criterio di seeding (originale):</strong> ${criterionLabels[savedSortCriterion]}<br>
+                <span style="font-size: 11px">Stai visualizzando con: ${criterionLabels[criterion]}</span>
+              </div>`;
+          
           let html = `<div><h4 style="margin-bottom: 16px">📈 Classifica Complessiva Ordinata - Fase ${sourcePhaseNumber}</h4>`;
+          html += criterionUsedMsg;
           html += '<div style="margin-bottom: 16px">';
-          html += '<strong style="color: #333; display: block; margin-bottom: 8px">Criterio di ordinamento:</strong>';
+          html += '<strong style="color: #333; display: block; margin-bottom: 8px">Visualizza con criterio diverso (per preview):</strong>';
           html += '<div style="display: flex; gap: 8px; flex-wrap: wrap">';
           [1, 2, 3].forEach(opt => {
             const isActive = opt === criterion;

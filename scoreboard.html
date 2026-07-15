@@ -1791,6 +1791,95 @@
         </div>
       </div>`;
 
+      // 🆕 Tabella di ordinamento/seeding
+      const standings = phase.standings || [];
+      if (standings.length > 0) {
+        const teamMap = {};
+        standings.forEach(g => {
+          (g.rows || []).forEach(row => {
+            teamMap[row.teamId] = row;
+          });
+        });
+        
+        // Estrai squadre uniche dal primo turno e ordinale
+        const firstRoundMatches = matches.filter(m => m.round === 1);
+        const seededTeams = [];
+        const seen = new Set();
+        
+        firstRoundMatches.forEach(m => {
+          const t1 = m.team1Id || m.team1;
+          const t2 = m.team2Id || m.team2;
+          if (t1 && !seen.has(t1)) {
+            const row = teamMap[t1];
+            if (row) {
+              seededTeams.push(row);
+              seen.add(t1);
+            }
+          }
+          if (t2 && !seen.has(t2)) {
+            const row = teamMap[t2];
+            if (row) {
+              seededTeams.push(row);
+              seen.add(t2);
+            }
+          }
+        });
+        
+        // Ordina per diff (come fa il backend)
+        seededTeams.sort((a, b) => {
+          if ((b.diff ?? 0) !== (a.diff ?? 0)) return (b.diff ?? 0) - (a.diff ?? 0);
+          if ((b.points ?? 0) !== (a.points ?? 0)) return (b.points ?? 0) - (a.points ?? 0);
+          return (b.scored ?? 0) - (a.scored ?? 0);
+        });
+        
+        if (seededTeams.length > 0) {
+          html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 12px">
+            <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">📊 Seeding Knockout - Ordinamento Squadre</summary>
+            <div style="padding: 0 14px 14px 14px; overflow-x: auto">
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px">
+                <thead>
+                  <tr style="background: #f0e6d2">
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 35px">#</th>
+                    <th style="text-align: left; padding: 8px; border-bottom: 1px solid #d4c5b0">Squadra</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 50px" title="Differenza punti">Diff</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 45px" title="Punti totali">Pt</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Partite giocate">G</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Punti segnati">PF</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Punti subiti">PS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${seededTeams.map((row, idx) => {
+                    const isSeed1st = idx === 0;
+                    const isLast = idx === seededTeams.length - 1;
+                    const bgColor = isSeed1st ? '#d4e8d4' : (isLast ? '#ffd4d4' : 'transparent');
+                    const fontWeight = isSeed1st || isLast ? 'bold' : 'normal';
+                    return `<tr style="border-bottom: 1px solid #e0d5c5; background: ${bgColor}; font-weight: ${fontWeight}">
+                      <td style="text-align: center; padding: 6px">${idx + 1}</td>
+                      <td style="text-align: left; padding: 6px">${esc(row.name || '?')}</td>
+                      <td style="text-align: center; padding: 6px; color: #d32f2f; font-weight: bold">${row.diff ?? 0}</td>
+                      <td style="text-align: center; padding: 6px">${row.points ?? 0}</td>
+                      <td style="text-align: center; padding: 6px">${row.played ?? 0}</td>
+                      <td style="text-align: center; padding: 6px">${row.scored ?? 0}</td>
+                      <td style="text-align: center; padding: 6px">${row.conceded ?? 0}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+              <div style="padding: 8px 0; margin-top: 8px; font-size: 11px; color: #6b5d45; line-height: 1.5">
+                <strong>Criteri di ordinamento:</strong>
+                <ul style="margin: 4px 0; padding-left: 18px">
+                  <li>1️⃣ <strong>Differenza punti</strong> (PF - PS) - crescente all'aumentare della forza</li>
+                  <li>2️⃣ <strong>Punti totali</strong> - se la differenza è uguale</li>
+                  <li>3️⃣ <strong>Punti segnati</strong> - ulteriore tie-breaker</li>
+                </ul>
+                <strong style="color: #2e5d1f">🟢 Seed 1 (più forte)</strong> affronterà <strong style="color: #d32f2f">🔴 Seed ${seededTeams.length} (più debole)</strong>
+              </div>
+            </div>
+          </details>`;
+        }
+      }
+
       html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 13px">
         <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">ℹ️ Come funziona il Castello (eliminazione diretta)</summary>
         <div style="padding: 0 14px 14px 14px; color: #6b5d45; line-height: 1.6">

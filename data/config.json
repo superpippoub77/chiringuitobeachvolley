@@ -49,20 +49,20 @@
                         ]
                     },
                     {
+                        "date": "2026-07-17",
+                        "timeSlots": [
+                            {
+                                "startTime": "19:30",
+                                "endTime": "24:00"
+                            }
+                        ]
+                    },
+                    {
                         "date": "2026-07-18",
                         "timeSlots": [
                             {
                                 "startTime": "16:00",
                                 "endTime": "19:30"
-                            }
-                        ]
-                    },
-                    {
-                        "date": "2026-07-17",
-                        "timeSlots": [
-                            {
-                                "startTime": "19:00",
-                                "endTime": "24:00"
                             }
                         ]
                     }
@@ -83,22 +83,11 @@
             "numGroups": 3,
             "teamsAdvance": "2,3,3",
             "hasRepescage": true,
-            "notes": "",
-            "schedule": {
-                "courtIds": [
-                    "court-1783636718618-0"
-                ],
-                "dates": [
-                    "2026-07-13"
-                ],
-                "timeSlots": [
-                    "19:30-22:00"
-                ]
-            }
+            "notes": ""
         },
         {
             "phaseNumber": 2,
-            "name": "Castello",
+            "name": "Gold",
             "type": "knockout",
             "branch": "qualified",
             "qualifiedGoTo": "",
@@ -110,14 +99,14 @@
             "matchRules": {
                 "numSets": 1,
                 "timePerSetMinutes": 15,
-                "setupTimeMinutes": 1,
+                "setupTimeMinutes": 0,
                 "winScore": 21,
                 "maxTimeoutsPerSet": 1
             }
         },
         {
             "phaseNumber": 3,
-            "name": "gironcino",
+            "name": "Silver",
             "type": "groups",
             "branch": "eliminated",
             "qualifiedGoTo": "",
@@ -127,9 +116,10 @@
             "hasRepescage": false,
             "notes": "Creata con il motore automatico (squadre reali)",
             "matchRules": {
-                "numSets": 1,
                 "timePerSetMinutes": 15,
-                "setupTimeMinutes": 1
+                "setupTimeMinutes": 1,
+                "winScore": 21,
+                "maxTimeoutsPerSet": 1
             }
         }
     ],
@@ -190,11 +180,11 @@
         {
             "id": "a6cbfe7b2dab1b80",
             "title": "Iscrizione ufficiale al torneo",
-            "content": "<p>Per completare l'iscrizione ufficiale sarà necessario recarsi presso il Chiringhito, situato all’ingresso dell’Alpàa, ed effettuare il pagamento della quota di partecipazione.\n\nAl momento dell’iscrizione verranno consegnati il kit del torneo e i relativi coupon.\n\nL’iscrizione e il ritiro del materiale dovranno essere effettuati prima dell’inizio del torneo oppure comunque prima dell’inizio del proprio girone.<\/p>",
+            "content": "Per completare l'iscrizione ufficiale sarà necessario recarsi presso il Chiringhito, situato all’ingresso dell’Alpàa, ed effettuare il pagamento della quota di partecipazione.\n\nAl momento dell’iscrizione verranno consegnati il kit del torneo e i relativi coupon.\n\nL’iscrizione e il ritiro del materiale dovranno essere effettuati prima dell’inizio del torneo oppure comunque prima dell’inizio del proprio girone.",
             "imageFile": "data\/uploads\/news-e06963e4aa06950c.png",
             "published": false,
             "createdAt": "2026-07-10T00:38:26+02:00",
-            "updatedAt": "2026-07-15T19:52:58+00:00",
+            "updatedAt": "2026-07-13T22:58:14+02:00",
             "publishedAt": "2026-07-10T00:38:26+02:00"
         },
         {
@@ -211,21 +201,31 @@
             "id": "6b2a9538d5789188",
             "title": "Girone A: Prina Colada e Spingere avanti tutta",
             "content": "Si chiude il Girone A con Prina Colada al primo posto a punteggio pieno (3 vittorie su 3) e Spingere in seconda posizione con 2 successi e una sola sconfitta. Le due formazioni conquistano così l'accesso alla fase Gold del torneo.\n\nDovranno invece passare dal Girone Perdenti Finché beach non ci separi e Ginocchia disperse, che avranno comunque l'opportunità di continuare il proprio percorso e giocarsi le proprie chance nelle prossime sfide.\n\nComplimenti a tutte le squadre per l'impegno e lo spettacolo offerto in questa prima fase del torneo.",
-            "imageFile": "",
+            "imageFile": "data\/uploads\/news-e970311df60c8e9d.jpg",
             "published": true,
             "createdAt": "2026-07-13T22:57:50+02:00",
-            "updatedAt": "2026-07-13T22:57:50+02:00",
+            "updatedAt": "2026-07-14T11:19:14+02:00",
             "publishedAt": "2026-07-13T22:57:50+02:00"
         },
         {
-            "id": "d4fb12787c56a55f",
-            "title": "Test",
-            "content": "Test",
+            "id": "a43c335ce5195ce5",
+            "title": "Foto del torneo",
+            "content": "https:\/\/drive.google.com\/drive\/folders\/1AE-mOt4MLM-EXE7FM0nGYBNhZWhqNoTP?usp=drive_link",
             "imageFile": "",
             "published": true,
-            "createdAt": "2026-07-13T21:03:31+00:00",
-            "updatedAt": "2026-07-13T21:03:31+00:00",
-            "publishedAt": "2026-07-13T21:03:31+00:00"
+            "createdAt": "2026-07-14T16:37:56+02:00",
+            "updatedAt": "2026-07-15T13:12:52+02:00",
+            "publishedAt": "2026-07-14T16:37:56+02:00"
+        },
+        {
+            "id": "3b28891355c4d84f",
+            "title": "Giuli-Alby, Double B e Dustinucci volano alla fase successiva",
+            "content": "Si chiude il Girone B con il dominio di Giuli-Alby, che conquista il primo posto a punteggio pieno con 4 vittorie su 4. Alle loro spalle si qualificano anche Double B, autori di un ottimo percorso da 3 successi, e Dustinucci, che riescono a conquistare il terzo e ultimo pass disponibile per la fase successiva.\n\nSi fermano invece ai gironi I nonni del buco e TuneSquad, che continueranno il torneo nel Girone Perdenti.",
+            "imageFile": "",
+            "published": true,
+            "createdAt": "2026-07-14T22:40:03+02:00",
+            "updatedAt": "2026-07-14T22:40:03+02:00",
+            "publishedAt": "2026-07-14T22:40:03+02:00"
         }
     ],
     "autosave": {

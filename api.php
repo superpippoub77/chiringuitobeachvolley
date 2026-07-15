@@ -1805,7 +1805,7 @@ function balancedGroupDistribution(array $teams, int $groupCount): array {
 /**
  * Crea seeding bilanciato per knockout
  * Le squadre più forti vengono posizionate negli incroci opposti (top 8)
- * per garantire partite competitive
+ * per garantire partite competitive: 1vs8, 2vs7, 3vs6, 4vs5
  */
 function balancedKnockoutSeeding(array $teams): array {
     // Ordina squadre per peso (decrescente)
@@ -1814,40 +1814,16 @@ function balancedKnockoutSeeding(array $teams): array {
         return getTeamWeight($b) <=> getTeamWeight($a);
     });
     
-    // Genera seeding bilanciato: 1vs8, 4vs5, 2vs7, 3vs6
+    // Genera seeding bilanciato: 1vs8, 2vs7, 3vs6, 4vs5
     // Questo garantisce che le squadre più forti affrontino quelle più deboli
     $seeding = [];
     $count = count($sortedTeams);
     
-    if ($count >= 2) {
-        // QF1: 1° vs ultimo
+    // Crea tutte le coppie seguendo la formula: i-esimo vs (count-i)-esimo
+    for ($i = 0; $i < (int)($count / 2); $i++) {
         $seeding[] = [
-            'team1' => $sortedTeams[0]['id'],
-            'team2' => $sortedTeams[$count - 1]['id']
-        ];
-    }
-    
-    if ($count >= 4) {
-        // QF2: 3° vs penultimo
-        $seeding[] = [
-            'team1' => $sortedTeams[2]['id'],
-            'team2' => $sortedTeams[$count - 2]['id']
-        ];
-    }
-    
-    if ($count >= 6) {
-        // QF3: 2° vs terzultimo
-        $seeding[] = [
-            'team1' => $sortedTeams[1]['id'],
-            'team2' => $sortedTeams[$count - 3]['id']
-        ];
-    }
-    
-    if ($count >= 8) {
-        // QF4: 4° vs quartultimo
-        $seeding[] = [
-            'team1' => $sortedTeams[3]['id'],
-            'team2' => $sortedTeams[$count - 4]['id']
+            'team1' => $sortedTeams[$i]['id'],
+            'team2' => $sortedTeams[$count - 1 - $i]['id']
         ];
     }
     
@@ -2300,8 +2276,8 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
  *    Questo combacia con il campo "teamsAdvance" salvato in config.json (es. "2,1,2,2"),
  *    che permette gironi con un numero diverso di qualificati.
  */
-function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdvancePerGroup = 2): array {
-    error_log("🔍 DEBUG getTeamsFromPhaseBranch: START sourcePhaseNumber=$sourcePhaseNumber, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup));
+function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdvancePerGroup = 2, int $sortCriterion = 1): array {
+    error_log("🔍 DEBUG getTeamsFromPhaseBranch: START sourcePhaseNumber=$sourcePhaseNumber, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", sortCriterion=$sortCriterion");
     
     $phaseIdx = array_search($sourcePhaseNumber, array_column($state['phases'] ?? [], 'phaseNumber'), true);
     error_log("🔍 DEBUG getTeamsFromPhaseBranch: phaseIdx=$phaseIdx");
@@ -2370,6 +2346,63 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                 }
             }
             $groupIdx++;
+        }
+        
+        // 🆕 ORDINAMENTO: applica il criterio scelto (1=media, 2=%, 3=media+quoziente+diff)
+        if (!empty($qualified)) {
+            $qualifiedWithStats = [];
+            foreach ($standings as $g) {
+                foreach ($g['rows'] as $row) {
+                    if (in_array($row['teamId'], $qualified, true)) {
+                        $qualifiedWithStats[] = [
+                            'teamId' => $row['teamId'],
+                            'points' => $row['points'] ?? 0,
+                            'diff' => $row['diff'] ?? 0,
+                            'scored' => $row['scored'] ?? 0,
+                            'conceded' => $row['conceded'] ?? 0,
+                            'played' => $row['played'] ?? 0
+                        ];
+                    }
+                }
+            }
+            
+            // Ordina in base al criterio scelto
+            usort($qualifiedWithStats, function($a, $b) use ($sortCriterion) {
+                if ($sortCriterion === 2) {
+                    // Opzione 2: % Vittorie (points/2 / played)
+                    $winPercentA = ($a['played'] > 0) ? (($a['points'] / 2) / $a['played']) : 0;
+                    $winPercentB = ($b['played'] > 0) ? (($b['points'] / 2) / $b['played']) : 0;
+                    if ($winPercentA !== $winPercentB) return ($winPercentB <=> $winPercentA);
+                    // Spareggio: diff
+                    if ($a['diff'] !== $b['diff']) return ($b['diff'] <=> $a['diff']);
+                    return ($b['points'] <=> $a['points']);
+                } elseif ($sortCriterion === 3) {
+                    // Opzione 3: Media + Quoziente + Diff
+                    $mediaA = ($a['played'] > 0) ? ($a['points'] / $a['played']) : 0;
+                    $mediaB = ($b['played'] > 0) ? ($b['points'] / $b['played']) : 0;
+                    if ($mediaA !== $mediaB) return ($mediaB <=> $mediaA);
+                    $quozienteA = ($a['conceded'] > 0) ? ($a['scored'] / $a['conceded']) : 0;
+                    $quozienteB = ($b['conceded'] > 0) ? ($b['scored'] / $b['conceded']) : 0;
+                    if ($quozienteA !== $quozienteB) return ($quozienteB <=> $quozienteA);
+                    if ($a['diff'] !== $b['diff']) return ($b['diff'] <=> $a['diff']);
+                    return ($b['points'] <=> $a['points']);
+                } else {
+                    // Opzione 1 (default): Media punti per partita
+                    $mediaA = ($a['played'] > 0) ? ($a['points'] / $a['played']) : 0;
+                    $mediaB = ($b['played'] > 0) ? ($b['points'] / $b['played']) : 0;
+                    if ($mediaA !== $mediaB) return ($mediaB <=> $mediaA);
+                    $diffPerPartitaA = ($a['played'] > 0) ? ($a['diff'] / $a['played']) : 0;
+                    $diffPerPartitaB = ($b['played'] > 0) ? ($b['diff'] / $b['played']) : 0;
+                    if ($diffPerPartitaA !== $diffPerPartitaB) return ($diffPerPartitaB <=> $diffPerPartitaA);
+                    $pfPerPartitaA = ($a['played'] > 0) ? ($a['scored'] / $a['played']) : 0;
+                    $pfPerPartitaB = ($b['played'] > 0) ? ($b['scored'] / $b['played']) : 0;
+                    return ($pfPerPartitaB <=> $pfPerPartitaA);
+                }
+            });
+            
+            // Ritorna solo i teamId ordinati
+            $qualified = array_map(fn($q) => $q['teamId'], $qualifiedWithStats);
+            error_log("🔍 DEBUG getTeamsFromPhaseBranch: Sorted qualified by criterion $sortCriterion");
         }
         
         error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated) . ", complete=" . ($complete ? 'true' : 'false'));
@@ -2457,30 +2490,37 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
  * diventano un "bye": chi le incontra passa automaticamente il turno.
  */
 function genericBalancedSeeding(array $teams, int $bracketSize): array {
-    // 🔧 MANTIENI L'ORDINE DI INPUT: le squadre arrivano dalla classifica girone
-    // (es. 2 da A, 3 da B, 3 da C), quindi rispetta quest'ordine per il seeding.
-    // NON riordinare per skill level, altrimenti rompi il ranking della classifica!
-    $sorted = $teams;
-
-    // Ordine di seeding standard (1 contro l'ultimo, 4 contro il quintultimo, ecc.)
-    $order = [1];
-    while (count($order) < $bracketSize) {
-        $n = count($order) * 2 + 1;
-        $next = [];
-        foreach ($order as $s) {
-            $next[] = $s;
-            $next[] = $n - $s;
-        }
-        $order = $next;
-    }
-
+    // 🔧 FORMULA CORRETTA: 1 vs ultimo, 2 vs penultimo, 3 vs terzultimo, etc.
+    // Le squadre arrivano già ordinate dalla classifica girone (1°, 2°, 3°...)
+    // In caso di bye (squadre < bracketSize), le squadre più forti ricevono bye
+    
+    $n = count($teams);
     $pairs = [];
+    
+    // Se non ci sono squadre, return vuoto
+    if ($n < 1) return $pairs;
+    
+    // Se bracket è più grande del numero di squadre, aggiungi bye
+    $totalSlots = 0;
     for ($i = 0; $i < $bracketSize; $i += 2) {
-        $teamA = $sorted[$order[$i] - 1] ?? null;
-        $teamB = $sorted[$order[$i + 1] - 1] ?? null;
-        $pairs[] = ['team1' => $teamA['id'] ?? null, 'team2' => $teamB['id'] ?? null];
+        $totalSlots++;
     }
-
+    
+    // Crea coppie con formula: i vs (n - 1 - i)
+    for ($i = 0; $i < $bracketSize; $i += 2) {
+        $idx1 = $i;
+        $idx2 = $bracketSize - 1 - $i;
+        
+        $teamA = ($idx1 < $n) ? $teams[$idx1] : null;
+        $teamB = ($idx2 < $n && $idx2 !== $idx1) ? $teams[$idx2] : null;
+        
+        // Se è un bye (una squadra non esiste), segna team2 come null
+        $pairs[] = [
+            'team1' => $teamA['id'] ?? null,
+            'team2' => $teamB['id'] ?? null
+        ];
+    }
+    
     return $pairs;
 }
 
@@ -3883,6 +3923,20 @@ if ($action === 'admin_state' && $method === 'GET') {
     // o mostrava uno snapshot vecchio, mentre quella pubblica era sempre corretta.
     // Lo calcoliamo qui fresco, sugli stessi dati reali appena normalizzati sopra.
     $state['standings'] = computeStandings($state);
+    
+    // ✅ AGGIUNTO: Calcola standings per OGNI fase di tipo 'groups'
+    // (esattamente come fa publicState()) così admin.html può visualizzarle
+    if (isset($state['phases']) && is_array($state['phases'])) {
+        foreach ($state['phases'] as &$phase) {
+            if (($phase['type'] ?? '') === 'groups') {
+                $phaseNumber = $phase['phaseNumber'] ?? null;
+                if ($phaseNumber !== null) {
+                    $phase['standings'] = computeStandingsForPhase($state, $phaseNumber);
+                }
+            }
+        }
+        unset($phase);
+    }
     
     // Per admin: ritorna LO STATO COMPLETO, non filtrato
     jsonResponse(200, ['ok' => true, 'data' => $state]);
@@ -5589,6 +5643,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
     $teamSource = (string)($body['teamSource'] ?? 'phase');
     $sourcePhaseNumber = (int)($body['sourcePhaseNumber'] ?? 0);
     $sourceBranch = (string)($body['sourceBranch'] ?? 'qualified');
+    $sortCriterion = (int)($body['sortCriterion'] ?? 1); // 1=media, 2=%, 3=media+quoziente+diff
     // 🔧 Compatibilità con config.json: "teamsAdvance" può essere un numero singolo
     // (stesso numero di qualificati per ogni girone) oppure una stringa tipo "2,1,2,2"
     // (numero diverso per ogni girone, come già usato nella Fase 1 esistente).
@@ -5635,7 +5690,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         }
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $teamsAdvancePerGroup, $numGroups, $overwrite, $preservedMatchRules) {
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $overwrite, $preservedMatchRules) {
         ensurePhases($state);
 
         $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
@@ -5676,8 +5731,8 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                 error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", teamsAdvanceForCalculation=" . json_encode($teamsAdvanceForCalculation));
             }
             
-            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation);
-            error_log("🔍 DEBUG admin_create_phase: branchResult qualified=" . count($branchResult['qualified'] ?? []) . ", eliminated=" . count($branchResult['eliminated'] ?? []) . ", complete=" . ($branchResult['complete'] ? 'true' : 'false'));
+            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation, $sortCriterion);
+            error_log("🔍 DEBUG admin_create_phase: branchResult qualified=" . count($branchResult['qualified'] ?? []) . ", eliminated=" . count($branchResult['eliminated'] ?? []) . ", complete=" . ($branchResult['complete'] ? 'true' : 'false') . ", sortCriterion=$sortCriterion");
             if (!empty($branchResult['error'])) {
                 return ['ok' => false, 'error' => $branchResult['error']];
             }

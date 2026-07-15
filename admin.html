@@ -4455,7 +4455,7 @@
     }
 
     function openScoreboard(matchId) {
-      window.open(`index.html?matchId=${matchId}`, 'scoreboard', 'width=1200,height=800');
+      window.location.href = `tablescore.html?matchId=${matchId}&phase=${currentSelectedPhaseNumber}`;
     }
 
     async function saveMatch(id) {

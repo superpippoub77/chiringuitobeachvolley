@@ -8569,6 +8569,88 @@ if ($action === 'admin_delete_gallery' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'gallery' => $config['gallery']]);
 }
 
+// ==================== TABLESCORE / MATCH SCORING ====================
+
+if ($action === 'admin_get_match' && $method === 'GET') {
+    requireAdmin();
+    $matchId = $_GET['matchId'] ?? null;
+    $phase = $_GET['phase'] ?? null;
+    
+    if (!$matchId || !$phase) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+        return;
+    }
+    
+    $tournament = readJsonFile(__DIR__ . '/data/tournament.json') ?? [];
+    $phases = $tournament['phases'] ?? [];
+    $match = null;
+    
+    foreach ($phases as $p) {
+        if (($p['phaseNumber'] ?? null) == $phase) {
+            $matches = $p['matches'] ?? [];
+            foreach ($matches as $m) {
+                if (($m['id'] ?? null) === $matchId) {
+                    $match = $m;
+                    break 2;
+                }
+            }
+        }
+    }
+    
+    if (!$match) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+        return;
+    }
+    
+    jsonResponse(200, ['ok' => true, 'match' => $match]);
+}
+
+if ($action === 'admin_update_match_score' && $method === 'POST') {
+    requireAdmin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['matchId']) || empty($data['phase'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+        return;
+    }
+    
+    $matchId = $data['matchId'];
+    $phase = $data['phase'];
+    $sets = $data['sets'] ?? [];
+    $team1Timeouts = $data['team1Timeouts'] ?? 0;
+    $team2Timeouts = $data['team2Timeouts'] ?? 0;
+    
+    $tournament = readJsonFile(__DIR__ . '/data/tournament.json') ?? [];
+    $phases = $tournament['phases'] ?? [];
+    $updated = false;
+    
+    foreach ($phases as &$p) {
+        if (($p['phaseNumber'] ?? null) == $phase) {
+            $matches = $p['matches'] ?? [];
+            foreach ($matches as &$match) {
+                if (($match['id'] ?? null) === $matchId) {
+                    $match['sets'] = $sets;
+                    $match['team1Timeouts'] = $team1Timeouts;
+                    $match['team2Timeouts'] = $team2Timeouts;
+                    $match['updatedAt'] = date('c');
+                    $updated = true;
+                    break 2;
+                }
+            }
+            unset($match);
+        }
+    }
+    unset($p);
+    
+    if (!$updated) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+        return;
+    }
+    
+    writeJsonFile(__DIR__ . '/data/tournament.json', $tournament);
+    jsonResponse(200, ['ok' => true, 'message' => 'Punteggi salvati']);
+}
+
 // ==================== BACKUP E RIPRISTINO ====================
 
 if ($action === 'admin_export_backup' && $method === 'GET') {

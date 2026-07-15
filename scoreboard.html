@@ -1684,13 +1684,15 @@
             statusClass = 'status-online';
           }
           
+          const resultHTML = `${match.score1 ?? '-'} : ${match.score2 ?? '-'}`;
+          
           html += `<tr style="border-bottom: 1px solid #eee">
             <td style="padding: 8px; text-align: center"><span style="font-size: 14px">${statusIcon}</span></td>
             <td style="padding: 8px">${dateLabel}</td>
             <td style="padding: 8px">${timeLabel}</td>
             <td style="padding: 8px">${courtLabel}</td>
             <td style="padding: 8px">${t1} - ${t2}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} : ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px; text-align: center">${resultHTML}</td>
           </tr>`;
         });
 
@@ -1958,10 +1960,10 @@
     function renderGironiMatches() {
       const c = document.getElementById('gironi-matches-content');
       if (!c) return;
-      // 🔧 FIX: prima leggeva sempre da phases[0].matches, quindi il Calendario
-      // mostrava sempre e solo la Fase 1 anche selezionando un'altra fase.
+      // 🔧 FIX: carica partite dalla fase selezionata e assegna il nome corretto
       const activePhase = getActivePublicPhase();
       const groupMatches = activePhase?.matches || [];
+      const phaseName = activePhase?.name || ('Fase ' + activePhase?.phaseNumber);
 
       if (!groupMatches.length) {
         c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
@@ -2016,7 +2018,7 @@
 
       c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
-        const phaseName = m.phaseName || 'Fase 1 - Gironi';
+        const resultHTML = `${m.score1 ?? '-'} : ${m.score2 ?? '-'}`;
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
           <td>${m.group || m.groupName}</td>
@@ -2024,7 +2026,7 @@
           <td>${esc(m.startTime)} - ${esc(m.endTime)}</td>
           <td>${esc(phaseName)}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
-          <td>${m.score1 ?? '-'} : ${m.score2 ?? '-'}</td>
+          <td>${resultHTML}</td>
         </tr>`;
       }).join('')}</tbody></table>`;
     }
@@ -2723,94 +2725,8 @@
       backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
     }
 
-    // ==================== GALLERY FUNCTIONS ====================
-    // Temporaneamente disabilitato - da rifare
-    /*
-    let galleryData = [];
-    let currentGalleryIndex = 0;
-
-    async function loadGallery() {
-      try {
-        const response = await fetch(`${API}?action=public_get_gallery`);
-        const data = await response.json();
-
-        if (data.ok && data.gallery && data.gallery.length > 0) {
-          galleryData = data.gallery;
-          document.getElementById('gallerySection').style.display = 'block';
-          renderGallerySlide();
-          
-          // Auto-rotate every 5 seconds
-          setInterval(() => {
-            currentGalleryIndex = (currentGalleryIndex + 1) % galleryData.length;
-            renderGallerySlide();
-          }, 5000);
-        } else {
-          document.getElementById('gallerySection').style.display = 'none';
-        }
-      } catch (e) {
-        console.error('Error loading gallery:', e);
-        document.getElementById('gallerySection').style.display = 'none';
-      }
-    }
-
-    function renderGallerySlide() {
-      if (galleryData.length === 0) return;
-      
-      const item = galleryData[currentGalleryIndex];
-      const slider = document.getElementById('gallerySlider');
-      
-      slider.innerHTML = `
-        <div style="display: flex; gap: 12px; width: 100%; flex-shrink: 0">
-          <img src="${esc(item.imageFile)}" style="width: 100%; max-height: 280px; object-fit: cover; border-radius: 8px; cursor: pointer" onclick="showGalleryDetail(${currentGalleryIndex})">
-          <div style="flex: 0 0 200px; padding: 12px; background: white; border-radius: 8px; display: flex; flex-direction: column; justify-content: center">
-            <h4 style="margin: 0 0 8px 0; color: #ff9800; font-size: 16px">${esc(item.title)}</h4>
-            <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.4">${esc(item.description || '')}</p>
-          </div>
-        </div>
-      `;
-    }
-
-    function nextGallerySlide() {
-      currentGalleryIndex = (currentGalleryIndex + 1) % galleryData.length;
-      renderGallerySlide();
-    }
-
-    function prevGallerySlide() {
-      currentGalleryIndex = (currentGalleryIndex - 1 + galleryData.length) % galleryData.length;
-      renderGallerySlide();
-    }
-
-    function showGalleryDetail(index) {
-      if (!galleryData[index]) return;
-      
-      const item = galleryData[index];
-      const backdrop = document.getElementById('modalBackdrop');
-      const titleNode = backdrop.querySelector('h2');
-      const bodyNode = backdrop.querySelector('.modal-body');
-      const okBtn = backdrop.querySelector('button[style*="background"]');
-      const closeBtn = backdrop.querySelector('button:last-child');
-      
-      const date = new Date(item.publishedAt || item.createdAt);
-      const dateStr = date.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
-      
-      titleNode.textContent = item.title;
-      bodyNode.innerHTML = `
-        <img src="${esc(item.imageFile)}" style="width: 100%; max-height: 500px; object-fit: cover; border-radius: 8px; margin-bottom: 12px">
-        <div style="font-size: 12px; color: #999; margin-bottom: 10px">${dateStr}</div>
-        <div style="line-height: 1.6; color: #333">${esc(item.description || '')}</div>
-      `;
-      backdrop.classList.remove('hidden');
-      
-      const close = () => backdrop.classList.add('hidden');
-      if (okBtn) okBtn.onclick = close;
-      if (closeBtn) closeBtn.onclick = close;
-      backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
-    }
-    */
-
-    // Carica notizie e gallery all'avvio
+    // Carica notizie all'avvio
     loadNews();
-    // loadGallery(); // Temporaneamente disabilitato
   </script>
 </body>
 

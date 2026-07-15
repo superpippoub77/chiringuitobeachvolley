@@ -914,9 +914,35 @@ function getPhase(array &$state, int $phaseIdx): ?array {
 }
 
 /**
+ * Risolve le regole di gioco (set, durate, punteggio, timeout, cambi) per una
+ * fase specifica. Ogni fase può opzionalmente sovrascrivere uno o più valori
+ * tramite $configPhase['matchRules'][chiave]; le chiavi non presenti (o vuote)
+ * ricadono sul default configurato in Impostazioni → Torneo.
+ * Usata ovunque si calcoli la durata di una partita per la schedulazione, così
+ * i calcoli seguono il criterio della fase e, se non configurati, i default.
+ */
+function resolvePhaseMatchRules(array $tournamentConfig, ?array $configPhase): array {
+    $keys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions'];
+    $defaults = [
+        'numSets' => 1, 'timePerSetMinutes' => 25, 'setupTimeMinutes' => 5,
+        'winScore' => 21, 'maxScore' => 25, 'maxTimeoutsPerSet' => 1, 'maxSubstitutions' => 0
+    ];
+    $rules = [];
+    $overrides = $configPhase['matchRules'] ?? [];
+    foreach ($keys as $k) {
+        if (isset($overrides[$k]) && $overrides[$k] !== '' && $overrides[$k] !== null) {
+            $rules[$k] = (int)$overrides[$k];
+        } else {
+            $rules[$k] = (int)($tournamentConfig[$k] ?? $defaults[$k]);
+        }
+    }
+    return $rules;
+}
+
+/**
  * Assegna automaticamente date e orari alle partite dai slot disponibili
  */
-function scheduleMatches(array &$state, array $matches): array {
+function scheduleMatches(array &$state, array $matches, ?array $configPhase = null): array {
     error_log('🔧 scheduleMatches(): INIZIO - Matches totali: ' . count($matches));
     
     $config = readConfig(); // Leggi da config.json
@@ -931,9 +957,13 @@ function scheduleMatches(array &$state, array $matches): array {
         return $matches;
     }
     
-    $timePerSet = (int)($config['tournament']['timePerSetMinutes'] ?? 25);
-    $setupTime = (int)($config['tournament']['setupTimeMinutes'] ?? 5);
-    $numSets = (int)($config['tournament']['numSets'] ?? 1);
+    // 🔧 Le regole della partita (set, durata, prep) vengono risolte per la fase
+    // specifica: se la fase ha un override in matchRules lo usa, altrimenti
+    // ricade sul default configurato per il torneo.
+    $phaseRules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase);
+    $timePerSet = $phaseRules['timePerSetMinutes'];
+    $setupTime = $phaseRules['setupTimeMinutes'];
+    $numSets = $phaseRules['numSets'];
     $matchDuration = ($timePerSet * $numSets) + $setupTime; // Es: 25*1 + 5 = 30 minuti
     
     error_log('🔧 scheduleMatches(): Match duration = ' . $matchDuration . ' min (setup=' . $setupTime . ', sets=' . $numSets . 'x' . $timePerSet . ')');
@@ -4294,6 +4324,22 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
         $phase['numTeams'] = (int)($body['numTeams'] ?? $phase['numTeams'] ?? 8);
         $phase['hasLosersPath'] = (bool)($body['hasLosersPath'] ?? false);
     }
+
+    // 🔧 Regole di gioco specifiche della fase: set, durata, preparazione,
+    // punteggio, timeout, cambi. Ogni chiave è opzionale — se assente o vuota
+    // in questa fase, si usa il default configurato per il torneo (vedi
+    // resolvePhaseMatchRules()). Salviamo solo le chiavi effettivamente
+    // valorizzate, così i campi lasciati vuoti tornano davvero al default.
+    if (isset($body['matchRules']) && is_array($body['matchRules'])) {
+        $allowedKeys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions'];
+        $mr = [];
+        foreach ($allowedKeys as $k) {
+            if (isset($body['matchRules'][$k]) && $body['matchRules'][$k] !== '' && $body['matchRules'][$k] !== null) {
+                $mr[$k] = (int)$body['matchRules'][$k];
+            }
+        }
+        $phase['matchRules'] = $mr;
+    }
     
     $config['phases'] = $phases;
     writeConfig($config);
@@ -4397,7 +4443,7 @@ if ($action === 'admin_generate_phase' && $method === 'POST') {
             
             // Assegna automaticamente date e orari alle partite, distribuendo bene ogni squadra
             // nell'arco della giornata (vedi scheduleMatches: algoritmo a "gap" cronologico)
-            $groupMatches = scheduleMatches($state, $groupMatches);
+            $groupMatches = scheduleMatches($state, $groupMatches, $configPhase);
             
             // Converte $balancedGroups nel formato corretto per lo stato [['name' => 'A', 'teamIds' => [...]]]
             $groupsFormatted = [];
@@ -4678,8 +4724,14 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
             }
         }
 
-        // Assegna automaticamente date e orari alle nuove partite
-        $newGroupMatches = scheduleMatches($state, $newGroupMatches);
+        // Assegna automaticamente date e orari alle nuove partite, rispettando
+        // le eventuali regole di gioco specifiche di questa fase (matchRules)
+        $configForRules = readConfig();
+        $configPhaseForRules = null;
+        foreach (($configForRules['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $phaseNumber) { $configPhaseForRules = $cp; break; }
+        }
+        $newGroupMatches = scheduleMatches($state, $newGroupMatches, $configPhaseForRules);
 
         // ✅ REFACTORED: Aggiorna solo la fase, non il campo obsoleto
         $state['phases'][$phaseIdx]['matches'] = $newGroupMatches;
@@ -5091,10 +5143,16 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
         // Durata di una partita, per suddividere le fasce ampie (es. 19:30-23:00) in
         // più slot prenotabili distinti, invece di trattarle come UN unico slot.
-        $tCfg = $config['tournament'] ?? [];
-        $setupMin = (int)($tCfg['setupTimeMinutes'] ?? 5);
-        $perSetMin = (int)($tCfg['timePerSetMinutes'] ?? 25);
-        $numSets = max(1, (int)($tCfg['numSets'] ?? 1));
+        // 🔧 Usa le regole specifiche della fase (matchRules) se configurate,
+        // altrimenti ricade sui default del torneo (vedi resolvePhaseMatchRules).
+        $configPhaseForRules = null;
+        foreach (($config['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $phaseNumber) { $configPhaseForRules = $cp; break; }
+        }
+        $phaseRules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhaseForRules);
+        $setupMin = $phaseRules['setupTimeMinutes'];
+        $perSetMin = $phaseRules['timePerSetMinutes'];
+        $numSets = max(1, $phaseRules['numSets']);
         $matchDuration = max(5, $setupMin + ($perSetMin * $numSets));
 
         $timeToMinutes = function (?string $t): ?int {
@@ -5120,14 +5178,20 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                     if ($startMin === null || $endMin === null || $endMin <= $startMin) continue;
 
                     $subCount = max(1, intdiv($endMin - $startMin, $matchDuration));
+                    // 🔧 FIX: il frontend seleziona ("filterSlots") l'etichetta della fascia
+                    // GREZZA così come configurata (es. "19:30-24:00"), non il singolo
+                    // sotto-slot da {matchDuration} minuti generato qui sotto. Confrontare
+                    // il filtro con il sotto-slot (es. "19:30-19:55") faceva scartare TUTTI
+                    // gli slot di ogni fascia più lunga di una singola partita, azzerando
+                    // silenziosamente lo scheduling per qualunque fascia "ampia".
+                    $rangeLabel = ($ts['startTime'] ?? '') . '-' . ($ts['endTime'] ?? '');
                     for ($sub = 0; $sub < $subCount; $sub++) {
                         $subStart = $startMin + ($sub * $matchDuration);
                         $subEnd = $subStart + $matchDuration;
                         
                         // 🔧 FILTRO: se l'utente ha selezionato date/slot specifici, scarta gli altri
-                        $slotKey = $minutesToTime($subStart) . '-' . $minutesToTime($subEnd);
                         if (!empty($filterDates) && !in_array($avail['date'] ?? null, $filterDates, true)) continue;
-                        if (!empty($filterSlots) && !in_array($slotKey, $filterSlots, true)) continue;
+                        if (!empty($filterSlots) && !in_array($rangeLabel, $filterSlots, true)) continue;
                         
                         $allSlots[] = [
                             'courtIdx' => $courtIdx, 'dateIdx' => $dateIdx, 'slotIdx' => $rangeIdx,

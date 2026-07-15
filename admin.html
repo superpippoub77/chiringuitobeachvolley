@@ -5489,6 +5489,44 @@
             </div>
           </div>
 
+          <!-- REGOLE DI GIOCO DELLA FASE (opzionali, altrimenti default torneo) -->
+          <div class="field" style="margin-top: 16px">
+            <label style="font-weight: bold">🏐 Regole di gioco di questa fase</label>
+            <small style="color: #888; display: block; margin: 4px 0 8px; font-size: 12px">
+              Campi vuoti = usa il default di Impostazioni → Torneo. Questi valori determinano anche la durata di una partita usata per calcolare gli slot orari in "Genera Orari".
+            </small>
+            <div style="background: #f5f0e6; padding: 12px; border-radius: 4px; border-left: 4px solid #a67c3d; display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+              <div class="field">
+                <label style="font-size: 12px">Numero set da giocare</label>
+                <input type="number" id="editRuleNumSets" min="1" max="5" value="${phase.matchRules?.numSets ?? ''}" placeholder="Default: ${config.tournament?.numSets ?? 1}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Minuti durata incontro (per set)</label>
+                <input type="number" id="editRuleTimePerSet" min="5" max="120" value="${phase.matchRules?.timePerSetMinutes ?? ''}" placeholder="Default: ${config.tournament?.timePerSetMinutes ?? 25}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Minuti preparazione</label>
+                <input type="number" id="editRuleSetupTime" min="0" max="30" value="${phase.matchRules?.setupTimeMinutes ?? ''}" placeholder="Default: ${config.tournament?.setupTimeMinutes ?? 5}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Punteggio per vincere un set</label>
+                <input type="number" id="editRuleWinScore" min="15" max="30" value="${phase.matchRules?.winScore ?? ''}" placeholder="Default: ${config.tournament?.winScore ?? 21}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Punteggio massimo nel set</label>
+                <input type="number" id="editRuleMaxScore" min="15" max="50" value="${phase.matchRules?.maxScore ?? ''}" placeholder="Default: ${config.tournament?.maxScore ?? 25}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Numero timeout per set</label>
+                <input type="number" id="editRuleMaxTimeouts" min="0" max="5" value="${phase.matchRules?.maxTimeoutsPerSet ?? ''}" placeholder="Default: ${config.tournament?.maxTimeoutsPerSet ?? 1}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+              <div class="field">
+                <label style="font-size: 12px">Numero cambi consentiti</label>
+                <input type="number" id="editRuleMaxSubstitutions" min="0" max="10" value="${phase.matchRules?.maxSubstitutions ?? ''}" placeholder="Default: ${config.tournament?.maxSubstitutions ?? 0}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
+            </div>
+          </div>
+
           <div class="field" style="margin-top: 16px">
             <label>Note della Fase</label>
             <textarea id="editPhaseNotes" maxlength="500" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px; min-height: 60px">${escapeHtml(phase.notes || '')}</textarea>
@@ -5561,6 +5599,22 @@
       }
 
       updates.notes = document.getElementById('editPhaseNotes')?.value || '';
+
+      // 🔧 Regole di gioco specifiche della fase: campo vuoto = non impostato,
+      // ricade sul default del torneo (vedi resolvePhaseMatchRules lato server).
+      const readRuleField = (id) => {
+        const v = document.getElementById(id)?.value;
+        return (v === undefined || v === null || v === '') ? '' : parseInt(v);
+      };
+      updates.matchRules = {
+        numSets: readRuleField('editRuleNumSets'),
+        timePerSetMinutes: readRuleField('editRuleTimePerSet'),
+        setupTimeMinutes: readRuleField('editRuleSetupTime'),
+        winScore: readRuleField('editRuleWinScore'),
+        maxScore: readRuleField('editRuleMaxScore'),
+        maxTimeoutsPerSet: readRuleField('editRuleMaxTimeouts'),
+        maxSubstitutions: readRuleField('editRuleMaxSubstitutions')
+      };
 
       try {
         const r = await callApi('admin_update_phase', 'POST', {
@@ -6136,78 +6190,149 @@ html += `
       renderPhaseContentForSubTab();
     }
 
+    // 🔧 Risolve le regole di gioco (set, durate, punteggio, timeout, cambi)
+    // per una fase specifica, rispecchiando la stessa logica del backend
+    // (resolvePhaseMatchRules in api.php): un valore impostato in
+    // configPhase.matchRules ha priorità, altrimenti si usa il default del
+    // torneo in config.tournament.
+    function resolvePhaseMatchRules(configPhase) {
+      const tCfg = config.tournament || {};
+      const overrides = configPhase?.matchRules || {};
+      const defaults = { numSets: 1, timePerSetMinutes: 25, setupTimeMinutes: 5, winScore: 21, maxScore: 25, maxTimeoutsPerSet: 1, maxSubstitutions: 0 };
+      const keys = Object.keys(defaults);
+      const rules = {};
+      keys.forEach(k => {
+        const ov = overrides[k];
+        rules[k] = (ov !== undefined && ov !== null && ov !== '') ? Number(ov) : Number(tCfg[k] ?? defaults[k]);
+      });
+      return rules;
+    }
+
+    // 🔧 FIX: la modale "Configura Giorni e Slot" ora ragiona in termini di
+    // slot REALI da {matchDuration} minuti (stessa suddivisione del backend in
+    // admin_auto_schedule_phase), non più di fasce orarie "grezze" trattate
+    // come un unico slot. getFreeGranularSlots() restituisce l'elenco preciso
+    // degli slot ancora liberi (opzionalmente filtrati per data), usato sia
+    // per proporre solo i giorni con slot disponibili sia per l'anteprima a
+    // mini-tag mostrata dopo la selezione dei giorni. La durata della partita
+    // viene risolta per la fase indicata (configPhase), quindi fasi diverse
+    // con regole diverse producono slot di lunghezza diversa.
+    function getFreeGranularSlots(selectedDates, configPhase) {
+      const courts = config.schedule?.courts || [];
+      const phaseRules = resolvePhaseMatchRules(configPhase);
+      const setupMin = phaseRules.setupTimeMinutes;
+      const perSetMin = phaseRules.timePerSetMinutes;
+      const numSets = Math.max(1, phaseRules.numSets);
+      const matchDuration = Math.max(5, setupMin + (perSetMin * numSets));
+
+      function timeToMinutes(t) {
+        if (!t || !t.includes(':')) return null;
+        const parts = t.split(':').map(Number);
+        return parts[0] * 60 + parts[1];
+      }
+      function minutesToTime(mins) {
+        mins = ((mins % 1440) + 1440) % 1440;
+        const h = Math.floor(mins / 60), m = mins % 60;
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      }
+
+      // Slot già occupati da QUALSIASI partita di QUALSIASI fase - stessa
+      // chiave (campo, data, orario di inizio reale) usata dal backend.
+      const usedKeys = new Set();
+      (state.phases || []).forEach(ph => {
+        (ph.matches || []).forEach(m => {
+          if (m.courtIdx !== undefined && m.courtIdx !== null && m.date && m.startTime) {
+            usedKeys.add(m.courtIdx + '_' + m.date + '_' + m.startTime);
+          }
+        });
+      });
+
+      const result = [];
+      courts.forEach((court, courtIdx) => {
+        (court.availability || []).forEach(av => {
+          if (selectedDates && selectedDates.length && !selectedDates.includes(av.date)) return;
+          (av.timeSlots || []).forEach(ts => {
+            const startMin = timeToMinutes(ts.startTime);
+            const endMin = timeToMinutes(ts.endTime);
+            if (startMin === null || endMin === null || endMin <= startMin) return;
+
+            const rangeLabel = `${ts.startTime}-${ts.endTime}`;
+            const subCount = Math.max(1, Math.floor((endMin - startMin) / matchDuration));
+            for (let sub = 0; sub < subCount; sub++) {
+              const subStart = startMin + (sub * matchDuration);
+              const startTimeStr = minutesToTime(subStart);
+              const key = courtIdx + '_' + av.date + '_' + startTimeStr;
+              if (usedKeys.has(key)) continue;
+
+              result.push({
+                date: av.date,
+                courtIdx,
+                courtName: court.courtName || `Campo ${courtIdx + 1}`,
+                startTime: startTimeStr,
+                endTime: minutesToTime(subStart + matchDuration),
+                rangeLabel
+              });
+            }
+          });
+        });
+      });
+
+      result.sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+      return result;
+    }
+
     async function autoSchedulePhase(phaseNumber) {
       const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
       if (!phase) return;
       
       const configPhase = (config.phases || []).find(p => p.phaseNumber === phaseNumber);
       const schedule = configPhase?.schedule || { courtIds: [], dates: [], timeSlots: [] };
-      const allCourts = (config.schedule?.courts || []).map(c => ({ id: c.courtId, name: c.courtName }));
+      const multiCourt = (config.schedule?.courts || []).length > 1;
+
       const allDates = new Set();
-      const allTimeSlots = new Set();
       (config.schedule?.courts || []).forEach(court => {
-        (court.availability || []).forEach(avail => {
-          allDates.add(avail.date);
-          (avail.timeSlots || []).forEach(slot => {
-            const key = `${slot.startTime}-${slot.endTime}`;
-            allTimeSlots.add(key);
-          });
-        });
+        (court.availability || []).forEach(avail => allDates.add(avail.date));
       });
-      
-      const datesList = Array.from(allDates).sort();
-      const timeSlotsList = Array.from(allTimeSlots).sort();
-      
-      // 🔧 Calcola quali slot sono già occupati dalle partite di TUTTE le fasi
-      const usedSlots = new Set();
-      (state.phases || []).forEach(p => {
-        (p.matches || []).forEach(m => {
-          if (m.date && m.startTime && m.endTime) {
-            const slotKey = `${m.startTime}-${m.endTime}`;
-            usedSlots.add(slotKey);
-          }
-        });
-      });
-      
-      // Filtra gli slot per mostrare solo quelli liberi
-      const availableTimeSlots = timeSlotsList.filter(slot => !usedSlots.has(slot));
+      const allDatesList = Array.from(allDates).sort();
+
+      // 🔧 FIX: proponi solo i giorni che hanno ANCORA almeno uno slot reale
+      // libero, invece di elencare tutte le date configurate (anche quelle
+      // già completamente sature di altre partite).
+      const dayFreeCounts = {};
+      allDatesList.forEach(date => { dayFreeCounts[date] = getFreeGranularSlots([date], configPhase).length; });
+      const datesList = allDatesList.filter(date => dayFreeCounts[date] > 0);
+      const preselectedDates = (schedule.dates || []).filter(d => datesList.includes(d));
       
       // Conta match non-bye della fase
       const totalMatches = phase.matches?.length || 0;
       const byeMatches = phase.matches?.filter(m => m.bye).length || 0;
       const playableMatches = totalMatches - byeMatches;
       
-      // Modal per selezione giorni/slot
+      // Modal per selezione giorni, con anteprima slot reali a mini-tag
       const bodyHtml = `
-        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 400px">
+        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 400px; max-width: 520px">
           <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; border-left: 4px solid #2196F3">
             <strong>📊 Statistiche partite:</strong><br>
             Totali: ${totalMatches} | Bye: ${byeMatches} | Da giocare: <strong style="color: #d32f2f">${playableMatches}</strong>
           </div>
           
           <div>
-            <label style="font-weight: bold; display: block; margin-bottom: 8px">📅 Giornate per questa fase</label>
+            <label style="font-weight: bold; display: block; margin-bottom: 8px">📅 Giornate con slot ancora disponibili</label>
             <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px">
-              ${datesList.map(date => `
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.dates || []).includes(date) ? '#c8e6c9' : '#fff'}; border: 1px solid #ddd; border-radius: 4px">
-                  <input type="checkbox" class="phaseScheduleDate" value="${date}" ${(schedule.dates || []).includes(date) ? 'checked' : ''}>
-                  ${date}
+              ${datesList.length > 0 ? datesList.map(date => `
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${preselectedDates.includes(date) ? '#c8e6c9' : '#fff'}; border: 1px solid #ddd; border-radius: 4px">
+                  <input type="checkbox" class="phaseScheduleDate" value="${date}" ${preselectedDates.includes(date) ? 'checked' : ''}>
+                  ${date} <span style="color:#888; font-size: 12px">(${dayFreeCounts[date]} liberi)</span>
                 </label>
-              `).join('')}
+              `).join('') : '<span style="color: #d32f2f; font-weight: bold">❌ Nessun giorno ha più slot liberi!</span>'}
             </div>
           </div>
           
           <div>
-            <label style="font-weight: bold; display: block; margin-bottom: 8px">⏰ Fasce orarie disponibili (non occupate)</label>
-            <div style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px">
-              ${availableTimeSlots.length > 0 ? availableTimeSlots.map(slot => `
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 10px; background: ${(schedule.timeSlots || []).includes(slot) ? '#c8e6c9' : '#fff'}; border: 1px solid #4caf50; border-radius: 4px">
-                  <input type="checkbox" class="phaseScheduleSlot" value="${slot}" ${(schedule.timeSlots || []).includes(slot) ? 'checked' : ''}>
-                  <span style="color: #2e5d1f; font-weight: bold">${slot}</span>
-                </label>
-              `).join('') : '<span style="color: #d32f2f; font-weight: bold">❌ Nessun slot disponibile!</span>'}
+            <label style="font-weight: bold; display: block; margin-bottom: 8px">⏰ Anteprima slot reali nei giorni selezionati</label>
+            <div id="slotsPreview" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow-y: auto; padding: 8px; background: #f9f9f9; border-radius: 4px">
+              <span style="color: #888">Seleziona almeno una giornata per vedere gli slot disponibili.</span>
             </div>
-            ${usedSlots.size > 0 ? `<div style="font-size: 12px; color: #666; margin-top: 6px">📌 <strong>${usedSlots.size}</strong> fasce già occupate da altre partite</div>` : ''}
           </div>
           
           <div id="scheduleVerification" style="background: #fff3e0; padding: 10px; border-radius: 4px; border-left: 4px solid #ff9800; display: none">
@@ -6216,8 +6341,55 @@ html += `
         </div>
       `;
       
-      let selectedDates = [...(schedule.dates || [])];
-      let selectedSlots = [...(schedule.timeSlots || [])];
+      let selectedDates = [...preselectedDates];
+      let currentFreeSlots = []; // ultimo elenco di slot reali per i giorni selezionati
+
+      // Ricalcola e ridisegna l'anteprima a mini-tag ogni volta che cambiano i giorni scelti
+      function renderSlotsPreview() {
+        const previewEl = document.getElementById('slotsPreview');
+        const verDiv = document.getElementById('scheduleVerification');
+        const msgEl = document.getElementById('verificationMessage');
+
+        if (selectedDates.length === 0) {
+          previewEl.innerHTML = '<span style="color: #888">Seleziona almeno una giornata per vedere gli slot disponibili.</span>';
+          verDiv.style.display = 'none';
+          currentFreeSlots = [];
+          return;
+        }
+
+        currentFreeSlots = getFreeGranularSlots(selectedDates, configPhase);
+
+        if (currentFreeSlots.length === 0) {
+          previewEl.innerHTML = '<span style="color: #d32f2f; font-weight: bold">❌ Nessuno slot reale libero nei giorni scelti.</span>';
+        } else {
+          const byDate = {};
+          currentFreeSlots.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+          previewEl.innerHTML = Object.keys(byDate).sort().map(date => `
+            <div style="width: 100%">
+              <div style="font-size: 12px; font-weight: bold; color: #555; margin: 4px 0 2px">${date}</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px">
+                ${byDate[date].map(s => `
+                  <span style="background: #d9f1d2; border: 1px solid #4caf50; border-radius: 12px; padding: 2px 8px; font-size: 12px; color: #2e5d1f; white-space: nowrap">
+                    ${s.startTime}-${s.endTime}${multiCourt ? ' · ' + s.courtName : ''}
+                  </span>
+                `).join('')}
+              </div>
+            </div>
+          `).join('');
+        }
+
+        const totalSlots = currentFreeSlots.length;
+        if (playableMatches > totalSlots) {
+          msgEl.textContent = `⚠️ Slot insufficienti! Servono ${playableMatches}, disponibili ${totalSlots} slot reali`;
+          verDiv.style.background = '#ffebee';
+          verDiv.style.borderLeftColor = '#d32f2f';
+        } else {
+          msgEl.textContent = `✅ OK! ${playableMatches} partite in ${totalSlots} slot reali disponibili`;
+          verDiv.style.background = '#e8f5e9';
+          verDiv.style.borderLeftColor = '#2e7d32';
+        }
+        verDiv.style.display = 'block';
+      }
       
       openModal({
         title: `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
@@ -6226,36 +6398,39 @@ html += `
           { text: 'Annulla', className: 'btn', closeOnClick: true },
           { text: '✅ Genera Orari', className: 'btn btn-green', closeOnClick: false, onClick: async () => {
             selectedDates = Array.from(document.querySelectorAll('.phaseScheduleDate:checked')).map(el => el.value);
-            selectedSlots = Array.from(document.querySelectorAll('.phaseScheduleSlot:checked')).map(el => el.value);
             
-            if (selectedDates.length === 0 || selectedSlots.length === 0) {
+            if (selectedDates.length === 0) {
               const msg = document.getElementById('verificationMessage');
-              msg.textContent = '❌ Seleziona almeno una giornata e una fascia oraria!';
+              msg.textContent = '❌ Seleziona almeno una giornata!';
               document.getElementById('scheduleVerification').style.display = 'block';
               return;
             }
             
-            // Verifica automatica: numero di slot disponibili
-            const totalSlots = selectedDates.length * selectedSlots.length;
+            currentFreeSlots = getFreeGranularSlots(selectedDates, configPhase);
+            const totalSlots = currentFreeSlots.length;
             if (playableMatches > totalSlots) {
               const msg = document.getElementById('verificationMessage');
-              msg.textContent = `❌ Slot insufficienti! Servono almeno ${playableMatches} slot (${selectedDates.length} giorni × ${selectedSlots.length} fasce = ${totalSlots} slot)`;
+              msg.textContent = `❌ Slot insufficienti! Servono almeno ${playableMatches} slot, disponibili ${totalSlots} slot reali nei giorni selezionati`;
               document.getElementById('scheduleVerification').style.display = 'block';
               return;
             }
             
             const msg = document.getElementById('verificationMessage');
-            msg.innerHTML = `✅ Verificato! ${playableMatches} partite in ${totalSlots} slot disponibili`;
+            msg.innerHTML = `✅ Verificato! ${playableMatches} partite in ${totalSlots} slot reali disponibili`;
             document.getElementById('scheduleVerification').style.display = 'block';
             
             closeModal(true);
             
-            // Procedi con lo scheduling usando i giorni/slot selezionati
+            // Passa al backend tutte le fasce orarie "grezze" effettivamente
+            // coinvolte dagli slot reali dei giorni scelti: il backend
+            // ricalcola la stessa suddivisione e assegna gli orari.
+            const selectedRangeLabels = Array.from(new Set(currentFreeSlots.map(s => s.rangeLabel)));
+            
             try {
               const res = await callApi('admin_auto_schedule_phase', 'POST', { 
                 phaseNumber,
                 dates: selectedDates,
-                timeSlots: selectedSlots
+                timeSlots: selectedRangeLabels
               }, true);
               
               await refresh();
@@ -6265,7 +6440,7 @@ html += `
               } else if (res.scheduled < playable) {
                 await showInfoDialog('⚠️ Slot parzialmente assegnati', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare.`);
               } else {
-                await showInfoDialog('✅ Fatto', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare in ${selectedDates.length} giorni × ${selectedSlots.length} fasce.`);
+                await showInfoDialog('✅ Fatto', `Assegnati orari a ${res.scheduled} partite su ${playable} da giocare in ${selectedDates.length} giorni.`);
               }
             } catch (e) {
               await showInfoDialog('Errore', 'Errore nella generazione orari: ' + e.message);
@@ -6274,32 +6449,13 @@ html += `
         ]
       });
       
-      // Aggiungi listener per verificare automaticamente quando cambiano i checkbox
+      // Prima anteprima subito all'apertura, poi ricalcolo ad ogni cambio giorno
       setTimeout(() => {
-        document.querySelectorAll('.phaseScheduleDate, .phaseScheduleSlot').forEach(el => {
+        renderSlotsPreview();
+        document.querySelectorAll('.phaseScheduleDate').forEach(el => {
           el.addEventListener('change', () => {
-            const dates = Array.from(document.querySelectorAll('.phaseScheduleDate:checked')).map(e => e.value);
-            const slots = Array.from(document.querySelectorAll('.phaseScheduleSlot:checked')).map(e => e.value);
-            const totalSlots = dates.length * slots.length;
-            
-            const verDiv = document.getElementById('scheduleVerification');
-            const msgEl = document.getElementById('verificationMessage');
-            
-            if (dates.length === 0 || slots.length === 0) {
-              verDiv.style.display = 'none';
-              return;
-            }
-            
-            if (playableMatches > totalSlots) {
-              msgEl.textContent = `⚠️ Slot insufficienti! Servono ${playableMatches}, avrai ${totalSlots}`;
-              verDiv.style.background = '#ffebee';
-              verDiv.style.borderLeftColor = '#d32f2f';
-            } else {
-              msgEl.textContent = `✅ OK! ${playableMatches} partite in ${totalSlots} slot (${dates.length}gg × ${slots.length} fasce)`;
-              verDiv.style.background = '#e8f5e9';
-              verDiv.style.borderLeftColor = '#2e7d32';
-            }
-            verDiv.style.display = 'block';
+            selectedDates = Array.from(document.querySelectorAll('.phaseScheduleDate:checked')).map(e => e.value);
+            renderSlotsPreview();
           });
         });
       }, 100);

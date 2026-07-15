@@ -1630,7 +1630,7 @@
             "createdAt": "2026-07-15T20:46:19+00:00"
         },
         {
-            "id": "phase_2552c7a13ec0352d",
+            "id": "phase_5f43dff2037c8c0e",
             "phaseIdx": 2,
             "phaseNumber": 2,
             "name": "Gold",
@@ -1641,7 +1641,7 @@
             "teamSource": "phase",
             "matches": [
                 {
-                    "id": "3ae1a3e2e1bebc3e",
+                    "id": "a6e82067fda85332",
                     "label": "QF1",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1665,7 +1665,7 @@
                     "time": "16:00"
                 },
                 {
-                    "id": "f18de5bffffc29c8",
+                    "id": "b4b7f3aa5e669726",
                     "label": "QF2",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1689,7 +1689,7 @@
                     "time": "16:15"
                 },
                 {
-                    "id": "b5263a7df48f9817",
+                    "id": "141d0a06f2791e27",
                     "label": "QF3",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1713,7 +1713,7 @@
                     "time": "16:30"
                 },
                 {
-                    "id": "f5f2a0a784ab1da3",
+                    "id": "a26410f01fdc519c",
                     "label": "QF4",
                     "type": "quarterFinal",
                     "round": 1,
@@ -1737,7 +1737,7 @@
                     "time": "16:45"
                 },
                 {
-                    "id": "b82ac26b95f80b3c",
+                    "id": "8363794340cf122e",
                     "label": "SF1",
                     "type": "semiFinal",
                     "round": 2,
@@ -1759,7 +1759,7 @@
                     "time": "17:00"
                 },
                 {
-                    "id": "92b4ccc872f81dbc",
+                    "id": "a7f3e22a213a0a86",
                     "label": "SF2",
                     "type": "semiFinal",
                     "round": 2,
@@ -1781,7 +1781,7 @@
                     "time": "17:15"
                 },
                 {
-                    "id": "2a3e4b39f8d7ab4f",
+                    "id": "af362f25ecd18a3e",
                     "label": "F",
                     "type": "final",
                     "round": 3,
@@ -1803,7 +1803,7 @@
                     "time": "17:30"
                 },
                 {
-                    "id": "928d2f4d3c316bc0",
+                    "id": "ab29282924d7a6ac",
                     "label": "3P",
                     "type": "thirdPlace",
                     "team1": null,
@@ -1824,18 +1824,19 @@
             ],
             "groups": [],
             "standings": [],
-            "createdAt": "2026-07-15T21:33:04+00:00",
+            "createdAt": "2026-07-15T21:39:50+00:00",
             "matchRules": {
                 "numSets": 1,
                 "timePerSetMinutes": 15,
                 "setupTimeMinutes": 0,
                 "winScore": 21,
                 "maxTimeoutsPerSet": 1
-            }
+            },
+            "sortCriterion": 3
         }
     ],
     "meta": {
-        "lastUpdated": "2026-07-15T21:33:31+00:00"
+        "lastUpdated": "2026-07-15T21:39:59+00:00"
     },
     "currentPhaseIdx": 1
 }

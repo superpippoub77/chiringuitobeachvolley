@@ -5841,6 +5841,68 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             }
             unset($m);
             $newPhase['matches'] = $matches;
+            
+            // 🆕 Salva il criterio di ordinamento utilizzato per il seeding
+            $newPhase['sortCriterion'] = $sortCriterion;
+            
+            // 🆕 Popola gli standings con le squadre ordinate come nel seeding
+            // (serve per mostrare il seeding nel scoreboard pubblico)
+            if ($teamSource === 'phase') {
+                $sourcePhase = array_values(array_filter($state['phases'], fn($p) => ($p['phaseNumber'] ?? null) === $sourcePhaseNumber))[0] ?? null;
+                if ($sourcePhase && !empty($sourcePhase['standings'])) {
+                    // Raccogli tutte le statistiche delle squadre ordinate
+                    $standings = $sourcePhase['standings'];
+                    $seededTeams = [];
+                    
+                    // Estrai le squadre da $standings, ordinate secondo il criterio
+                    foreach ($standings as $g) {
+                        foreach ($g['rows'] as $row) {
+                            if (in_array($row['teamId'], $teamIds, true)) {
+                                $seededTeams[] = $row;
+                            }
+                        }
+                    }
+                    
+                    // Ordina secondo il criterio scelto
+                    usort($seededTeams, function($a, $b) use ($sortCriterion) {
+                        if ($sortCriterion === 2) {
+                            // Opzione 2: % Vittorie
+                            $winPercentA = ($a['played'] ?? 0) > 0 ? (($a['points'] ?? 0 / 2) / ($a['played'] ?? 0)) : 0;
+                            $winPercentB = ($b['played'] ?? 0) > 0 ? (($b['points'] ?? 0 / 2) / ($b['played'] ?? 0)) : 0;
+                            if ($winPercentA !== $winPercentB) return ($winPercentB <=> $winPercentA);
+                            if (($b['diff'] ?? 0) !== ($a['diff'] ?? 0)) return (($b['diff'] ?? 0) <=> ($a['diff'] ?? 0));
+                            return (($b['points'] ?? 0) <=> ($a['points'] ?? 0));
+                        } elseif ($sortCriterion === 3) {
+                            // Opzione 3: Media + Quoziente + Diff
+                            $mediaA = ($a['played'] ?? 0) > 0 ? ($a['points'] ?? 0 / ($a['played'] ?? 0)) : 0;
+                            $mediaB = ($b['played'] ?? 0) > 0 ? ($b['points'] ?? 0 / ($b['played'] ?? 0)) : 0;
+                            if ($mediaA !== $mediaB) return ($mediaB <=> $mediaA);
+                            $quozienteA = ($a['conceded'] ?? 0) > 0 ? ($a['scored'] ?? 0 / ($a['conceded'] ?? 0)) : 0;
+                            $quozienteB = ($b['conceded'] ?? 0) > 0 ? ($b['scored'] ?? 0 / ($b['conceded'] ?? 0)) : 0;
+                            if ($quozienteA !== $quozienteB) return ($quozienteB <=> $quozienteA);
+                            if (($b['diff'] ?? 0) !== ($a['diff'] ?? 0)) return (($b['diff'] ?? 0) <=> ($a['diff'] ?? 0));
+                            return (($b['points'] ?? 0) <=> ($a['points'] ?? 0));
+                        } else {
+                            // Opzione 1 (default): Media Punti
+                            $mediaA = ($a['played'] ?? 0) > 0 ? ($a['points'] ?? 0 / ($a['played'] ?? 0)) : 0;
+                            $mediaB = ($b['played'] ?? 0) > 0 ? ($b['points'] ?? 0 / ($b['played'] ?? 0)) : 0;
+                            if ($mediaA !== $mediaB) return ($mediaB <=> $mediaA);
+                            $diffPerPartitaA = ($a['played'] ?? 0) > 0 ? ($a['diff'] ?? 0 / ($a['played'] ?? 0)) : 0;
+                            $diffPerPartitaB = ($b['played'] ?? 0) > 0 ? ($b['diff'] ?? 0 / ($b['played'] ?? 0)) : 0;
+                            if ($diffPerPartitaA !== $diffPerPartitaB) return ($diffPerPartitaB <=> $diffPerPartitaA);
+                            $pfPerPartitaA = ($a['played'] ?? 0) > 0 ? ($a['scored'] ?? 0 / ($a['played'] ?? 0)) : 0;
+                            $pfPerPartitaB = ($b['played'] ?? 0) > 0 ? ($b['scored'] ?? 0 / ($b['played'] ?? 0)) : 0;
+                            return ($pfPerPartitaB <=> $pfPerPartitaA);
+                        }
+                    });
+                    
+                    // Salva gli standings ordinati
+                    $newPhase['standings'] = [[
+                        'group' => 'Seeding',
+                        'rows' => $seededTeams
+                    ]];
+                }
+            }
 
             // 🆕 Risolve subito eventuali "bye" (chi non ha avversario passa il turno
             // automaticamente, senza dover aspettare l'inserimento di un punteggio)

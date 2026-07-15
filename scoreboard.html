@@ -1774,7 +1774,8 @@
       return html;
     }
 
-    function renderKnockoutPhasePublicHtml(phase) {
+    function renderKnockoutPhasePublicHtml(phase, allPhases) {
+      allPhases = allPhases || (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
       const matches = phase.matches || [];
       if (!matches.length) {
         return '<p>Nessuna partita disponibile per questa fase.</p>';
@@ -1793,6 +1794,22 @@
 
       // 🆕 Tabella di ordinamento/seeding
       const standings = phase.standings || [];
+      const sortCriterion = phase.sortCriterion ?? 1; // 1=media, 2=%, 3=media+quoz+diff
+      const sourcePhaseNumber = phase.sourcePhaseNumber;
+      const sourceBranch = phase.sourceBranch;
+      
+      // Mappa nomi criteri
+      const criterionNames = {
+        1: '📊 Media Punti per Partita',
+        2: '🎯 % Vittorie',
+        3: '⚖️ Media + Quoziente + Diff'
+      };
+      const criterionDesc = {
+        1: 'Punti conquistati diviso partite giocate',
+        2: 'Percentuale di vittorie (vittorie / partite × 100)',
+        3: 'Media punti, poi quoziente PF/PS, poi differenza'
+      };
+      
       if (standings.length > 0) {
         const teamMap = {};
         standings.forEach(g => {
@@ -1801,7 +1818,7 @@
           });
         });
         
-        // Estrai squadre uniche dal primo turno e ordinale
+        // Estrai squadre uniche dal primo turno e ordinale secondo il criterio scelto
         const firstRoundMatches = matches.filter(m => m.round === 1);
         const seededTeams = [];
         const seen = new Set();
@@ -1812,38 +1829,79 @@
           if (t1 && !seen.has(t1)) {
             const row = teamMap[t1];
             if (row) {
-              seededTeams.push(row);
+              seededTeams.push({
+                ...row,
+                media: (row.played ?? 0) > 0 ? (row.points ?? 0) / (row.played ?? 0) : 0,
+                winPercent: (row.played ?? 0) > 0 ? (((row.points ?? 0) / 2) / (row.played ?? 0) * 100) : 0,
+                quoziente: (row.conceded ?? 0) > 0 ? (row.scored ?? 0) / (row.conceded ?? 0) : 0
+              });
               seen.add(t1);
             }
           }
           if (t2 && !seen.has(t2)) {
             const row = teamMap[t2];
             if (row) {
-              seededTeams.push(row);
+              seededTeams.push({
+                ...row,
+                media: (row.played ?? 0) > 0 ? (row.points ?? 0) / (row.played ?? 0) : 0,
+                winPercent: (row.played ?? 0) > 0 ? (((row.points ?? 0) / 2) / (row.played ?? 0) * 100) : 0,
+                quoziente: (row.conceded ?? 0) > 0 ? (row.scored ?? 0) / (row.conceded ?? 0) : 0
+              });
               seen.add(t2);
             }
           }
         });
         
-        // Ordina per diff (come fa il backend)
+        // Ordina in base al criterio scelto
         seededTeams.sort((a, b) => {
-          if ((b.diff ?? 0) !== (a.diff ?? 0)) return (b.diff ?? 0) - (a.diff ?? 0);
-          if ((b.points ?? 0) !== (a.points ?? 0)) return (b.points ?? 0) - (a.points ?? 0);
-          return (b.scored ?? 0) - (a.scored ?? 0);
+          if (sortCriterion === 2) {
+            // Opzione 2: % Vittorie
+            if (a.winPercent !== b.winPercent) return b.winPercent - a.winPercent;
+            if ((b.diff ?? 0) !== (a.diff ?? 0)) return (b.diff ?? 0) - (a.diff ?? 0);
+            return (b.points ?? 0) - (a.points ?? 0);
+          } else if (sortCriterion === 3) {
+            // Opzione 3: Media + Quoziente + Diff
+            if (a.media !== b.media) return b.media - a.media;
+            if (a.quoziente !== b.quoziente) return b.quoziente - a.quoziente;
+            if ((b.diff ?? 0) !== (a.diff ?? 0)) return (b.diff ?? 0) - (a.diff ?? 0);
+            return (b.points ?? 0) - (a.points ?? 0);
+          } else {
+            // Opzione 1 (default): Media Punti
+            if (a.media !== b.media) return b.media - a.media;
+            const diffPerPartitaA = (a.played ?? 0) > 0 ? (a.diff ?? 0) / (a.played ?? 0) : 0;
+            const diffPerPartitaB = (b.played ?? 0) > 0 ? (b.diff ?? 0) / (b.played ?? 0) : 0;
+            if (diffPerPartitaA !== diffPerPartitaB) return diffPerPartitaB - diffPerPartitaA;
+            const pfPerPartitaA = (a.played ?? 0) > 0 ? (a.scored ?? 0) / (a.played ?? 0) : 0;
+            const pfPerPartitaB = (b.played ?? 0) > 0 ? (b.scored ?? 0) / (b.played ?? 0) : 0;
+            return pfPerPartitaB - pfPerPartitaA;
+          }
         });
         
         if (seededTeams.length > 0) {
+          // Leggi il nome della fase sorgente
+          const sourcePhaseObj = allPhases?.find(p => p.phaseNumber === sourcePhaseNumber);
+          const sourcePhaseNameStr = sourcePhaseObj?.name || `Fase ${sourcePhaseNumber}`;
+          const branchStr = sourceBranch === 'qualified' ? 'Vincenti/Qualificati' : 'Perdenti/Eliminati';
+          
           html += `<details style="background: #faf5f0; border: 1px solid #e0d5c5; border-radius: 6px; margin-bottom: 16px; font-size: 12px">
             <summary style="cursor: pointer; padding: 10px; font-weight: bold; color: #6b5d45">📊 Seeding Knockout - Ordinamento Squadre</summary>
             <div style="padding: 0 14px 14px 14px; overflow-x: auto">
+              <div style="padding: 10px; background: #fef5e7; border-radius: 4px; margin-bottom: 10px; font-size: 12px; border-left: 3px solid #f39c12">
+                <strong>Criterio di ordinamento:</strong> ${criterionNames[sortCriterion]}<br>
+                <span style="color: #666">${criterionDesc[sortCriterion]}</span><br>
+                <strong style="display: block; margin-top: 4px">Provenienza:</strong> ${esc(sourcePhaseNameStr)} → ${branchStr} (Ramo: <strong>${sourceBranch === 'qualified' ? '✅' : '❌'}</strong>)
+              </div>
               <table style="width: 100%; border-collapse: collapse; font-size: 12px">
                 <thead>
                   <tr style="background: #f0e6d2">
                     <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 35px">#</th>
                     <th style="text-align: left; padding: 8px; border-bottom: 1px solid #d4c5b0">Squadra</th>
+                    ${sortCriterion === 1 ? '<th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 50px" title="Media">Media</th>' : ''}
+                    ${sortCriterion === 2 ? '<th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 50px" title="% Vittorie">%Vitt</th>' : ''}
+                    ${sortCriterion === 3 ? '<th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 45px" title="Media">Media</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 45px" title="Quoziente">Quoz</th>' : ''}
                     <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 50px" title="Differenza punti">Diff</th>
                     <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 45px" title="Punti totali">Pt</th>
-                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Partite giocate">G</th>
+                    <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Partite">G</th>
                     <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Punti segnati">PF</th>
                     <th style="text-align: center; padding: 8px; border-bottom: 1px solid #d4c5b0; width: 40px" title="Punti subiti">PS</th>
                   </tr>
@@ -1854,9 +1912,18 @@
                     const isLast = idx === seededTeams.length - 1;
                     const bgColor = isSeed1st ? '#d4e8d4' : (isLast ? '#ffd4d4' : 'transparent');
                     const fontWeight = isSeed1st || isLast ? 'bold' : 'normal';
+                    let criterionCellHtml = '';
+                    if (sortCriterion === 1) {
+                      criterionCellHtml = `<td style="text-align: center; padding: 6px; font-weight: bold">${row.media.toFixed(2)}</td>`;
+                    } else if (sortCriterion === 2) {
+                      criterionCellHtml = `<td style="text-align: center; padding: 6px; font-weight: bold">${row.winPercent.toFixed(1)}%</td>`;
+                    } else {
+                      criterionCellHtml = `<td style="text-align: center; padding: 6px; font-weight: bold">${row.media.toFixed(2)}</td><td style="text-align: center; padding: 6px; font-weight: bold">${row.quoziente.toFixed(2)}</td>`;
+                    }
                     return `<tr style="border-bottom: 1px solid #e0d5c5; background: ${bgColor}; font-weight: ${fontWeight}">
                       <td style="text-align: center; padding: 6px">${idx + 1}</td>
                       <td style="text-align: left; padding: 6px">${esc(row.name || '?')}</td>
+                      ${criterionCellHtml}
                       <td style="text-align: center; padding: 6px; color: #d32f2f; font-weight: bold">${row.diff ?? 0}</td>
                       <td style="text-align: center; padding: 6px">${row.points ?? 0}</td>
                       <td style="text-align: center; padding: 6px">${row.played ?? 0}</td>
@@ -1867,12 +1934,6 @@
                 </tbody>
               </table>
               <div style="padding: 8px 0; margin-top: 8px; font-size: 11px; color: #6b5d45; line-height: 1.5">
-                <strong>Criteri di ordinamento:</strong>
-                <ul style="margin: 4px 0; padding-left: 18px">
-                  <li>1️⃣ <strong>Differenza punti</strong> (PF - PS) - crescente all'aumentare della forza</li>
-                  <li>2️⃣ <strong>Punti totali</strong> - se la differenza è uguale</li>
-                  <li>3️⃣ <strong>Punti segnati</strong> - ulteriore tie-breaker</li>
-                </ul>
                 <strong style="color: #2e5d1f">🟢 Seed 1 (più forte)</strong> affronterà <strong style="color: #d32f2f">🔴 Seed ${seededTeams.length} (più debole)</strong>
               </div>
             </div>
@@ -1941,7 +2002,7 @@
 
       // Fase knockout (castello): vista dedicata, non usa i sotto-tab Gironi/Partite/Classifiche
       if (activePhase.type === 'knockout') {
-        html += renderKnockoutPhasePublicHtml(activePhase);
+        html += renderKnockoutPhasePublicHtml(activePhase, allPhases);
         c.innerHTML = html;
         return;
       }

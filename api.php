@@ -5209,18 +5209,35 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
             return strcmp($a['startTime'] ?? '', $b['startTime'] ?? '');
         });
 
-        // Segna come occupati gli orari già usati da qualsiasi partita di qualsiasi fase.
-        // 🔧 FIX: il confronto ora è per (campo, data, orario di inizio REALE), non più
-        // per l'indice grezzo della fascia configurata — così più partite possono
-        // condividere la stessa fascia ampia, purché non si sovrappongano nell'orario.
-        $used = [];
+        // Segna come occupati gli INTERVALLI orari già usati da qualsiasi
+        // partita di qualsiasi fase, per campo e data.
+        // 🔧 FIX: il confronto ora è per SOVRAPPOSIZIONE REALE di orario (in
+        // minuti), non più per uguaglianza esatta della stringa di orario di
+        // inizio. Da quando ogni fase può avere una propria durata-partita
+        // (matchRules), due fasi possono generare griglie orarie diverse sullo
+        // stesso campo/giorno (es. partite da 25' che iniziano a :30/:55/:20 e
+        // partite da 16' che iniziano a :00/:16/:32); il vecchio confronto per
+        // chiave esatta non rilevava la sovrapposizione reale e proponeva come
+        // "liberi" giorni in realtà già saturi con un'altra fase.
+        $occupiedIntervals = []; // "courtIdx_date" => [[startMin, endMin], ...]
         foreach ($state['phases'] as $ph) {
             foreach (($ph['matches'] ?? []) as $m) {
-                if (isset($m['courtIdx']) && !empty($m['date']) && !empty($m['startTime'])) {
-                    $used[$m['courtIdx'] . '_' . $m['date'] . '_' . $m['startTime']] = true;
+                if (isset($m['courtIdx']) && !empty($m['date']) && !empty($m['startTime']) && !empty($m['endTime'])) {
+                    $s = $timeToMinutes($m['startTime']);
+                    $e = $timeToMinutes($m['endTime']);
+                    if ($s === null || $e === null) continue;
+                    $ckey = $m['courtIdx'] . '_' . $m['date'];
+                    $occupiedIntervals[$ckey][] = [$s, $e];
                 }
             }
         }
+        $slotOverlapsOccupied = function (string $ckey, int $startMin, int $endMin) use (&$occupiedIntervals): bool {
+            foreach (($occupiedIntervals[$ckey] ?? []) as $interval) {
+                [$s, $e] = $interval;
+                if ($startMin < $e && $s < $endMin) return true; // si sovrappongono
+            }
+            return false;
+        };
 
         $phaseIdx = array_search($phaseNumber, array_column($state['phases'], 'phaseNumber'), true);
         if ($phaseIdx === false) {
@@ -5237,12 +5254,14 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
             $foundSlot = null;
             foreach ($allSlots as $slot) {
-                $key = $slot['courtIdx'] . '_' . $slot['date'] . '_' . $slot['startTime'];
-                if (!isset($used[$key])) {
-                    $foundSlot = $slot;
-                    $used[$key] = true;
-                    break;
-                }
+                $ckey = $slot['courtIdx'] . '_' . $slot['date'];
+                $sMin = $timeToMinutes($slot['startTime']);
+                $eMin = $timeToMinutes($slot['endTime']);
+                if ($sMin === null || $eMin === null || $slotOverlapsOccupied($ckey, $sMin, $eMin)) continue;
+
+                $foundSlot = $slot;
+                $occupiedIntervals[$ckey][] = [$sMin, $eMin]; // occupa subito, evita doppia assegnazione in questo stesso giro
+                break;
             }
 
             if ($foundSlot === null) break; // niente più fasce libere configurate

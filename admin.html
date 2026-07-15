@@ -6236,16 +6236,28 @@ html += `
         return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
       }
 
-      // Slot già occupati da QUALSIASI partita di QUALSIASI fase - stessa
-      // chiave (campo, data, orario di inizio reale) usata dal backend.
-      const usedKeys = new Set();
+      // Intervalli già occupati da QUALSIASI partita di QUALSIASI fase, per
+      // campo e data. 🔧 FIX: confronto per SOVRAPPOSIZIONE REALE di orario
+      // (in minuti), non più uguaglianza esatta dell'orario di inizio. Fasi
+      // diverse possono avere durate-partita diverse (matchRules), quindi
+      // griglie orarie diverse sullo stesso campo/giorno: la vecchia verifica
+      // per chiave esatta non rilevava la sovrapposizione e proponeva come
+      // "liberi" giorni già saturi con un'altra fase.
+      const occupiedIntervals = {}; // "courtIdx_date" => [[startMin, endMin], ...]
       (state.phases || []).forEach(ph => {
         (ph.matches || []).forEach(m => {
-          if (m.courtIdx !== undefined && m.courtIdx !== null && m.date && m.startTime) {
-            usedKeys.add(m.courtIdx + '_' + m.date + '_' + m.startTime);
+          if (m.courtIdx !== undefined && m.courtIdx !== null && m.date && m.startTime && m.endTime) {
+            const s = timeToMinutes(m.startTime);
+            const e = timeToMinutes(m.endTime);
+            if (s === null || e === null) return;
+            const ckey = m.courtIdx + '_' + m.date;
+            (occupiedIntervals[ckey] = occupiedIntervals[ckey] || []).push([s, e]);
           }
         });
       });
+      function overlapsOccupied(ckey, startMin, endMin) {
+        return (occupiedIntervals[ckey] || []).some(([s, e]) => startMin < e && s < endMin);
+      }
 
       const result = [];
       courts.forEach((court, courtIdx) => {
@@ -6257,19 +6269,19 @@ html += `
             if (startMin === null || endMin === null || endMin <= startMin) return;
 
             const rangeLabel = `${ts.startTime}-${ts.endTime}`;
+            const ckey = courtIdx + '_' + av.date;
             const subCount = Math.max(1, Math.floor((endMin - startMin) / matchDuration));
             for (let sub = 0; sub < subCount; sub++) {
               const subStart = startMin + (sub * matchDuration);
-              const startTimeStr = minutesToTime(subStart);
-              const key = courtIdx + '_' + av.date + '_' + startTimeStr;
-              if (usedKeys.has(key)) continue;
+              const subEnd = subStart + matchDuration;
+              if (overlapsOccupied(ckey, subStart, subEnd)) continue;
 
               result.push({
                 date: av.date,
                 courtIdx,
                 courtName: court.courtName || `Campo ${courtIdx + 1}`,
-                startTime: startTimeStr,
-                endTime: minutesToTime(subStart + matchDuration),
+                startTime: minutesToTime(subStart),
+                endTime: minutesToTime(subEnd),
                 rangeLabel
               });
             }

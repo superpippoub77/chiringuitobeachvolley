@@ -56,7 +56,7 @@ function jsonResponse(int $code, array $payload): void {
     exit;
 }
 
-function readJsonFile(string $file, array $default): array {
+function readJsonFile(string $file, array $default = []): array {
     if (!file_exists($file)) {
         file_put_contents($file, json_encode($default, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         return $default;
@@ -442,6 +442,7 @@ function defaultConfig(): array {
             'theme' => 'chiringuito'
         ],
         'sponsors' => [],
+        'gallery' => [],
         'payment' => [
             'enabled' => false,
             'costPerTeam' => 0,
@@ -529,6 +530,15 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // Preserva sponsor list
     if (isset($existingConfig['sponsors'])) {
         $merged['sponsors'] = $existingConfig['sponsors'];
+    }
+    
+    // 🔧 FIX: mancava la preservazione della gallery. Senza questo blocco,
+    // ogni volta che readConfig() veniva chiamato (cioè quasi ad ogni richiesta),
+    // il merge con i default sovrascriveva l'intera configurazione partendo da
+    // $defaultConfig (che non contiene "gallery"), cancellando istantaneamente
+    // le foto appena caricate.
+    if (isset($existingConfig['gallery'])) {
+        $merged['gallery'] = $existingConfig['gallery'];
     }
     
     // Preserva payment settings
@@ -1958,6 +1968,10 @@ function publicState(array $state): array {
         'playoff' => playoffView($state),
         'finalRanking' => computeFinalRanking($state),
         'meta' => $state['meta'],
+        // 🔧 FIX: senza questo campo lo scoreboard pubblico non può sapere quale
+        // fase è stata marcata come "corrente" (⭐) in admin, e mostrava sempre
+        // di default la prima fase in ordine di numero.
+        'currentPhaseIdx' => $state['currentPhaseIdx'] ?? null,
         'phases' => array_map(function ($phase, $idx) use ($state) {
             // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
             if (($phase['type'] ?? '') === 'groups') {

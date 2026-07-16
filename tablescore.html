@@ -414,6 +414,16 @@
       matchId = params.get('matchId');
       phaseNumber = params.get('phase');
 
+      // 🔧 FIX: admin.html ora apre questa pagina in una nuova scheda passando
+      // esplicitamente il token nell'URL. Lo salviamo subito in localStorage così
+      // sia questa pagina sia le richieste successive lo trovano sempre, anche se
+      // la scheda è stata aperta senza aver mai avuto accesso al localStorage di
+      // admin.html (es. finestra "vuota" aperta da window.open).
+      const urlToken = params.get('token');
+      if (urlToken) {
+        localStorage.setItem('adminToken', urlToken);
+      }
+
       if (!matchId || !phaseNumber) {
         alert('Errore: Partita non trovata');
         window.close();
@@ -422,18 +432,24 @@
 
       // Carica i dati della partita
       try {
-        const token = localStorage.getItem('adminToken') || '';
-        const response = await fetch(`${API}?action=admin_get_match&matchId=${matchId}&phase=${phaseNumber}`, {
+        const token = urlToken || localStorage.getItem('adminToken') || '';
+        const response = await fetch(`${API}?action=admin_get_match&matchId=${encodeURIComponent(matchId)}&phase=${encodeURIComponent(phaseNumber)}`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
+
+        if (response.status === 401) {
+          alert('❌ Non autorizzato: la sessione admin non è valida o è scaduta.\nTorna al pannello admin ed effettua di nuovo l\'accesso, poi riapri il tabellone.');
+          return;
+        }
+
         const data = await response.json();
-        
+
         if (data.ok && data.match) {
           matchData = data.match;
           loadScoreboardState();
           render();
         } else {
-          alert('Errore caricamento partita');
+          alert('Errore caricamento partita: ' + (data.error || ''));
         }
       } catch (e) {
         console.error('Errore:', e);

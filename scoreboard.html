@@ -1971,7 +1971,11 @@
       const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
       if (!allPhases.length) return null;
       if (selectedPublicPhaseNumber === null) {
-        selectedPublicPhaseNumber = allPhases[0].phaseNumber;
+        // 🔧 FIX: di default va mostrata la fase marcata come "corrente" in admin
+        // (checkbox ⭐ Corrente / state.currentPhaseIdx), non semplicemente la
+        // prima fase in ordine di numero.
+        const currentPhaseExists = allPhases.some(p => p.phaseNumber === state.currentPhaseIdx);
+        selectedPublicPhaseNumber = currentPhaseExists ? state.currentPhaseIdx : allPhases[0].phaseNumber;
       }
       return allPhases.find(p => p.phaseNumber === selectedPublicPhaseNumber) || allPhases[0];
     }

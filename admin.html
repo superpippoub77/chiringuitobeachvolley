@@ -904,36 +904,28 @@
         <p class="muted">Carica foto con titolo e descrizione. Appariranno come carousel compatto in homepage.</p>
         
         <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
-          <h4 style="margin-top: 0">📸 Nuova Foto</h4>
+          <h4 style="margin-top: 0">📸 Nuove Foto</h4>
+          <p class="muted" style="margin-top: -6px">Puoi trascinare o selezionare una o più foto insieme. Per ognuna potrai indicare un titolo prima di caricarla.</p>
           <div class="field">
-            <label>Titolo *</label>
-            <input id="galleryTitle" type="text" placeholder="Es: Finale evento 2024" maxlength="100">
-          </div>
-          <div class="field">
-            <label>Descrizione</label>
-            <textarea id="galleryDescription" placeholder="Descrivi la foto..." rows="3" maxlength="500"></textarea>
-          </div>
-          <div class="field">
-            <label>Foto (obbligatoria) *</label>
             <div id="galleryDropZone" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 24px; text-align: center; background: #f5f9ff; cursor: pointer; transition: all 0.2s">
               <div style="font-size: 32px; margin-bottom: 8px">📸</div>
-              <div style="font-weight: bold; color: #1976d2; margin-bottom: 4px">Trascina la foto qui</div>
+              <div style="font-weight: bold; color: #1976d2; margin-bottom: 4px">Trascina una o più foto qui</div>
               <div style="color: #666; font-size: 13px; margin-bottom: 12px">o clicca per selezionare</div>
-              <input type="file" id="galleryImageInput" accept="image/*" style="display: none">
-              <small style="color: #999">PNG, JPG, GIF o WebP - Max 5MB</small>
+              <input type="file" id="galleryImageInput" accept="image/*" multiple style="display: none">
+              <small style="color: #999">PNG, JPG, GIF o WebP - Max 5MB per foto</small>
             </div>
-            <div id="galleryImagePreviewContainer" style="margin-top: 12px"></div>
           </div>
+          <div id="galleryQueueList" style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px"></div>
           <div class="field">
             <label>
-              <input type="checkbox" id="galleryPublished"> 
-              Pubblica immediatamente
+              <input type="checkbox" id="galleryPublished" checked>
+              Pubblica immediatamente le foto caricate
             </label>
-            <small style="color: #666">Se non abilitato, la foto rimarrà in bozza</small>
+            <small style="color: #666">Se non abilitato, le foto rimarranno in bozza</small>
           </div>
           <div class="row" style="margin-top: 10px; gap: 8px">
-            <button class="btn btn-green" onclick="saveGalleryPhoto()" style="flex: 1">✅ Salva Foto</button>
-            <button class="btn btn-secondary" onclick="clearGalleryForm()" style="flex: 1">Cancella</button>
+            <button class="btn btn-green" id="galleryUploadAllBtn" onclick="uploadGalleryQueue()" style="flex: 1" disabled>✅ Carica foto</button>
+            <button class="btn btn-secondary" onclick="clearGalleryForm()" style="flex: 1">Svuota</button>
           </div>
         </div>
         
@@ -4455,7 +4447,13 @@
     }
 
     function openScoreboard(matchId) {
-      window.location.href = `tablescore.html?matchId=${matchId}&phase=${currentSelectedPhaseNumber}`;
+      // 🔧 FIX: prima si navigava nella stessa scheda (window.location.href) invece
+      // di aprirne una nuova, e il token admin non veniva passato esplicitamente:
+      // se per qualsiasi motivo il localStorage non era ancora disponibile nella
+      // nuova scheda, tablescore.html rispondeva 401 Unauthorized.
+      const adminToken = token || localStorage.getItem('adminToken') || '';
+      const url = `tablescore.html?matchId=${encodeURIComponent(matchId)}&phase=${encodeURIComponent(currentSelectedPhaseNumber)}&token=${encodeURIComponent(adminToken)}`;
+      window.open(url, '_blank');
     }
 
     function sortClassificationBy(criterion) {
@@ -8457,8 +8455,6 @@ html += `
 
     // ==================== GALLERY MANAGEMENT ====================
     let galleryData = [];
-    let editingGalleryId = null;
-    let currentGalleryImageFile = '';
 
     async function renderGallery() {
       try {
@@ -8468,6 +8464,7 @@ html += `
         const container = document.getElementById('galleryList');
         if (!galleryData || galleryData.length === 0) {
           container.innerHTML = '<p class="muted">Nessuna foto. Caricane una nuova.</p>';
+          initGalleryUpload();
           return;
         }
         
@@ -8498,11 +8495,20 @@ html += `
       }
     }
 
+    // Coda delle foto in attesa di essere caricate: [{ localId, file, title, description }]
+    let galleryQueue = [];
+
     function initGalleryUpload() {
       const dropZone = document.getElementById('galleryDropZone');
       const fileInput = document.getElementById('galleryImageInput');
       
       if (!dropZone) return;
+
+      // Evita di registrare più volte gli stessi listener quando la vista
+      // gallery viene ricaricata (es. cambiando tab e tornando indietro):
+      // altrimenti ogni foto verrebbe aggiunta più volte alla coda.
+      if (dropZone.dataset.galleryInit === '1') return;
+      dropZone.dataset.galleryInit = '1';
       
       // Click per aprire file dialog
       dropZone.onclick = () => fileInput.click();
@@ -8524,163 +8530,224 @@ html += `
         dropZone.style.background = '#f5f9ff';
         dropZone.style.borderColor = '#2196F3';
         
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          fileInput.files = files;
-          handleGalleryImageSelect();
+        // 🔧 FIX: gestisce sia una singola foto sia più foto trascinate insieme
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          addFilesToGalleryQueue(e.dataTransfer.files);
         }
       });
       
-      // Change event per file input
-      fileInput.addEventListener('change', handleGalleryImageSelect);
-    }
-
-    async function handleGalleryImageSelect() {
-      const fileInput = document.getElementById('galleryImageInput');
-      const file = fileInput.files[0];
-      
-      if (!file) return;
-      
-      if (!file.type.startsWith('image/')) {
-        await showInfoDialog('Errore', '❌ Il file deve essere un\'immagine');
-        fileInput.value = '';
-        return;
-      }
-      
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        await showInfoDialog('Errore', '❌ File troppo grande (max 5MB)');
-        fileInput.value = '';
-        return;
-      }
-      
-      // Upload automatico
-      uploadGalleryImage();
-    }
-
-    async function uploadGalleryImage() {
-      const fileInput = document.getElementById('galleryImageInput');
-      const file = fileInput.files[0];
-      if (!file) {
-        await showInfoDialog('Errore', 'Seleziona un file immagine');
-        return;
-      }
-
-      if (!file.type.startsWith('image/')) {
-        await showInfoDialog('Errore', 'Il file deve essere un\'immagine');
-        return;
-      }
-      
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      try {
-        const response = await fetch('api.php?action=admin_upload_gallery_image', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await response.json();
-        if (data.ok) {
-          currentGalleryImageFile = data.imageFile;
-          const preview = document.getElementById('galleryImagePreviewContainer');
-          const dropZone = document.getElementById('galleryDropZone');
-          
-          preview.innerHTML = `<div style="background: #e8f5e9; border: 2px solid #4caf50; border-radius: 8px; padding: 12px; text-align: center">
-            <img src="${escapeHtml(data.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block; margin-bottom: 8px">
-            <div style="font-size: 12px; color: #2e7d32; font-weight: bold">✅ Foto caricata - ${file.name}</div>
-          </div>`;
-          
-          dropZone.style.background = '#f5f9ff';
-          dropZone.style.borderColor = '#4caf50';
-          dropZone.style.borderWidth = '2px';
-        } else {
-          await showInfoDialog('Errore', data.error || 'Errore upload');
+      // Change event per file input (supporta selezione multipla grazie a "multiple")
+      fileInput.addEventListener('change', () => {
+        if (fileInput.files && fileInput.files.length > 0) {
+          addFilesToGalleryQueue(fileInput.files);
+          fileInput.value = ''; // permette di riselezionare gli stessi file in seguito
         }
-      } catch (e) {
-        await showInfoDialog('Errore', 'Errore upload: ' + e.message);
+      });
+    }
+
+    function addFilesToGalleryQueue(fileList) {
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      const rejected = [];
+
+      Array.from(fileList).forEach((file) => {
+        if (!file.type.startsWith('image/')) {
+          rejected.push(`"${file.name}" non è un'immagine valida`);
+          return;
+        }
+        if (file.size > maxSize) {
+          rejected.push(`"${file.name}" supera i 5MB`);
+          return;
+        }
+        const defaultTitle = file.name.replace(/\.[^/.]+$/, '');
+        galleryQueue.push({
+          localId: 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+          file,
+          title: defaultTitle,
+          description: ''
+        });
+      });
+
+      renderGalleryQueue();
+
+      if (rejected.length > 0) {
+        showInfoDialog('Attenzione', '❌ ' + rejected.join('\n'));
       }
+    }
+
+    function renderGalleryQueue() {
+      const list = document.getElementById('galleryQueueList');
+      const uploadBtn = document.getElementById('galleryUploadAllBtn');
+      if (!list) return;
+
+      if (galleryQueue.length === 0) {
+        list.innerHTML = '';
+        if (uploadBtn) uploadBtn.disabled = true;
+        return;
+      }
+
+      if (uploadBtn) uploadBtn.disabled = false;
+
+      list.innerHTML = galleryQueue.map((item) => {
+        const previewUrl = URL.createObjectURL(item.file);
+        return `
+          <div style="display:flex; gap:10px; align-items:flex-start; border:1px solid #cfe3fb; border-radius:8px; padding:10px; background:#fff">
+            <img src="${previewUrl}" style="width:70px; height:70px; object-fit:cover; border-radius:6px; flex-shrink:0">
+            <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:0">
+              <input type="text" value="${escapeHtml(item.title)}" placeholder="Titolo *" maxlength="100"
+                oninput="updateGalleryQueueField('${item.localId}', 'title', this.value)"
+                style="border:1px solid var(--line); border-radius:6px; padding:6px; width:100%">
+              <textarea placeholder="Descrizione (opzionale)" rows="2" maxlength="500"
+                oninput="updateGalleryQueueField('${item.localId}', 'description', this.value)"
+                style="border:1px solid var(--line); border-radius:6px; padding:6px; font-family:inherit; width:100%; resize:vertical">${escapeHtml(item.description)}</textarea>
+              <small class="muted">${escapeHtml(item.file.name)} · ${(item.file.size / 1024).toFixed(0)} KB</small>
+            </div>
+            <button onclick="removeFromGalleryQueue('${item.localId}')" title="Rimuovi dalla coda"
+              style="background:#d32f2f; color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer; height:fit-content">🗑️</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateGalleryQueueField(localId, field, value) {
+      const item = galleryQueue.find(i => i.localId === localId);
+      if (item) item[field] = value;
+    }
+
+    function removeFromGalleryQueue(localId) {
+      galleryQueue = galleryQueue.filter(i => i.localId !== localId);
+      renderGalleryQueue();
     }
 
     function clearGalleryForm() {
-      document.getElementById('galleryTitle').value = '';
-      document.getElementById('galleryDescription').value = '';
-      document.getElementById('galleryPublished').checked = false;
-      document.getElementById('galleryImageInput').value = '';
-      document.getElementById('galleryImagePreviewContainer').innerHTML = '';
-      const dropZone = document.getElementById('galleryDropZone');
-      if (dropZone) {
-        dropZone.style.background = '#f5f9ff';
-        dropZone.style.borderColor = '#2196F3';
-      }
-      currentGalleryImageFile = '';
-      editingGalleryId = null;
-      setTimeout(() => document.getElementById('galleryTitle').focus(), 100);
+      galleryQueue = [];
+      renderGalleryQueue();
     }
 
     function editGalleryPhoto(photoId) {
       const item = galleryData.find(g => g.id === photoId);
       if (!item) return;
-      
-      document.getElementById('galleryTitle').value = item.title;
-      document.getElementById('galleryDescription').value = item.description || '';
-      document.getElementById('galleryPublished').checked = item.published;
-      currentGalleryImageFile = item.imageFile || '';
-      
-      const preview = document.getElementById('galleryImagePreviewContainer');
-      if (item.imageFile) {
-        preview.innerHTML = `<img src="${escapeHtml(item.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block">`;
-      } else {
-        preview.innerHTML = '';
-      }
-      
-      editingGalleryId = photoId;
-      document.getElementById('galleryTitle').focus();
+
+      openModal({
+        title: '✏️ Modifica foto',
+        bodyHtml: `
+          <div class="form-grid-modal">
+            <div class="field full">
+              <img src="${escapeHtml(item.imageFile)}" style="max-width: 100%; max-height: 200px; border-radius: 6px; display: block; margin-bottom: 8px">
+            </div>
+            <div class="field full">
+              <label>Titolo *</label>
+              <input id="editGalleryTitle" type="text" value="${escapeHtml(item.title || '')}" maxlength="100">
+            </div>
+            <div class="field full">
+              <label>Descrizione</label>
+              <textarea id="editGalleryDescription" rows="3" maxlength="500">${escapeHtml(item.description || '')}</textarea>
+            </div>
+            <div class="field full">
+              <label>
+                <input type="checkbox" id="editGalleryPublished" ${item.published ? 'checked' : ''}>
+                Pubblicata
+              </label>
+            </div>
+          </div>
+        `,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          {
+            text: '✅ Salva',
+            className: 'btn btn-green',
+            closeOnClick: false,
+            onClick: async () => {
+              const title = (document.getElementById('editGalleryTitle').value || '').trim();
+              const description = (document.getElementById('editGalleryDescription').value || '').trim();
+              const published = document.getElementById('editGalleryPublished').checked;
+
+              if (!title) {
+                await showInfoDialog('Errore', '❌ Il titolo non può essere vuoto');
+                return;
+              }
+
+              try {
+                const result = await callApi('admin_update_gallery', 'POST', {
+                  id: photoId,
+                  title,
+                  description,
+                  imageFile: item.imageFile,
+                  published
+                }, true);
+                galleryData = result.gallery;
+                closeModal(true);
+                renderGallery();
+              } catch (e) {
+                await showInfoDialog('Errore', '❌ ' + e.message);
+              }
+            }
+          }
+        ]
+      });
     }
 
-    async function saveGalleryPhoto() {
-      try {
-        const titleInput = document.getElementById('galleryTitle');
-        const title = (titleInput.value || '').trim();
-        const description = (document.getElementById('galleryDescription').value || '').trim();
-        const published = document.getElementById('galleryPublished').checked;
-        
-        // Validazione
-        if (!title) {
-          await showInfoDialog('Errore', '❌ Inserisci un titolo per la foto');
-          titleInput.focus();
-          return;
-        }
-        
-        if (!currentGalleryImageFile) {
-          await showInfoDialog('Errore', '❌ Carica una foto prima di salvare');
-          return;
-        }
-        
-        if (editingGalleryId) {
-          const result = await callApi('admin_update_gallery', 'POST', {
-            id: editingGalleryId,
-            title,
-            description,
-            imageFile: currentGalleryImageFile,
-            published
-          }, true);
-          galleryData = result.gallery;
-          await showInfoDialog('Successo', '✅ Foto aggiornata');
-        } else {
+    async function uploadGalleryQueue() {
+      if (galleryQueue.length === 0) return;
+
+      const missingTitle = galleryQueue.find(i => !i.title || !i.title.trim());
+      if (missingTitle) {
+        await showInfoDialog('Errore', '❌ Inserisci un titolo per ogni foto in coda');
+        return;
+      }
+
+      const published = document.getElementById('galleryPublished').checked;
+      const uploadBtn = document.getElementById('galleryUploadAllBtn');
+      const originalBtnText = uploadBtn ? uploadBtn.textContent : '';
+      if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = '⏳ Caricamento...';
+      }
+
+      const queueSnapshot = [...galleryQueue];
+      let successCount = 0;
+      const errors = [];
+
+      for (const item of queueSnapshot) {
+        try {
+          const formData = new FormData();
+          formData.append('image', item.file);
+
+          // 🔧 FIX PRINCIPALE: mancava l'header Authorization su questa chiamata,
+          // quindi ogni upload (singolo o multiplo) falliva sempre con 401
+          // Unauthorized lato server (requireAdmin() nell'api.php).
+          const uploadRes = await fetch('api.php?action=admin_upload_gallery_image', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + (token || localStorage.getItem('adminToken') || '') },
+            body: formData
+          });
+          const uploadData = await uploadRes.json();
+          if (!uploadData.ok) throw new Error(uploadData.error || 'Errore upload');
+
           const result = await callApi('admin_create_gallery', 'POST', {
-            title,
-            description,
-            imageFile: currentGalleryImageFile,
+            title: item.title.trim(),
+            description: (item.description || '').trim(),
+            imageFile: uploadData.imageFile,
             published
           }, true);
+
           galleryData.push(result.gallery);
-          await showInfoDialog('Successo', '✅ Foto caricata');
+          galleryQueue = galleryQueue.filter(i => i.localId !== item.localId);
+          successCount++;
+        } catch (e) {
+          errors.push(`${item.file.name}: ${e.message}`);
         }
-        
-        clearGalleryForm();
-        renderGallery();
-      } catch (e) {
-        await showInfoDialog('Errore', '❌ ' + e.message);
+      }
+
+      if (uploadBtn) {
+        uploadBtn.textContent = originalBtnText || '✅ Carica foto';
+      }
+      renderGalleryQueue();
+      renderGallery();
+
+      if (errors.length === 0) {
+        await showInfoDialog('Successo', `✅ ${successCount} foto caricate con successo`);
+      } else {
+        await showInfoDialog('Attenzione', `✅ ${successCount} caricate.\n❌ Errori:\n${errors.join('\n')}`);
       }
     }
 

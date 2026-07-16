@@ -96,9 +96,11 @@
             "teamsAdvance": "2,3,3",
             "hasRepescage": false,
             "notes": "Creata con il motore automatico (squadre reali)",
+            "sortCriterion": 2,
+            "avoidGroupRematches": true,
             "matchRules": {
-                "numSets": 1,
-                "timePerSetMinutes": 15,
+                "numSets": 2,
+                "timePerSetMinutes": 5,
                 "setupTimeMinutes": 0,
                 "winScore": 21,
                 "maxTimeoutsPerSet": 1
@@ -115,6 +117,8 @@
             "teamsAdvance": "3",
             "hasRepescage": false,
             "notes": "Creata con il motore automatico (squadre reali)",
+            "sortCriterion": null,
+            "avoidGroupRematches": null,
             "matchRules": {
                 "timePerSetMinutes": 15,
                 "setupTimeMinutes": 1,
@@ -170,6 +174,7 @@
             "logoFile": "data\/uploads\/sponsor-logo-7uhevz4v.png"
         }
     ],
+    "gallery": [],
     "payment": {
         "enabled": false,
         "costPerTeam": 0,

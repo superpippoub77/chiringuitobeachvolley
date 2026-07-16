@@ -2502,8 +2502,11 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
  * questa generalizza lo stesso principio (forti contro deboli) per 4, 16, 32...
  * Le squadre "fantasma" oltre il numero reale (quando non è una potenza di 2)
  * diventano un "bye": chi le incontra passa automaticamente il turno.
+ * 
+ * Se $teamGroupMap è fornito (array team_id => group_id), evita di accoppiare
+ * squadre dello stesso gruppo/girone nel primo turno.
  */
-function genericBalancedSeeding(array $teams, int $bracketSize): array {
+function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGroupMap = null): array {
     // 🔧 FORMULA CORRETTA: 1 vs ultimo, 2 vs penultimo, 3 vs terzultimo, etc.
     // Le squadre arrivano già ordinate dalla classifica girone (1°, 2°, 3°...)
     // In caso di bye (squadre < bracketSize), le squadre più forti ricevono bye
@@ -2514,31 +2517,90 @@ function genericBalancedSeeding(array $teams, int $bracketSize): array {
     // Se non ci sono squadre, return vuoto
     if ($n < 1) return $pairs;
     
-    // Se bracket è più grande del numero di squadre, aggiungi bye
-    $totalSlots = 0;
-    for ($i = 0; $i < $bracketSize; $i += 2) {
-        $totalSlots++;
+    // Se non abbiamo mappatura di gruppi, usa seeding standard
+    if ($teamGroupMap === null) {
+        // Crea coppie con formula: i vs (n - 1 - i)
+        for ($i = 0; $i < $bracketSize; $i += 2) {
+            $idx1 = $i;
+            $idx2 = $bracketSize - 1 - $i;
+            
+            $teamA = ($idx1 < $n) ? $teams[$idx1] : null;
+            $teamB = ($idx2 < $n && $idx2 !== $idx1) ? $teams[$idx2] : null;
+            
+            // Se è un bye (una squadra non esiste), segna team2 come null
+            $pairs[] = [
+                'team1' => $teamA['id'] ?? null,
+                'team2' => $teamB['id'] ?? null
+            ];
+        }
+        return $pairs;
     }
     
-    // Crea coppie con formula: i vs (n - 1 - i)
-    for ($i = 0; $i < $bracketSize; $i += 2) {
-        $idx1 = $i;
-        $idx2 = $bracketSize - 1 - $i;
+    // 🆕 SEEDING INTELLIGENTE: evita rematch dello stesso girone
+    // Estratto i team IDs ordinati
+    $teamIds = array_map(fn($t) => $t['id'] ?? null, $teams);
+    $teamIds = array_filter($teamIds);
+    $teamIds = array_values($teamIds); // Reindicizza per avere chiavi consecutive
+    
+    // Dividi in forti (prima metà) e deboli (seconda metà)
+    $midpoint = intdiv($n, 2);
+    $forti = array_slice($teamIds, 0, $midpoint);
+    $deboli = array_slice($teamIds, $midpoint);
+    
+    // Greedy matching: per ogni forte, trova il miglior debole di girone diverso
+    $usedDebolIndices = [];
+    $pairedDeboli = [];
+    
+    foreach ($forti as $forteId) {
+        $forteGroup = $teamGroupMap[$forteId] ?? null;
+        $bestDebolIndex = null;
         
-        $teamA = ($idx1 < $n) ? $teams[$idx1] : null;
-        $teamB = ($idx2 < $n && $idx2 !== $idx1) ? $teams[$idx2] : null;
+        // Preferenza 1: debole di girone diverso, non ancora usato
+        if ($forteGroup !== null) {
+            foreach ($deboli as $debolIndex => $debolId) {
+                if (isset($usedDebolIndices[$debolIndex])) continue;
+                $debolGroup = $teamGroupMap[$debolId] ?? null;
+                if ($debolGroup !== null && $debolGroup !== $forteGroup) {
+                    $bestDebolIndex = $debolIndex;
+                    break;
+                }
+            }
+        }
         
-        // Se è un bye (una squadra non esiste), segna team2 come null
+        // Fallback: qualsiasi debole non ancora usato
+        if ($bestDebolIndex === null) {
+            foreach ($deboli as $debolIndex => $debolId) {
+                if (!isset($usedDebolIndices[$debolIndex])) {
+                    $bestDebolIndex = $debolIndex;
+                    break;
+                }
+            }
+        }
+        
+        // Se trovato, marca come usato e abbina
+        if ($bestDebolIndex !== null) {
+            $usedDebolIndices[$bestDebolIndex] = true;
+            $pairedDeboli[] = $deboli[$bestDebolIndex];
+        } else {
+            $pairedDeboli[] = null; // Fallback a null (bye)
+        }
+    }
+    
+    error_log("🔧 avoidGroupRematches: Greedy pairing completato. Forti=" . count($forti) . ", Deboli=" . count($deboli));
+    
+    // Costruisci le coppie finali (forte vs debole)
+    foreach ($forti as $idx => $forteId) {
         $pairs[] = [
-            'team1' => $teamA['id'] ?? null,
-            'team2' => $teamB['id'] ?? null
+            'team1' => $forteId,
+            'team2' => $pairedDeboli[$idx] ?? null
         ];
     }
     
     return $pairs;
 }
 
-function generateGenericKnockoutMatches(array $teams): array {
+
+function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = null): array {
     $n = count($teams);
     if ($n < 2) return [];
 
@@ -2546,7 +2608,7 @@ function generateGenericKnockoutMatches(array $teams): array {
     $bracketSize = 1;
     while ($bracketSize < $n) $bracketSize *= 2;
 
-    $seeding = genericBalancedSeeding($teams, $bracketSize); // 🔧 generalizzato per qualsiasi dimensione, non solo 8
+    $seeding = genericBalancedSeeding($teams, $bracketSize, $teamGroupMap); // 🔧 generalizzato per qualsiasi dimensione, non solo 8
 
     // Etichette dei turni in base alla dimensione del bracket
     $roundLabelFor = function (int $teamsInRound) {
@@ -5668,6 +5730,8 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         $teamsAdvancePerGroup = (int)$teamsAdvanceRaw;
     }
     $numGroups = (int)($body['numGroups'] ?? 2);
+    // 🔧 Flag per evitare rematch dello stesso girone nel knockout
+    $avoidGroupRematches = !empty($body['avoidGroupRematches']);
     // 🆕 Permette di "Ricalcolare" una fase già esistente (rigenerarla da zero con
     // gli stessi parametri, es. dopo aver corretto le squadre-che-avanzano-per-girone),
     // invece di dover cancellare tutto a mano.
@@ -5704,7 +5768,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         }
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $overwrite, $preservedMatchRules) {
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $avoidGroupRematches, $overwrite, $preservedMatchRules) {
         ensurePhases($state);
 
         $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
@@ -5847,7 +5911,24 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             }
             $newPhase['matches'] = $matches;
         } else { // knockout
-            $matches = generateGenericKnockoutMatches($teams);
+            // 🔧 Se avoidGroupRematches è attivo e la sorgente è una fase di gruppi,
+            // crea una mappatura team -> group per evitare accoppiamenti dello stesso girone
+            $teamGroupMap = null;
+            if ($avoidGroupRematches && $teamSource === 'phase') {
+                $sourcePhase = array_values(array_filter($state['phases'], fn($p) => ($p['phaseNumber'] ?? null) === $sourcePhaseNumber))[0] ?? null;
+                if ($sourcePhase && ($sourcePhase['type'] ?? null) === 'groups' && !empty($sourcePhase['groups'])) {
+                    $teamGroupMap = [];
+                    foreach ($sourcePhase['groups'] as $groupIdx => $group) {
+                        $groupId = $group['id'] ?? $group['label'] ?? ('group_' . $groupIdx);
+                        foreach ($group['teamIds'] ?? [] as $tid) {
+                            $teamGroupMap[$tid] = $groupId;
+                        }
+                    }
+                    error_log("🔧 avoidGroupRematches: mappatura creata per " . count($teamGroupMap) . " squadre");
+                }
+            }
+            
+            $matches = generateGenericKnockoutMatches($teams, $teamGroupMap);
             // Aggiungi team1Name/team2Name per comodità di visualizzazione
             foreach ($matches as &$m) {
                 if (!empty($m['team1Id'])) $m['team1Name'] = $teamMap[$m['team1Id']]['name'] ?? '';
@@ -5855,6 +5936,9 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             }
             unset($m);
             $newPhase['matches'] = $matches;
+            
+            // 🔧 Salva il flag avoidGroupRematches per eventuale ricalcolo futuro
+            $newPhase['avoidGroupRematches'] = $avoidGroupRematches;
             
             // 🆕 Salva il criterio di ordinamento utilizzato per il seeding
             $newPhase['sortCriterion'] = $sortCriterion;
@@ -5959,7 +6043,9 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         'numGroups' => $type === 'groups' ? $numGroups : null,
         'teamsAdvance' => $body['teamsAdvancePerGroup'] ?? '2',
         'hasRepescage' => false,
-        'notes' => 'Creata con il motore automatico (squadre reali)'
+        'notes' => 'Creata con il motore automatico (squadre reali)',
+        'sortCriterion' => $type === 'knockout' ? $sortCriterion : null,
+        'avoidGroupRematches' => $type === 'knockout' ? $avoidGroupRematches : null
     ];
     if ($existingCfgIdx === null) {
         $cfg['phases'][] = $newCfgEntry;
@@ -8739,70 +8825,131 @@ if ($action === 'admin_get_match' && $method === 'GET') {
 }
 
 if ($action === 'admin_update_match_score' && $method === 'POST') {
+    // 🔧 DEBUG CRITICO: Traccia TUTTO
+    $rawInput = file_get_contents('php://input');
+    error_log("🔵 admin_update_match_score: Raw input = " . $rawInput);
+    
     requireAdmin();
-    $data = json_decode(file_get_contents('php://input'), true);
+    $data = json_decode($rawInput, true);
+    
+    error_log("🔵 admin_update_match_score: Parsed data = " . json_encode($data));
     
     if (empty($data['matchId']) || empty($data['phase'])) {
-        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+        error_log("❌ admin_update_match_score: Parametri mancanti! matchId=" . ($data['matchId'] ?? 'NULL') . ", phase=" . ($data['phase'] ?? 'NULL'));
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti: matchId=' . ($data['matchId'] ?? 'NULL') . ', phase=' . ($data['phase'] ?? 'NULL')]);
         return;
     }
     
     $matchId = $data['matchId'];
-    $phase = $data['phase'];
+    $phase = (int)$data['phase'];
     $sets = $data['sets'] ?? [];
     $team1Timeouts = $data['team1Timeouts'] ?? 0;
     $team2Timeouts = $data['team2Timeouts'] ?? 0;
     
-    $tournament = readJsonFile(__DIR__ . '/data/tournament.json') ?? [];
-    $phases = $tournament['phases'] ?? [];
-    $updated = false;
-    
-    foreach ($phases as &$p) {
-        if (($p['phaseNumber'] ?? null) == $phase) {
-            $matches = $p['matches'] ?? [];
-            foreach ($matches as &$match) {
-                if (($match['id'] ?? null) === $matchId) {
-                    $match['sets'] = $sets;
-                    $match['team1Timeouts'] = $team1Timeouts;
-                    $match['team2Timeouts'] = $team2Timeouts;
-                    $match['updatedAt'] = date('c');
-
-                    // 🔧 FIX: il resto dell'applicazione (lista partite, classifiche
-                    // in admin.html) non legge affatto "sets", ma i campi
-                    // score1/score2 (numero di set vinti). Senza calcolarli qui,
-                    // il risultato inserito dal tabellone non compariva da
-                    // nessun'altra parte, dando l'impressione che non fosse
-                    // stato salvato.
-                    $team1SetsWon = 0;
-                    $team2SetsWon = 0;
-                    foreach ($sets as $s) {
-                        $t1 = $s['team1'] ?? 0;
-                        $t2 = $s['team2'] ?? 0;
-                        if ($t1 > $t2) {
-                            $team1SetsWon++;
-                        } elseif ($t2 > $t1) {
-                            $team2SetsWon++;
-                        }
-                    }
-                    $match['score1'] = $team1SetsWon;
-                    $match['score2'] = $team2SetsWon;
-
-                    $updated = true;
-                    break 2;
-                }
-            }
-            unset($match);
+    error_log("🔵 admin_update_match_score: Ricevuti i parametri");
+    error_log("   matchId={$matchId}");
+    error_log("   phase={$phase}");
+    error_log("   team1Timeouts={$team1Timeouts}, team2Timeouts={$team2Timeouts}");
+    error_log("   sets.count=" . count($sets));
+    if (!empty($sets)) {
+        foreach ($sets as $i => $s) {
+            error_log("      sets[{$i}]: team1=" . ($s['team1'] ?? 'NULL') . ", team2=" . ($s['team2'] ?? 'NULL'));
         }
+    } else {
+        error_log("   ⚠️  ATTENZIONE: sets è VUOTO!");
     }
-    unset($p);
     
-    if (!$updated) {
-        jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+    // 🔧 FIX: Usa withStateTransaction() come tutti gli altri endpoint, altrimenti
+    // il salvataggio può fallire silenziosamente a causa di race condition o
+    // permessi file. Questo garantisce che le modifiche siano atomiche.
+    $result = withStateTransaction(function (&$state) use ($matchId, $phase, $sets, $team1Timeouts, $team2Timeouts) {
+        ensurePhases($state);
+        
+        error_log("🔵 admin_update_match_score: Cercando fase phaseNumber={$phase}");
+        error_log("   Fasi disponibili: " . json_encode(array_column($state['phases'] ?? [], 'phaseNumber')));
+        
+        // Cerca la fase per phaseNumber
+        $phaseIdx = array_search($phase, array_column($state['phases'], 'phaseNumber'), true);
+        if ($phaseIdx === false) {
+            error_log("❌ admin_update_match_score: Fase {$phase} non trovata!");
+            return ['ok' => false, 'error' => "Fase {$phase} non trovata"];
+        }
+        
+        error_log("🔵 admin_update_match_score: Fase trovata a indice {$phaseIdx}");
+        
+        $currentPhase = &$state['phases'][$phaseIdx];
+        
+        if (empty($currentPhase['matches'])) {
+            error_log("❌ admin_update_match_score: Nessuna partita in fase {$phase}!");
+            return ['ok' => false, 'error' => "Nessuna partita trovata in fase {$phase}"];
+        }
+        
+        error_log("🔵 admin_update_match_score: Fase ha " . count($currentPhase['matches']) . " partite");
+        error_log("   Cercando matchId={$matchId}");
+        error_log("   MatchIds disponibili: " . json_encode(array_column($currentPhase['matches'], 'id')));
+        
+        // Cerca e aggiorna il match per reference
+        $found = false;
+        foreach ($currentPhase['matches'] as &$match) {
+            if (($match['id'] ?? null) !== $matchId) continue;
+            
+            error_log("✅ admin_update_match_score: Partita {$matchId} trovata!");
+            
+            $found = true;
+            $match['sets'] = $sets;
+            $match['team1Timeouts'] = $team1Timeouts;
+            $match['team2Timeouts'] = $team2Timeouts;
+            $match['updatedAt'] = date('c');
+            
+            error_log("🔵 admin_update_match_score: Prima di elaborare i punteggi");
+            error_log("   match['sets'] ora contiene: " . json_encode($sets));
+            error_log("   scoreboardState.sets RICEVUTO (array): " . json_encode($sets));
+            
+            // 🔧 FIX CRITICO (KNOCKOUT): In knockout, score1/score2 sono i punteggi 
+            // del SET CORRENTE, non il numero di set vinti!
+            // Il tabellone invia sets[] = [set1, set2, ..., setInCorso]
+            // Devo estrarre score1/score2 dall'ULTIMO elemento di sets (set in corso)
+            // e contare i set vinti guardando solo gli elementi precedenti
+            
+            if (!empty($sets)) {
+                $lastSet = $sets[count($sets) - 1];
+                $match['score1'] = $lastSet['team1'] ?? 0;
+                $match['score2'] = $lastSet['team2'] ?? 0;
+                
+                // Conta set vinti guardando solo i set COMPLETATI (non l'ultimo)
+                $team1SetsWon = 0;
+                $team2SetsWon = 0;
+                for ($i = 0; $i < count($sets) - 1; $i++) {
+                    $t1 = $sets[$i]['team1'] ?? 0;
+                    $t2 = $sets[$i]['team2'] ?? 0;
+                    if ($t1 > $t2) $team1SetsWon++;
+                    elseif ($t2 > $t1) $team2SetsWon++;
+                }
+                
+                error_log("✅ TABELLONE KNOCKOUT: Partita {$matchId} → sets=" . count($sets) . 
+                    ", setsWon={$team1SetsWon}-{$team2SetsWon}, currentSet={$match['score1']}-{$match['score2']}");
+            } else {
+                $match['score1'] = null;
+                $match['score2'] = null;
+            }
+            
+            break;
+        }
+        unset($match);
+        
+        if (!$found) {
+            return ['ok' => false, 'error' => "Partita {$matchId} non trovata"];
+        }
+        
+        return ['ok' => true, 'message' => 'Punteggi salvati'];
+    });
+    
+    if (!$result || !($result['ok'] ?? false)) {
+        jsonResponse(400, ['ok' => false, 'error' => $result['error'] ?? 'Errore sconosciuto']);
         return;
     }
     
-    writeJsonFile(__DIR__ . '/data/tournament.json', $tournament);
-    jsonResponse(200, ['ok' => true, 'message' => 'Punteggi salvati']);
+    jsonResponse(200, $result);
 }
 
 // ==================== BACKUP E RIPRISTINO ====================

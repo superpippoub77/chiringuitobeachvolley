@@ -475,6 +475,14 @@
       scoreboardState.team1.name = matchData.team1Name || matchData.team1 || 'Squadra 1';
       scoreboardState.team2.name = matchData.team2Name || matchData.team2 || 'Squadra 2';
       scoreboardState.sets = matchData.sets || [{ team1: 0, team2: 0 }];
+      
+      // 🔧 DEBUG: Mostra cosa è stato caricato dal server
+      console.log('📊 TABELLONE: loadScoreboardState caricato', {
+        team1: scoreboardState.team1.name,
+        team2: scoreboardState.team2.name,
+        sets: scoreboardState.sets,
+        matchStatus: matchData.status
+      });
 
       // Carica il set corrente (ultimo non concluso)
       currentSetIndex = scoreboardState.sets.length - 1;
@@ -711,6 +719,23 @@
       const saveBtn = document.querySelector('.btn-save');
       try {
         const token = localStorage.getItem('adminToken') || '';
+        
+        // 🔧 DEBUG CRITICO: Verificare ESATTAMENTE cosa viene inviato
+        console.log('💾 TABELLONE: Inizio salvataggio match');
+        console.log('   🔹 matchId:', matchId, 'tipo:', typeof matchId, 'length:', (matchId || '').length);
+        console.log('   🔹 phaseNumber:', phaseNumber, 'tipo:', typeof phaseNumber);
+        console.log('   🔹 currentSetIndex:', currentSetIndex);
+        console.log('   🔹 sets.length:', scoreboardState.sets ? scoreboardState.sets.length : 'null/undefined');
+        if (scoreboardState.sets) {
+          console.log('   🔹 sets content PRIMA del salvataggio:');
+          scoreboardState.sets.forEach((s, i) => {
+            console.log(`      Set ${i}: team1=${s.team1} team2=${s.team2}`);
+          });
+        }
+        console.log('   🔹 team1.score:', scoreboardState.team1.score, 'team2.score:', scoreboardState.team2.score);
+        console.log('   🔹 Completo sets array:', JSON.stringify(scoreboardState.sets));
+        console.log('   🔹 token presenti:', token ? 'SI' : 'NO');
+        
         const response = await fetch(`${API}?action=admin_update_match_score`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -723,20 +748,28 @@
           })
         });
 
-        // 🔧 FIX: prima non veniva gestito né il caso "risposta non-ok" (401,
-        // 404, 500...) né eventuali errori di rete durante il salvataggio
-        // manuale: il pulsante "Salva" non dava alcun feedback in caso di
-        // fallimento, dando l'impressione che il salvataggio fosse riuscito
-        // quando in realtà i punteggi non venivano scritti.
+        // 🔧 DEBUG CRITICO: Verificare la risposta del server
+        console.log('   🔹 Response status:', response.status, response.statusText);
+        console.log('   🔹 Response headers Content-Type:', response.headers.get('content-type'));
+        
         let data;
         try {
           data = await response.json();
+          console.log('✅ TABELLONE: Risposta dal server:', data);
         } catch (parseErr) {
+          console.error('❌ TABELLONE: Errore parse risposta:', parseErr);
+          console.error('   Response text:', await response.text());
           throw new Error(`Risposta non valida dal server (HTTP ${response.status})`);
         }
 
-        if (!response.ok || !data.ok) {
+        if (!response.ok) {
+          console.error('❌ TABELLONE: Response non-ok:', response.status, data);
           throw new Error(data.error || `Errore HTTP ${response.status}`);
+        }
+        
+        if (!data.ok) {
+          console.error('❌ TABELLONE: data.ok = false:', data);
+          throw new Error(data.error || 'Server ha ritornato ok=false');
         }
 
         document.getElementById('statusInfo').textContent = '✅ Salvato alle ' + new Date().toLocaleTimeString('it-IT');

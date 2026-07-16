@@ -3665,7 +3665,20 @@
         return;
       }
 
-      let html = '<div class="standings-grid">';
+      // Verifica se è una fase knockout e mostra anteprima seeding
+      const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
+      console.log('🔍 renderStandings - phase:', phase, 'currentSelectedPhaseNumber:', currentSelectedPhaseNumber);
+      
+      let seedingComparisonHtml = '';
+      if (phase && phase.type === 'knockout' && phase.sourcePhaseNumber) {
+        console.log('✅ Fase knockout rilevata, generando anteprima seeding...');
+        seedingComparisonHtml = renderSeedingComparison(phase);
+        console.log('📊 seedingComparisonHtml generato:', seedingComparisonHtml ? seedingComparisonHtml.length + ' chars' : '(empty)');
+      } else {
+        console.log('⚠️ Non è un knockout o mancano dati sourcePhaseNumber');
+      }
+
+      let html = seedingComparisonHtml + '<div class="standings-grid">';
       standings.forEach(group => {
         html += `<div class="standings-group">
           <h4>Girone ${group.group}</h4>
@@ -4150,6 +4163,12 @@
         return;
       }
       
+      // Se è knockout, mostra anteprima seeding prima delle partite
+      let seedingPreviewHtml = '';
+      if (phase.type === 'knockout' && phase.sourcePhaseNumber) {
+        seedingPreviewHtml = renderSeedingComparison(phase);
+      }
+      
       // Ordina per data e ora
       m = m.slice().sort((a, b) => {
         // Prova prima con 'date' (nuovo formato), poi con 'dayDate' (vecchio formato)
@@ -4172,7 +4191,7 @@
         console.log('First match:', m[0]);
       }
       
-      c.innerHTML = `
+      c.innerHTML = `${seedingPreviewHtml}
       <div style="margin-bottom: 12px; display: flex; gap: 8px">
         <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
       </div>
@@ -4187,9 +4206,8 @@
         <td style="cursor: move; text-align: center; color: #999" title="Trascina per scambiare l'orario con un'altra partita">⠿</td>
         <td>${match.groupName || match.group || '-'}</td>
         <td>${escapeHtml(match.team1Name)}</td>
-        <td>
-          <input id="s1-${match.id}" type="number" min="0" style="width:60px" value="${match.score1 ?? ''}"> -
-          <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
+        <td style="font-size: 12px">
+          ${generateSetInputs(match, phase, phase.type === 'knockout')}
         </td>
         <td>${escapeHtml(match.team2Name)}</td>
         <td>${match.date ? formatDateIta(match.date) : '-'}</td>
@@ -4202,6 +4220,186 @@
         </td>
       </tr>`).join('')}
       </tbody></table>`;
+    }
+    
+    function renderSeedingComparison(phase, orderedTeams) {
+      try {
+        console.log('🔍 renderSeedingComparison called with phase:', phase.name, 'teams:', orderedTeams?.length);
+        
+        if (!phase || !orderedTeams || orderedTeams.length === 0) {
+          console.log('❌ Phase o orderedTeams non validi');
+          return '';
+        }
+        
+        // Estrai mappatura gruppo da sourcePhase
+        const sourcePhaseNumber = phase.sourcePhaseNumber;
+        const sourcePhase = (state.phases || []).find(p => p.phaseNumber === sourcePhaseNumber);
+        const teamGroupMap = {};
+        
+        if (sourcePhase && sourcePhase.groups) {
+          sourcePhase.groups.forEach((group, idx) => {
+            const groupId = group.id || group.label || group.group || ('group_' + idx);
+            (group.teamIds || []).forEach(tid => {
+              teamGroupMap[tid] = groupId;
+            });
+          });
+        }
+        
+        console.log('🔍 teamGroupMap:', Object.keys(teamGroupMap).length, 'teams mappati');
+        
+        // Estrai i match attuali del primo turno
+        const actualFirstRoundMatches = (phase.matches || []).filter(m => m.round === 1 && m.type !== 'thirdPlace');
+        console.log('🔍 Actual first round matches:', actualFirstRoundMatches.length);
+        
+        // SEEDING STANDARD: calcola da classifica ordinata (1 vs N, 2 vs N-1, ...)
+        const n = orderedTeams.length;
+        const standardMatches = [];
+        const standardRematchCount = 0;
+        
+        for (let i = 0; i < Math.floor(n / 2); i++) {
+          const team1 = orderedTeams[i];
+          const team2 = orderedTeams[n - 1 - i];
+          const seed1 = i + 1;
+          const seed2 = n - i;
+          
+          const group1 = teamGroupMap[team1.id] || teamGroupMap[team1.teamId] || '?';
+          const group2 = teamGroupMap[team2.id] || teamGroupMap[team2.teamId] || '?';
+          const isSameGroup = group1 === group2 && group1 !== '?';
+          
+          standardMatches.push({
+            seed1,
+            seed2,
+            team1: team1.name,
+            team2: team2.name,
+            group1,
+            group2,
+            isSameGroup,
+            idx: i
+          });
+        }
+        
+        // Conta rematch nel seeding standard
+        const standardRematchesCount = standardMatches.filter(m => m.isSameGroup).length;
+        
+        // SEEDING OTTIMIZZATO: prendi dai match attuali
+        const optimizedMatches = [];
+        let optimizedRematchesCount = 0;
+        
+        actualFirstRoundMatches.forEach((match, idx) => {
+          const team1 = match.team1Name || match.team1Id || 'TBD';
+          const team2 = match.team2Name || match.team2Id || 'TBD';
+          const group1 = teamGroupMap[match.team1Id || match.team1] || '?';
+          const group2 = teamGroupMap[match.team2Id || match.team2] || '?';
+          const isSameGroup = group1 === group2 && group1 !== '?';
+          
+          if (isSameGroup) optimizedRematchesCount++;
+          
+          // Trova i seed dalla classifica ordinata
+          const seed1 = orderedTeams.findIndex(t => (t.id === match.team1Id || t.id === match.team1 || t.name === match.team1Name)) + 1 || '?';
+          const seed2 = orderedTeams.findIndex(t => (t.id === match.team2Id || t.id === match.team2 || t.name === match.team2Name)) + 1 || '?';
+          
+          optimizedMatches.push({
+            seed1,
+            seed2,
+            team1,
+            team2,
+            group1,
+            group2,
+            isSameGroup,
+            idx
+          });
+        });
+        
+        console.log('✅ Standard:', standardMatches.length, 'matches, Rematch:', standardRematchesCount);
+        console.log('✅ Optimized:', optimizedMatches.length, 'matches, Rematch:', optimizedRematchesCount);
+        
+        // Renderizza le tabelle
+        const renderTable = (matches, title, rematchCount, highlightMode) => {
+          const titleColor = highlightMode === 'standard' ? '#e65100' : '#1b5e20';
+          const titleBg = highlightMode === 'standard' ? '#fff3e0' : '#e8f5e9';
+          const statusStyle = (isSameGroup) => isSameGroup 
+            ? `background: #ffebee; color: #c62828; padding: 4px 8px; border-radius: 3px; font-weight: bold`
+            : `background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 3px`;
+          
+          let html = `<div style="margin-bottom: 16px">
+            <div style="font-weight: bold; margin-bottom: 8px; padding: 8px 12px; background: ${titleBg}; border-left: 4px solid ${titleColor}; color: ${titleColor}; border-radius: 3px">
+              ${title}
+              ${rematchCount > 0 ? `<span style="color: #c62828; margin-left: 10px">⚠️ ${rematchCount} rematch dello stesso girone</span>` : '<span style="color: #2e7d32; margin-left: 10px">✅ Zero rematch!</span>'}
+            </div>
+            <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 4px; overflow: hidden; font-size: 13px">
+              <thead>
+                <tr style="background: #f0f0f0">
+                  <th style="padding: 8px; border: 1px solid #e0e0e0; text-align: center; width: 60px">Seed 1</th>
+                  <th style="padding: 8px; border: 1px solid #e0e0e0">Team 1</th>
+                  <th style="padding: 8px; border: 1px solid #e0e0e0; text-align: center; width: 30px"></th>
+                  <th style="padding: 8px; border: 1px solid #e0e0e0; text-align: center; width: 60px">Seed 2</th>
+                  <th style="padding: 8px; border: 1px solid #e0e0e0">Team 2</th>
+                  <th style="padding: 8px; border: 1px solid #e0e0e0; text-align: center; width: 80px">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${matches.map(m => `<tr>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0; text-align: center"><strong>Seed ${m.seed1}</strong></td>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0">${escapeHtml(m.team1)} (${m.group1})</td>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0; text-align: center"><strong>vs</strong></td>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0; text-align: center"><strong>Seed ${m.seed2}</strong></td>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0">${escapeHtml(m.team2)} (${m.group2})</td>
+                  <td style="padding: 8px; border: 1px solid #e0e0e0; text-align: center">
+                    ${m.isSameGroup ? `<span style="${statusStyle()}">❌ ${m.group1}</span>` : `<span style="${statusStyle()}">✓ Diversi</span>`}
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+          
+          return html;
+        };
+        
+        const standardHtml = renderTable(standardMatches, '🟡 SEEDING STANDARD (1vs8, 2vs7, ...)', standardRematchesCount, 'standard');
+        const optimizedHtml = renderTable(optimizedMatches, '🟢 SEEDING OTTIMIZZATO (con flag "Evita rematch")', optimizedRematchesCount, 'optimized');
+        
+        const html = `
+        <div style="padding: 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 16px; border: 2px solid #ff9800">
+          <div style="font-weight: bold; margin-bottom: 12px; display: flex; gap: 8px; align-items: center">
+            <span>📊 ANTEPRIMA SEEDING - Primo Turno</span>
+            <button type="button" id="seedingComparisonToggle" class="btn" style="font-size: 12px; padding: 6px 12px; background: #ff9800; color: white" onclick="toggleSeedingComparison()">
+              Mostra Ottimizzato (${standardRematchesCount} vs ${optimizedRematchesCount} rematch)
+            </button>
+          </div>
+          
+          <div id="seedingComparisonStandard">
+            ${standardHtml}
+          </div>
+          
+          <div id="seedingComparisonOptimized" style="display: none">
+            ${optimizedHtml}
+          </div>
+        </div>
+        `;
+        
+        console.log('✅ renderSeedingComparison completed successfully');
+        return html;
+      } catch (e) {
+        console.error('Errore renderSeedingComparison:', e);
+        return '';
+      }
+    }
+    
+    function toggleSeedingComparison() {
+      const standard = document.getElementById('seedingComparisonStandard');
+      const optimized = document.getElementById('seedingComparisonOptimized');
+      const btn = document.getElementById('seedingComparisonToggle');
+      
+      if (!standard || !optimized) return;
+      
+      const showOptimized = standard.style.display !== 'none';
+      standard.style.display = showOptimized ? 'none' : 'block';
+      optimized.style.display = showOptimized ? 'block' : 'none';
+      
+      // Aggiorna testo bottone (approssimativo)
+      if (btn) {
+        btn.textContent = showOptimized ? 'Mostra Standard' : 'Mostra Ottimizzato';
+      }
     }
 
     // ==================== DRAG & DROP: scambio slot tra due partite ====================
@@ -4463,18 +4661,90 @@
       container.innerHTML = renderSortedTable(sorted, criterion);
     }
 
+    function generateSetInputs(match, phase, isKnockout) {
+      // Determina il numero di set dalla fase
+      const numSets = phase?.matchRules?.numSets || 1;
+      let setInputsHtml = '';
+      
+      for (let setIdx = 0; setIdx < numSets; setIdx++) {
+        const set = (match.sets && match.sets[setIdx]) || { team1: null, team2: null };
+        const t1Val = set.team1 ?? match.score1 ?? '';
+        const t2Val = set.team2 ?? match.score2 ?? '';
+        
+        if (setIdx > 0) setInputsHtml += ' | ';
+        setInputsHtml += `<input id="s${setIdx}-t1-${match.id}" type="number" min="0" style="width:50px" value="${t1Val}" title="Set ${setIdx + 1}"> - <input id="s${setIdx}-t2-${match.id}" type="number" min="0" style="width:50px" value="${t2Val}" title="Set ${setIdx + 1}">`;
+      }
+      
+      return setInputsHtml;
+    }
+
     async function saveMatch(id) {
-      const score1 = document.getElementById('s1-' + id).value;
-      const score2 = document.getElementById('s2-' + id).value;
-      const time = document.getElementById('t-' + id).value;
+      const time = document.getElementById('t-' + id)?.value || '';
+      
       try {
-        await callApi('admin_update_group_match', 'POST', {
-          id,
-          phaseNumber: currentSelectedPhaseNumber,
-          score1: score1 === '' ? null : Number(score1),
-          score2: score2 === '' ? null : Number(score2),
-          time
-        }, true);
+        // 🔍 Cerca il match e la fase
+        const phase = findPhaseByNumber(state.phases, currentSelectedPhaseNumber);
+        const match = phase?.matches?.find(m => m.id === id);
+        
+        if (!match) {
+          throw new Error('Partita non trovata');
+        }
+        
+        const numSets = phase?.matchRules?.numSets || 1;
+        
+        // 🔧 KNOCKOUT usa admin_update_match_score e invia sets array
+        if (phase.type === 'knockout') {
+          // Raccogli i punteggi da tutti gli input per ogni set
+          const sets = [];
+          for (let setIdx = 0; setIdx < numSets; setIdx++) {
+            const t1Input = document.getElementById(`s${setIdx}-t1-${id}`);
+            const t2Input = document.getElementById(`s${setIdx}-t2-${id}`);
+            
+            const team1Score = t1Input?.value ? Number(t1Input.value) : null;
+            const team2Score = t2Input?.value ? Number(t2Input.value) : null;
+            
+            sets.push({
+              team1: team1Score,
+              team2: team2Score
+            });
+          }
+          
+          console.log('💾 ADMIN KNOCKOUT: Salvataggio match', {
+            matchId: id,
+            phaseNumber: currentSelectedPhaseNumber,
+            numSets: numSets,
+            sets: sets
+          });
+          
+          await callApi('admin_update_match_score', 'POST', {
+            matchId: id,
+            phase: currentSelectedPhaseNumber,
+            sets: sets,
+            team1Timeouts: match.team1Timeouts || 0,
+            team2Timeouts: match.team2Timeouts || 0
+          }, true);
+        } else {
+          // GIRONE: raccoglie solo score1/score2 dal primo set
+          const score1Input = document.getElementById(`s0-t1-${id}`);
+          const score2Input = document.getElementById(`s0-t2-${id}`);
+          const score1 = score1Input?.value ? Number(score1Input.value) : null;
+          const score2 = score2Input?.value ? Number(score2Input.value) : null;
+          
+          console.log('💾 ADMIN GIRONE: Salvataggio match', {
+            matchId: id,
+            phaseNumber: currentSelectedPhaseNumber,
+            score1, score2, time
+          });
+          
+          await callApi('admin_update_group_match', 'POST', {
+            id,
+            phaseNumber: currentSelectedPhaseNumber,
+            score1,
+            score2,
+            time
+          }, true);
+        }
+        
         await refresh();
       } catch (e) { await showInfoDialog('Errore', e.message); }
     }
@@ -5000,9 +5270,8 @@
         <td style="cursor: move; text-align: center; color: #999" title="Trascina per scambiare l'orario con un'altra partita">⠿</td>
         <td>${match.groupName || match.group || '-'}</td>
         <td>${escapeHtml(match.team1Name)}</td>
-        <td>
-          <input id="s1-${match.id}" type="number" min="0" style="width:60px" value="${match.score1 ?? ''}"> -
-          <input id="s2-${match.id}" type="number" min="0" style="width:60px" value="${match.score2 ?? ''}">
+        <td style="font-size: 12px">
+          ${generateSetInputs(match, phase, phase.type === 'knockout')}
         </td>
         <td>${escapeHtml(match.team2Name)}</td>
         <td>${match.date ? formatDateIta(match.date) : '-'}</td>
@@ -5151,6 +5420,15 @@
         let currentSortCriterion = savedSortCriterion;
         let sortedTeams = sortTeams(allQualifiedTeams, currentSortCriterion);
         
+        // 🆕 Mostra anteprima seeding DOPO aver ordinato i team
+        let seedingComparisonHtml = '';
+        try {
+          seedingComparisonHtml = renderSeedingComparison(statePhase, sortedTeams);
+          console.log('✅ Seeding comparison generato:', seedingComparisonHtml.length + ' chars');
+        } catch (e) {
+          console.error('❌ Errore generazione seeding comparison:', e);
+        }
+        
         // Funzione per renderizzare la tabella
         const renderSortedTable = (teams, criterion) => {
           const criterionLabels = {
@@ -5239,7 +5517,7 @@
         };
         
         // Renderizza la tabella iniziale
-        container.innerHTML = renderSortedTable(sortedTeams, currentSortCriterion);
+        container.innerHTML = seedingComparisonHtml + renderSortedTable(sortedTeams, currentSortCriterion);
         return;
       }
       
@@ -6846,7 +7124,7 @@ html += `
           const t2 = match.team2Name ? escapeHtml(match.team2Name) : '—';
           html += `<tr style="border-bottom: 1px solid #eee">
             <td style="padding: 8px">${t1}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${formatMatchScore(match)}</td>
             <td style="padding: 8px">${t2}</td>
             <td style="padding: 8px; text-align: center; font-size: 11px">${match.date ? formatDateIta(match.date) : '-'}</td>
           </tr>`;
@@ -6960,7 +7238,7 @@ html += `
         phaseData.matches.forEach(match => {
           html += `<tr style="border-bottom: 1px solid #eee">
             <td style="padding: 8px">${escapeHtml(match.team1Name)}</td>
-            <td style="padding: 8px; text-align: center; font-weight: bold">${match.score1 ?? '-'} - ${match.score2 ?? '-'}</td>
+            <td style="padding: 8px; text-align: center; font-weight: bold">${formatMatchScore(match)}</td>
             <td style="padding: 8px">${escapeHtml(match.team2Name)}</td>
             <td style="padding: 8px; text-align: center; font-size: 11px">${match.date ? formatDateIta(match.date) : '-'}</td>
           </tr>`;
@@ -8980,6 +9258,42 @@ html += `
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    /**
+     * 🔧 FIX: Formatta il punteggio della partita
+     * 
+     * KNOCKOUT: score1/score2 sono i punteggi del SET CORRENTE
+     *           sets[] è l'array storico di tutti i set
+     *           Formato: "1-0 (7-5)" = 1 set vinto, 0 perso, set corrente 7-5
+     * 
+     * GIRONE: sets[] è vuoto, score1/score2 sono i punteggi totali
+     *         Formato: "19-21" = punteggio totale
+     */
+    function formatMatchScore(match) {
+      // Se non ci sono set salvati (girone), usa score1/score2 come punteggio totale
+      if (!match.sets || match.sets.length === 0) {
+        return `${match.score1 ?? '-'} - ${match.score2 ?? '-'}`;
+      }
+      
+      // KNOCKOUT: Calcola set vinti guardando solo i set COMPLETATI (non l'ultimo in corso)
+      let team1SetsWon = 0;
+      let team2SetsWon = 0;
+      
+      for (let i = 0; i < match.sets.length - 1; i++) {
+        const s = match.sets[i];
+        const t1 = s.team1 ?? 0;
+        const t2 = s.team2 ?? 0;
+        if (t1 > t2) team1SetsWon++;
+        else if (t2 > t1) team2SetsWon++;
+      }
+      
+      // Punteggio del set corrente (ultimo)
+      const currentSet = match.sets[match.sets.length - 1] || { team1: 0, team2: 0 };
+      
+      // Formatta: "set_vinti (punteggio_set_corrente)"
+      // Esempio: "1-0 (7-5)" o "0-0 (3-3)"
+      return `${team1SetsWon}-${team2SetsWon} (${currentSet.team1 ?? 0}-${currentSet.team2 ?? 0})`;
     }
 
     // ==================== BUTTON STATE MANAGEMENT ====================
@@ -11217,6 +11531,8 @@ html += `
 
     function openCreatePhaseFromSourceModal(prefill) {
       prefill = prefill || {};
+      console.log('🔍 openCreatePhaseFromSourceModal prefill:', { overwrite: prefill.overwrite, type: prefill.type, avoidGroupRematches: prefill.avoidGroupRematches });
+      
       const phases = state.phases || [];
       const nextPhaseNumber = phases.length ? Math.max(...phases.map(p => p.phaseNumber || 0)) + 1 : 1;
 
@@ -11287,6 +11603,26 @@ html += `
               </div>
               <p style="font-size: 12px; color: #555; margin: 8px 0 0 0">La scelta influisce su come verranno abbinati gli incontri del knockout (1° vs 8°, 2° vs 7°, ecc.)</p>
             </div>
+            
+            <div id="npAvoidGroupRematchesDiv" style="display: ${(prefill.teamSource || 'phase') === 'phase' ? 'block' : 'none'}; padding: 10px; background: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196f3">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer">
+                <input type="checkbox" id="npAvoidGroupRematches" ${prefill.avoidGroupRematches ? 'checked' : ''} onchange="updateSeedingPreview()" style="cursor: pointer; width: 18px; height: 18px">
+                <span style="flex: 1">
+                  <strong>🚫 Evita rematch dello stesso girone</strong><br>
+                  <span style="font-size: 12px; color: #555">Se attivo, le squadre dello stesso girone della fase precedente non si affronteranno nel primo turno del knockout. Mantiene comunque il seeding bilanciato.</span>
+                </span>
+              </label>
+            </div>
+            
+            <div id="npSeedingPreviewDiv" style="display: none; padding: 12px; background: #f9f9f9; border-radius: 6px; border: 2px solid #ff9800">
+              <div style="font-weight: bold; margin-bottom: 10px; display: flex; gap: 8px; align-items: center">
+                <span>📊 Anteprima Seeding</span>
+                <button type="button" id="seedingToggleBtn" class="btn" style="font-size: 11px; padding: 4px 10px" onclick="toggleSeedingView()">
+                  Mostra Ottimizzato
+                </button>
+              </div>
+              <div id="npSeedingPreview" style="font-size: 12px; color: #333; max-height: 200px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px"></div>
+            </div>
           </div>
 
           <div id="npGroupsFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
@@ -11326,6 +11662,16 @@ html += `
       // Stato iniziale dei campi condizionali + prima anteprima
       onNewPhaseSourceChange();
       onNewPhaseTypeChange();
+      
+      // 🔧 DEBUG: Verifica che il checkbox avoidGroupRematches sia impostato correttamente
+      setTimeout(() => {
+        const checkboxEl = document.getElementById('npAvoidGroupRematches');
+        if (checkboxEl) {
+          console.log('✅ Checkbox npAvoidGroupRematches trovato, checked=', checkboxEl.checked, 'prefill.avoidGroupRematches=', prefill.avoidGroupRematches);
+        } else {
+          console.log('❌ Checkbox npAvoidGroupRematches NON trovato!');
+        }
+      }, 100);
     }
 
     // Riapre il pannello di creazione precompilato con i parametri già usati per
@@ -11336,6 +11682,8 @@ html += `
       if (!phase) return;
 
       const configPhase = findPhaseByNumber(config.phases || [], phaseNumber);
+      
+      console.log('🔍 openRecalculatePhaseModal: phase=', phase.name, 'type=', phase.type, 'avoidGroupRematches=', phase.avoidGroupRematches);
       
       // 🔧 FIX: Quando ricalcoli una fase proveniente da eliminati/qualificati,
       // il valore "teamsAdvance" del CAMPO è per la PROSSIMA fase, non per il calcolo.
@@ -11359,7 +11707,9 @@ html += `
         sourcePhaseNumber: phase.sourcePhaseNumber,
         sourceBranch: phase.sourceBranch || 'qualified',
         numGroups: (phase.groups || []).length || configPhase?.numGroups,
-        teamsAdvance: teamsAdvanceValue
+        teamsAdvance: teamsAdvanceValue,
+        sortCriterion: phase.sortCriterion || 1,
+        avoidGroupRematches: phase.avoidGroupRematches || false
       });
     }
 
@@ -11370,6 +11720,192 @@ html += `
       
       const knockoutSortFields = document.getElementById('npKnockoutSortFields');
       if (knockoutSortFields) knockoutSortFields.style.display = (type === 'knockout') ? 'flex' : 'none';
+      
+      // Aggiorna visibilità del checkbox avoidGroupRematches
+      updateAvoidGroupRematchesVisibility();
+    }
+    
+    function updateAvoidGroupRematchesVisibility() {
+      const type = document.getElementById('npType')?.value;
+      const teamSource = document.getElementById('npTeamSource')?.value;
+      const div = document.getElementById('npAvoidGroupRematchesDiv');
+      if (div) {
+        // Mostra il checkbox solo se: knockout + source da fase precedente
+        div.style.display = (type === 'knockout' && teamSource === 'phase') ? 'block' : 'none';
+      }
+    }
+    
+    let currentSeedingMode = 'standard'; // 'standard' o 'optimized'
+    let lastSeedingData = null;
+
+    async function updateSeedingPreview() {
+      const type = document.getElementById('npType')?.value;
+      const teamSource = document.getElementById('npTeamSource')?.value;
+      const sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
+      const branch = document.getElementById('npSourceBranch')?.value;
+      const previewDiv = document.getElementById('npSeedingPreviewDiv');
+      const contentDiv = document.getElementById('npSeedingPreview');
+      
+      // Mostra preview solo se knockout da fase precedente
+      if (type !== 'knockout' || teamSource !== 'phase' || !sourcePhaseNumber) {
+        if (previewDiv) previewDiv.style.display = 'none';
+        return;
+      }
+      
+      if (!previewDiv || !contentDiv) return;
+      
+      try {
+        // Recupera le squadre della fase sorgente
+        const sourcePhase = (state.phases || []).find(p => p.phaseNumber === sourcePhaseNumber);
+        if (!sourcePhase) {
+          previewDiv.style.display = 'none';
+          return;
+        }
+        
+        // Determina le squadre da usare (qualificate o eliminate)
+        const cfg = readConfig();
+        const sourceConfigPhase = findPhaseByNumber(cfg.phases || [], sourcePhaseNumber);
+        const teamsAdvanceForPreview = sourceConfigPhase?.teamsAdvance || '2';
+        
+        const branchRes = await callApi('admin_preview_phase_branch', 'POST', { sourcePhaseNumber, teamsAdvancePerGroup: teamsAdvanceForPreview }, true);
+        const teamList = branch === 'eliminated' ? branchRes.eliminated : branchRes.qualified;
+        
+        if (teamList.length < 2) {
+          previewDiv.style.display = 'none';
+          return;
+        }
+        
+        // Estrai mappatura gruppo da standings della fase sorgente
+        const teamGroupMap = {};
+        if (sourcePhase.groups && sourcePhase.groups.length > 0) {
+          sourcePhase.groups.forEach((group, idx) => {
+            const groupId = group.id || group.label || ('group_' + idx);
+            (group.teamIds || []).forEach(tid => {
+              teamGroupMap[tid] = groupId;
+            });
+          });
+        }
+        
+        // Calcola seeding standard (1vs8, 2vs7, etc.)
+        const n = teamList.length;
+        const standardMatches = [];
+        for (let i = 0; i < Math.floor(n / 2); i++) {
+          standardMatches.push({
+            seed1: i + 1,
+            team1: teamList[i],
+            seed2: n - i,
+            team2: teamList[n - 1 - i]
+          });
+        }
+        
+        // Calcola seeding greedy (evita rematch)
+        const midpoint = Math.floor(n / 2);
+        const forti = teamList.slice(0, midpoint);
+        const deboli = teamList.slice(midpoint);
+        const usedDeboli = new Set();
+        const optimizedMatches = [];
+        
+        forti.forEach((forte, idx) => {
+          let bestDebole = null;
+          
+          // Preferenza 1: debole di girone diverso
+          for (let di = 0; di < deboli.length; di++) {
+            if (usedDeboli.has(di)) continue;
+            const forteGroup = teamGroupMap[forte.id];
+            const debolGroup = teamGroupMap[deboli[di].id];
+            if (forteGroup && debolGroup && forteGroup !== debolGroup) {
+              bestDebole = di;
+              break;
+            }
+          }
+          
+          // Fallback: qualsiasi debole non usato
+          if (bestDebole === null) {
+            for (let di = 0; di < deboli.length; di++) {
+              if (!usedDeboli.has(di)) {
+                bestDebole = di;
+                break;
+              }
+            }
+          }
+          
+          if (bestDebole !== null) {
+            usedDeboli.add(bestDebole);
+            optimizedMatches.push({
+              seed1: idx + 1,
+              team1: forte,
+              seed2: midpoint + bestDebole + 1,
+              team2: deboli[bestDebole]
+            });
+          }
+        });
+        
+        lastSeedingData = { standard: standardMatches, optimized: optimizedMatches, teamGroupMap };
+        previewDiv.style.display = 'block';
+        currentSeedingMode = 'standard';
+        renderSeedingPreview('standard');
+        
+      } catch (e) {
+        console.error('Errore aggiornamento seeding preview:', e);
+        if (previewDiv) previewDiv.style.display = 'none';
+      }
+    }
+    
+    function renderSeedingPreview(mode) {
+      currentSeedingMode = mode;
+      const contentDiv = document.getElementById('npSeedingPreview');
+      const toggleBtn = document.getElementById('seedingToggleBtn');
+      if (!contentDiv || !lastSeedingData) return;
+      
+      const matches = mode === 'standard' ? lastSeedingData.standard : lastSeedingData.optimized;
+      const teamGroupMap = lastSeedingData.teamGroupMap;
+      
+      let rematchCount = 0;
+      let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px">';
+      html += '<tr style="background: #f0f0f0; font-weight: bold"><td style="padding: 6px; border: 1px solid #ddd">Match</td><td style="padding: 6px; border: 1px solid #ddd">Seed 1</td><td style="padding: 6px; border: 1px solid #ddd">Team 1</td><td style="padding: 6px; border: 1px solid #ddd">Seed 2</td><td style="padding: 6px; border: 1px solid #ddd">Team 2</td><td style="padding: 6px; border: 1px solid #ddd">Status</td></tr>';
+      
+      matches.forEach((m, idx) => {
+        const group1 = teamGroupMap[m.team1.id];
+        const group2 = teamGroupMap[m.team2.id];
+        const isSameGroup = group1 && group2 && group1 === group2;
+        if (isSameGroup) rematchCount++;
+        
+        const statusCell = isSameGroup 
+          ? `<td style="padding: 6px; border: 1px solid #ddd; background: #ffebee; color: #c62828"><strong>❌ ${group1}</strong></td>`
+          : `<td style="padding: 6px; border: 1px solid #ddd; background: #e8f5e9; color: #2e7d32">✓ Diversi</td>`;
+        
+        html += `<tr>
+          <td style="padding: 6px; border: 1px solid #ddd">${idx + 1}</td>
+          <td style="padding: 6px; border: 1px solid #ddd">${m.seed1}</td>
+          <td style="padding: 6px; border: 1px solid #ddd">${escapeHtml(m.team1.name)} (${group1})</td>
+          <td style="padding: 6px; border: 1px solid #ddd">${m.seed2}</td>
+          <td style="padding: 6px; border: 1px solid #ddd">${escapeHtml(m.team2.name)} (${group2})</td>
+          ${statusCell}
+        </tr>`;
+      });
+      
+      html += '</table>';
+      contentDiv.innerHTML = html;
+      
+      // Aggiorna bottone
+      if (toggleBtn) {
+        if (mode === 'standard') {
+          const optimizedRematchCount = lastSeedingData.optimized.filter(m => {
+            const g1 = teamGroupMap[m.team1.id];
+            const g2 = teamGroupMap[m.team2.id];
+            return g1 && g2 && g1 === g2;
+          }).length;
+          toggleBtn.textContent = `Mostra Ottimizzato (${optimizedRematchCount} rematch)`;
+        } else {
+          toggleBtn.textContent = `Mostra Standard (${rematchCount} rematch)`;
+        }
+      }
+    }
+    
+    function toggleSeedingView() {
+      if (!lastSeedingData) return;
+      const newMode = currentSeedingMode === 'standard' ? 'optimized' : 'standard';
+      renderSeedingPreview(newMode);
     }
 
     async function onNewPhaseSourceChange() {
@@ -11379,6 +11915,7 @@ html += `
 
       if (source === 'registration') {
         phaseFields.style.display = 'none';
+        updateAvoidGroupRematchesVisibility();
         return;
       }
       phaseFields.style.display = 'flex';
@@ -11386,7 +11923,10 @@ html += `
       const preview = document.getElementById('npPreview');
       const sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
       const branch = document.getElementById('npSourceBranch')?.value;
-      if (!sourcePhaseNumber || !preview) return;
+      if (!sourcePhaseNumber || !preview) {
+        updateAvoidGroupRematchesVisibility();
+        return;
+      }
 
       // 🔧 FIX: Il campo "squadre che avanzano per girone" è SOLO per la prossima fase.
       // Quando calcoli l'anteprima degli eliminati/qualificati dalla fase SORGENTE,
@@ -11415,6 +11955,10 @@ html += `
       } catch (e) {
         preview.textContent = '❌ Errore nel calcolo anteprima: ' + e.message;
       }
+      
+      // Aggiorna visibilità del checkbox avoidGroupRematches e anteprima seeding
+      updateAvoidGroupRematchesVisibility();
+      updateSeedingPreview();
     }
 
     async function submitCreatePhaseFromSource(overwrite) {
@@ -11425,6 +11969,11 @@ html += `
       const numGroups = parseInt(document.getElementById('npNumGroups')?.value, 10) || 2;
       const teamsAdvancePerGroup = document.getElementById('npTeamsAdvance')?.value ?? '2';
       
+      // Leggi il flag avoidGroupRematches per knockout
+      const avoidGroupRematches = type === 'knockout' && teamSource === 'phase' 
+        ? !!document.getElementById('npAvoidGroupRematches')?.checked 
+        : false;
+      
       // Leggi il criterio di ordinamento per knockout (1=media, 2=%, 3=media+quoz+diff)
       let sortCriterion = 1;
       if (type === 'knockout') {
@@ -11432,7 +11981,7 @@ html += `
         sortCriterion = selectedRadio ? parseInt(selectedRadio.value, 10) : 1;
       }
 
-      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion };
+      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion, avoidGroupRematches };
 
       if (teamSource === 'phase') {
         payload.sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
@@ -11444,9 +11993,14 @@ html += `
         closeModal(true);
         await refresh();
         currentSelectedPhaseNumber = targetPhaseNumber;
+        
+        // 🔧 FIX: Aggiorna visivamente il tab della fase selezionata (coloralo in blu e mostra il contenuto)
+        selectPhase(targetPhaseNumber);
+        
         const criterionNames = { 1: 'Media Punti', 2: '% Vittorie', 3: 'Media+Quoziente+Diff' };
         const criterionMsg = type === 'knockout' ? ` (Seeding: ${criterionNames[sortCriterion]})` : '';
-        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.`);
+        const avoidGroupMsg = avoidGroupRematches ? ' ✓ Evita rematch dello stesso girone' : '';
+        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.${avoidGroupMsg}`);
       } catch (e) {
         await showInfoDialog('❌ Errore', e.message);
       }

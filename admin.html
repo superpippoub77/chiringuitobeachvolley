@@ -5987,14 +5987,20 @@
               <strong>Fase ${phaseNum}</strong><br>
               <small>${typeLabel} - ${escapeHtml(phase.name)}</small>
             </button>
-            <div style="display: flex; align-items: center; gap: 4px; padding: 0 8px; background: ${isCurrentPhase ? '#c8e6c9' : '#f0f0f0'}; border-radius: 4px; cursor: pointer; transition: all 0.2s" 
-              title="Marca come fase corrente" onclick="event.stopPropagation(); setCurrentPhase(${phaseNum})">
-              <input type="checkbox" style="cursor: pointer; width: 16px; height: 16px" 
-                ${isCurrentPhase ? 'checked' : ''} 
-                onchange="event.stopPropagation(); setCurrentPhase(${phaseNum})">
-              <span style="font-size: 12px; color: ${isCurrentPhase ? '#2e7d32' : '#999'}; font-weight: ${isCurrentPhase ? 'bold' : 'normal'}">
-                ${isCurrentPhase ? '⭐ Corrente' : ''}
-              </span>
+            <div style="display: flex; align-items: center; gap: 4px">
+              <div style="display: flex; align-items: center; gap: 4px; padding: 0 8px; background: ${isCurrentPhase ? '#c8e6c9' : '#f0f0f0'}; border-radius: 4px; cursor: pointer; transition: all 0.2s" 
+                title="Marca come fase corrente" onclick="event.stopPropagation(); setCurrentPhase(${phaseNum})">
+                <input type="checkbox" style="cursor: pointer; width: 16px; height: 16px" 
+                  ${isCurrentPhase ? 'checked' : ''} 
+                  onchange="event.stopPropagation(); setCurrentPhase(${phaseNum})">
+                <span style="font-size: 12px; color: ${isCurrentPhase ? '#2e7d32' : '#999'}; font-weight: ${isCurrentPhase ? 'bold' : 'normal'}">
+                  ${isCurrentPhase ? '⭐ Corrente' : ''}
+                </span>
+              </div>
+              <button class="btn btn-danger" style="padding: 6px 10px; font-size: 11px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer"
+                title="Cancella questa fase" onclick="event.stopPropagation(); deletePhase(${phaseNum})">
+                🗑️
+              </button>
             </div>
           </div>
         `;
@@ -6040,6 +6046,44 @@
       } catch (err) {
         console.error('❌ setCurrentPhase error:', err);
         showError('Errore durante il salvataggio: ' + err.message);
+      }
+    }
+
+    async function deletePhase(phaseNumber) {
+      console.log('🗑️ deletePhase called with phaseNumber:', phaseNumber);
+      
+      const phase = findPhaseByNumber(state.phases, phaseNumber);
+      if (!phase) {
+        showError('Fase non trovata');
+        return;
+      }
+
+      const confirm = await showConfirmDialog(
+        'Cancella Fase',
+        `⚠️ Sei sicuro di voler cancellare la Fase ${phaseNumber} (${phase.name})?\n\nQuesta azione è irreversibile e cancellerà:\n- ✅ Tutti i gironi/gruppi\n- ✅ Tutte le partite\n- ✅ Tutti i risultati`
+      );
+      
+      if (!confirm) return;
+
+      try {
+        const r = await callApi('admin_delete_phase', 'POST', { phaseNumber: phaseNumber }, true);
+        if (r.ok) {
+          state.phases = r.state?.phases || [];
+          if (state.currentPhaseIdx === phaseNumber && state.phases.length > 0) {
+            state.currentPhaseIdx = state.phases[0].phaseNumber;
+          }
+          currentSelectedPhaseNumber = state.phases.length > 0 ? state.phases[0].phaseNumber : 1;
+          
+          renderPhaseSelector();
+          renderPhasesUI();
+          showSuccess(`✅ Fase ${phaseNumber} cancellata!`);
+          console.log('✅ deletePhase - fase cancellata:', phaseNumber);
+        } else {
+          showError('Errore nella cancellazione: ' + (r.message || ''));
+        }
+      } catch (err) {
+        console.error('❌ deletePhase error:', err);
+        showError('Errore durante la cancellazione: ' + err.message);
       }
     }
 

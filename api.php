@@ -4052,6 +4052,54 @@ if ($action === 'admin_set_current_phase' && $method === 'POST') {
     jsonResponse(200, $result);
 }
 
+if ($action === 'admin_delete_phase' && $method === 'POST') {
+    $body = bodyJson();
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+    
+    if ($phaseNumber <= 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Numero fase invalido']);
+    }
+    
+    $result = withStateTransaction(function (&$state) use ($phaseNumber) {
+        $phases = $state['phases'] ?? [];
+        
+        // Trova l'indice della fase da cancellare
+        $deleteIdx = -1;
+        foreach ($phases as $idx => $phase) {
+            if (($phase['phaseNumber'] ?? 0) === $phaseNumber) {
+                $deleteIdx = $idx;
+                break;
+            }
+        }
+        
+        if ($deleteIdx === -1) {
+            return [
+                'ok' => false,
+                'error' => "Fase $phaseNumber non trovata"
+            ];
+        }
+        
+        // Rimuovi la fase
+        array_splice($phases, $deleteIdx, 1);
+        $state['phases'] = $phases;
+        
+        // Se la fase rimossa era currentPhaseIdx, cambia a una fase valida
+        if (($state['currentPhaseIdx'] ?? 0) === $phaseNumber) {
+            if (count($phases) > 0) {
+                $state['currentPhaseIdx'] = $phases[0]['phaseNumber'] ?? 1;
+            } else {
+                $state['currentPhaseIdx'] = 1;
+            }
+        }
+        
+        error_log("✅ admin_delete_phase: cancellata fase $phaseNumber. Rimangono " . count($phases) . " fasi. currentPhaseIdx ora = " . $state['currentPhaseIdx']);
+        
+        return ['ok' => true, 'state' => $state];
+    });
+    
+    jsonResponse(200, $result);
+}
+
 if ($action === 'admin_update_team' && $method === 'POST') {
     $body = bodyJson();
     $id = (string)($body['id'] ?? '');

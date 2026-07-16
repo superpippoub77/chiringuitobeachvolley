@@ -636,8 +636,6 @@
         <button class="tab" data-page="teams" onclick="showPage('teams', this)">Squadre e conferme</button>
         <button class="tab" data-page="schedule" onclick="showPage('schedule', this)">Giorni e fasce</button>
         <button class="tab" data-page="phases" onclick="showPage('phases', this)">📊 Gironi e Fasi</button>
-        <button class="tab" data-page="floweditor" onclick="showPage('floweditor', this)">🎨 Editor Flusso</button>
-        <button class="tab" data-page="matches" onclick="showPage('matches', this)">Partite e orari</button>
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
@@ -714,48 +712,6 @@
 
 
 
-      <div id="page-floweditor" class="card page hidden">
-        <h3>🎨 Editor Visuale del Flusso Torneo</h3>
-        <p class="muted">Disegna il flusso del tuo torneo trascinando blocchi, collegandoli tra loro per definire il percorso delle squadre da gironi a playoff.</p>
-        
-        <div style="background: #e8f5e9; border-left: 4px solid #2f6a23; border-radius: 4px; padding: 12px; margin-bottom: 16px">
-          <h4 style="margin-top: 0; color: #1b5e20; display: flex; align-items: center; gap: 8px">
-            <span>✨ Nuovo Editor Grafico</span>
-          </h4>
-          <p style="margin: 8px 0; font-size: 13px; color: #1b5e20">
-            Usa l'editor drag-and-drop per creare la struttura del tuo torneo in modo visuale. Salva il flusso e generalo automaticamente nel sistema.
-          </p>
-          <ul style="margin: 8px 0; font-size: 13px; color: #1b5e20; padding-left: 20px">
-            <li>📦 Trascina blocchi (Gironi, Winners, Losers, Ripescaggio)</li>
-            <li>🔗 Collegali con connessioni per definire il flusso</li>
-            <li>⚙️ Configura parametri per ogni blocco</li>
-            <li>💾 Salva il flusso localmente</li>
-            <li>🚀 Genera il torneo dal flusso</li>
-          </ul>
-        </div>
-
-        <div class="row" style="gap: 8px; margin-bottom: 14px">
-          <button class="btn btn-primary" onclick="openFlowEditor()" style="flex: 1; max-width: 200px">
-            🎨 Apri Editor
-          </button>
-          <button class="btn btn-info" onclick="loadFlowFromServer()" style="flex: 1; max-width: 200px">
-            📂 Carica Flusso Salvato
-          </button>
-          <button class="btn btn-green" onclick="generateTournamentFromFlow()" style="flex: 1; max-width: 200px">
-            🚀 Genera da Flusso
-          </button>
-        </div>
-
-        <div id="flowStatus" style="background: #f5f5f5; border: 1px solid #d8c39f; border-radius: 6px; padding: 12px; margin-top: 14px; display: none">
-          <h4 style="margin-top: 0; font-size: 14px">Stato Flusso Corrente</h4>
-          <div id="flowStatusContent" style="font-size: 13px"></div>
-        </div>
-
-        <div id="flowEditorResult" style="margin-top: 14px; display: none">
-          <div id="flowEditorResultContent" style="background: #f5f5f5; border: 1px solid #d8c39f; border-radius: 6px; padding: 12px"></div>
-        </div>
-      </div>
-
       <div id="page-phases" class="card page hidden">
         <h3>📊 Gironi e Fasi</h3>
         
@@ -793,11 +749,6 @@
         <div id="phaseContentContainer" style="margin-top: 16px">
           <!-- Dinamicamente riempito in base alla fase selezionata -->
         </div>
-      </div>
-
-      <div id="page-matches" class="card page hidden">
-        <h3>Gestione partite e orari</h3>
-        <div id="matchesContainer"></div>
       </div>
 
       <div id="page-sponsors" class="card page hidden">
@@ -11252,16 +11203,28 @@ html += `
               ${phase.type !== 'finale' ? `
                 <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
                   ${phase.type !== 'knockout' ? `
-                    <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                      onclick="openPhaseWizard('qualified')">
-                      ✓ +Qualificate
-                    </button>
+                    ${!phase.qualifiedGoTo ? `
+                      <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; border: 1px solid #2ecc71; color: #2ecc71; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="openPhaseWizard('qualified', ${stage.teamsOut})">
+                        ✓ +Qualificate
+                      </button>
+                    ` : `
+                      <div style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #f0f0f0; border: 1px solid #ddd; color: #999; border-radius: 4px; text-align: center; font-weight: bold" title="Fase qualificate già creata: ${phase.qualifiedGoTo}">
+                        ✓ Qualificate → ${escapeHtml(phase.qualifiedGoTo)}
+                      </div>
+                    `}
                   ` : ''}
                   ${(phase.type === 'groups' && phase.hasRepescage) || (phase.type === 'knockout' && phase.hasLosersPath) ? `
-                    <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                      onclick="openPhaseWizard('eliminated')">
-                      ✗ +Eliminate
-                    </button>
+                    ${!phase.eliminatedGoTo ? `
+                      <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                        onclick="openPhaseWizard('eliminated', ${stage.eliminated})">
+                        ✗ +Eliminate
+                      </button>
+                    ` : `
+                      <div style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #f0f0f0; border: 1px solid #ddd; color: #999; border-radius: 4px; text-align: center; font-weight: bold" title="Fase eliminate già creata: ${phase.eliminatedGoTo}">
+                        ✗ Eliminate → ${escapeHtml(phase.eliminatedGoTo)}
+                      </div>
+                    `}
                   ` : ''}
                 </div>
                 <!-- Pulsanti di azione fase -->
@@ -11361,10 +11324,16 @@ html += `
               </div>
               ${phase.type !== 'finale' ? `
                 <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center">
-                  <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
-                    onclick="openPhaseWizard('qualified', 'eliminated')">
-                    ✓ +Next Round
-                  </button>
+                  ${!phase.qualifiedGoTo ? `
+                    <button class="btn" style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #fff3e0; border: 1px solid #ff9800; color: #ff9800; cursor: pointer; border-radius: 4px; font-weight: bold" 
+                      onclick="openPhaseWizard('qualified', ${stage.teamsOut})">
+                      ✓ +Next Round
+                    </button>
+                  ` : `
+                    <div style="flex: 1; min-width: 80px; padding: 6px 8px; font-size: 11px; background: #f0f0f0; border: 1px solid #ddd; color: #999; border-radius: 4px; text-align: center; font-weight: bold" title="Fase successiva già creata: ${phase.qualifiedGoTo}">
+                      ✓ Next Round → ${escapeHtml(phase.qualifiedGoTo)}
+                    </div>
+                  `}
                 </div>
               ` : `
                 <div style="padding: 8px; background: #fff3e0; border-radius: 4px; text-align: center; font-size: 12px; color: #ff9800; font-weight: bold">

@@ -1421,7 +1421,7 @@
                     "team1Name": "Finché beach non ci separi",
                     "team2Name": "Ginocchia disperse",
                     "score1": 21,
-                    "score2": 4,
+                    "score2": 5,
                     "date": "2026-07-17",
                     "startTime": "19:30",
                     "endTime": "19:46",
@@ -1914,6 +1914,6 @@
     ],
     "currentPhaseIdx": 2,
     "meta": {
-        "lastUpdated": "2026-07-16T21:06:51+00:00"
+        "lastUpdated": "2026-07-16T21:28:42+00:00"
     }
 }

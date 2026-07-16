@@ -4613,9 +4613,11 @@
     }
 
     function generateSetInputs(match, phase, isKnockout) {
-      // Per GIRONI: mostra sempre score1/score2 (il punteggio totale della partita)
+      // Per GIRONI: genera input per score1/score2
       if (phase?.type === 'groups') {
-        return `${match.score1 ?? '0'}-${match.score2 ?? '0'}`;
+        const t1Val = match.score1 ?? '';
+        const t2Val = match.score2 ?? '';
+        return `<input id="s0-t1-${match.id}" type="number" min="0" style="width:50px" value="${t1Val}"> - <input id="s0-t2-${match.id}" type="number" min="0" style="width:50px" value="${t2Val}">`;
       }
       
       // Per KNOCKOUT: genera input text per ogni set

@@ -8715,9 +8715,11 @@ if ($action === 'admin_get_match' && $method === 'GET') {
     $tournament = readJsonFile(__DIR__ . '/data/tournament.json') ?? [];
     $phases = $tournament['phases'] ?? [];
     $match = null;
+    $phaseName = null;
     
     foreach ($phases as $p) {
         if (($p['phaseNumber'] ?? null) == $phase) {
+            $phaseName = $p['name'] ?? null;
             $matches = $p['matches'] ?? [];
             foreach ($matches as $m) {
                 if (($m['id'] ?? null) === $matchId) {
@@ -8733,7 +8735,7 @@ if ($action === 'admin_get_match' && $method === 'GET') {
         return;
     }
     
-    jsonResponse(200, ['ok' => true, 'match' => $match]);
+    jsonResponse(200, ['ok' => true, 'match' => $match, 'phaseName' => $phaseName]);
 }
 
 if ($action === 'admin_update_match_score' && $method === 'POST') {
@@ -8764,6 +8766,27 @@ if ($action === 'admin_update_match_score' && $method === 'POST') {
                     $match['team1Timeouts'] = $team1Timeouts;
                     $match['team2Timeouts'] = $team2Timeouts;
                     $match['updatedAt'] = date('c');
+
+                    // 🔧 FIX: il resto dell'applicazione (lista partite, classifiche
+                    // in admin.html) non legge affatto "sets", ma i campi
+                    // score1/score2 (numero di set vinti). Senza calcolarli qui,
+                    // il risultato inserito dal tabellone non compariva da
+                    // nessun'altra parte, dando l'impressione che non fosse
+                    // stato salvato.
+                    $team1SetsWon = 0;
+                    $team2SetsWon = 0;
+                    foreach ($sets as $s) {
+                        $t1 = $s['team1'] ?? 0;
+                        $t2 = $s['team2'] ?? 0;
+                        if ($t1 > $t2) {
+                            $team1SetsWon++;
+                        } elseif ($t2 > $t1) {
+                            $team2SetsWon++;
+                        }
+                    }
+                    $match['score1'] = $team1SetsWon;
+                    $match['score2'] = $team2SetsWon;
+
                     $updated = true;
                     break 2;
                 }

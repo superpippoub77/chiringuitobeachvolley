@@ -44,6 +44,13 @@
       margin-bottom: 10px;
     }
 
+    .match-meta {
+      font-size: 14px;
+      color: #bbb;
+      margin-top: -6px;
+      margin-bottom: 10px;
+    }
+
     .main-display {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -342,6 +349,7 @@
   <div class="scoreboard">
     <div class="header">
       <div class="match-info" id="matchInfo">Partita</div>
+      <div class="match-meta" id="matchMeta"></div>
       <div class="current-set" id="currentSet">SET 1</div>
     </div>
 
@@ -398,6 +406,7 @@
     let matchId = null;
     let phaseNumber = null;
     let matchData = null;
+    let phaseName = null;
     let currentSetIndex = 0;
     let history = [];
     let saveTimeout = null;
@@ -446,6 +455,7 @@
 
         if (data.ok && data.match) {
           matchData = data.match;
+          phaseName = data.phaseName || null;
           loadScoreboardState();
           render();
         } else {
@@ -460,8 +470,10 @@
     function loadScoreboardState() {
       if (!matchData) return;
 
-      scoreboardState.team1.name = matchData.team1 || 'Team 1';
-      scoreboardState.team2.name = matchData.team2 || 'Team 2';
+      // 🔧 FIX: matchData.team1/team2 sono gli ID delle squadre, non i nomi.
+      // I nomi corretti sono in team1Name/team2Name (come usato in admin.html).
+      scoreboardState.team1.name = matchData.team1Name || matchData.team1 || 'Squadra 1';
+      scoreboardState.team2.name = matchData.team2Name || matchData.team2 || 'Squadra 2';
       scoreboardState.sets = matchData.sets || [{ team1: 0, team2: 0 }];
 
       // Carica il set corrente (ultimo non concluso)
@@ -495,6 +507,17 @@
     function render() {
       // Header
       document.getElementById('matchInfo').textContent = `${scoreboardState.team1.name} vs ${scoreboardState.team2.name}`;
+
+      // 🔧 FIX: mostra a quale fase e girone appartiene la partita, altrimenti
+      // aprendo il tabellone non era chiaro il contesto della partita in corso.
+      const metaParts = [];
+      metaParts.push(phaseName ? phaseName : `Fase ${phaseNumber}`);
+      const groupLabel = matchData.groupName || matchData.group || null;
+      if (groupLabel) {
+        metaParts.push(`Girone ${groupLabel}`);
+      }
+      document.getElementById('matchMeta').textContent = metaParts.join(' · ');
+
       document.getElementById('currentSet').textContent = `SET ${currentSetIndex + 1}`;
 
       // Team info
@@ -684,7 +707,8 @@
       saveTimeout = setTimeout(saveMatch, 3000);
     }
 
-    async function saveMatch() {
+    async function saveMatch(silent = false) {
+      const saveBtn = document.querySelector('.btn-save');
       try {
         const token = localStorage.getItem('adminToken') || '';
         const response = await fetch(`${API}?action=admin_update_match_score`, {
@@ -698,20 +722,43 @@
             team2Timeouts: scoreboardState.team2.timeoutsUsed
           })
         });
-        const data = await response.json();
-        if (data.ok) {
-          document.getElementById('statusInfo').textContent = '✅ Salvato alle ' + new Date().toLocaleTimeString('it-IT');
+
+        // 🔧 FIX: prima non veniva gestito né il caso "risposta non-ok" (401,
+        // 404, 500...) né eventuali errori di rete durante il salvataggio
+        // manuale: il pulsante "Salva" non dava alcun feedback in caso di
+        // fallimento, dando l'impressione che il salvataggio fosse riuscito
+        // quando in realtà i punteggi non venivano scritti.
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          throw new Error(`Risposta non valida dal server (HTTP ${response.status})`);
         }
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || `Errore HTTP ${response.status}`);
+        }
+
+        document.getElementById('statusInfo').textContent = '✅ Salvato alle ' + new Date().toLocaleTimeString('it-IT');
+        document.getElementById('statusInfo').style.color = '';
       } catch (e) {
         console.error('Errore salvataggio:', e);
+        document.getElementById('statusInfo').textContent = '❌ Errore salvataggio: ' + e.message;
+        document.getElementById('statusInfo').style.color = '#f44336';
+        // Il salvataggio manuale (pulsante "Salva") deve sempre avvisare
+        // esplicitamente l'utente; l'auto-save silenzioso di background no,
+        // per non essere invasivo ogni 10 secondi in caso di problemi di rete.
+        if (!silent) {
+          alert('❌ Salvataggio non riuscito: ' + e.message);
+        }
       }
     }
 
     // Inizializza
     initTablescore();
 
-    // Auto-save ogni 10 secondi
-    setInterval(() => saveMatch(), 10000);
+    // Auto-save ogni 10 secondi (silenzioso: non mostra alert in caso di errore)
+    setInterval(() => saveMatch(true), 10000);
   </script>
 </body>
 </html>

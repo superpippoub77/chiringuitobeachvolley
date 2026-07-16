@@ -2902,23 +2902,23 @@
       const all = state.teams || [];
       const addButton = !isTournamentStarted() ? `
         <div style="margin-bottom: 16px">
-          <button class="btn" style="background: #4caf50; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px">
+          <button id="addTeamBtn" class="btn" style="background: #4caf50; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px">
             ➕ Aggiungi Squadra
           </button>
         </div>
       ` : '';
       
-      const button = c.querySelector('button');
-      if (!button && addButton && !isTournamentStarted()) {
-        // Inserisci il bottone solo una volta
-      }
-      
       c.innerHTML = addButton + 
         `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + 
         all.map(teamRow).join('');
       
-      // Aggiungi event listener al bottone
-      const addBtn = c.querySelector('button');
+      // Aggiungi event listener al bottone "Aggiungi Squadra" (solo se presente:
+      // torneo non ancora iniziato). Prima si usava c.querySelector('button'),
+      // che senza questo id prendeva il primo <button> qualsiasi nel container:
+      // a torneo iniziato (nessun bottone "Aggiungi Squadra" renderizzato), quel
+      // primo bottone era in realtà "Modifica" della prima squadra, il cui
+      // onclick veniva sovrascritto qui, rendendo impossibile modificarla.
+      const addBtn = document.getElementById('addTeamBtn');
       if (addBtn) {
         addBtn.onclick = openAddTeamDialog;
       }

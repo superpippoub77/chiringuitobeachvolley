@@ -263,81 +263,143 @@ function sendEmail(string $to, string $subject, string $body, string $from = '')
  * Ritorna null se PHPMailer non è disponibile
  */
 function sendEmailViaPHPMailer(string $to, string $subject, string $body, string $from = ''): ?array {
-    // Controlla se PHPMailer è disponibile
-    if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
-        return null;
-    }
-    
+
     try {
-        require_once __DIR__ . '/vendor/autoload.php';
-        
+
+        // ============================================
+        // Caricamento PHPMailer senza Composer
+        // Percorso: plugins/phpmailer/src/
+        // ============================================
+        $phpMailerPath = __DIR__ . '/plugins/phpmailer/src/';
+
+        if (!file_exists($phpMailerPath . 'PHPMailer.php')) {
+            $logMessage = date('Y-m-d H:i:s') . " - FAILED: PHPMailer non trovato in $phpMailerPath\n";
+            @error_log($logMessage, 3, __DIR__ . '/data/email.log');
+            return null;
+        }
+
+        require_once $phpMailerPath . 'Exception.php';
+        require_once $phpMailerPath . 'PHPMailer.php';
+        require_once $phpMailerPath . 'SMTP.php';
+
+
         // Leggi la configurazione email da config.json
         $config = readConfig();
         $emailConfig = $config['email'] ?? [];
-        
+
+
         // Se email è disabilitata, non inviare
         if (!($emailConfig['enabled'] ?? false)) {
+
             $logMessage = date('Y-m-d H:i:s') . " - SKIPPED: Email disabilitata nella configurazione\n";
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-            return ['success' => false, 'error' => 'Email non configurata nel pannello admin', 'to' => $to, 'queue' => true];
+
+            return [
+                'success' => false,
+                'error' => 'Email non configurata nel pannello admin',
+                'to' => $to,
+                'queue' => true
+            ];
         }
-        
+
+
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-        
-        // Imposta i parametri SMTP direttamente da config
+
+
+        // Parametri SMTP
         $host = trim((string)($emailConfig['host'] ?? ''));
         $port = (int)($emailConfig['port'] ?? 587);
         $username = trim((string)($emailConfig['username'] ?? ''));
         $password = trim((string)($emailConfig['password'] ?? ''));
-        
+
+
         if (empty($host) || empty($username) || empty($password)) {
+
             $logMessage = date('Y-m-d H:i:s') . " - FAILED: Parametri SMTP incompleti in config.json\n";
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-            return ['success' => false, 'error' => 'Configurazione SMTP incompleta', 'to' => $to, 'queue' => true];
+
+            return [
+                'success' => false,
+                'error' => 'Configurazione SMTP incompleta',
+                'to' => $to,
+                'queue' => true
+            ];
         }
-        
+
+
+        // Config SMTP
         $mail->isSMTP();
         $mail->Host = $host;
         $mail->SMTPAuth = (bool)($emailConfig['auth'] ?? true);
         $mail->Username = $username;
         $mail->Password = $password;
-        $secure = trim((string)($emailConfig['secure'] ?? 'tls'));
-        $mail->SMTPSecure = ($secure === 'ssl') ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+
+
+        $secure = strtolower(trim((string)($emailConfig['secure'] ?? 'tls')));
+
+        if ($secure === 'ssl') {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+
         $mail->Port = $port;
         $mail->Timeout = (int)($emailConfig['timeout'] ?? 10);
-        
+
+
         // Mittente
-        $senderEmail = trim((string)($emailConfig['fromEmail'] ?? 'noreply@beachmaster.local'));
+        $senderEmail = trim((string)($emailConfig['fromEmail'] ?? $username));
         $senderName = trim((string)($emailConfig['fromName'] ?? 'BeachMaster'));
+
         $mail->setFrom($senderEmail, $senderName);
-        
+
+
+        // Reply-To
         if (!empty($from) && filter_var($from, FILTER_VALIDATE_EMAIL)) {
             $mail->addReplyTo($from);
         }
-        
+
+
         // Destinatario
         $mail->addAddress($to);
-        
+
+
         // Contenuto
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body = $body;
         $mail->AltBody = strip_tags($body);
-        
-        // Invia
+
+
+        // Invio
         if ($mail->send()) {
-            $logMessage = date('Y-m-d H:i:s') . " - SUCCESS (PHPMailer): Email inviata a $to (Subject: $subject)\n";
+
+            $logMessage = date('Y-m-d H:i:s') .
+                " - SUCCESS (PHPMailer): Email inviata a $to (Subject: $subject)\n";
+
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-            return ['success' => true, 'message' => 'Email inviata con successo', 'to' => $to, 'method' => 'PHPMailer'];
+
+            return [
+                'success' => true,
+                'message' => 'Email inviata con successo',
+                'to' => $to,
+                'method' => 'PHPMailer'
+            ];
+
         } else {
+
             $errorInfo = $mail->ErrorInfo;
-            $logMessage = date('Y-m-d H:i:s') . " - FAILED (PHPMailer): " . $errorInfo . "\n";
+
+            $logMessage = date('Y-m-d H:i:s') .
+                " - FAILED (PHPMailer): $errorInfo\n";
+
             @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-            
-            // ✅ MIGLIORATO: Ritorna l'errore vero di PHPMailer, non 'in coda'
-            // Salva comunque nella coda come fallback
+
+
             saveEmailToQueue($to, $subject, $body, $from);
-            
+
+
             return [
                 'success' => false,
                 'error' => 'Errore SMTP: ' . $errorInfo,
@@ -346,20 +408,30 @@ function sendEmailViaPHPMailer(string $to, string $subject, string $body, string
                 'smtpError' => $errorInfo
             ];
         }
-        
+
+
     } catch (\Exception $e) {
+
+
         $errorMsg = $e->getMessage();
-        $logMessage = date('Y-m-d H:i:s') . " - EXCEPTION (PHPMailer): " . $errorMsg . "\n";
+
+        $logMessage = date('Y-m-d H:i:s') .
+            " - EXCEPTION (PHPMailer): $errorMsg\n";
+
         @error_log($logMessage, 3, __DIR__ . '/data/email.log');
-        
+
+
+        saveEmailToQueue($to, $subject, $body, $from);
+
+
         return [
             'success' => false,
             'error' => 'Eccezione: ' . $errorMsg,
-            'exception' => $errorMsg
+            'exception' => $errorMsg,
+            'queue' => true
         ];
     }
 }
-
 /**
  * Fallback: usa mail() nativa PHP
  */
@@ -5069,6 +5141,108 @@ if ($action === 'admin_get_current_phase' && $method === 'GET') {
 }
 
 /**
+ * Verifica lo stato del completamento di una fase
+ */
+if ($action === 'admin_check_phase_completion' && $method === 'POST') {
+    $body = bodyJson();
+    $phaseIdx = (int)($body['phaseIdx'] ?? 0);
+    
+    $state = readState();
+    ensurePhases($state);
+    
+    $phase = getPhase($state, $phaseIdx);
+    if (!$phase) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
+        exit;
+    }
+    
+    $status = [
+        'completed' => $phase['status'] === 'completed',
+        'matchCount' => count($phase['matches'] ?? []),
+        'matchesCompleted' => 0,
+        'missing' => []
+    ];
+    
+    // Conta partite con risultati
+    $matchesWithScore = 0;
+    foreach ($phase['matches'] ?? [] as $match) {
+        if ($phase['type'] === 'groups') {
+            if ($match['score1'] !== null && $match['score2'] !== null) {
+                $matchesWithScore++;
+            }
+        } else if ($phase['type'] === 'knockout') {
+            if (!empty($match['sets']) && count($match['sets']) > 0) {
+                $hasAllSets = true;
+                foreach ($match['sets'] as $set) {
+                    if ($set['team1'] === null || $set['team2'] === null) {
+                        $hasAllSets = false;
+                        break;
+                    }
+                }
+                if ($hasAllSets) $matchesWithScore++;
+            }
+        }
+    }
+    $status['matchesCompleted'] = $matchesWithScore;
+    
+    // Verifica cosa manca
+    if ($phase['type'] === 'groups') {
+        // Verifica gironi
+        if (empty($phase['groups'])) {
+            $status['missing'][] = 'Nessun girone configurato';
+        }
+        
+        // Verifica partite
+        if (empty($phase['matches'])) {
+            $status['missing'][] = 'Nessuna partita programmata';
+        } else if ($matchesWithScore < count($phase['matches'])) {
+            $remaining = count($phase['matches']) - $matchesWithScore;
+            $status['missing'][] = "{$remaining} partita/e senza risultati";
+        }
+        
+        // Verifica classifiche
+        $standings = computeStandings($state);
+        if (empty($standings)) {
+            $status['missing'][] = 'Classifiche non disponibili';
+        }
+        
+        $status['teamsQualified'] = count($standings);
+        $status['teamsExpected'] = 0;
+        // Calcola squadre attese dalla configurazione
+        $config = readConfig();
+        $configPhase = null;
+        foreach (($config['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $phase['phaseNumber']) {
+                $configPhase = $cp;
+                break;
+            }
+        }
+        if ($configPhase) {
+            $teamsAdvance = $configPhase['teamsAdvance'] ?? 2;
+            if (is_string($teamsAdvance) && strpos($teamsAdvance, ',') !== false) {
+                $teamsAdvance = array_sum(array_map('intval', explode(',', $teamsAdvance)));
+            } else {
+                $teamsAdvance = (int)$teamsAdvance;
+            }
+            $status['teamsExpected'] = (count($phase['groups'] ?? []) ?? 1) * $teamsAdvance;
+        }
+    } else if ($phase['type'] === 'knockout') {
+        if (empty($phase['matches'])) {
+            $status['missing'][] = 'Nessuna partita programmata';
+        } else if ($matchesWithScore < count($phase['matches'])) {
+            $remaining = count($phase['matches']) - $matchesWithScore;
+            $status['missing'][] = "{$remaining} partita/e senza risultati";
+        }
+        
+        $status['teamsQualified'] = ceil(count($phase['matches']) / 2);
+        $status['teamsExpected'] = $phase['matchRules']['numSets'] ?? 1;
+    }
+    
+    jsonResponse(200, ['ok' => true, 'status' => $status]);
+    exit;
+}
+
+/**
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
@@ -7193,6 +7367,112 @@ if ($action === 'get_sponsors' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'sponsors' => $sponsorList]);
 }
 
+/**
+ * Salva tutte le partite di una fase contemporaneamente (batch save)
+ */
+if ($action === 'admin_save_all_matches' && $method === 'POST') {
+    try {
+        $body = bodyJson();
+        $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+        $phaseType = trim((string)($body['phaseType'] ?? 'groups'));
+        $matches = $body['matches'] ?? [];
+        
+        if ($phaseNumber < 1 || empty($matches)) {
+            jsonResponse(400, ['ok' => false, 'error' => 'Parametri non validi']);
+            exit;
+        }
+
+        $savedCount = 0;
+        $errors = [];
+
+        // Salva tutte le partite nella transazione
+        withStateTransaction(function (&$state) use ($phaseNumber, $phaseType, $matches, &$savedCount, &$errors) {
+            ensurePhases($state);
+            
+            $phaseIdx = array_search(
+                $phaseNumber,
+                array_column($state['phases'], 'phaseNumber'),
+                true
+            );
+
+            if ($phaseIdx === false) {
+                $errors[] = "Fase {$phaseNumber} non trovata";
+                return ['ok' => false, 'error' => "Fase {$phaseNumber} non trovata"];
+            }
+
+            $currentPhase = &$state['phases'][$phaseIdx];
+
+            // Processa ogni partita nel batch
+            foreach ($matches as $matchData) {
+                $matchId = $matchData['matchId'] ?? null;
+                
+                if (!$matchId) {
+                    $errors[] = "ID partita mancante";
+                    continue;
+                }
+
+                // Trova la partita per reference
+                $matchFound = false;
+                foreach ($currentPhase['matches'] as &$m) {
+                    if ($m['id'] !== $matchId) continue;
+                    
+                    $matchFound = true;
+
+                    // Aggiorna i campi secondo il tipo di fase
+                    if ($phaseType === 'knockout') {
+                        // KNOCKOUT: aggiorna i set
+                        if (isset($matchData['sets']) && is_array($matchData['sets'])) {
+                            $m['sets'] = $matchData['sets'];
+                        }
+                        if (isset($matchData['team1Timeouts'])) {
+                            $m['team1Timeouts'] = (int)$matchData['team1Timeouts'];
+                        }
+                        if (isset($matchData['team2Timeouts'])) {
+                            $m['team2Timeouts'] = (int)$matchData['team2Timeouts'];
+                        }
+                    } else {
+                        // GIRONE: aggiorna score1/score2 e orario
+                        if (isset($matchData['score1'])) {
+                            $m['score1'] = is_null($matchData['score1']) ? null : (int)$matchData['score1'];
+                        }
+                        if (isset($matchData['score2'])) {
+                            $m['score2'] = is_null($matchData['score2']) ? null : (int)$matchData['score2'];
+                        }
+                        if (isset($matchData['time'])) {
+                            $m['time'] = trim((string)$matchData['time']);
+                        }
+                    }
+
+                    $savedCount++;
+                    break;
+                }
+
+                if (!$matchFound) {
+                    $errors[] = "Partita {$matchId} non trovata";
+                }
+            }
+
+            return ['ok' => true];
+        });
+
+        error_log("💾 admin_save_all_matches: Salvate {$savedCount} partite su " . count($matches) . ", errori: " . count($errors));
+        
+        if (count($errors) > 0) {
+            error_log("⚠️ Errori durante il salvataggio: " . json_encode($errors));
+        }
+
+        jsonResponse(200, [
+            'ok' => true,
+            'savedCount' => $savedCount,
+            'totalMatches' => count($matches),
+            'errors' => $errors
+        ]);
+    } catch (Exception $e) {
+        error_log("❌ admin_save_all_matches ERRORE: " . $e->getMessage());
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore durante il salvataggio batch: ' . $e->getMessage()]);
+    }
+}
+
 if ($action === 'admin_update_config' && $method === 'POST') {
     try {
         error_log("📝 admin_update_config: INIZIO");
@@ -7205,6 +7485,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
         if (isset($t['name'])) $config['tournament']['name'] = mb_substr(trim((string)$t['name']), 0, 100);
+        if (isset($t['slug'])) $config['tournament']['slug'] = mb_substr(preg_replace('/[^a-z0-9-]/', '', trim(strtolower((string)$t['slug']))), 0, 50);
         if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(2, min(100, (int)$t['maxTeams']));
         if (isset($t['maxPlayersPerTeam'])) $config['tournament']['maxPlayersPerTeam'] = max(1, min(12, (int)$t['maxPlayersPerTeam']));
         if (isset($t['maxPlayersOnCourt'])) $config['tournament']['maxPlayersOnCourt'] = max(1, min(6, (int)$t['maxPlayersOnCourt']));

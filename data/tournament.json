@@ -1400,8 +1400,8 @@
                     "team2Id": "a4b9c61683587994",
                     "team1Name": "Presi dalla squadra",
                     "team2Name": "Christmas crackers",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 21,
+                    "score2": 4,
                     "date": "2026-07-17",
                     "startTime": "20:02",
                     "endTime": "20:18",
@@ -1421,7 +1421,7 @@
                     "team1Name": "Finché beach non ci separi",
                     "team2Name": "Ginocchia disperse",
                     "score1": 21,
-                    "score2": 5,
+                    "score2": 6,
                     "date": "2026-07-17",
                     "startTime": "19:30",
                     "endTime": "19:46",
@@ -1440,8 +1440,8 @@
                     "team2Id": "8af4dd33a176fb7f",
                     "team1Name": "Finché beach non ci separi",
                     "team2Name": "I nonni del buco",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 15,
+                    "score2": 12,
                     "date": "2026-07-17",
                     "startTime": "20:18",
                     "endTime": "20:34",
@@ -1560,8 +1560,8 @@
                     "team2Id": "1c9376be821386e0",
                     "team1Name": "I nonni del buco",
                     "team2Name": "TuneSquad",
-                    "score1": null,
-                    "score2": null,
+                    "score1": 4,
+                    "score2": 2,
                     "date": "2026-07-17",
                     "startTime": "19:46",
                     "endTime": "20:02",
@@ -1657,7 +1657,7 @@
                     "team2": "5e84627052d5c3b8",
                     "team2Id": "5e84627052d5c3b8",
                     "score1": 21,
-                    "score2": 3,
+                    "score2": 5,
                     "bye": false,
                     "date": "2026-07-18",
                     "startTime": "16:00",
@@ -1672,12 +1672,12 @@
                     "sets": [
                         {
                             "team1": 21,
-                            "team2": 3
+                            "team2": 5
                         }
                     ],
                     "team1Timeouts": 0,
                     "team2Timeouts": 0,
-                    "updatedAt": "2026-07-16T19:58:31+00:00"
+                    "updatedAt": "2026-07-16T21:29:22+00:00"
                 },
                 {
                     "id": "711e1fc4067e03f1",
@@ -1914,6 +1914,6 @@
     ],
     "currentPhaseIdx": 2,
     "meta": {
-        "lastUpdated": "2026-07-16T21:28:42+00:00"
+        "lastUpdated": "2026-07-16T21:39:05+00:00"
     }
 }

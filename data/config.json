@@ -99,7 +99,7 @@
             "sortCriterion": 2,
             "avoidGroupRematches": true,
             "matchRules": {
-                "numSets": 2,
+                "numSets": 1,
                 "timePerSetMinutes": 5,
                 "setupTimeMinutes": 0,
                 "winScore": 21,

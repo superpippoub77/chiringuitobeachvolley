@@ -723,6 +723,7 @@ function initialState(): array {
         ],
         'teams' => [],
         'phases' => [],
+        'currentPhaseIdx' => 1,  // 🆕 Fase selezionata di default
         'meta' => [
             'lastUpdated' => null
         ]
@@ -741,6 +742,11 @@ function mergeState(array $existingState, array $newState): array {
     // PRESERVA LE FASI CON TUTTI I MATCH E GRUPPI SALVATI!
     if (isset($existingState['phases']) && is_array($existingState['phases'])) {
         $merged['phases'] = $existingState['phases'];
+    }
+    
+    // 🆕 Preserva il phase index selezionato dall'utente
+    if (isset($existingState['currentPhaseIdx']) && is_numeric($existingState['currentPhaseIdx'])) {
+        $merged['currentPhaseIdx'] = $existingState['currentPhaseIdx'];
     }
     
     // Preserva i metadata
@@ -5732,6 +5738,10 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
     $numGroups = (int)($body['numGroups'] ?? 2);
     // 🔧 Flag per evitare rematch dello stesso girone nel knockout
     $avoidGroupRematches = !empty($body['avoidGroupRematches']);
+    
+    // 🆕 Flag per generare il match di 3°/4° posto durante avanzamento knockout
+    $includeThirdPlace = !empty($body['includeThirdPlace']);
+    
     // 🆕 Permette di "Ricalcolare" una fase già esistente (rigenerarla da zero con
     // gli stessi parametri, es. dopo aver corretto le squadre-che-avanzano-per-girone),
     // invece di dover cancellare tutto a mano.
@@ -5768,7 +5778,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         }
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $avoidGroupRematches, $overwrite, $preservedMatchRules) {
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $avoidGroupRematches, $includeThirdPlace, $overwrite, $preservedMatchRules) {
         ensurePhases($state);
 
         $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
@@ -5942,6 +5952,9 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             
             // 🆕 Salva il criterio di ordinamento utilizzato per il seeding
             $newPhase['sortCriterion'] = $sortCriterion;
+            
+            // 🆕 Salva il flag includeThirdPlace per generare il 3°/4° posto
+            $newPhase['includeThirdPlace'] = !empty($body['includeThirdPlace']);
             
             // 🆕 Popola gli standings con le squadre ordinate come nel seeding
             // (serve per mostrare il seeding nel scoreboard pubblico)
@@ -8946,6 +8959,175 @@ if ($action === 'admin_update_match_score' && $method === 'POST') {
     
     if (!$result || !($result['ok'] ?? false)) {
         jsonResponse(400, ['ok' => false, 'error' => $result['error'] ?? 'Errore sconosciuto']);
+        return;
+    }
+    
+    jsonResponse(200, $result);
+}
+
+if ($action === 'admin_advance_knockout_round' && $method === 'POST') {
+    // 🔧 Avanza le squadre vincitrici da un round al successivo
+    // Accettati parametri:
+    //   - phase: numero della fase knockout
+    //   - fromRound: da quale round avanzare (1=quarti, 2=semifinali, ecc)
+    // Determina automaticamente il toRound = fromRound + 1
+    
+    requireAdmin();
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $phase = $data['phase'] ?? null;
+    $fromRound = $data['fromRound'] ?? null;
+    
+    if (!$phase || !$fromRound) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti: phase, fromRound']);
+        return;
+    }
+    
+    $result = withStateTransaction(function (&$state) use ($phase, $fromRound) {
+        ensurePhases($state);
+        
+        $phaseIdx = array_search($phase, array_column($state['phases'], 'phaseNumber'), true);
+        if ($phaseIdx === false) {
+            return ['ok' => false, 'error' => "Fase {$phase} non trovata"];
+        }
+        
+        $phaseData = &$state['phases'][$phaseIdx];
+        if ($phaseData['type'] !== 'knockout') {
+            return ['ok' => false, 'error' => 'La fase non è un knockout'];
+        }
+        
+        $matches = &$phaseData['matches'];
+        
+        // 1️⃣ Estrai i vincitori dal round corrente
+        $fromRoundMatches = array_filter($matches, fn($m) => ($m['round'] ?? 0) == $fromRound);
+        $winners = [];
+        
+        foreach ($fromRoundMatches as $match) {
+            if (empty($match['score1']) && empty($match['score2'])) {
+                // Match non giocato
+                return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " non ha ancora punteggi"];
+            }
+            
+            $winner = null;
+            if (($match['score1'] ?? 0) > ($match['score2'] ?? 0)) {
+                $winner = $match['team1'];
+            } elseif (($match['score2'] ?? 0) > ($match['score1'] ?? 0)) {
+                $winner = $match['team2'];
+            } else {
+                return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " ha punteggio in parità"];
+            }
+            
+            $winners[] = [
+                'winner' => $winner,
+                'winnerName' => ($match['score1'] > $match['score2']) ? $match['team1Name'] : $match['team2Name'],
+                'loser' => ($match['score1'] > $match['score2']) ? $match['team2'] : $match['team1'],
+                'loserName' => ($match['score1'] > $match['score2']) ? $match['team2Name'] : $match['team1Name']
+            ];
+        }
+        
+        // 2️⃣ Identifica il round destinazione (escludi thirdPlace)
+        $toRound = $fromRound + 1;
+        $toRoundMatches = array_filter(
+            $matches,
+            fn($m) => ($m['round'] ?? 0) == $toRound && ($m['type'] ?? null) !== 'thirdPlace'
+        );
+        
+        // ⚠️ Valida che i vincitori possono riempire i match (2 vincitori per match)
+        $matchCount = count($toRoundMatches);
+        $winnersCount = count($winners);
+        $expectedWinners = $matchCount * 2;  // 2 vincitori per match
+        
+        if ($winnersCount !== $expectedWinners) {
+            error_log("❌ Validazione fallita: Vincitori={$winnersCount}, Match={$matchCount}, ExpectedWinners={$expectedWinners}");
+            error_log("   Winners: " . json_encode(array_map(fn($w) => $w['winnerName'], $winners)));
+            error_log("   Matches: " . json_encode(array_map(fn($m) => $m['label'] ?? 'unknown', array_values($toRoundMatches))));
+            return ['ok' => false, 'error' => "Vincitori ({$winnersCount}) non possono essere accoppiati in {$matchCount} match (servono {$expectedWinners} vincitori)"];
+        }
+        
+        // 3️⃣ Crea mappatura per abbinare vincitori ai match del round successivo
+        // L'ordine è importante: i vincitori mantengono l'abbinamento del bracket
+        $winnersArray = array_values($winners);
+        
+        // Raccogli i match del round successivo (mantenendo gli indici) senza usare ARRAY_FILTER_PRESERVE_KEYS
+        $toRoundMatchesArray = [];
+        foreach ($matches as $idx => $m) {
+            if (($m['round'] ?? 0) == $toRound && ($m['type'] ?? null) !== 'thirdPlace') {
+                $toRoundMatchesArray[$idx] = $m;
+            }
+        }
+        
+        // 4️⃣ Aggiorna i match del round successivo con i vincitori
+        // Abbina 2 vincitori per match (vincitore1 vs vincitore2)
+        $matchIdx = 0;
+        $losers = [];  // Raccogli i perdenti per il terzo posto
+        
+        foreach ($toRoundMatchesArray as $toMatchIdx => $toMatch) {
+            if ($matchIdx >= count($winnersArray)) break;
+            
+            // Prendi due vincitori consecutivi
+            $team1Data = $winnersArray[$matchIdx];
+            $matchIdx++;
+            
+            if ($matchIdx < count($winnersArray)) {
+                $team2Data = $winnersArray[$matchIdx];
+                $matchIdx++;
+            } else {
+                // Dispari: il vincitore rimasto va contro bye
+                error_log("⚠️ Numero dispari di vincitori");
+                break;
+            }
+            
+            // Abbina i vincitori nel match del round successivo
+            $matches[$toMatchIdx]['team1'] = $team1Data['winner'];
+            $matches[$toMatchIdx]['team1Id'] = $team1Data['winner'];
+            $matches[$toMatchIdx]['team1Name'] = $team1Data['winnerName'];
+            $matches[$toMatchIdx]['team2'] = $team2Data['winner'];
+            $matches[$toMatchIdx]['team2Id'] = $team2Data['winner'];
+            $matches[$toMatchIdx]['team2Name'] = $team2Data['winnerName'];
+            $matches[$toMatchIdx]['score1'] = null;
+            $matches[$toMatchIdx]['score2'] = null;
+            $matches[$toMatchIdx]['sets'] = [];
+            
+            // Raccogli i perdenti per il terzo posto
+            $losers[] = $team1Data;
+            $losers[] = $team2Data;
+        }
+        
+        // 5️⃣ Se esiste un match di terzo posto E il flag includeThirdPlace è true, abbina i perdenti
+        $includeThirdPlace = $phaseData['includeThirdPlace'] ?? false;
+        
+        if ($includeThirdPlace) {
+            $thirdPlaceMatches = array_filter(
+                $matches,
+                fn($m) => ($m['type'] ?? null) === 'thirdPlace' && ($m['round'] ?? 0) == $toRound
+            );
+            
+            if (!empty($thirdPlaceMatches) && count($losers) >= 2) {
+                // Il match di terzo posto ha i primi 2 perdenti
+                foreach ($thirdPlaceMatches as $tpIdx => $tpMatch) {
+                    $matches[$tpIdx]['team1'] = $losers[0]['loser'];
+                    $matches[$tpIdx]['team1Id'] = $losers[0]['loser'];
+                    $matches[$tpIdx]['team1Name'] = $losers[0]['loserName'];
+                    $matches[$tpIdx]['team2'] = $losers[1]['loser'];
+                    $matches[$tpIdx]['team2Id'] = $losers[1]['loser'];
+                    $matches[$tpIdx]['team2Name'] = $losers[1]['loserName'];
+                    $matches[$tpIdx]['score1'] = null;
+                    $matches[$tpIdx]['score2'] = null;
+                    $matches[$tpIdx]['sets'] = [];
+                    
+                    error_log("✅ Terzo posto: " . $losers[0]['loserName'] . " vs " . $losers[1]['loserName']);
+                    break; // Solo un match di terzo posto
+                }
+            }
+        } else {
+            error_log("⊘ Terzo posto SKIPPED (includeThirdPlace=false)");
+        }
+        
+        return ['ok' => true, 'message' => "Round avanzato: {$fromRound} → {$toRound}"];
+    });
+    
+    if (!$result || !($result['ok'] ?? false)) {
+        jsonResponse(400, $result);
         return;
     }
     

@@ -4662,7 +4662,12 @@
     }
 
     function generateSetInputs(match, phase, isKnockout) {
-      // Determina il numero di set dalla fase
+      // Per GIRONI: mostra sempre score1/score2 (il punteggio totale della partita)
+      if (phase?.type === 'groups') {
+        return `${match.score1 ?? '0'}-${match.score2 ?? '0'}`;
+      }
+      
+      // Per KNOCKOUT: genera input text per ogni set
       const numSets = phase?.matchRules?.numSets || 1;
       let setInputsHtml = '';
       
@@ -5218,6 +5223,158 @@
       }
     }
 
+    function getCompletedKnockoutRounds(phase) {
+      // Analizza quali round sono completati (tutti i match NON BYE e NON THIRDPLACE hanno punteggi)
+      if (!phase || phase.type !== 'knockout' || !phase.matches) return [];
+      
+      const rounds = {};
+      
+      // 🔍 DEBUG
+      console.log('📊 getCompletedKnockoutRounds: Analizzando', phase.matches.length, 'match');
+      
+      phase.matches.forEach(m => {
+        if (!m.round) return;
+        
+        // Escludi i match di terzo posto dal conteggio di completamento
+        if (m.type === 'thirdPlace') {
+          console.log(`  ⊘ Skip ${m.label || 'match'}: è thirdPlace`);
+          return;
+        }
+        
+        if (!rounds[m.round]) rounds[m.round] = { completed: 0, total: 0, details: [] };
+        rounds[m.round].total++;
+        
+        const hasScore = (m.score1 ?? null) !== null && (m.score2 ?? null) !== null;
+        if (hasScore) {
+          rounds[m.round].completed++;
+        }
+        
+        console.log(`  ${m.label || 'match'} (round ${m.round}): score1=${m.score1}, score2=${m.score2} → ${hasScore ? '✅' : '❌'}`);
+        rounds[m.round].details.push({
+          label: m.label,
+          score1: m.score1,
+          score2: m.score2,
+          hasScore
+        });
+      });
+      
+      console.log('📊 Round stats:', rounds);
+      
+      const completedRounds = [];
+      for (const [round, stats] of Object.entries(rounds)) {
+        console.log(`  Round ${round}: ${stats.completed}/${stats.total} completati`);
+        if (stats.completed === stats.total) {
+          completedRounds.push(Number(round));
+        }
+      }
+      
+      console.log('✅ Completed rounds:', completedRounds);
+      return completedRounds.sort((a, b) => a - b);
+    }
+    
+    async function advanceKnockoutRound(fromRound) {
+      const roundNames = { 
+        1: 'Round 1 (Quarti)', 
+        2: 'Round 2 (Semifinali)', 
+        3: 'Round 3 (Finali)' 
+      };
+      const nextRoundNames = {
+        2: 'Semifinali',
+        3: 'Finali',
+        4: 'Finale 3° Posto'
+      };
+      
+      const toRound = fromRound + 1;
+      const toRoundName = nextRoundNames[toRound] || `Round ${toRound}`;
+      
+      const confirmed = await showConfirmDialog(
+        'Avanza Knockout',
+        `Sei sicuro di voler avanzare i vincitori di ${roundNames[fromRound]} a ${toRoundName}?\n\nLe partite del prossimo round verranno aggiornate con le squadre giuste.`
+      );
+      if (!confirmed) return;
+      
+      try {
+        console.log(`🔄 Avanzamento knockout: round ${fromRound} → ${toRound}`);
+        const result = await callApi('admin_advance_knockout_round', 'POST', {
+          phase: currentSelectedPhaseNumber,
+          fromRound: fromRound
+        }, true);
+        
+        if (result.ok) {
+          await showInfoDialog('✅ Successo', `Squadre avanzate a ${toRoundName}!`);
+          await refresh();
+        } else {
+          console.error('❌ Errore dal server:', result);
+          await showInfoDialog('❌ Errore', result.error || 'Errore sconosciuto durante l\'avanzamento');
+        }
+      } catch (e) {
+        console.error('❌ Errore catch:', e);
+        await showInfoDialog('❌ Errore', e.message);
+      }
+    }
+    
+    function renderKnockoutAdvanceButtons(phase) {
+      if (!phase || phase.type !== 'knockout') return '';
+      
+      const completedRounds = getCompletedKnockoutRounds(phase);
+      
+      console.log('🎯 renderKnockoutAdvanceButtons: completedRounds=', completedRounds);
+      
+      if (completedRounds.length === 0) {
+        console.log('⚠️ ATTENZIONE: Nessun round completato! Dettagli match:');
+        const roundDetails = {};
+        (phase.matches || []).forEach(m => {
+          if (m.type === 'thirdPlace') {
+            console.log(`  ${m.label}: SKIP (thirdPlace)`);
+            return;
+          }
+          if (!m.round) {
+            console.log(`  ${m.label || 'unknown'}: SKIP (no round property)`);
+            return;
+          }
+          const hasScore = (m.score1 ?? null) !== null && (m.score2 ?? null) !== null;
+          if (!roundDetails[m.round]) roundDetails[m.round] = { ok: 0, missing: 0 };
+          if (hasScore) {
+            roundDetails[m.round].ok++;
+            console.log(`  ${m.label} (round ${m.round}): ✅ score1=${m.score1}, score2=${m.score2}`);
+          } else {
+            roundDetails[m.round].missing++;
+            console.log(`  ${m.label} (round ${m.round}): ❌ score1=${m.score1}, score2=${m.score2}`);
+          }
+        });
+        console.log('📊 Round Summary:', roundDetails);
+      }
+      
+      const nextRoundNames = {
+        2: 'Semifinali',
+        3: 'Finali',
+        4: 'Finale 3° Posto'
+      };
+      
+      let html = '';
+      for (const round of completedRounds) {
+        const nextRound = round + 1;
+        const nextRoundName = nextRoundNames[nextRound] || `Round ${nextRound}`;
+        const matchesInNext = (phase.matches || []).filter(m => m.round === nextRound && m.type !== 'thirdPlace').length;
+        
+        // Se il prossimo round ha già team assegnati in TUTTI i match, il pulsante non serve
+        const allTeamsAssigned = matchesInNext > 0 && 
+          (phase.matches || [])
+            .filter(m => m.round === nextRound && m.type !== 'thirdPlace')
+            .every(m => m.team1 && m.team2);
+        
+        console.log(`  Round ${round} → ${nextRound}: matchesInNext=${matchesInNext}, allTeamsAssigned=${allTeamsAssigned}`);
+        
+        if (!allTeamsAssigned && matchesInNext > 0) {
+          html += `<button class="btn btn-success" onclick="advanceKnockoutRound(${round})" style="font-size: 12px; padding: 6px 12px">
+            ⚡ Avanza a ${nextRoundName}
+          </button>`;
+        }
+      }
+      
+      return html;
+    }
+
     function renderMatchesInPhase() {
       const container = document.getElementById('phaseContentContainer');
       if (!container || !state || !state.phases) {
@@ -5254,10 +5411,14 @@
         return timeA.localeCompare(timeB);
       });
       
+      // Genera pulsanti di avanzamento per knockout
+      const knockoutAdvanceButtons = renderKnockoutAdvanceButtons(phase);
+      
       container.innerHTML = `
-      <div style="margin-bottom: 12px; display: flex; gap: 8px">
+      <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap">
         <button class="btn btn-primary" onclick="simulateMatchScores()">🎯 Simula Punteggi</button>
         <button class="btn btn-info" onclick="downloadScoutPDF()">📄 Scarica Scout PDF</button>
+        ${knockoutAdvanceButtons}
       </div>
       <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
       <table><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
@@ -5772,6 +5933,11 @@
     }
 
     function renderPhasesUI() {
+      // 🆕 Inizializza il tab selezionato con il currentPhaseIdx per default
+      if (currentSelectedPhaseNumber === 1 && state.currentPhaseIdx && state.currentPhaseIdx !== 1) {
+        currentSelectedPhaseNumber = state.currentPhaseIdx;
+      }
+      
       // Renderizza workflow tree (albero delle fasi)
       renderWorkflowTreeDisplay();
       // Renderizza phase selector + content area
@@ -5809,7 +5975,8 @@
         const isSelected = phaseNum === currentSelectedPhaseNumber;
         const isCurrentPhase = phaseNum === state.currentPhaseIdx;
         const typeLabel = phase.type === 'groups' ? '🎯 Gironi' : (phase.type === 'knockout' ? '🏆 Knockout' : '🎪 Sotto-Torneo');
-        const btnStyle = isSelected 
+        // 🆕 Evidenzia in blu il tab currentPhaseIdx per default, oppure il tab selezionato se cliccato
+        const btnStyle = (isSelected || isCurrentPhase) 
           ? 'background: #2196F3; color: white; border: 2px solid #1976D2' 
           : 'background: white; color: #333; border: 1px solid #ddd';
         
@@ -9263,12 +9430,9 @@ html += `
     /**
      * 🔧 FIX: Formatta il punteggio della partita
      * 
-     * KNOCKOUT: score1/score2 sono i punteggi del SET CORRENTE
-     *           sets[] è l'array storico di tutti i set
-     *           Formato: "1-0 (7-5)" = 1 set vinto, 0 perso, set corrente 7-5
-     * 
-     * GIRONE: sets[] è vuoto, score1/score2 sono i punteggi totali
-     *         Formato: "19-21" = punteggio totale
+     * KNOCKOUT 1 SET: mostra solo il punteggio (es. "21-3")
+     * KNOCKOUT MULTI-SET: mostra "set_vinti - set_persi (punteggio_corrente)" (es. "1-0 (7-5)")
+     * GIRONE: mostra solo score1/score2 (es. "19-21")
      */
     function formatMatchScore(match) {
       // Se non ci sono set salvati (girone), usa score1/score2 come punteggio totale
@@ -9276,7 +9440,13 @@ html += `
         return `${match.score1 ?? '-'} - ${match.score2 ?? '-'}`;
       }
       
-      // KNOCKOUT: Calcola set vinti guardando solo i set COMPLETATI (non l'ultimo in corso)
+      // 🆕 Se è un match a 1 solo set (knockout Quarti/Semifinali/Finali), mostra solo il punteggio
+      if (match.sets.length === 1) {
+        const s = match.sets[0];
+        return `${s.team1 ?? '-'} - ${s.team2 ?? '-'}`;
+      }
+      
+      // KNOCKOUT MULTI-SET: Calcola set vinti guardando solo i set COMPLETATI (non l'ultimo in corso)
       let team1SetsWon = 0;
       let team2SetsWon = 0;
       
@@ -9291,8 +9461,8 @@ html += `
       // Punteggio del set corrente (ultimo)
       const currentSet = match.sets[match.sets.length - 1] || { team1: 0, team2: 0 };
       
-      // Formatta: "set_vinti (punteggio_set_corrente)"
-      // Esempio: "1-0 (7-5)" o "0-0 (3-3)"
+      // Formatta: "set_vinti - set_persi (punteggio_set_corrente)"
+      // Esempio: "1-0 (7-5)" o "2-1 (3-3)"
       return `${team1SetsWon}-${team2SetsWon} (${currentSet.team1 ?? 0}-${currentSet.team2 ?? 0})`;
     }
 
@@ -11614,6 +11784,16 @@ html += `
               </label>
             </div>
             
+            <div style="padding: 10px; background: #fce4ec; border-radius: 4px; border-left: 4px solid #e91e63">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer">
+                <input type="checkbox" id="npIncludeThirdPlace" ${prefill.includeThirdPlace ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px">
+                <span style="flex: 1">
+                  <strong>🥉 Genera Finale 3°/4° Posto</strong><br>
+                  <span style="font-size: 12px; color: #555">Se attivo, accanto alla finale principale (1°/2° posto) verrà creata anche la finale per il 3°/4° posto con i perdenti della semifinale.</span>
+                </span>
+              </label>
+            </div>
+            
             <div id="npSeedingPreviewDiv" style="display: none; padding: 12px; background: #f9f9f9; border-radius: 6px; border: 2px solid #ff9800">
               <div style="font-weight: bold; margin-bottom: 10px; display: flex; gap: 8px; align-items: center">
                 <span>📊 Anteprima Seeding</span>
@@ -11709,7 +11889,8 @@ html += `
         numGroups: (phase.groups || []).length || configPhase?.numGroups,
         teamsAdvance: teamsAdvanceValue,
         sortCriterion: phase.sortCriterion || 1,
-        avoidGroupRematches: phase.avoidGroupRematches || false
+        avoidGroupRematches: phase.avoidGroupRematches || false,
+        includeThirdPlace: phase.includeThirdPlace || false
       });
     }
 
@@ -11974,6 +12155,11 @@ html += `
         ? !!document.getElementById('npAvoidGroupRematches')?.checked 
         : false;
       
+      // Leggi il flag includeThirdPlace per knockout
+      const includeThirdPlace = type === 'knockout'
+        ? !!document.getElementById('npIncludeThirdPlace')?.checked
+        : false;
+      
       // Leggi il criterio di ordinamento per knockout (1=media, 2=%, 3=media+quoz+diff)
       let sortCriterion = 1;
       if (type === 'knockout') {
@@ -11981,7 +12167,7 @@ html += `
         sortCriterion = selectedRadio ? parseInt(selectedRadio.value, 10) : 1;
       }
 
-      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion, avoidGroupRematches };
+      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion, avoidGroupRematches, includeThirdPlace };
 
       if (teamSource === 'phase') {
         payload.sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
@@ -12000,7 +12186,8 @@ html += `
         const criterionNames = { 1: 'Media Punti', 2: '% Vittorie', 3: 'Media+Quoziente+Diff' };
         const criterionMsg = type === 'knockout' ? ` (Seeding: ${criterionNames[sortCriterion]})` : '';
         const avoidGroupMsg = avoidGroupRematches ? ' ✓ Evita rematch dello stesso girone' : '';
-        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.${avoidGroupMsg}`);
+        const thirdPlaceMsg = includeThirdPlace ? ' ✓ Con finale 3°/4° posto' : '';
+        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.${avoidGroupMsg}${thirdPlaceMsg}`);
       } catch (e) {
         await showInfoDialog('❌ Errore', e.message);
       }

@@ -3066,10 +3066,19 @@
 
       const canDelete = !isTournamentStarted();
       const isDummy = team.dummy === true;
+
+      // 🆕 Contatta la squadra via WhatsApp o chiamata, usando il numero
+      // inserito in fase di iscrizione (team.phone).
+      const contactButtonsHtml = team.phone
+        ? `<a href="https://wa.me/${normalizePhoneForWhatsApp(team.phone)}" target="_blank" rel="noopener" class="btn" style="background: #25D366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px" title="Contatta ${escapeHtml(team.name)} su WhatsApp (${escapeHtml(team.phone)})">💬 WhatsApp</a>
+           <a href="tel:${team.phone.replace(/[^\d+]/g, '')}" class="btn" style="background: #0078d4; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px" title="Chiama ${escapeHtml(team.name)} (${escapeHtml(team.phone)})">📞 Chiama</a>`
+        : '';
+
       return `<div class="team">
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
           <small>${playersText}</small>
+          ${team.phone ? `<small style="display: block; color: #6b5d45; margin-top: 2px">📱 ${escapeHtml(team.phone)}</small>` : ''}
           ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
         </div>
         <div class="chips">
@@ -3079,10 +3088,26 @@
           <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
         </div>
         <div class="row" style="justify-content:flex-end">
+          ${contactButtonsHtml}
           <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
           ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
         </div>
       </div>`;
+    }
+
+    // 🆕 Normalizza un numero di telefono per il link wa.me di WhatsApp
+    // (richiede solo cifre, con prefisso internazionale senza "+" o "00").
+    // Se il numero sembra italiano senza prefisso (inizia per 3, 9-10 cifre,
+    // tipico di un cellulare), aggiunge automaticamente il prefisso 39.
+    function normalizePhoneForWhatsApp(phone) {
+      let digits = (phone || '').replace(/[^\d+]/g, '');
+      digits = digits.replace(/^00/, '+'); // 0039... -> +39...
+      digits = digits.replace(/^\+/, '');
+      if (!digits) return '';
+      if (/^3\d{8,9}$/.test(digits)) {
+        digits = '39' + digits;
+      }
+      return digits;
     }
 
     function renderTeams() {

@@ -2160,6 +2160,9 @@ function publicState(array $state): array {
         // fase è stata marcata come "corrente" (⭐) in admin, e mostrava sempre
         // di default la prima fase in ordine di numero.
         'currentPhaseIdx' => $state['currentPhaseIdx'] ?? null,
+        // 🆕 Intervallo di auto-refresh (secondi) per il tabellone pubblico in
+        // sola visualizzazione; default 5s se non configurato dall'admin.
+        'liveScoreboardRefreshSeconds' => max(2, min(60, (int)($config['tournament']['liveScoreboardRefreshSeconds'] ?? 5))),
         'phases' => array_map(function ($phase, $idx) use ($state) {
             // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
             if (($phase['type'] ?? '') === 'groups') {
@@ -7691,6 +7694,9 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['maxTimeoutsPerSet'])) $config['tournament']['maxTimeoutsPerSet'] = max(0, min(5, (int)$t['maxTimeoutsPerSet']));
         if (isset($t['registrationsClosed'])) $config['tournament']['registrationsClosed'] = (bool)$t['registrationsClosed'];
         if (isset($t['registrationDeadline'])) $config['tournament']['registrationDeadline'] = trim((string)$t['registrationDeadline']);
+        // 🆕 Intervallo (in secondi) di auto-refresh del tabellone pubblico in
+        // sola visualizzazione (scoreboard.html -> tablescore.html?mode=view)
+        if (isset($t['liveScoreboardRefreshSeconds'])) $config['tournament']['liveScoreboardRefreshSeconds'] = max(2, min(60, (int)$t['liveScoreboardRefreshSeconds']));
     }
     
     if (isset($body['schedule']) && is_array($body['schedule']['courts'] ?? null)) {

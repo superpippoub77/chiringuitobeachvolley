@@ -1791,6 +1791,7 @@
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Campo</th>
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Match</th>
                 <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd">Risultato</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd"></th>
               </tr>
             </thead>
             <tbody>`;
@@ -1809,7 +1810,12 @@
           const statusIcon = matchStatus.status === 'pending' ? '⚪' : matchStatus.status === 'concluded' ? '✅' : '🔴';
           const statusClass = matchStatus.class;
           const resultHTML = formatMatchResult(match, phaseData);
-          
+          // 🆕 Pulsante "Tabellone" (sola visualizzazione, aggiornamento
+          // automatico): solo se entrambe le squadre sono già assegnate.
+          const tabelloneBtn = (match.team1Name && match.team2Name && !match.bye)
+            ? `<button class="btn" style="padding: 4px 10px; font-size: 11px" onclick="window.open('tablescore.html?matchId=${encodeURIComponent(match.id)}&phase=${encodeURIComponent(phaseData.phaseNumber)}&mode=view', '_blank')">📺 Tabellone</button>`
+            : '';
+
           html += `<tr style="border-bottom: 1px solid #eee">
             <td style="padding: 8px; text-align: center"><span style="font-size: 14px">${statusIcon}</span></td>
             <td style="padding: 8px">${dateLabel}</td>
@@ -1817,6 +1823,7 @@
             <td style="padding: 8px">${courtLabel}</td>
             <td style="padding: 8px">${t1} - ${t2}</td>
             <td style="padding: 8px; text-align: center">${resultHTML}</td>
+            <td style="padding: 8px; text-align: center">${tabelloneBtn}</td>
           </tr>`;
         });
 
@@ -2297,9 +2304,14 @@
         return;
       }
 
-      c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th></tr></thead><tbody>${matches.map(m => {
+      c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th><th></th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
         const resultHTML = formatMatchResult(m, activePhase);
+        // 🆕 Pulsante "Tabellone" (sola visualizzazione, aggiornamento
+        // automatico): solo se entrambe le squadre sono assegnate.
+        const tabelloneBtn = (m.team1Name && m.team2Name)
+          ? `<button class="btn" style="padding: 4px 10px; font-size: 11px" onclick="window.open('tablescore.html?matchId=${encodeURIComponent(m.id)}&phase=${encodeURIComponent(activePhase?.phaseNumber)}&mode=view', '_blank')">📺 Tabellone</button>`
+          : '';
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
           <td>${m.group || m.groupName}</td>
@@ -2308,6 +2320,7 @@
           <td>${esc(phaseName)}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${resultHTML}</td>
+          <td>${tabelloneBtn}</td>
         </tr>`;
       }).join('')}</tbody></table>`;
     }

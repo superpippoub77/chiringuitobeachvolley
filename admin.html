@@ -1659,6 +1659,11 @@
                 <label>Max sostituzioni per partita</label>
                 <input id="cfg-maxSubstitutions" type="number" min="0" value="${t.maxSubstitutions || ''}" placeholder="Es: 6 (vuoto = illimitato)">
               </div>
+              <div class="field">
+                <label>🔄 Refresh tabellone pubblico (secondi)</label>
+                <input id="cfg-liveScoreboardRefreshSeconds" type="number" min="2" max="60" value="${t.liveScoreboardRefreshSeconds || 5}" placeholder="Es: 5">
+                <small style="color: #666; display: block; margin-top: 4px">Ogni quanti secondi si aggiorna da solo il tabellone pubblico in sola visualizzazione (quello aperto dal pulsante "Tabellone" su scoreboard.html)</small>
+              </div>
             </div>
             </div>
           </div>
@@ -2587,6 +2592,7 @@
         const timePerSetVal = parseInt(document.getElementById('cfg-timePerSet').value) || 0;
         const setupTimeVal = parseInt(document.getElementById('cfg-setupTime').value) || 0;
         const maxTimeoutsVal = parseInt(document.getElementById('cfg-maxTimeouts').value) || 0;
+        const liveRefreshVal = parseInt(document.getElementById('cfg-liveScoreboardRefreshSeconds').value) || 5;
 
         const payload = {
           tournament: {
@@ -2602,7 +2608,8 @@
             setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
             maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
             registrationsClosed: document.getElementById('cfg-registrationsClosed').checked,
-            registrationDeadline: document.getElementById('cfg-registrationDeadline').value.trim()
+            registrationDeadline: document.getElementById('cfg-registrationDeadline').value.trim(),
+            liveScoreboardRefreshSeconds: Math.max(2, Math.min(60, liveRefreshVal))
           },
           contact: {
             managerEmail: document.getElementById('cfg-managerEmail').value.trim()

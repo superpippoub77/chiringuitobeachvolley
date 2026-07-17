@@ -299,6 +299,45 @@
       color: #999;
     }
 
+    /* 🆕 Modalità sola visualizzazione (tablescore.html?mode=view): nessun
+       controllo interattivo, solo il punteggio che si aggiorna da solo. */
+    body.view-mode .control-buttons,
+    body.view-mode .timeout-section,
+    body.view-mode .timeout-btn,
+    body.view-mode .bottom-controls,
+    body.view-mode .status-info {
+      display: none !important;
+    }
+
+    .live-badge {
+      display: none;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #e53935;
+      letter-spacing: 1px;
+    }
+
+    body.view-mode .live-badge {
+      display: block;
+    }
+
+    .live-badge .dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #e53935;
+      margin-right: 6px;
+      animation: liveBlink 1.2s infinite;
+    }
+
+    @keyframes liveBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
     .current-set {
       text-align: center;
       font-size: 20px;
@@ -347,6 +386,7 @@
 </head>
 <body>
   <div class="scoreboard">
+    <div class="live-badge"><span class="dot"></span>LIVE — aggiornamento automatico</div>
     <div class="header">
       <div class="match-info" id="matchInfo">Partita</div>
       <div class="match-meta" id="matchMeta"></div>
@@ -411,6 +451,12 @@
     let history = [];
     let saveTimeout = null;
 
+    // 🆕 Modalità sola visualizzazione (aperta da scoreboard.html): nessuna
+    // scrittura, nessuna autenticazione richiesta, solo lettura pubblica con
+    // auto-refresh periodico.
+    let isViewMode = false;
+    let liveRefreshIntervalHandle = null;
+
     // 🔧 Regole della partita risolte dal server (admin_get_match → matchRules):
     // dipendono dalla fase e, per il knockout, dal round specifico (setsPerRound).
     // Non più hardcoded: prima erano fissi a "vinci a 25" e "max 3 set".
@@ -432,6 +478,21 @@
       const params = new URLSearchParams(window.location.search);
       matchId = params.get('matchId');
       phaseNumber = params.get('phase');
+      isViewMode = params.get('mode') === 'view';
+
+      if (!matchId || !phaseNumber) {
+        alert('Errore: Partita non trovata');
+        if (!isViewMode) window.close();
+        return;
+      }
+
+      // 🆕 Modalità sola visualizzazione: nessun token, nessun controllo
+      // interattivo, dati pubblici con auto-refresh.
+      if (isViewMode) {
+        document.body.classList.add('view-mode');
+        await initViewMode();
+        return;
+      }
 
       // 🔧 FIX: admin.html ora apre questa pagina in una nuova scheda passando
       // esplicitamente il token nell'URL. Lo salviamo subito in localStorage così
@@ -441,12 +502,6 @@
       const urlToken = params.get('token');
       if (urlToken) {
         localStorage.setItem('adminToken', urlToken);
-      }
-
-      if (!matchId || !phaseNumber) {
-        alert('Errore: Partita non trovata');
-        window.close();
-        return;
       }
 
       // Carica i dati della partita
@@ -480,6 +535,74 @@
       } catch (e) {
         console.error('Errore:', e);
         alert('Errore di connessione');
+      }
+    }
+
+    // 🆕 Trova la partita richiesta (matchId + phase) dentro la risposta
+    // pubblica get_public, che espone anche l'array 'phases' completo con i
+    // dati grezzi delle partite (sets, score1/score2, ecc.) — non serve alcuna
+    // autenticazione, a differenza di admin_get_match.
+    function findMatchInPublicData(publicData, wantedPhaseNumber, wantedMatchId) {
+      const phases = publicData?.phases || [];
+      for (const phase of phases) {
+        if (String(phase.phaseNumber) !== String(wantedPhaseNumber)) continue;
+        const match = (phase.matches || []).find(m => m.id === wantedMatchId);
+        if (match) {
+          return { match, phaseName: phase.name || null };
+        }
+      }
+      return { match: null, phaseName: null };
+    }
+
+    async function initViewMode() {
+      try {
+        const response = await fetch(`${API}?action=get_public`);
+        const data = await response.json();
+
+        if (!data.ok || !data.data) {
+          alert('Errore di caricamento del torneo');
+          return;
+        }
+
+        const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
+        if (!match) {
+          alert('Partita non trovata');
+          return;
+        }
+
+        matchData = match;
+        phaseName = foundPhaseName;
+        loadScoreboardState();
+        render();
+
+        // Imposta il refresh periodico secondo l'intervallo configurato
+        // dall'admin (Impostazioni → Torneo), default 5s se non impostato.
+        const refreshSeconds = Math.max(2, parseInt(data.data.liveScoreboardRefreshSeconds, 10) || 5);
+        if (liveRefreshIntervalHandle) clearInterval(liveRefreshIntervalHandle);
+        liveRefreshIntervalHandle = setInterval(refreshViewMode, refreshSeconds * 1000);
+      } catch (e) {
+        console.error('Errore caricamento tabellone pubblico:', e);
+        alert('Errore di connessione');
+      }
+    }
+
+    async function refreshViewMode() {
+      try {
+        const response = await fetch(`${API}?action=get_public`);
+        const data = await response.json();
+        if (!data.ok || !data.data) return;
+
+        const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
+        if (!match) return;
+
+        matchData = match;
+        phaseName = foundPhaseName;
+        loadScoreboardState();
+        render();
+      } catch (e) {
+        // Un refresh periodico fallito non deve interrompere la pagina: si
+        // riprova al giro successivo.
+        console.warn('Refresh tabellone pubblico fallito, riprovo al prossimo giro:', e);
       }
     }
 
@@ -560,6 +683,13 @@
     }
 
     function totalPossibleSets() {
+      // 🆕 In modalità sola visualizzazione non abbiamo le matchRules risolte
+      // dal server (i dati arrivano dall'endpoint pubblico, non da
+      // admin_get_match): mostriamo semplicemente i set effettivamente
+      // presenti nei dati, invece di calcolare un "meglio dei" teorico.
+      if (isViewMode) {
+        return Math.max(1, scoreboardState.sets.length);
+      }
       // Meglio dei (setsToWin*2 - 1): setsToWin=1 → 1 set secco, setsToWin=2 → max 3 set.
       return Math.max(1, matchRules.setsToWin * 2 - 1);
     }

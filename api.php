@@ -11345,6 +11345,7 @@ if ($action === 'save_match_duration' && $method === 'POST') {
 // ========== JSON EDITOR ENDPOINTS ==========
 
 if ($action === 'admin_get_json' && $method === 'GET') {
+    requireAdmin();
     // Legge i file JSON disponibili sul server
     try {
         $file = $_GET['file'] ?? null;
@@ -11354,14 +11355,17 @@ if ($action === 'admin_get_json' && $method === 'GET') {
         }
         
         // Whitelist dei file accessibili
-        $allowedFiles = ['tournament', 'config', 'sessions', 'releases', 'version'];
+        $allowedFiles = ['tournament', 'config', 'tournaments', 'sessions', 'releases', 'version'];
         if (!in_array($file, $allowedFiles)) {
             jsonResponse(400, ['ok' => false, 'error' => 'File non consentito']);
             exit;
         }
         
-        // Costruisci il percorso del file
-        $filePath = "data/{$file}.json";
+        // 🔧 FIX: percorso ASSOLUTO (__DIR__), non relativo — un percorso relativo
+        // dipende dalla working directory del processo PHP, che non è garantito
+        // coincida con la cartella di api.php. Per questo config.json e
+        // tournament.json risultavano "non trovati" nel JSON Editor.
+        $filePath = __DIR__ . "/data/{$file}.json";
         if (!file_exists($filePath)) {
             jsonResponse(404, ['ok' => false, 'error' => "File non trovato: {$file}.json"]);
             exit;
@@ -11388,6 +11392,7 @@ if ($action === 'admin_get_json' && $method === 'GET') {
 }
 
 if ($action === 'admin_save_json' && $method === 'POST') {
+    requireAdmin();
     // Salva i file JSON dopo le modifiche
     try {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -11400,7 +11405,7 @@ if ($action === 'admin_save_json' && $method === 'POST') {
         }
         
         // Whitelist dei file salvabili
-        $allowedFiles = ['tournament', 'config', 'sessions', 'releases', 'version'];
+        $allowedFiles = ['tournament', 'config', 'tournaments', 'sessions', 'releases', 'version'];
         if (!in_array($file, $allowedFiles)) {
             jsonResponse(400, ['ok' => false, 'error' => 'File non consentito']);
             exit;
@@ -11415,9 +11420,9 @@ if ($action === 'admin_save_json' && $method === 'POST') {
             exit;
         }
         
-        // Crea backup prima di salvare
-        $filePath = "data/{$file}.json";
-        $backupDir = 'data/backups';
+        // 🔧 FIX: percorso ASSOLUTO (__DIR__), stesso motivo di admin_get_json
+        $filePath = __DIR__ . "/data/{$file}.json";
+        $backupDir = __DIR__ . '/data/backups';
         if (!is_dir($backupDir)) {
             mkdir($backupDir, 0755, true);
         }

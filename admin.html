@@ -1835,6 +1835,7 @@
                   <option value="">-- Seleziona un file --</option>
                   <option value="tournament">📊 tournament.json (Stato torneo)</option>
                   <option value="config">⚙️ config.json (Configurazione)</option>
+                  <option value="tournaments">🏢 tournaments.json (Registro multi-tenant)</option>
                   <option value="sessions">👥 sessions.json (Sessioni)</option>
                   <option value="releases">📦 releases.json (Release)</option>
                   <option value="version">📌 version.json (Versione)</option>
@@ -1850,7 +1851,10 @@
                     <button class="btn btn-sm" onclick="downloadJson()" title="Scarica file">📥 Scarica</button>
                   </div>
                 </div>
-                <textarea id="jsonEditor" placeholder="Seleziona un file per visualizzarlo..." style="width: 100%; height: 400px; padding: 12px; border: none; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; line-height: 1.5; resize: vertical; white-space: pre; overflow-wrap: normal; color: #333; background: #fafafa"></textarea>
+                <div style="display: flex; height: 400px">
+                  <div id="jsonEditorGutter" style="flex: 0 0 auto; padding: 12px 8px; background: #f0f0f0; color: #999; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; line-height: 1.5; text-align: right; overflow: hidden; user-select: none; white-space: pre">1</div>
+                  <textarea id="jsonEditor" placeholder="Seleziona un file per visualizzarlo..." spellcheck="false" oninput="syncJsonEditorGutter()" onscroll="syncJsonEditorGutterScroll()" style="flex: 1 1 auto; width: 100%; height: 100%; padding: 12px; border: none; border-left: 1px solid #ddd; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; line-height: 1.5; resize: none; white-space: pre; overflow-wrap: normal; color: #333; background: #fafafa"></textarea>
+                </div>
               </div>
               
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px">
@@ -13826,6 +13830,27 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
     
     let jsonEditorCache = null;
     let jsonEditorCurrentFile = null;
+
+    // 🆕 Gutter con numeri di riga per il JSON Editor (stile code-editor)
+    function updateJsonEditorGutterContent() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      const gutter = document.getElementById('jsonEditorGutter');
+      if (!jsonEditor || !gutter) return;
+      const lineCount = jsonEditor.value.split('\n').length;
+      const numbers = [];
+      for (let i = 1; i <= lineCount; i++) numbers.push(i);
+      gutter.textContent = numbers.join('\n');
+    }
+    function syncJsonEditorGutter() {
+      updateJsonEditorGutterContent();
+      syncJsonEditorGutterScroll();
+    }
+    function syncJsonEditorGutterScroll() {
+      const jsonEditor = document.getElementById('jsonEditor');
+      const gutter = document.getElementById('jsonEditorGutter');
+      if (!jsonEditor || !gutter) return;
+      gutter.scrollTop = jsonEditor.scrollTop;
+    }
     
     async function loadJsonFile() {
       const fileSelector = document.getElementById('jsonFileSelector');
@@ -13838,6 +13863,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
         lineCount.textContent = '0';
         fileSize.textContent = '0 KB';
         jsonEditorCurrentFile = null;
+        updateJsonEditorGutterContent();
         return;
       }
       
@@ -13857,6 +13883,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
         // Formatta il JSON per visualizzazione
         const formatted = JSON.stringify(JSON.parse(data.content), null, 2);
         jsonEditor.value = formatted;
+        updateJsonEditorGutterContent();
         
         // Aggiorna statistiche
         const lines = formatted.split('\n').length;
@@ -13877,6 +13904,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       try {
         const parsed = JSON.parse(jsonEditor.value);
         jsonEditor.value = JSON.stringify(parsed, null, 2);
+        updateJsonEditorGutterContent();
         showJsonEditorStatus('✅ JSON formattato correttamente', 'success');
       } catch (err) {
         showJsonEditorStatus(`❌ Errore JSON: ${err.message}`, 'error');
@@ -13920,8 +13948,17 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       }
       
       try {
-        // Valida JSON
+        // Valida JSON lato client (prima ancora di contattare il server)
         JSON.parse(jsonEditor.value);
+        
+        // 🆕 Conferma di sicurezza: sovrascrivere un file di sistema è un'azione
+        // delicata, soprattutto per config/tournament/sessions.
+        const confirmed = confirm(
+          `⚠️ Stai per sovrascrivere ${fileSelector.value}.json sul server.\n\n` +
+          `Verrà creata automaticamente una copia di backup del file attuale prima del salvataggio.\n\n` +
+          `Continuare?`
+        );
+        if (!confirmed) return;
         
         const response = await fetch('api.php?action=admin_save_json', {
           method: 'POST',

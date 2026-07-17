@@ -874,6 +874,34 @@ function slugify(string $name): string {
     return mb_substr($slug, 0, 50);
 }
 
+/**
+ * Normalizza un numero di telefono in formato internazionale (+39...) prima
+ * di salvarlo, cosi ogni numero registrato (form pubblico o modifica admin)
+ * e' gia' pronto per l'uso con i link WhatsApp (wa.me) senza bisogno di
+ * conversioni successive. Se il numero sembra un cellulare italiano senza
+ * prefisso (inizia per 3, 9-10 cifre), aggiunge automaticamente +39.
+ */
+function normalizePhoneInternational(string $phone): string {
+    $phone = trim($phone);
+    if ($phone === '') return '';
+
+    $digits = preg_replace('/[^\d+]/', '', $phone);
+    $digits = preg_replace('/^00/', '+', $digits);
+
+    if (strpos($digits, '+') === 0) {
+        return $digits;
+    }
+
+    if (preg_match('/^3\d{8,9}$/', $digits)) {
+        return '+39' . $digits;
+    }
+
+    // Non riconoscibile con certezza: restituisce le sole cifre con "+"
+    // davanti solo se già sembra avere un prefisso internazionale plausibile
+    // (più di 10 cifre), altrimenti le cifre grezze così come inserite.
+    return strlen($digits) > 10 ? '+' . $digits : $digits;
+}
+
 function randomInt(int $min, int $max): int {
     return random_int($min, $max);
 }
@@ -3955,7 +3983,7 @@ if ($action === 'register_team' && $method === 'POST') {
     $body = bodyJson();
     $name = trim((string)($body['name'] ?? ''));
     $category = 'Misto';
-    $phone = trim((string)($body['phone'] ?? ''));
+    $phone = normalizePhoneInternational(trim((string)($body['phone'] ?? '')));
 
     // Supporta sia nuovo formato (players array) che vecchio formato (player1, player2, player3)
     $playersData = [];
@@ -3988,6 +4016,14 @@ if ($action === 'register_team' && $method === 'POST') {
 
     if ($name === '' || count($playersData) < $minPlayers) {
         jsonResponse(422, ['ok' => false, 'error' => "Compila nome squadra e almeno {$minPlayers} giocatori (quelli che giocano in campo)"]);
+    }
+
+    // 🆕 Validazione numero di telefono: richiesto (serve per essere
+    // contattati, es. via WhatsApp) e deve avere un numero ragionevole di
+    // cifre dopo la normalizzazione in formato internazionale.
+    $phoneDigitsCount = strlen(preg_replace('/\D/', '', $phone));
+    if ($phone === '' || $phoneDigitsCount < 8 || $phoneDigitsCount > 15) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un numero di telefono valido (con il prefisso internazionale se non italiano)']);
     }
 
     if (count($playersData) > $maxPlayers) {
@@ -4387,7 +4423,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                 $team['players'] = $normalizedPlayers;
             }
             if (isset($body['phone'])) {
-                $team['phone'] = mb_substr(trim((string)$body['phone']), 0, 20);
+                $team['phone'] = mb_substr(normalizePhoneInternational(trim((string)$body['phone'])), 0, 20);
             }
             $team['category'] = 'Misto';
             break;
@@ -4433,7 +4469,7 @@ if ($action === 'admin_delete_team' && $method === 'POST') {
 if ($action === 'admin_add_team' && $method === 'POST') {
     $body = bodyJson();
     $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 50);
-    $phone = mb_substr(trim((string)($body['phone'] ?? '')), 0, 20);
+    $phone = mb_substr(normalizePhoneInternational(trim((string)($body['phone'] ?? ''))), 0, 20);
     $players = $body['players'] ?? [];
     
     if ($name === '') {

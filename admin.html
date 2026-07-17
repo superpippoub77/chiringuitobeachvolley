@@ -3110,6 +3110,138 @@
       return digits;
     }
 
+    // 🆕 Dialogo per contattare via WhatsApp tutte le squadre di un girone,
+    // di una fase, o tutte le iscritte. WhatsApp non offre un vero invio
+    // multiplo via click-to-chat (vedi https://faq.whatsapp.com/5913398998672934/):
+    // si genera quindi un link "wa.me" con messaggio precompilato per ogni
+    // squadra, che l'admin apre e invia uno alla volta.
+    function openWhatsAppBroadcastDialog() {
+      const phases = state?.phases || [];
+      const phaseOptions = phases.map(p => `<option value="${p.phaseNumber}">${escapeHtml(p.name || ('Fase ' + p.phaseNumber))}</option>`).join('');
+
+      const bodyHtml = `
+        <div class="field">
+          <label>A chi vuoi scrivere?</label>
+          <select id="waScope" onchange="updateWhatsAppScopeUI()" style="width: 100%; padding: 8px">
+            <option value="all">Tutte le squadre iscritte (confermate)</option>
+            <option value="phase">Squadre di una fase</option>
+            <option value="group">Squadre di un girone</option>
+          </select>
+        </div>
+        <div class="field" id="waPhaseField" style="display: none; margin-top: 10px">
+          <label>Fase</label>
+          <select id="waPhase" onchange="updateWhatsAppGroupOptions()" style="width: 100%; padding: 8px">${phaseOptions}</select>
+        </div>
+        <div class="field" id="waGroupField" style="display: none; margin-top: 10px">
+          <label>Girone</label>
+          <select id="waGroup" style="width: 100%; padding: 8px"></select>
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Messaggio</label>
+          <textarea id="waMessage" rows="4" style="width: 100%; padding: 8px" placeholder="Es: Ciao {squadra}, vi ricordiamo che il torneo inizia sabato alle 19:30!"></textarea>
+          <small style="color: #666; display: block; margin-top: 4px">Usa <code>{squadra}</code> per inserire automaticamente il nome di ogni squadra nel messaggio.</small>
+        </div>
+        <div style="margin-top: 12px">
+          <button class="btn btn-primary" onclick="generateWhatsAppContactList()">📋 Genera lista contatti</button>
+        </div>
+        <div id="waContactList" style="margin-top: 14px"></div>
+      `;
+
+      openModal({
+        title: '💬 Contatta via WhatsApp',
+        bodyHtml,
+        buttons: []
+      });
+    }
+
+    function updateWhatsAppScopeUI() {
+      const scope = document.getElementById('waScope').value;
+      document.getElementById('waPhaseField').style.display = (scope === 'phase' || scope === 'group') ? 'block' : 'none';
+      document.getElementById('waGroupField').style.display = (scope === 'group') ? 'block' : 'none';
+      if (scope === 'group') updateWhatsAppGroupOptions();
+    }
+
+    function updateWhatsAppGroupOptions() {
+      const phaseNumber = parseInt(document.getElementById('waPhase')?.value, 10);
+      const phase = (state?.phases || []).find(p => p.phaseNumber === phaseNumber);
+      const groupSelect = document.getElementById('waGroup');
+      if (!groupSelect) return;
+      const groups = phase?.groups || [];
+      groupSelect.innerHTML = groups.map(g => `<option value="${escapeHtml(g.label || g.name)}">${escapeHtml(g.label || g.name)}</option>`).join('');
+    }
+
+    // 🆕 Risolve l'elenco di squadre in base all'ambito scelto (tutte/fase/girone)
+    function getTeamsForWhatsAppScope() {
+      const scope = document.getElementById('waScope').value;
+      const allApproved = (state?.teams || []).filter(t => t.approved);
+
+      if (scope === 'all') {
+        return allApproved;
+      }
+
+      const phaseNumber = parseInt(document.getElementById('waPhase')?.value, 10);
+      const phase = (state?.phases || []).find(p => p.phaseNumber === phaseNumber);
+      if (!phase) return [];
+
+      if (scope === 'phase') {
+        // Unione di tutte le squadre che compaiono nelle partite di questa fase
+        // (funziona sia per fasi a gironi che knockout)
+        const teamIds = new Set();
+        (phase.matches || []).forEach(m => {
+          const t1 = m.team1 || m.team1Id;
+          const t2 = m.team2 || m.team2Id;
+          if (t1) teamIds.add(t1);
+          if (t2) teamIds.add(t2);
+        });
+        return (state?.teams || []).filter(t => teamIds.has(t.id));
+      }
+
+      if (scope === 'group') {
+        const groupLabel = document.getElementById('waGroup')?.value;
+        const group = (phase.groups || []).find(g => (g.label || g.name) === groupLabel);
+        return group?.teams || [];
+      }
+
+      return [];
+    }
+
+    function generateWhatsAppContactList() {
+      const teams = getTeamsForWhatsAppScope();
+      const messageTemplate = document.getElementById('waMessage').value.trim();
+      const container = document.getElementById('waContactList');
+
+      if (!messageTemplate) {
+        container.innerHTML = '<p style="color: #b71c1c">Scrivi prima un messaggio.</p>';
+        return;
+      }
+      if (!teams.length) {
+        container.innerHTML = '<p class="muted">Nessuna squadra trovata per questo ambito.</p>';
+        return;
+      }
+
+      const withPhone = teams.filter(t => t.phone);
+      const withoutPhone = teams.filter(t => !t.phone);
+
+      let html = `<p><strong>${withPhone.length}</strong> di ${teams.length} squadre hanno un numero salvato. Clicca ogni pulsante per aprire la chat WhatsApp con il messaggio già pronto (WhatsApp non permette l'invio automatico a più contatti in un colpo solo).</p>`;
+      html += '<div style="display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto">';
+      withPhone.forEach(team => {
+        const personalizedMessage = messageTemplate.replace(/\{squadra\}/g, team.name);
+        const waNumber = normalizePhoneForWhatsApp(team.phone);
+        const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(personalizedMessage)}`;
+        html += `<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; background: #f9f3e6; border-radius: 6px">
+          <span>${escapeHtml(team.name)} <small style="color: #888">(${escapeHtml(team.phone)})</small></span>
+          <a href="${waUrl}" target="_blank" rel="noopener" class="btn" style="background: #25D366; color: #fff; text-decoration: none; padding: 4px 10px; font-size: 12px">💬 Invia</a>
+        </div>`;
+      });
+      html += '</div>';
+
+      if (withoutPhone.length) {
+        html += `<p style="margin-top: 10px; color: #b71c1c">⚠️ ${withoutPhone.length} squadra/e senza numero salvato, non contattabili: ${withoutPhone.map(t => escapeHtml(t.name)).join(', ')}</p>`;
+      }
+
+      container.innerHTML = html;
+    }
+
     function renderTeams() {
       const c = document.getElementById('teamsContainer');
       if (!c) return; // Guard: container non trovato
@@ -3120,12 +3252,21 @@
       }
       const all = state.teams || [];
       const addButton = !isTournamentStarted() ? `
-        <div style="margin-bottom: 16px">
+        <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap">
           <button id="addTeamBtn" class="btn" style="background: #4caf50; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px">
             ➕ Aggiungi Squadra
           </button>
+          <button class="btn" style="background: #25D366; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppBroadcastDialog()">
+            💬 Contatta via WhatsApp
+          </button>
         </div>
-      ` : '';
+      ` : `
+        <div style="margin-bottom: 16px">
+          <button class="btn" style="background: #25D366; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppBroadcastDialog()">
+            💬 Contatta via WhatsApp
+          </button>
+        </div>
+      `;
       
       c.innerHTML = addButton + 
         `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + 

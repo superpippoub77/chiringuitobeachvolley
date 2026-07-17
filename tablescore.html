@@ -411,6 +411,16 @@
     let history = [];
     let saveTimeout = null;
 
+    // 🔧 Regole della partita risolte dal server (admin_get_match → matchRules):
+    // dipendono dalla fase e, per il knockout, dal round specifico (setsPerRound).
+    // Non più hardcoded: prima erano fissi a "vinci a 25" e "max 3 set".
+    let matchRules = {
+      winScore: 21,      // punti per vincere un set (con 2 di margine)
+      maxScore: 25,      // punteggio massimo di un set (tie-break/cap)
+      setsToWin: 2,      // set da vincere per aggiudicarsi l'incontro (numSets)
+      maxTimeoutsPerSet: 1
+    };
+
     // Dati tabellone
     let scoreboardState = {
       team1: { name: '', score: 0, setsWon: 0, timeout: false, timeoutsUsed: 0 },
@@ -456,6 +466,12 @@
         if (data.ok && data.match) {
           matchData = data.match;
           phaseName = data.phaseName || null;
+          if (data.matchRules) {
+            matchRules.winScore = data.matchRules.winScore ?? matchRules.winScore;
+            matchRules.maxScore = data.matchRules.maxScore ?? matchRules.maxScore;
+            matchRules.setsToWin = data.matchRules.numSets ?? matchRules.setsToWin;
+            matchRules.maxTimeoutsPerSet = data.matchRules.maxTimeoutsPerSet ?? matchRules.maxTimeoutsPerSet;
+          }
           loadScoreboardState();
           render();
         } else {
@@ -543,14 +559,19 @@
       updateTimeoutStatus();
     }
 
+    function totalPossibleSets() {
+      // Meglio dei (setsToWin*2 - 1): setsToWin=1 → 1 set secco, setsToWin=2 → max 3 set.
+      return Math.max(1, matchRules.setsToWin * 2 - 1);
+    }
+
     function renderSetIndicators() {
       const team1Sets = document.getElementById('team1Sets');
       const team2Sets = document.getElementById('team2Sets');
       team1Sets.innerHTML = '';
       team2Sets.innerHTML = '';
 
-      // Mostra i 3 set
-      for (let i = 0; i < 3; i++) {
+      // Mostra il numero di set previsto da questa partita (dipende dalla fase/round)
+      for (let i = 0; i < totalPossibleSets(); i++) {
         const dot1 = document.createElement('div');
         const dot2 = document.createElement('div');
 
@@ -583,7 +604,7 @@
       const btn1 = document.getElementById('timeoutBtn1');
       const btn2 = document.getElementById('timeoutBtn2');
 
-      const max = 2; // Max timeout per team
+      const max = matchRules.maxTimeoutsPerSet; // Limite timeout della fase
 
       if (scoreboardState.team1.timeoutsUsed >= max) {
         timeout1.classList.add('used');
@@ -658,17 +679,43 @@
       }
     }
 
+    function isSetOver(s1, s2) {
+      const win = matchRules.winScore;
+      const cap = matchRules.maxScore;
+      if (s1 >= cap || s2 >= cap) return true; // tetto massimo raggiunto
+      if ((s1 >= win || s2 >= win) && Math.abs(s1 - s2) >= 2) return true; // vittoria con 2 di margine
+      return false;
+    }
+
     function nextSet() {
-      if (scoreboardState.team1.score < 25 && scoreboardState.team2.score < 25) {
-        alert('Il set non è concluso!');
+      const s1 = scoreboardState.team1.score;
+      const s2 = scoreboardState.team2.score;
+      if (!isSetOver(s1, s2)) {
+        alert(`Il set non è concluso! (si vince a ${matchRules.winScore} con 2 punti di margine, tetto massimo ${matchRules.maxScore})`);
         return;
       }
 
       saveHistory();
+
+      // Conta i set vinti includendo quello appena concluso
+      let team1SetsWon = 0, team2SetsWon = 0;
+      for (let i = 0; i <= currentSetIndex; i++) {
+        const set = scoreboardState.sets[i];
+        if (set.team1 > set.team2) team1SetsWon++;
+        else if (set.team2 > set.team1) team2SetsWon++;
+      }
+
+      if (team1SetsWon >= matchRules.setsToWin || team2SetsWon >= matchRules.setsToWin) {
+        alert('Incontro concluso! Salva il risultato per confermarlo.');
+        render();
+        autoSave();
+        return;
+      }
+
       currentSetIndex++;
-      if (currentSetIndex >= 3) {
-        alert('Tutti i set sono stati giocati!');
-        currentSetIndex = 2;
+      if (currentSetIndex >= totalPossibleSets()) {
+        alert('Tutti i set previsti sono stati giocati!');
+        currentSetIndex = totalPossibleSets() - 1;
         return;
       }
 

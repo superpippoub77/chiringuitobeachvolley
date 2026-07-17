@@ -5863,62 +5863,68 @@
         // Gestisci sia il formato nuovo {label, teams} che il vecchio (array diretto)
         const groupTeams = group.teams || group;
         
+        // 🔧 Punti vittoria: usa l'override della fase se presente, altrimenti il
+        // default centrale del torneo (stessa priorità di resolvePhaseMatchRules
+        // lato server, per non avere classifiche diverse tra le due viste).
+        const winPointsForThisPhase = statePhase.matchRules?.winPoints ?? config.tournament?.winPoints ?? 2;
+
+        // 🔧 Conta i set vinti da una partita: se 'sets' è popolato ogni elemento
+        // è un set giocato (vince chi ha il punteggio maggiore in quell'elemento);
+        // se è vuoto (girone a set singolo, legacy) score1/score2 sono l'unico set.
+        const getSetsWon = (m) => {
+          if (m.sets && m.sets.length > 0) {
+            let w1 = 0, w2 = 0;
+            m.sets.forEach(s => {
+              const t1 = s.team1 ?? null, t2 = s.team2 ?? null;
+              if (t1 === null || t2 === null) return;
+              if (t1 > t2) w1++; else if (t2 > t1) w2++;
+            });
+            return [w1, w2];
+          }
+          const s1 = m.score1 ?? 0, s2 = m.score2 ?? 0;
+          return [s1 > s2 ? 1 : 0, s2 > s1 ? 1 : 0];
+        };
+
+        const getPointsScored = (m) => {
+          if (m.sets && m.sets.length > 0) {
+            return [
+              m.sets.reduce((sum, s) => sum + (s.team1 || 0), 0),
+              m.sets.reduce((sum, s) => sum + (s.team2 || 0), 0)
+            ];
+          }
+          return [m.score1 ?? 0, m.score2 ?? 0];
+        };
+
         // Calcola statistiche per ogni squadra
         const standings = groupTeams.map(team => {
           const teamMatches = (statePhase.matches || []).filter(m => 
             (m.team1 === team.id || m.team2 === team.id) && m.groupName === groupLabel
           );
           
-          let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0, playedMatches = 0;
+          let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0, playedMatches = 0, wins = 0, losses = 0;
           
           teamMatches.forEach(m => {
             const isTeam1 = m.team1 === team.id;
-            const score1 = m.score1 ?? 0;
-            const score2 = m.score2 ?? 0;
-            
-            // Conta solo le partite giocate (con score)
-            const hasScore = score1 > 0 || score2 > 0;
-            
-            if (hasScore) {
-              playedMatches++;
-              
-              if (isTeam1) {
-                setsWon += score1 || 0;
-                setsLost += score2 || 0;
-                // 🔧 FIX: in un formato a set unico (punteggio diretto), m.sets non è
-                // mai popolato: usiamo direttamente score1/score2 come "punti fatti/subiti"
-                // invece di sommare un array che resta sempre vuoto (per questo PF/PS
-                // mostravano sempre 0 anche per i gironi con l'etichetta corretta).
-                if (m.sets && m.sets.length > 0) {
-                  pointsFor += m.sets.reduce((sum, s) => sum + (s.team1Points || 0), 0);
-                  pointsAgainst += m.sets.reduce((sum, s) => sum + (s.team2Points || 0), 0);
-                } else {
-                  pointsFor += score1 || 0;
-                  pointsAgainst += score2 || 0;
-                }
-                
-                if ((score1 || 0) > (score2 || 0)) points += 3;
-                else if ((score1 || 0) === (score2 || 0)) points += 1;
-              } else {
-                setsWon += score2 || 0;
-                setsLost += score1 || 0;
-                if (m.sets && m.sets.length > 0) {
-                  pointsFor += m.sets.reduce((sum, s) => sum + (s.team2Points || 0), 0);
-                  pointsAgainst += m.sets.reduce((sum, s) => sum + (s.team1Points || 0), 0);
-                } else {
-                  pointsFor += score2 || 0;
-                  pointsAgainst += score1 || 0;
-                }
-                
-                if ((score2 || 0) > (score1 || 0)) points += 3;
-                else if ((score2 || 0) === (score1 || 0)) points += 1;
-              }
-            }
+            const [won1, won2] = getSetsWon(m);
+            const hasScore = won1 > 0 || won2 > 0;
+            if (!hasScore) return;
+
+            playedMatches++;
+            const [scored1, scored2] = getPointsScored(m);
+
+            const mySetsWon = isTeam1 ? won1 : won2;
+            const mySetsLost = isTeam1 ? won2 : won1;
+            const myScored = isTeam1 ? scored1 : scored2;
+            const myConceded = isTeam1 ? scored2 : scored1;
+
+            setsWon += mySetsWon;
+            setsLost += mySetsLost;
+            pointsFor += myScored;
+            pointsAgainst += myConceded;
+
+            if (mySetsWon > mySetsLost) { points += winPointsForThisPhase; wins++; }
+            else if (mySetsLost > mySetsWon) { losses++; }
           });
-          
-          // Calcola vittorie (punti / 3) e sconfitte (partite - vittorie)
-          const wins = Math.floor(points / 3);
-          const losses = playedMatches - wins;
           
           return {
             name: team.name,
@@ -6451,7 +6457,20 @@
                 <label style="font-size: 12px">Numero cambi consentiti</label>
                 <input type="number" id="editRuleMaxSubstitutions" min="0" max="10" value="${phase.matchRules?.maxSubstitutions ?? ''}" placeholder="Default: ${config.tournament?.maxSubstitutions ?? 0}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
               </div>
+              <div class="field">
+                <label style="font-size: 12px">Punti classifica per vittoria</label>
+                <input type="number" id="editRuleWinPoints" min="0" max="10" value="${phase.matchRules?.winPoints ?? ''}" placeholder="Default: ${config.tournament?.winPoints ?? 2}" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+              </div>
             </div>
+            ${phase.type === 'knockout' ? `
+            <div class="field" style="margin-top: 12px">
+              <label style="font-size: 12px">Sequenza set per round (knockout)</label>
+              <small style="color: #888; display: block; margin: 2px 0 6px; font-size: 11px">
+                Un valore per round, separati da virgola. Es. "1,1,2" = ottavi/quarti 1 set secco, semifinali 1 set secco, finale meglio dei 3 (2 set per vincere). Se vuoto, usa "Numero set da giocare" per tutti i round.
+              </small>
+              <input type="text" id="editRuleSetsPerRound" value="${(phase.matchRules?.setsPerRound || []).join(',')}" placeholder="es. 1,1,2" style="width: 100%; padding: 6px; border: 1px solid #d9bf8c; border-radius: 4px">
+            </div>
+            ` : ''}
           </div>
 
           <div class="field" style="margin-top: 16px">
@@ -6540,8 +6559,20 @@
         winScore: readRuleField('editRuleWinScore'),
         maxScore: readRuleField('editRuleMaxScore'),
         maxTimeoutsPerSet: readRuleField('editRuleMaxTimeouts'),
-        maxSubstitutions: readRuleField('editRuleMaxSubstitutions')
+        maxSubstitutions: readRuleField('editRuleMaxSubstitutions'),
+        winPoints: readRuleField('editRuleWinPoints')
       };
+
+      // Sequenza set-per-round (solo knockout): "1,1,2" → [1,1,2]
+      const setsPerRoundStr = document.getElementById('editRuleSetsPerRound')?.value?.trim() || '';
+      if (setsPerRoundStr) {
+        const seq = setsPerRoundStr.split(',')
+          .map(v => parseInt(v.trim(), 10))
+          .filter(v => Number.isFinite(v) && v > 0);
+        if (seq.length) {
+          updates.matchRules.setsPerRound = seq;
+        }
+      }
 
       try {
         const r = await callApi('admin_update_phase', 'POST', {

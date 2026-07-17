@@ -1044,11 +1044,12 @@ function getPhase(array &$state, int $phaseIdx): ?array {
  * Usata ovunque si calcoli la durata di una partita per la schedulazione, così
  * i calcoli seguono il criterio della fase e, se non configurati, i default.
  */
-function resolvePhaseMatchRules(array $tournamentConfig, ?array $configPhase): array {
-    $keys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions'];
+function resolvePhaseMatchRules(array $tournamentConfig, ?array $configPhase, ?int $round = null): array {
+    $keys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions', 'winPoints'];
     $defaults = [
         'numSets' => 1, 'timePerSetMinutes' => 25, 'setupTimeMinutes' => 5,
-        'winScore' => 21, 'maxScore' => 25, 'maxTimeoutsPerSet' => 1, 'maxSubstitutions' => 0
+        'winScore' => 21, 'maxScore' => 25, 'maxTimeoutsPerSet' => 1, 'maxSubstitutions' => 0,
+        'winPoints' => 2
     ];
     $rules = [];
     $overrides = $configPhase['matchRules'] ?? [];
@@ -1059,7 +1060,103 @@ function resolvePhaseMatchRules(array $tournamentConfig, ?array $configPhase): a
             $rules[$k] = (int)($tournamentConfig[$k] ?? $defaults[$k]);
         }
     }
+
+    // 🆕 Sequenza set per round nel knockout: es. setsPerRound = [1,1,2] significa
+    // round 1 (quarti) = 1 set per vincere, round 2 (semifinali) = 1, round 3
+    // (finale) = 2 (meglio dei 3). Se $round supera la lunghezza dell'array,
+    // si applica l'ultimo valore definito. Sovrascrive 'numSets' solo se presente
+    // e solo quando viene passato un $round (partite di fasi a gironi non lo usano).
+    if ($round !== null && !empty($overrides['setsPerRound']) && is_array($overrides['setsPerRound'])) {
+        $sequence = array_values($overrides['setsPerRound']);
+        if (!empty($sequence)) {
+            $idx = max(0, $round - 1);
+            $idx = min($idx, count($sequence) - 1);
+            $val = (int)$sequence[$idx];
+            if ($val > 0) {
+                $rules['numSets'] = $val;
+            }
+        }
+    }
+
     return $rules;
+}
+
+/**
+ * Trova la configurazione (config.json → phases[]) di una fase dato il suo
+ * phaseNumber. Usata per risolvere matchRules/winPoints/setsPerRound quando si
+ * calcolano classifiche o si determina il vincitore di una partita.
+ */
+function getConfigPhaseByNumber(array $config, int $phaseNumber): ?array {
+    foreach (($config['phases'] ?? []) as $cp) {
+        if ((int)($cp['phaseNumber'] ?? -1) === $phaseNumber) {
+            return $cp;
+        }
+    }
+    return null;
+}
+
+/**
+ * Conta i set vinti da ciascuna squadra in una partita, indipendentemente dal
+ * formato con cui è stata salvata:
+ * - Se 'sets' è popolato (knockout / partite multi-set): ogni elemento è un set
+ *   giocato; il punteggio maggiore in ciascun elemento vince quel set.
+ * - Se 'sets' è vuoto (gironi a set singolo, legacy): il risultato diretto in
+ *   score1/score2 vale come unico set.
+ * Ritorna [setsWon1, setsWon2, hasResult] dove hasResult=false se la partita
+ * non ha ancora un punteggio registrato.
+ */
+function getMatchSetsWon(array $match): array {
+    $sets = $match['sets'] ?? [];
+    if (empty($sets)) {
+        $s1 = $match['score1'] ?? null;
+        $s2 = $match['score2'] ?? null;
+        if ($s1 === null || $s2 === null) {
+            return [0, 0, false];
+        }
+        return [$s1 > $s2 ? 1 : 0, $s2 > $s1 ? 1 : 0, true];
+    }
+
+    $won1 = 0;
+    $won2 = 0;
+    $any = false;
+    foreach ($sets as $s) {
+        $t1 = $s['team1'] ?? null;
+        $t2 = $s['team2'] ?? null;
+        if ($t1 === null || $t2 === null) continue;
+        $any = true;
+        if ($t1 > $t2) $won1++;
+        elseif ($t2 > $t1) $won2++;
+    }
+    return [$won1, $won2, $any];
+}
+
+/**
+ * Somma i punti fatti/subiti su tutti i set giocati (per statistiche di
+ * classifica come "punti fatti/subiti"). Fallback su score1/score2 per le
+ * partite legacy senza array 'sets'.
+ */
+function getMatchPointsScored(array $match): array {
+    $sets = $match['sets'] ?? [];
+    if (empty($sets)) {
+        return [(int)($match['score1'] ?? 0), (int)($match['score2'] ?? 0)];
+    }
+    $scored1 = 0; $scored2 = 0;
+    foreach ($sets as $s) {
+        $scored1 += (int)($s['team1'] ?? 0);
+        $scored2 += (int)($s['team2'] ?? 0);
+    }
+    return [$scored1, $scored2];
+}
+
+/**
+ * Risolve quanti punti di classifica assegnare alla squadra vincente di una
+ * partita di una data fase: usa matchRules.winPoints della fase se configurato,
+ * altrimenti ricade sul default centrale in config.json → tournament.winPoints.
+ */
+function getPhaseWinPoints(array $config, int $phaseNumber): int {
+    $configPhase = getConfigPhaseByNumber($config, $phaseNumber);
+    $rules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase);
+    return (int)($rules['winPoints'] ?? 2);
 }
 
 /**
@@ -2127,6 +2224,8 @@ function computeStandings(array $state): array {
     
     $groups = $groupsPhase['groups'] ?? [];
     $allMatches = $groupsPhase['matches'] ?? [];
+    $config = readConfig();
+    $winPoints = getPhaseWinPoints($config, (int)($groupsPhase['phaseNumber'] ?? 1));
 
     // Itera su ogni gruppo: ogni $group è salvato come { name, teamIds: [...] } (solo ID),
     // quindi va risolto tramite $teamMap per ottenere i dati completi delle squadre.
@@ -2177,7 +2276,8 @@ function computeStandings(array $state): array {
             if ($matchGroupName !== $groupName && $matchGroupName !== ('Girone ' . $groupName)) {
                 continue;
             }
-            if ($match['score1'] === null || $match['score2'] === null) {
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            if (!$hasResult) {
                 continue;
             }
             $t1 = $match['team1'] ?? $match['team1Id'] ?? null;
@@ -2185,22 +2285,23 @@ function computeStandings(array $state): array {
             if (!isset($rows[$t1], $rows[$t2])) {
                 continue;
             }
+            [$scored1, $scored2] = getMatchPointsScored($match);
 
             $rows[$t1]['played']++;
             $rows[$t2]['played']++;
-            $rows[$t1]['scored'] += $match['score1'];
-            $rows[$t1]['conceded'] += $match['score2'];
-            $rows[$t2]['scored'] += $match['score2'];
-            $rows[$t2]['conceded'] += $match['score1'];
+            $rows[$t1]['scored'] += $scored1;
+            $rows[$t1]['conceded'] += $scored2;
+            $rows[$t2]['scored'] += $scored2;
+            $rows[$t2]['conceded'] += $scored1;
 
-            if ($match['score1'] > $match['score2']) {
+            if ($won1 > $won2) {
                 $rows[$t1]['won']++;
                 $rows[$t2]['lost']++;
-                $rows[$t1]['points'] += 2;
-            } elseif ($match['score2'] > $match['score1']) {
+                $rows[$t1]['points'] += $winPoints;
+            } elseif ($won2 > $won1) {
                 $rows[$t2]['won']++;
                 $rows[$t1]['lost']++;
-                $rows[$t2]['points'] += 2;
+                $rows[$t2]['points'] += $winPoints;
             }
         }
 
@@ -2256,6 +2357,8 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
     $groupsPhase = $state['phases'][$phaseIdx];
     $groups = $groupsPhase['groups'] ?? [];
     $allMatches = $groupsPhase['matches'] ?? [];
+    $config = readConfig();
+    $winPoints = getPhaseWinPoints($config, $phaseNumber);
     
     error_log("🔍 DEBUG computeStandingsForPhase: groups count=" . count($groups) . ", matches count=" . count($allMatches));
 
@@ -2301,19 +2404,21 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
         foreach ($allMatches as $match) {
             $matchGroupName = $match['groupName'] ?? $match['group'] ?? '';
             if ($matchGroupName !== $groupName && $matchGroupName !== ('Girone ' . $groupName)) continue;
-            if ($match['score1'] === null || $match['score2'] === null) continue;
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            if (!$hasResult) continue;
             $t1 = $match['team1'] ?? $match['team1Id'] ?? null;
             $t2 = $match['team2'] ?? $match['team2Id'] ?? null;
             if (!isset($rows[$t1], $rows[$t2])) continue;
+            [$scored1, $scored2] = getMatchPointsScored($match);
 
             $rows[$t1]['played']++; $rows[$t2]['played']++;
-            $rows[$t1]['scored'] += $match['score1']; $rows[$t1]['conceded'] += $match['score2'];
-            $rows[$t2]['scored'] += $match['score2']; $rows[$t2]['conceded'] += $match['score1'];
+            $rows[$t1]['scored'] += $scored1; $rows[$t1]['conceded'] += $scored2;
+            $rows[$t2]['scored'] += $scored2; $rows[$t2]['conceded'] += $scored1;
 
-            if ($match['score1'] > $match['score2']) {
-                $rows[$t1]['won']++; $rows[$t2]['lost']++; $rows[$t1]['points'] += 2;
-            } elseif ($match['score2'] > $match['score1']) {
-                $rows[$t2]['won']++; $rows[$t1]['lost']++; $rows[$t2]['points'] += 2;
+            if ($won1 > $won2) {
+                $rows[$t1]['won']++; $rows[$t2]['lost']++; $rows[$t1]['points'] += $winPoints;
+            } elseif ($won2 > $won1) {
+                $rows[$t2]['won']++; $rows[$t1]['lost']++; $rows[$t2]['points'] += $winPoints;
             }
         }
 
@@ -2528,15 +2633,18 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
 
         foreach ($matches as $m) {
             if (($m['type'] ?? '') === 'thirdPlace') continue; // non conta per l'avanzamento
-            $hasScore = $m['score1'] !== null && $m['score2'] !== null;
+            // 🔧 FIX: usa i set vinti (getMatchSetsWon), non il punteggio grezzo
+            // dell'ultimo set — con partite multi-set score1/score2 sono solo
+            // il set in corso/ultimo, non l'esito complessivo dell'incontro.
+            [$won1, $won2, $hasScore] = getMatchSetsWon($m);
 
             // Eliminati: perdenti di QUALSIASI turno giocato (chi perde è fuori, indipendentemente dal turno)
             if ($hasScore) {
                 $t1 = $m['team1Id'] ?? $m['team1'] ?? null;
                 $t2 = $m['team2Id'] ?? $m['team2'] ?? null;
                 if ($t1 && $t2) {
-                    if ($m['score1'] > $m['score2']) $eliminated[] = $t2;
-                    elseif ($m['score2'] > $m['score1']) $eliminated[] = $t1;
+                    if ($won1 > $won2) $eliminated[] = $t2;
+                    elseif ($won2 > $won1) $eliminated[] = $t1;
                 }
             }
 
@@ -2548,8 +2656,8 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                     $t1 = $m['team1Id'] ?? $m['team1'] ?? null;
                     $t2 = $m['team2Id'] ?? $m['team2'] ?? null;
                     if ($t1 && $t2) {
-                        if ($m['score1'] > $m['score2']) $qualified[] = $t1;
-                        elseif ($m['score2'] > $m['score1']) $qualified[] = $t2;
+                        if ($won1 > $won2) $qualified[] = $t1;
+                        elseif ($won2 > $won1) $qualified[] = $t2;
                     }
                 }
             }
@@ -2805,13 +2913,19 @@ function advanceKnockoutBracket(array &$phase): void {
                 // Nessun avversario: chi c'è passa automaticamente il turno
                 $winnerId = $m['team1Id'] ?? null;
                 $winnerName = $m['team1Name'] ?? null;
-            } elseif ($m['score1'] !== null && $m['score2'] !== null) {
-                if ($m['score1'] > $m['score2']) {
-                    $winnerId = $m['team1Id']; $winnerName = $m['team1Name'] ?? null;
-                    $loserId = $m['team2Id']; $loserName = $m['team2Name'] ?? null;
-                } elseif ($m['score2'] > $m['score1']) {
-                    $winnerId = $m['team2Id']; $winnerName = $m['team2Name'] ?? null;
-                    $loserId = $m['team1Id']; $loserName = $m['team1Name'] ?? null;
+            } else {
+                // 🔧 FIX: usa i set vinti (getMatchSetsWon), non score1/score2 grezzi
+                // — con partite multi-set questi rappresentano solo il set in corso/
+                // ultimo, non l'esito complessivo dell'incontro.
+                [$won1, $won2, $hasResult] = getMatchSetsWon($m);
+                if ($hasResult) {
+                    if ($won1 > $won2) {
+                        $winnerId = $m['team1Id']; $winnerName = $m['team1Name'] ?? null;
+                        $loserId = $m['team2Id']; $loserName = $m['team2Name'] ?? null;
+                    } elseif ($won2 > $won1) {
+                        $winnerId = $m['team2Id']; $winnerName = $m['team2Name'] ?? null;
+                        $loserId = $m['team1Id']; $loserName = $m['team1Name'] ?? null;
+                    }
                 }
             }
 
@@ -2986,14 +3100,22 @@ function buildGroupMatches(array &$state): void {
 }
 
 function winnerLoser(?array $match): array {
-    if (!$match || $match['score1'] === null || $match['score2'] === null) {
+    if (!$match) {
         return ['winner' => null, 'loser' => null];
     }
-    if ($match['score1'] > $match['score2']) {
-        return ['winner' => $match['team1Id'], 'loser' => $match['team2Id']];
+    // 🔧 FIX: usa i set vinti (getMatchSetsWon), non score1/score2 grezzi —
+    // con partite multi-set questi rappresentano solo il set in corso/ultimo.
+    [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+    if (!$hasResult) {
+        return ['winner' => null, 'loser' => null];
     }
-    if ($match['score2'] > $match['score1']) {
-        return ['winner' => $match['team2Id'], 'loser' => $match['team1Id']];
+    $team1Id = $match['team1Id'] ?? $match['team1'] ?? null;
+    $team2Id = $match['team2Id'] ?? $match['team2'] ?? null;
+    if ($won1 > $won2) {
+        return ['winner' => $team1Id, 'loser' => $team2Id];
+    }
+    if ($won2 > $won1) {
+        return ['winner' => $team2Id, 'loser' => $team1Id];
     }
     return ['winner' => null, 'loser' => null];
 }
@@ -4680,11 +4802,22 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
     // resolvePhaseMatchRules()). Salviamo solo le chiavi effettivamente
     // valorizzate, così i campi lasciati vuoti tornano davvero al default.
     if (isset($body['matchRules']) && is_array($body['matchRules'])) {
-        $allowedKeys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions'];
+        $allowedKeys = ['numSets', 'timePerSetMinutes', 'setupTimeMinutes', 'winScore', 'maxScore', 'maxTimeoutsPerSet', 'maxSubstitutions', 'winPoints'];
         $mr = [];
         foreach ($allowedKeys as $k) {
             if (isset($body['matchRules'][$k]) && $body['matchRules'][$k] !== '' && $body['matchRules'][$k] !== null) {
                 $mr[$k] = (int)$body['matchRules'][$k];
+            }
+        }
+        // 🆕 setsPerRound: sequenza di set-per-vincere per ogni round del knockout,
+        // es. [1,1,2] = quarti 1 set, semifinali 1 set, finale 2 (meglio dei 3).
+        // È un array, non un singolo intero, quindi va gestito a parte dalle
+        // altre chiavi numeriche.
+        if (isset($body['matchRules']['setsPerRound']) && is_array($body['matchRules']['setsPerRound'])) {
+            $seq = array_values(array_map('intval', $body['matchRules']['setsPerRound']));
+            $seq = array_filter($seq, fn($v) => $v > 0);
+            if (!empty($seq)) {
+                $mr['setsPerRound'] = array_values($seq);
             }
         }
         $phase['matchRules'] = $mr;
@@ -9162,8 +9295,17 @@ if ($action === 'admin_get_match' && $method === 'GET') {
         jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
         return;
     }
-    
-    jsonResponse(200, ['ok' => true, 'match' => $match, 'phaseName' => $phaseName]);
+
+    // 🆕 Risolve le regole effettive di questa partita (winScore, numSets per il
+    // round specifico se la fase definisce setsPerRound, winPoints), cosi il
+    // tabellone (tablescore.html) può giocare con i valori reali della fase
+    // invece di valori fissi.
+    $config = readConfig();
+    $configPhase = getConfigPhaseByNumber($config, (int)$phase);
+    $round = isset($match['round']) ? (int)$match['round'] : null;
+    $matchRules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase, $round);
+
+    jsonResponse(200, ['ok' => true, 'match' => $match, 'phaseName' => $phaseName, 'matchRules' => $matchRules]);
 }
 
 if ($action === 'admin_update_match_score' && $method === 'POST') {
@@ -9332,25 +9474,30 @@ if ($action === 'admin_advance_knockout_round' && $method === 'POST') {
         $winners = [];
         
         foreach ($fromRoundMatches as $match) {
-            if (empty($match['score1']) && empty($match['score2'])) {
+            // 🔧 FIX: il vincitore va determinato dai SET VINTI (getMatchSetsWon),
+            // non dal punteggio grezzo score1/score2 — quest'ultimo per le partite
+            // multi-set rappresenta solo il set in corso/ultimo, non l'esito
+            // complessivo dell'incontro.
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            if (!$hasResult) {
                 // Match non giocato
                 return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " non ha ancora punteggi"];
             }
-            
+
             $winner = null;
-            if (($match['score1'] ?? 0) > ($match['score2'] ?? 0)) {
+            if ($won1 > $won2) {
                 $winner = $match['team1'];
-            } elseif (($match['score2'] ?? 0) > ($match['score1'] ?? 0)) {
+            } elseif ($won2 > $won1) {
                 $winner = $match['team2'];
             } else {
-                return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " ha punteggio in parità"];
+                return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " ha punteggio in parità (" . $won1 . "-" . $won2 . " set)"];
             }
-            
+
             $winners[] = [
                 'winner' => $winner,
-                'winnerName' => ($match['score1'] > $match['score2']) ? $match['team1Name'] : $match['team2Name'],
-                'loser' => ($match['score1'] > $match['score2']) ? $match['team2'] : $match['team1'],
-                'loserName' => ($match['score1'] > $match['score2']) ? $match['team2Name'] : $match['team1Name']
+                'winnerName' => ($won1 > $won2) ? $match['team1Name'] : $match['team2Name'],
+                'loser' => ($won1 > $won2) ? $match['team2'] : $match['team1'],
+                'loserName' => ($won1 > $won2) ? $match['team2Name'] : $match['team1Name']
             ];
         }
         

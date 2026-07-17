@@ -138,6 +138,152 @@
       display: none !important;
     }
 
+    /* 🆕 Box punteggio set: touch-friendly, uguale su desktop e mobile.
+       Il set "di riferimento" (quello in corso/ultimo giocato) ha un bordo
+       colorato per essere riconoscibile a colpo d'occhio. */
+    .set-score-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      padding: 4px 6px;
+      margin: 3px 4px 3px 0;
+      background: var(--card);
+      vertical-align: top;
+    }
+
+    .set-score-box.current-set {
+      border-color: var(--accent);
+      background: #fff3e0;
+    }
+
+    .set-score-box .set-label {
+      font-size: 10px;
+      color: #888;
+      font-weight: bold;
+      margin-right: 2px;
+      white-space: nowrap;
+    }
+
+    /* Cella punteggio: bottone grande (min 38x38px, a norma touch target),
+       niente tastiera numerica: si tocca/clicca e si sceglie dal popover. */
+    .score-cell-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      min-height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .score-cell-btn:hover,
+    .score-cell-btn:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+
+    .score-cell-btn.empty {
+      color: #bbb;
+      font-weight: normal;
+    }
+
+    .score-vs-sep {
+      color: #999;
+      font-size: 12px;
+      margin: 0 2px;
+    }
+
+    /* Popover selettore punteggio: stessa interfaccia su desktop (click +
+       scroll con mouse/rotellina) e mobile (tap + scroll col dito) — niente
+       tastiera, si sceglie il numero scorrendo la lista e toccandolo. */
+    .score-picker-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      padding: 16px;
+    }
+
+    .score-picker-overlay.hidden {
+      display: none;
+    }
+
+    .score-picker-panel {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      width: 260px;
+      max-width: 90vw;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      text-align: center;
+    }
+
+    .score-picker-title {
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    .score-picker-scroll {
+      height: 220px;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .score-picker-option {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+      scroll-snap-align: center;
+    }
+
+    .score-picker-option:hover {
+      background: #fff3e0;
+    }
+
+    .score-picker-option.selected {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .score-picker-close {
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    @media (max-width: 640px) {
+      .score-cell-btn {
+        min-width: 42px;
+        min-height: 42px;
+        font-size: 18px;
+      }
+      .set-score-box {
+        padding: 6px 8px;
+      }
+    }
+
     .team {
       display: grid;
       grid-template-columns: 2fr 1fr auto;
@@ -1056,6 +1202,16 @@
       </div>
       <div id="modalBody" class="modal-body"></div>
       <div id="modalFooter" class="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- 🆕 Popover selettore punteggio: sostituisce la tastiera numerica con una
+       lista scorrevole di numeri, uguale su desktop (mouse) e mobile (dito) -->
+  <div id="scorePickerOverlay" class="score-picker-overlay hidden" onclick="if (event.target === this) closeScorePicker()">
+    <div class="score-picker-panel">
+      <div class="score-picker-title" id="scorePickerTitle">Punteggio</div>
+      <div class="score-picker-scroll" id="scorePickerScroll"></div>
+      <button class="btn score-picker-close" onclick="closeScorePicker()">Chiudi</button>
     </div>
   </div>
 
@@ -4274,7 +4430,8 @@
         <button class="btn btn-green" onclick="saveAllMatches()">💾 Salva Tutto</button>
       </div>
       <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
-      <table><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch">
+      <table style="min-width: 720px"><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr draggable="true" data-match-id="${match.id}"
           ondragstart="handleMatchDragStart(event, '${match.id}')"
           ondragend="handleMatchDragEnd(event)"
@@ -4297,7 +4454,8 @@
           <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
         </td>
       </tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table>
+      </div>`;
     }
     
     function renderSeedingComparison(phase, orderedTeams) {
@@ -4745,18 +4903,101 @@
       // gironi erano forzati a un solo set indipendentemente da come era
       // configurata la fase.
       const numSets = phase?.matchRules?.numSets || 1;
+      const maxScore = phase?.matchRules?.maxScore || config?.tournament?.maxScore || 25;
+
+      // 🆕 Set "di riferimento": l'ultimo set con almeno un punteggio inserito
+      // (cioè quello in corso/più recente, stessa convenzione real-time usata
+      // ovunque nel sistema). Se nessun set ha ancora dati, il riferimento è
+      // il primo. Viene evidenziato con un bordo colorato nel box.
+      let currentSetIdx = 0;
+      if (match.sets && match.sets.length > 0) {
+        for (let i = 0; i < match.sets.length; i++) {
+          const s = match.sets[i];
+          if (s && (s.team1 !== null && s.team1 !== undefined || s.team2 !== null && s.team2 !== undefined)) {
+            currentSetIdx = i;
+          }
+        }
+      }
+
       let setInputsHtml = '';
 
       for (let setIdx = 0; setIdx < numSets; setIdx++) {
         const set = (match.sets && match.sets[setIdx]) || { team1: null, team2: null };
-        const t1Val = set.team1 ?? (setIdx === 0 ? match.score1 ?? '' : '');
-        const t2Val = set.team2 ?? (setIdx === 0 ? match.score2 ?? '' : '');
+        const t1Val = set.team1 ?? (setIdx === 0 ? match.score1 ?? null : null);
+        const t2Val = set.team2 ?? (setIdx === 0 ? match.score2 ?? null : null);
+        const t1Id = `s${setIdx}-t1-${match.id}`;
+        const t2Id = `s${setIdx}-t2-${match.id}`;
+        const t1CellId = `${t1Id}-cell`;
+        const t2CellId = `${t2Id}-cell`;
+        const isCurrent = setIdx === currentSetIdx;
 
-        if (setIdx > 0) setInputsHtml += ' | ';
-        setInputsHtml += `<input id="s${setIdx}-t1-${match.id}" type="number" min="0" style="width:50px" value="${t1Val}" title="Set ${setIdx + 1}"> - <input id="s${setIdx}-t2-${match.id}" type="number" min="0" style="width:50px" value="${t2Val}" title="Set ${setIdx + 1}">`;
+        setInputsHtml += `<span class="set-score-box${isCurrent ? ' current-set' : ''}" title="${isCurrent ? 'Set di riferimento (in corso/più recente)' : ''}">
+          <span class="set-label">S${setIdx + 1}</span>
+          <input type="hidden" id="${t1Id}" value="${t1Val ?? ''}" data-max-score="${maxScore}">
+          <span id="${t1CellId}" class="score-cell-btn${t1Val === null || t1Val === undefined ? ' empty' : ''}" onclick="openScorePicker('${t1Id}', '${t1CellId}', 'Punteggio Set ${setIdx + 1} — Squadra 1')">${t1Val ?? '–'}</span>
+          <span class="score-vs-sep">-</span>
+          <input type="hidden" id="${t2Id}" value="${t2Val ?? ''}" data-max-score="${maxScore}">
+          <span id="${t2CellId}" class="score-cell-btn${t2Val === null || t2Val === undefined ? ' empty' : ''}" onclick="openScorePicker('${t2Id}', '${t2CellId}', 'Punteggio Set ${setIdx + 1} — Squadra 2')">${t2Val ?? '–'}</span>
+        </span>`;
       }
 
       return setInputsHtml;
+    }
+
+    // 🆕 Apre il popover selettore punteggio: mostra una lista scorrevole di
+    // numeri da 0 al massimo previsto dalla fase, con quello attuale già
+    // evidenziato. Un tap/click su un numero lo seleziona e chiude subito il
+    // popover (niente tastiera, niente conferma aggiuntiva: semplice e diretto).
+    let scorePickerTarget = null;
+
+    function openScorePicker(inputId, cellId, label) {
+      const input = document.getElementById(inputId);
+      const cell = document.getElementById(cellId);
+      if (!input || !cell) return;
+
+      scorePickerTarget = { inputId, cellId };
+
+      const maxScore = parseInt(input.dataset.maxScore || '25', 10);
+      const currentValRaw = input.value;
+      const currentVal = currentValRaw !== '' ? parseInt(currentValRaw, 10) : null;
+
+      const titleEl = document.getElementById('scorePickerTitle');
+      if (titleEl) titleEl.textContent = label || 'Punteggio';
+
+      const scrollEl = document.getElementById('scorePickerScroll');
+      let html = '';
+      for (let n = 0; n <= maxScore; n++) {
+        html += `<div class="score-picker-option${n === currentVal ? ' selected' : ''}" data-value="${n}" onclick="selectScorePickerValue(${n})">${n}</div>`;
+      }
+      scrollEl.innerHTML = html;
+
+      document.getElementById('scorePickerOverlay').classList.remove('hidden');
+
+      // Scorri automaticamente al valore già selezionato (o all'inizio se vuoto),
+      // così chi riapre un punteggio già inserito lo trova subito visibile.
+      requestAnimationFrame(() => {
+        const selected = scrollEl.querySelector('.score-picker-option.selected') || scrollEl.firstElementChild;
+        if (selected) {
+          scrollEl.scrollTop = selected.offsetTop - (scrollEl.clientHeight / 2) + (selected.clientHeight / 2);
+        }
+      });
+    }
+
+    function selectScorePickerValue(value) {
+      if (!scorePickerTarget) return;
+      const input = document.getElementById(scorePickerTarget.inputId);
+      const cell = document.getElementById(scorePickerTarget.cellId);
+      if (input) input.value = value;
+      if (cell) {
+        cell.textContent = value;
+        cell.classList.remove('empty');
+      }
+      closeScorePicker();
+    }
+
+    function closeScorePicker() {
+      document.getElementById('scorePickerOverlay').classList.add('hidden');
+      scorePickerTarget = null;
     }
 
     async function saveMatch(id) {
@@ -5592,7 +5833,8 @@
         ${knockoutAdvanceButtons}
       </div>
       <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
-      <table><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch">
+      <table style="min-width: 720px"><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr draggable="true" data-match-id="${match.id}"
           ondragstart="handleMatchDragStart(event, '${match.id}')"
           ondragend="handleMatchDragEnd(event)"
@@ -5615,7 +5857,8 @@
           <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
         </td>
       </tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table>
+      </div>`;
     }
 
     function renderPhaseStandings() {

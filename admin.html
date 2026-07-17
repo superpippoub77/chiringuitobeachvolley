@@ -1002,6 +1002,15 @@
           </div>
         </div>
 
+        <div class="card" style="background: #e3f2fd; margin-top: 16px; padding: 12px">
+          <h4 style="margin-top: 0">🔄 Aggiornamento Sistema</h4>
+          <p class="muted">Aggiorna api.php, admin.html, tablescore.html e index.html (lo scoreboard pubblico) con i file più recenti presenti nella cartella principale del sistema. Squadre, gironi, risultati, configurazione e sponsor di questo torneo NON vengono toccati.</p>
+          <div class="row" style="margin-top: 10px">
+            <button type="button" class="btn btn-primary" onclick="selfUpdateEngine()">🔄 Aggiorna ai file più recenti</button>
+          </div>
+          <div id="selfUpdateStatus" style="margin-top: 8px; font-size: 0.85rem; color: #1976d2"></div>
+        </div>
+
         <div class="card" style="background: #ffebee; margin-top: 16px; padding: 12px">
           <h4 style="margin-top: 0">🔴 Cancellazione Completa</h4>
           <p class="muted" style="color: #c62828">Cancella completamente il torneo, tutte le squadre, i gironi, le fasi e torna a stato iniziale. Non sarà possibile recuperare i dati!</p>
@@ -1025,6 +1034,14 @@
         
         <div id="multitenantAdminPanel" style="display: none; margin-top: 20px">
           <p class="muted">Carico lista tornei...</p>
+          <div id="multitenantUpdateBar" style="display: none; margin-bottom: 12px; padding: 12px; background: #fff3e0; border: 1px solid #ff9800; border-radius: 6px; align-items: center; gap: 10px; flex-wrap: wrap">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.9rem; cursor: pointer">
+              <input type="checkbox" id="multitenantSelectAll" onchange="toggleSelectAllTournaments(this.checked)">
+              Seleziona tutti
+            </label>
+            <button class="btn btn-primary" onclick="updateSelectedTournaments()" style="font-size: 0.9rem; padding: 8px 14px">🔄 Aggiorna Selezionati</button>
+            <span id="multitenantUpdateStatus" style="font-size: 0.85rem; color: #6a5737"></span>
+          </div>
           <div id="multitenantTournamentsList" style="margin-top: 16px"></div>
         </div>
       </div>
@@ -7956,6 +7973,37 @@ html += `
       }
     }
 
+    // 🆕 Il torneo aggiorna se stesso prendendo i file "motore" più recenti
+    // dalla cartella principale (root). Funziona solo se questo torneo è già
+    // stato aggiornato almeno una volta dal pannello multi-tenant (per avere
+    // questa stessa funzionalità nel proprio api.php/admin.html).
+    async function selfUpdateEngine() {
+      const confirmed = confirm(
+        '⚠️ Stai per aggiornare api.php, admin.html, tablescore.html e index.html (lo scoreboard pubblico) con i file più recenti della cartella principale.\n\n' +
+        'Squadre, gironi, risultati, configurazione e sponsor di QUESTO torneo NON vengono toccati.\n\n' +
+        'Continuare?'
+      );
+      if (!confirmed) return;
+
+      const statusEl = document.getElementById('selfUpdateStatus');
+      if (statusEl) statusEl.textContent = '⏳ Aggiornamento in corso...';
+
+      try {
+        const data = await callApi('admin_self_update_engine', 'POST', {}, true);
+
+        if (data.ok) {
+          if (statusEl) statusEl.textContent = '✅ Aggiornato: ' + (data.copied || []).join(', ');
+          await showInfoDialog('✅ Aggiornamento completato', 'File aggiornati: ' + (data.copied || []).join(', ') + '. Ricarica la pagina per usare la versione aggiornata.');
+        } else {
+          if (statusEl) statusEl.textContent = '❌ Errore';
+          await showInfoDialog('Errore', (data.errors || []).join(', ') || data.error || 'Errore sconosciuto durante l\'aggiornamento');
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = '❌ Errore';
+        await showInfoDialog('Errore', e.message || 'Errore sconosciuto durante l\'aggiornamento');
+      }
+    }
+
     // ==================== MULTI-TENANT ADMIN ====================
 
     const MULTITENANT_ADMIN_PASSWORD = 'admin123'; // Password master
@@ -8001,6 +8049,8 @@ html += `
         }
         
         container.innerHTML = '';
+        document.getElementById('multitenantUpdateBar').style.display = 'flex';
+        document.getElementById('multitenantSelectAll').checked = false;
         
         tournaments.forEach(tournament => {
           const item = document.createElement('div');
@@ -8012,6 +8062,16 @@ html += `
             margin-bottom: 12px;
             transition: all 0.3s ease;
           `;
+          
+          // 🆕 Checkbox per selezionare il torneo (usata da "Aggiorna Selezionati")
+          const checkboxLabel = document.createElement('label');
+          checkboxLabel.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; font-size: 0.85rem; color: #6a5737';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'multitenant-tournament-checkbox';
+          checkbox.dataset.code = tournament.code;
+          checkboxLabel.appendChild(checkbox);
+          checkboxLabel.appendChild(document.createTextNode('Seleziona per aggiornamento'));
           
           const titleDiv = document.createElement('div');
           titleDiv.style.cssText = 'font-weight: bold; color: #201c14; margin-bottom: 4px; font-size: 1rem';
@@ -8064,10 +8124,23 @@ html += `
             }
           };
           
+          // Pulsante Aggiorna (singolo torneo)
+          const updateBtn = document.createElement('button');
+          updateBtn.textContent = '🔄 Aggiorna';
+          updateBtn.className = 'btn btn-primary';
+          updateBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem';
+          updateBtn.onclick = () => {
+            if (confirm(`⚠️ Aggiornare "${tournament.name || tournament.code}" con i file più recenti (api.php, admin.html, tablescore.html, index.html) dalla cartella principale? I dati del torneo (squadre, gironi, risultati, configurazione) NON vengono toccati.`)) {
+              updateSelectedTournaments([tournament.code]);
+            }
+          };
+          
           buttonsDiv.appendChild(accessBtn);
+          buttonsDiv.appendChild(updateBtn);
           buttonsDiv.appendChild(toggleBtn);
           buttonsDiv.appendChild(deleteBtn);
           
+          item.appendChild(checkboxLabel);
           item.appendChild(titleDiv);
           item.appendChild(codeDiv);
           item.appendChild(emailDiv);
@@ -8127,6 +8200,76 @@ html += `
         }
       } catch (e) {
         alert('❌ Errore: ' + e.message);
+      }
+    }
+
+    // 🆕 Seleziona/deseleziona tutte le checkbox dei tornei
+    function toggleSelectAllTournaments(checked) {
+      document.querySelectorAll('.multitenant-tournament-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+    }
+
+    // 🆕 Aggiorna i file "motore" (api.php, admin.html, tablescore.html,
+    // index.html da scoreboard.html) di uno o più tornei, prendendoli dalla
+    // cartella principale. Se non viene passato un array esplicito di codici,
+    // usa le checkbox selezionate nella lista.
+    async function updateSelectedTournaments(explicitCodes) {
+      let codes = explicitCodes;
+      if (!codes) {
+        codes = Array.from(document.querySelectorAll('.multitenant-tournament-checkbox:checked'))
+          .map(cb => cb.dataset.code);
+      }
+
+      if (codes.length === 0) {
+        alert('⚠️ Seleziona almeno un torneo da aggiornare');
+        return;
+      }
+
+      // Alert di sicurezza: l'operazione sovrascrive i file di codice dei tornei selezionati
+      const confirmed = confirm(
+        `⚠️ Stai per aggiornare ${codes.length} torneo/i con i file più recenti (api.php, admin.html, tablescore.html, index.html) dalla cartella principale.\n\n` +
+        `I dati dei tornei (squadre, gironi, risultati, configurazione, sponsor) NON vengono toccati.\n\n` +
+        `Continuare?`
+      );
+      if (!confirmed) return;
+
+      const statusEl = document.getElementById('multitenantUpdateStatus');
+      if (statusEl) statusEl.textContent = '⏳ Aggiornamento in corso...';
+
+      try {
+        const response = await fetch(`${API}?action=multitenant_update_tournaments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentCodes: codes,
+            panelToken: 'admin'
+          })
+        });
+
+        const data = await response.json();
+
+        if (!data.ok) {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+          if (statusEl) statusEl.textContent = '';
+          return;
+        }
+
+        const results = data.results || [];
+        const okCount = results.filter(r => r.ok).length;
+        const failed = results.filter(r => !r.ok);
+
+        let message = `✅ ${okCount} di ${results.length} torneo/i aggiornati con successo.`;
+        if (failed.length > 0) {
+          message += '\n\n⚠️ Problemi riscontrati:\n' + failed.map(f => `- ${f.name || f.code}: ${(f.errors || []).join(', ')}`).join('\n');
+        }
+        alert(message);
+
+        if (statusEl) statusEl.textContent = '';
+        await loadMultitenantTournaments();
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+        if (statusEl) statusEl.textContent = '';
       }
     }
 

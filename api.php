@@ -10086,6 +10086,70 @@ function copyDirectory(string $src, string $dst, array $extraExcludeDirs = []): 
 }
 
 /**
+ * Copia i file "motore" del sistema (api.php, admin.html, tablescore.html) da
+ * una cartella sorgente a una di destinazione, sovrascrivendoli. scoreboard.html
+ * viene copiato come index.html nella destinazione (stessa convenzione usata
+ * in create_tournament: nella cartella di un torneo, index.html È lo scoreboard
+ * pubblico, non una landing page). Nel testo di admin.html copiato, il link
+ * "scoreboard.html" viene riscritto in "index.html" per lo stesso motivo.
+ * NON tocca data/, config, squadre, immagini o sponsor: solo il codice.
+ */
+function updateTournamentEngineFiles(string $sourceDir, string $destDir): array {
+    $copied = [];
+    $errors = [];
+
+    if (!is_dir($destDir)) {
+        return ['ok' => false, 'copied' => [], 'errors' => ["Cartella di destinazione non trovata: $destDir"]];
+    }
+
+    // File copiati con lo stesso nome
+    $directFiles = ['api.php', 'tablescore.html'];
+    foreach ($directFiles as $file) {
+        $src = $sourceDir . '/' . $file;
+        $dst = $destDir . '/' . $file;
+        if (!file_exists($src)) {
+            $errors[] = "File sorgente mancante: $file";
+            continue;
+        }
+        if (copy($src, $dst)) {
+            $copied[] = $file;
+        } else {
+            $errors[] = "Copia fallita: $file";
+        }
+    }
+
+    // admin.html: copiato riscrivendo il link a scoreboard.html -> index.html
+    $srcAdmin = $sourceDir . '/admin.html';
+    $dstAdmin = $destDir . '/admin.html';
+    if (file_exists($srcAdmin)) {
+        $adminContent = file_get_contents($srcAdmin);
+        $adminContent = str_replace('href="scoreboard.html"', 'href="index.html"', $adminContent);
+        if (file_put_contents($dstAdmin, $adminContent) !== false) {
+            $copied[] = 'admin.html';
+        } else {
+            $errors[] = "Copia fallita: admin.html";
+        }
+    } else {
+        $errors[] = "File sorgente mancante: admin.html";
+    }
+
+    // scoreboard.html -> index.html (index.html della destinazione È lo scoreboard pubblico)
+    $srcScoreboard = $sourceDir . '/scoreboard.html';
+    $dstIndex = $destDir . '/index.html';
+    if (file_exists($srcScoreboard)) {
+        if (copy($srcScoreboard, $dstIndex)) {
+            $copied[] = 'index.html (da scoreboard.html)';
+        } else {
+            $errors[] = "Copia fallita: index.html (da scoreboard.html)";
+        }
+    } else {
+        $errors[] = "File sorgente mancante: scoreboard.html";
+    }
+
+    return ['ok' => empty($errors), 'copied' => $copied, 'errors' => $errors];
+}
+
+/**
  * ✅ Rimuove ricorsivamente una directory e tutto il suo contenuto
  */
 function removeDirectoryRecursive(string $path): bool {
@@ -10965,7 +11029,80 @@ if ($action === 'delete_tournament' && $method === 'POST') {
     ]);
 }
 
-// DEBUG: Endpoint per diagnosticare lo schedule
+// 🆕 Aggiorna in blocco i file "motore" (api.php, admin.html, tablescore.html,
+// index.html da scoreboard.html) di uno o più tornei selezionati, prendendoli
+// dalla cartella principale (root). Usato dal pannello multi-tenant.
+if ($action === 'multitenant_update_tournaments' && $method === 'POST') {
+    $body = bodyJson();
+    $tournamentCodes = $body['tournamentCodes'] ?? [];
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+
+    if (!is_array($tournamentCodes) || empty($tournamentCodes) || empty($panelToken)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Parametri mancanti']);
+    }
+
+    // Stessa validazione token usata da disable/enable/delete_tournament
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    if ($panelToken === 'admin') {
+        $validSession = true;
+    } else {
+        foreach ($registry['panelSessions'] ?? [] as $session) {
+            if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+                $validSession = true;
+                break;
+            }
+        }
+    }
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+
+    $results = [];
+    foreach ($tournamentCodes as $code) {
+        $code = trim((string)$code);
+        $tournament = null;
+        foreach ($registry['tournaments'] ?? [] as $t) {
+            if ($t['code'] === $code) { $tournament = $t; break; }
+        }
+        if (!$tournament) {
+            $results[] = ['code' => $code, 'ok' => false, 'errors' => ['Torneo non trovato nel registro']];
+            continue;
+        }
+        $destDir = __DIR__ . '/' . $tournament['path'];
+        $result = updateTournamentEngineFiles(__DIR__, $destDir);
+        $results[] = ['code' => $code, 'name' => $tournament['name'] ?? '', 'ok' => $result['ok'], 'copied' => $result['copied'], 'errors' => $result['errors']];
+    }
+
+    jsonResponse(200, ['ok' => true, 'results' => $results]);
+}
+
+// 🆕 Un torneo aggiorna se stesso prendendo i file "motore" più recenti dalla
+// cartella principale (root). Presuppone che il torneo sia una sottocartella
+// diretta della root (stessa convenzione di create_tournament), quindi la
+// root è la cartella padre di quella corrente.
+if ($action === 'admin_self_update_engine' && $method === 'POST') {
+    requireAdmin();
+
+    $currentDir = __DIR__;
+    $rootDir = dirname($currentDir);
+
+    // Sanity check: la root deve avere api.php e il registro tornei, altrimenti
+    // questo torneo non è una sottocartella diretta di un'installazione root valida.
+    if (!file_exists($rootDir . '/api.php') || !file_exists($rootDir . '/data/tournaments.json')) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Impossibile individuare la cartella principale (root) del sistema']);
+    }
+
+    $result = updateTournamentEngineFiles($rootDir, $currentDir);
+    jsonResponse($result['ok'] ? 200 : 207, [
+        'ok' => $result['ok'],
+        'copied' => $result['copied'],
+        'errors' => $result['errors'],
+        'error' => $result['ok'] ? null : implode(', ', $result['errors'])
+    ]);
+}
+
+
 if ($action === 'debug_schedule' && $method === 'GET') {
     try {
         $config = readConfig();

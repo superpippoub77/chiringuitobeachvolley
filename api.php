@@ -5572,12 +5572,32 @@ if ($action === 'admin_update_group_match' && $method === 'POST') {
             
             $matchFound = true;
             
-            // Aggiorna i campi della partita
-            if (array_key_exists('score1', $body)) {
-                $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
-            }
-            if (array_key_exists('score2', $body)) {
-                $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
+            // 🆕 Stessa tecnica real-time del knockout: se arriva un array 'sets',
+            // l'ultimo elemento è il set in corso (score1/score2 live), i precedenti
+            // sono i set conclusi. Sostituisce l'aggiornamento diretto di score1/score2
+            // quando la partita è multi-set (matchRules.numSets > 1 anche nei gironi).
+            if (array_key_exists('sets', $body) && is_array($body['sets'])) {
+                $sets = $body['sets'];
+                $m['sets'] = $sets;
+                if (isset($body['team1Timeouts'])) $m['team1Timeouts'] = (int)$body['team1Timeouts'];
+                if (isset($body['team2Timeouts'])) $m['team2Timeouts'] = (int)$body['team2Timeouts'];
+                if (!empty($sets)) {
+                    $lastSet = $sets[count($sets) - 1];
+                    $m['score1'] = $lastSet['team1'] ?? 0;
+                    $m['score2'] = $lastSet['team2'] ?? 0;
+                } else {
+                    $m['score1'] = null;
+                    $m['score2'] = null;
+                }
+                $m['updatedAt'] = date('c');
+            } else {
+                // Aggiorna i campi della partita (formato legacy a set singolo)
+                if (array_key_exists('score1', $body)) {
+                    $m['score1'] = is_null($body['score1']) ? null : (int)$body['score1'];
+                }
+                if (array_key_exists('score2', $body)) {
+                    $m['score2'] = is_null($body['score2']) ? null : (int)$body['score2'];
+                }
             }
             if (isset($body['time'])) {
                 $m['time'] = trim((string)$body['time']);
@@ -7551,29 +7571,40 @@ if ($action === 'admin_save_all_matches' && $method === 'POST') {
                     
                     $matchFound = true;
 
-                    // Aggiorna i campi secondo il tipo di fase
-                    if ($phaseType === 'knockout') {
-                        // KNOCKOUT: aggiorna i set
-                        if (isset($matchData['sets']) && is_array($matchData['sets'])) {
-                            $m['sets'] = $matchData['sets'];
+                    // 🔧 Stessa tecnica real-time per QUALSIASI tipo di fase: se
+                    // arriva 'sets', l'ultimo elemento è il set in corso (score1/
+                    // score2 live), i precedenti sono conclusi. Prima questo valeva
+                    // solo per il knockout e comunque non derivava mai score1/score2
+                    // dall'ultimo set; i gironi non accettavano affatto sets[].
+                    if (isset($matchData['sets']) && is_array($matchData['sets'])) {
+                        $sets = $matchData['sets'];
+                        $m['sets'] = $sets;
+                        if (!empty($sets)) {
+                            $lastSet = $sets[count($sets) - 1];
+                            $m['score1'] = $lastSet['team1'] ?? 0;
+                            $m['score2'] = $lastSet['team2'] ?? 0;
+                        } else {
+                            $m['score1'] = null;
+                            $m['score2'] = null;
                         }
-                        if (isset($matchData['team1Timeouts'])) {
-                            $m['team1Timeouts'] = (int)$matchData['team1Timeouts'];
-                        }
-                        if (isset($matchData['team2Timeouts'])) {
-                            $m['team2Timeouts'] = (int)$matchData['team2Timeouts'];
-                        }
-                    } else {
-                        // GIRONE: aggiorna score1/score2 e orario
+                        $m['updatedAt'] = date('c');
+                    } elseif (isset($matchData['score1']) || isset($matchData['score2'])) {
+                        // Formato legacy a set singolo (es. simulazione punteggi)
                         if (isset($matchData['score1'])) {
                             $m['score1'] = is_null($matchData['score1']) ? null : (int)$matchData['score1'];
                         }
                         if (isset($matchData['score2'])) {
                             $m['score2'] = is_null($matchData['score2']) ? null : (int)$matchData['score2'];
                         }
-                        if (isset($matchData['time'])) {
-                            $m['time'] = trim((string)$matchData['time']);
-                        }
+                    }
+                    if (isset($matchData['team1Timeouts'])) {
+                        $m['team1Timeouts'] = (int)$matchData['team1Timeouts'];
+                    }
+                    if (isset($matchData['team2Timeouts'])) {
+                        $m['team2Timeouts'] = (int)$matchData['team2Timeouts'];
+                    }
+                    if (isset($matchData['time'])) {
+                        $m['time'] = trim((string)$matchData['time']);
                     }
 
                     $savedCount++;

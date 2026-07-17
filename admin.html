@@ -4714,26 +4714,22 @@
     }
 
     function generateSetInputs(match, phase, isKnockout) {
-      // Per GIRONI: genera input per score1/score2
-      if (phase?.type === 'groups') {
-        const t1Val = match.score1 ?? '';
-        const t2Val = match.score2 ?? '';
-        return `<input id="s0-t1-${match.id}" type="number" min="0" style="width:50px" value="${t1Val}"> - <input id="s0-t2-${match.id}" type="number" min="0" style="width:50px" value="${t2Val}">`;
-      }
-      
-      // Per KNOCKOUT: genera input text per ogni set
+      // 🔧 Stessa tecnica real-time per gironi e knockout: il numero di box
+      // dipende da matchRules.numSets della fase, non dal tipo di fase. Prima i
+      // gironi erano forzati a un solo set indipendentemente da come era
+      // configurata la fase.
       const numSets = phase?.matchRules?.numSets || 1;
       let setInputsHtml = '';
-      
+
       for (let setIdx = 0; setIdx < numSets; setIdx++) {
         const set = (match.sets && match.sets[setIdx]) || { team1: null, team2: null };
-        const t1Val = set.team1 ?? match.score1 ?? '';
-        const t2Val = set.team2 ?? match.score2 ?? '';
-        
+        const t1Val = set.team1 ?? (setIdx === 0 ? match.score1 ?? '' : '');
+        const t2Val = set.team2 ?? (setIdx === 0 ? match.score2 ?? '' : '');
+
         if (setIdx > 0) setInputsHtml += ' | ';
         setInputsHtml += `<input id="s${setIdx}-t1-${match.id}" type="number" min="0" style="width:50px" value="${t1Val}" title="Set ${setIdx + 1}"> - <input id="s${setIdx}-t2-${match.id}" type="number" min="0" style="width:50px" value="${t2Val}" title="Set ${setIdx + 1}">`;
       }
-      
+
       return setInputsHtml;
     }
 
@@ -4750,24 +4746,24 @@
         }
         
         const numSets = phase?.matchRules?.numSets || 1;
-        
-        // 🔧 KNOCKOUT usa admin_update_match_score e invia sets array
+
+        // 🔧 Stessa raccolta set per gironi e knockout: ogni box (setIdx) va
+        // letto allo stesso modo, indipendentemente dal tipo di fase.
+        const sets = [];
+        for (let setIdx = 0; setIdx < numSets; setIdx++) {
+          const t1Input = document.getElementById(`s${setIdx}-t1-${id}`);
+          const t2Input = document.getElementById(`s${setIdx}-t2-${id}`);
+
+          const team1Score = t1Input?.value ? Number(t1Input.value) : null;
+          const team2Score = t2Input?.value ? Number(t2Input.value) : null;
+
+          sets.push({
+            team1: team1Score,
+            team2: team2Score
+          });
+        }
+
         if (phase.type === 'knockout') {
-          // Raccogli i punteggi da tutti gli input per ogni set
-          const sets = [];
-          for (let setIdx = 0; setIdx < numSets; setIdx++) {
-            const t1Input = document.getElementById(`s${setIdx}-t1-${id}`);
-            const t2Input = document.getElementById(`s${setIdx}-t2-${id}`);
-            
-            const team1Score = t1Input?.value ? Number(t1Input.value) : null;
-            const team2Score = t2Input?.value ? Number(t2Input.value) : null;
-            
-            sets.push({
-              team1: team1Score,
-              team2: team2Score
-            });
-          }
-          
           console.log('💾 ADMIN KNOCKOUT: Salvataggio match', {
             matchId: id,
             phaseNumber: currentSelectedPhaseNumber,
@@ -4783,23 +4779,21 @@
             team2Timeouts: match.team2Timeouts || 0
           }, true);
         } else {
-          // GIRONE: raccoglie solo score1/score2 dal primo set
-          const score1Input = document.getElementById(`s0-t1-${id}`);
-          const score2Input = document.getElementById(`s0-t2-${id}`);
-          const score1 = score1Input?.value ? Number(score1Input.value) : null;
-          const score2 = score2Input?.value ? Number(score2Input.value) : null;
-          
+          // GIRONE: stessa tecnica real-time del knockout (sets[]), più orario
           console.log('💾 ADMIN GIRONE: Salvataggio match', {
             matchId: id,
             phaseNumber: currentSelectedPhaseNumber,
-            score1, score2, time
+            numSets: numSets,
+            sets: sets,
+            time
           });
           
           await callApi('admin_update_group_match', 'POST', {
             id,
             phaseNumber: currentSelectedPhaseNumber,
-            score1,
-            score2,
+            sets: sets,
+            team1Timeouts: match.team1Timeouts || 0,
+            team2Timeouts: match.team2Timeouts || 0,
             time
           }, true);
         }
@@ -4825,28 +4819,28 @@
 
         // Raccoglie i dati di tutte le partite dai campi input
         for (const match of phase.matches) {
-          if (phase.type === 'knockout') {
-            // KNOCKOUT: raccoglie tutti i set
-            const sets = [];
-            let hasSets = false;
-            
-            for (let setIdx = 0; setIdx < numSets; setIdx++) {
-              const t1Input = document.getElementById(`s${setIdx}-t1-${match.id}`);
-              const t2Input = document.getElementById(`s${setIdx}-t2-${match.id}`);
-              
-              const team1Score = t1Input?.value ? Number(t1Input.value) : null;
-              const team2Score = t2Input?.value ? Number(t2Input.value) : null;
-              
-              if (team1Score !== null || team2Score !== null) {
-                hasSets = true;
-              }
-              
-              sets.push({
-                team1: team1Score,
-                team2: team2Score
-              });
+          // 🔧 Stessa raccolta set per gironi e knockout
+          const sets = [];
+          let hasSets = false;
+
+          for (let setIdx = 0; setIdx < numSets; setIdx++) {
+            const t1Input = document.getElementById(`s${setIdx}-t1-${match.id}`);
+            const t2Input = document.getElementById(`s${setIdx}-t2-${match.id}`);
+
+            const team1Score = t1Input?.value ? Number(t1Input.value) : null;
+            const team2Score = t2Input?.value ? Number(t2Input.value) : null;
+
+            if (team1Score !== null || team2Score !== null) {
+              hasSets = true;
             }
 
+            sets.push({
+              team1: team1Score,
+              team2: team2Score
+            });
+          }
+
+          if (phase.type === 'knockout') {
             if (hasSets) {
               matchesToSave.push({
                 matchId: match.id,
@@ -4859,21 +4853,17 @@
               updatedCount++;
             }
           } else {
-            // GIRONE: score1/score2 dal primo set + orario
-            const score1Input = document.getElementById(`s0-t1-${match.id}`);
-            const score2Input = document.getElementById(`s0-t2-${match.id}`);
+            // GIRONE: stessa tecnica real-time del knockout (sets[]), più orario
             const timeInput = document.getElementById(`t-${match.id}`);
-            
-            const score1 = score1Input?.value ? Number(score1Input.value) : null;
-            const score2 = score2Input?.value ? Number(score2Input.value) : null;
             const time = timeInput?.value || '';
 
-            if (score1 !== null || score2 !== null || time) {
+            if (hasSets || time) {
               matchesToSave.push({
                 matchId: match.id,
                 phaseNumber: currentSelectedPhaseNumber,
-                score1: score1,
-                score2: score2,
+                sets: sets,
+                team1Timeouts: match.team1Timeouts || 0,
+                team2Timeouts: match.team2Timeouts || 0,
                 time: time,
                 type: 'groups'
               });

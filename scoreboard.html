@@ -3057,9 +3057,39 @@
       window.__galleryData = gallery;
     }
 
+    // 🆕 Lightbox con navigazione prev/next: tiene traccia dell'indice corrente
+    // e permette di scorrere le foto con le frecce a schermo o con la tastiera.
+    let __galleryLightboxIndex = 0;
+
     function openGalleryLightbox(idx) {
       const gallery = window.__galleryData || [];
-      const item = gallery[idx];
+      if (!gallery.length) return;
+      __galleryLightboxIndex = idx;
+      renderGalleryLightbox();
+    }
+
+    function navigateGalleryLightbox(delta) {
+      const gallery = window.__galleryData || [];
+      if (!gallery.length) return;
+      __galleryLightboxIndex = (__galleryLightboxIndex + delta + gallery.length) % gallery.length;
+      renderGalleryLightbox();
+    }
+
+    function closeGalleryLightbox() {
+      const overlay = document.getElementById('galleryLightboxOverlay');
+      if (overlay) overlay.remove();
+      document.removeEventListener('keydown', handleGalleryLightboxKeydown);
+    }
+
+    function handleGalleryLightboxKeydown(e) {
+      if (e.key === 'ArrowLeft') navigateGalleryLightbox(-1);
+      else if (e.key === 'ArrowRight') navigateGalleryLightbox(1);
+      else if (e.key === 'Escape') closeGalleryLightbox();
+    }
+
+    function renderGalleryLightbox() {
+      const gallery = window.__galleryData || [];
+      const item = gallery[__galleryLightboxIndex];
       if (!item) return;
 
       let overlay = document.getElementById('galleryLightboxOverlay');
@@ -3070,19 +3100,26 @@
           position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999;
           display: flex; align-items: center; justify-content: center; padding: 20px;
         `;
-        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.onclick = (e) => { if (e.target === overlay) closeGalleryLightbox(); };
         document.body.appendChild(overlay);
+        document.addEventListener('keydown', handleGalleryLightboxKeydown);
       }
 
+      const showArrows = gallery.length > 1;
+      const arrowBtnStyle = 'position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center';
+
       overlay.innerHTML = `
+        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(-1)" title="Foto precedente" style="${arrowBtnStyle}; left: 16px">‹</button>` : ''}
         <div style="max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px">
           <img src="${esc(item.imageFile)}" alt="${esc(item.title)}" style="max-width: 100%; max-height: 75vh; border-radius: 8px; object-fit: contain">
           <div style="color: #fff; text-align: center">
             <div style="font-size: 16px; font-weight: bold">${esc(item.title)}</div>
             ${item.description ? `<div style="font-size: 13px; color: #ddd; margin-top: 4px; max-width: 500px">${esc(item.description)}</div>` : ''}
+            ${showArrows ? `<div style="font-size: 12px; color: #aaa; margin-top: 4px">${__galleryLightboxIndex + 1} / ${gallery.length}</div>` : ''}
           </div>
-          <button onclick="document.getElementById('galleryLightboxOverlay').remove()" style="margin-top: 6px; padding: 8px 16px; background: #4caf50; color: #fff; border: none; border-radius: 6px; cursor: pointer">Chiudi</button>
+          <button onclick="closeGalleryLightbox()" style="margin-top: 6px; padding: 8px 16px; background: #4caf50; color: #fff; border: none; border-radius: 6px; cursor: pointer">Chiudi</button>
         </div>
+        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(1)" title="Foto successiva" style="${arrowBtnStyle}; right: 16px">›</button>` : ''}
       `;
     }
   </script>

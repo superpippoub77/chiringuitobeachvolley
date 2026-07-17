@@ -79,6 +79,35 @@ function writeJsonFile(string $file, array $data): void {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
+/**
+ * Come writeJsonFile(), ma con lock esclusivo per tutta la scrittura. Da
+ * usare per le operazioni "sostituisci tutto il file" (reset, ripristino di
+ * un backup/snapshot) che non fanno una vera lettura-modifica-scrittura (per
+ * quello c'è withStateTransaction/withJsonFileTransaction) ma devono comunque
+ * evitare di scrivere mentre un'altra richiesta sta leggendo o scrivendo lo
+ * stesso file nello stesso istante.
+ */
+function writeJsonFileLocked(string $file, array $data): void {
+    $dir = dirname($file);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    $fp = fopen($file, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire il file: ' . basename($file)]);
+    }
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare il file: ' . basename($file)]);
+    }
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+}
+
 function formatBytes(int $bytes, int $precision = 2): string {
     $units = ['B', 'KB', 'MB', 'GB'];
     $bytes = max($bytes, 0);
@@ -658,7 +687,29 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     return $merged;
 }
 
+// 🆕 Lock condiviso per config.json: vedi readConfig()/writeConfig() sotto.
+$__configLockFp = null;
+
 function readConfig(): array {
+    global $__configLockFp;
+
+    // 🆕 Acquisisce (se non già acquisito in questa richiesta) un lock
+    // esclusivo su config.json, che resta attivo fino alla successiva
+    // writeConfig() (o fino alla fine della richiesta, se non si scrive).
+    // Questo rende automaticamente atomica ogni sequenza "leggi → modifica →
+    // scrivi" fatta dai ~25 punti del codice che chiamano readConfig() poi
+    // writeConfig(), senza dover modificare ciascuno di essi singolarmente:
+    // prima due richieste concorrenti potevano leggere lo stesso config,
+    // modificarlo ciascuna per conto proprio, e l'ultima a scrivere
+    // cancellava senza accorgersene le modifiche dell'altra ("lost update").
+    if ($__configLockFp === null) {
+        $fp = @fopen(CONFIG_FILE, 'c+');
+        if ($fp !== false) {
+            flock($fp, LOCK_EX);
+            $__configLockFp = $fp;
+        }
+    }
+
     $default = defaultConfig();
     
     if (!file_exists(CONFIG_FILE)) {
@@ -691,6 +742,8 @@ function readConfig(): array {
 }
 
 function writeConfig(array $config): void {
+    global $__configLockFp;
+
     // Crittografa se encryption è abilitata
     if (isset($config['security']['encryptionEnabled']) && $config['security']['encryptionEnabled'] && isset($config['security']['encryptionPassword'])) {
         try {
@@ -703,6 +756,15 @@ function writeConfig(array $config): void {
     }
     
     writeJsonFile(CONFIG_FILE, $config);
+
+    // 🆕 Rilascia il lock acquisito da readConfig() per questa richiesta
+    // (se una richiesta chiama solo readConfig() senza mai scrivere, il lock
+    // si rilascia comunque automaticamente alla fine della richiesta).
+    if ($__configLockFp !== null) {
+        flock($__configLockFp, LOCK_UN);
+        fclose($__configLockFp);
+        $__configLockFp = null;
+    }
 }
 
 function saveToHistory(string $description = 'Modifica'): void {
@@ -7123,7 +7185,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'maxSteps' => 10
             ]
         ];
-        writeJsonFile(CONFIG_FILE, $emptyConfig);
+        writeJsonFileLocked(CONFIG_FILE, $emptyConfig);
         
         // Scrivi file di stato del torneo completamente vuoto
         $emptyState = [
@@ -7146,7 +7208,12 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'lastUpdated' => null
             ]
         ];
-        writeJsonFile(DATA_FILE, $emptyState);
+        // 🔧 FIX: scriveva tournament.json senza lock, in corsa con qualunque
+        // altra operazione in corso nello stesso istante.
+        withStateTransaction(function (&$state) use ($emptyState) {
+            $state = $emptyState;
+            return [];
+        });
         
         // Elimina cronologia autosave
         if (file_exists(HISTORY_FILE)) {
@@ -7716,7 +7783,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         error_log("📝 admin_update_config: INIZIO");
         $body = bodyJson();
         error_log("📝 admin_update_config: bodyJson() OK, keys=" . json_encode(array_keys($body)));
-        
+
         $config = readConfig();
         error_log("📝 admin_update_config: readConfig() OK");
     
@@ -7917,11 +7984,15 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         error_log("  Post-save Court[$idx]: name={$court['courtName']}, courtId={$court['courtId']}, availability=" . count($court['availability'] ?? []));
     }
     
-    // Aggiorna anche lo state con le nuove impostazioni da config
-    $state = readJsonFile(DATA_FILE, initialState());
-    $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
-    $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
-    writeJsonFile(DATA_FILE, $state);
+    // 🔧 FIX: prima leggeva/scriveva tournament.json senza alcun lock, in
+    // corsa con qualunque altra withStateTransaction() in corso nello stesso
+    // istante (es. un punteggio salvato nello stesso momento). Ora passa dalla
+    // stessa transazione con lock già usata ovunque altrove nel sistema.
+    withStateTransaction(function (&$state) use ($config) {
+        $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
+        $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
+        return [];
+    });
     
     // Salva snapshot nella history se autosave è abilitato
     saveToHistory('Aggiornamento configurazione');
@@ -9779,7 +9850,7 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
         }
         
         // Ripristina tutti i dati
-        writeJsonFile(CONFIG_FILE, $backup['config']);
+        writeJsonFileLocked(CONFIG_FILE, $backup['config']);
         writeJsonFile(__DIR__ . '/data/teams.json', $backup['teams'] ?? []);
         writeJsonFile(__DIR__ . '/data/groups.json', $backup['groups'] ?? []);
         writeJsonFile(__DIR__ . '/data/matches.json', $backup['matches'] ?? []);
@@ -9943,8 +10014,8 @@ if ($action === 'admin_restore_backup' && $method === 'POST') {
         }
         
         // Ripristina tutti i dati
-        writeJsonFile(CONFIG_FILE, $backup['config']);
-        writeJsonFile(DATA_FILE, [
+        writeJsonFileLocked(CONFIG_FILE, $backup['config']);
+        writeJsonFileLocked(DATA_FILE, [
             'teams' => $backup['teams'] ?? [],
             'groups' => $backup['groups'] ?? [],
             'groupMatches' => $backup['groupMatches'] ?? [],
@@ -10030,8 +10101,11 @@ if ($action === 'admin_undo_step' && $method === 'POST') {
     $targetSnapshot = $history['snapshots'][$steps];
     
     // Ripristina config e state
-    writeJsonFile(CONFIG_FILE, $targetSnapshot['config']);
-    writeJsonFile(DATA_FILE, $targetSnapshot['state']);
+    writeJsonFileLocked(CONFIG_FILE, $targetSnapshot['config']);
+    withStateTransaction(function (&$state) use ($targetSnapshot) {
+        $state = $targetSnapshot['state'];
+        return [];
+    });
     
     // Salva questa azione nella history per nuovi step futuri
     $newHistory = [
@@ -10092,14 +10166,40 @@ function generateGUID(): string {
 }
 
 // Leggi la lista dei tornei
+// 🆕 Lock condiviso per il registro multi-tenant tournaments.json, stesso
+// meccanismo di $__configLockFp per config.json: acquisito al primo
+// getTournamentsRegistry(), rilasciato al successivo writeTournamentsRegistry()
+// (o a fine richiesta). Copre automaticamente i 18 punti del codice che
+// leggono/modificano/scrivono questo registro (creazione/disabilitazione/
+// abilitazione/eliminazione tornei, aggiornamento bulk) senza doverli
+// modificare uno per uno.
+$__tournamentsRegistryLockFp = null;
+
 function getTournamentsRegistry(): array {
+    global $__tournamentsRegistryLockFp;
     $registryFile = __DIR__ . '/data/tournaments.json';
+
+    if ($__tournamentsRegistryLockFp === null) {
+        $fp = @fopen($registryFile, 'c+');
+        if ($fp !== false) {
+            flock($fp, LOCK_EX);
+            $__tournamentsRegistryLockFp = $fp;
+        }
+    }
+
     return readJsonFile($registryFile, ['tournaments' => []]);
 }
 
 // Scrivi la lista dei tornei
 function writeTournamentsRegistry(array $data): void {
+    global $__tournamentsRegistryLockFp;
     writeJsonFile(__DIR__ . '/data/tournaments.json', $data);
+
+    if ($__tournamentsRegistryLockFp !== null) {
+        flock($__tournamentsRegistryLockFp, LOCK_UN);
+        fclose($__tournamentsRegistryLockFp);
+        $__tournamentsRegistryLockFp = null;
+    }
 }
 
 // Copia ricorsivamente una directory
@@ -11369,7 +11469,7 @@ if ($action === 'admin_generate_from_flow' && $method === 'POST') {
         
         // Salva la configurazione delle fasi
         $config['phases'] = $phases;
-        writeJsonFile(CONFIG_FILE, $config);
+        writeConfig($config);
         
         // Salva anche il flusso come reference
         $flow['processedAt'] = date('Y-m-d H:i:s');
@@ -11401,25 +11501,25 @@ if ($action === 'save_match_duration' && $method === 'POST') {
         }
         
         // ✅ REFACTORED: Leggi lo stato e cerca nelle fasi
-        $state = readJsonFile(DATA_FILE, []);
+        // 🔧 FIX: leggeva e scriveva tournament.json senza lock, in corsa con
+        // qualunque altra operazione concorrente sullo stesso file.
         $found = false;
-        
-        // Cerca la partita in tutte le fasi
-        foreach ($state['phases'] ?? [] as &$phase) {
-            foreach ($phase['matches'] ?? [] as &$match) {
-                if (($match['id'] ?? '') === $matchId) {
-                    $match['duration'] = $duration;
-                    $found = true;
-                    break 2;
+        withStateTransaction(function (&$state) use ($matchId, $duration, &$found) {
+            foreach ($state['phases'] ?? [] as &$phase) {
+                foreach ($phase['matches'] ?? [] as &$match) {
+                    if (($match['id'] ?? '') === $matchId) {
+                        $match['duration'] = $duration;
+                        $found = true;
+                        break 2;
+                    }
                 }
+                unset($match);
             }
-            unset($match);
-        }
-        unset($phase);
+            unset($phase);
+            return [];
+        });
         
         if ($found) {
-            writeJsonFile(DATA_FILE, $state);
-            
             // Formatta il tempo
             $hours = intdiv($duration, 3600);
             $minutes = intdiv($duration % 3600, 60);
@@ -11475,8 +11575,19 @@ if ($action === 'admin_get_json' && $method === 'GET') {
             exit;
         }
         
-        // Leggi il file
-        $content = file_get_contents($filePath);
+        // Leggi il file con lock condiviso (LOCK_SH): impedisce di leggere
+        // un contenuto "a metà" se un'altra richiesta lo sta scrivendo nello
+        // stesso istante (aspetta che l'eventuale scrittore in corso finisca
+        // e rilasci il suo lock esclusivo, poi legge in sicurezza).
+        $fp = fopen($filePath, 'r');
+        if ($fp === false) {
+            jsonResponse(500, ['ok' => false, 'error' => 'Errore apertura file']);
+            exit;
+        }
+        flock($fp, LOCK_SH);
+        $content = stream_get_contents($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
         if ($content === false) {
             jsonResponse(500, ['ok' => false, 'error' => 'Errore lettura file']);
             exit;
@@ -11541,7 +11652,12 @@ if ($action === 'admin_save_json' && $method === 'POST') {
         }
         
         // Salva il file con flock per evitare race conditions
-        $fp = fopen($filePath, 'w');
+        // 🔧 FIX: 'w' troncava il file all'apertura, PRIMA di acquisire il
+        // lock — il lock quindi non proteggeva nulla, perché il contenuto
+        // veniva già azzerato nell'istante di fopen(), a prescindere da
+        // quando/se la lock veniva poi ottenuta. 'c+' apre senza troncare:
+        // il troncamento avviene esplicitamente DOPO aver acquisito il lock.
+        $fp = fopen($filePath, 'c+');
         if (!$fp) {
             jsonResponse(500, ['ok' => false, 'error' => 'Errore apertura file']);
             exit;
@@ -11556,6 +11672,8 @@ if ($action === 'admin_save_json' && $method === 'POST') {
         // Formatta il JSON prima di salvare (indentato per leggibilità)
         $formatted = json_encode(json_decode($content, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
+        ftruncate($fp, 0);
+        rewind($fp);
         if (fwrite($fp, $formatted) === false) {
             flock($fp, LOCK_UN);
             fclose($fp);
@@ -11563,6 +11681,7 @@ if ($action === 'admin_save_json' && $method === 'POST') {
             exit;
         }
         
+        fflush($fp);
         flock($fp, LOCK_UN);
         fclose($fp);
         

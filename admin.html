@@ -4459,6 +4459,7 @@
           <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>
           <button class="btn btn-warning" onclick="clearMatchTime('${match.id}')" style="font-size: 12px; padding: 4px 8px">🗑️</button>
           <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
+          <button class="btn" onclick="toggleCurrentMatch('${match.id}', ${phase.phaseNumber})" title="${state.currentMatch?.matchId === match.id ? 'Partita in corso — clicca per togliere' : 'Imposta come partita in corso (tablescore.html?current)'}" style="font-size: 12px; padding: 4px 8px; background: ${state.currentMatch?.matchId === match.id ? '#ff9800' : '#eee'}; color: ${state.currentMatch?.matchId === match.id ? '#fff' : '#333'}">${state.currentMatch?.matchId === match.id ? '⭐ In corso' : '☆'}</button>
         </td>
       </tr>`).join('')}
       </tbody></table>
@@ -4895,6 +4896,33 @@
       const adminToken = token || localStorage.getItem('adminToken') || '';
       const url = `tablescore.html?matchId=${encodeURIComponent(matchId)}&phase=${encodeURIComponent(currentSelectedPhaseNumber)}&token=${encodeURIComponent(adminToken)}`;
       window.open(url, '_blank');
+    }
+
+    // 🆕 Imposta (o toglie, se è già quella corrente) la partita marcata come
+    // "in corso": tablescore.html?current la userà per sapere quale partita
+    // mostrare senza bisogno di matchId/phase espliciti nell'URL.
+    async function toggleCurrentMatch(matchId, phaseNumber) {
+      const isAlreadyCurrent = state?.currentMatch?.matchId === matchId;
+      try {
+        await callApi('admin_set_current_match', 'POST', {
+          matchId: isAlreadyCurrent ? '' : matchId,
+          phaseNumber: isAlreadyCurrent ? null : phaseNumber
+        }, true);
+
+        // Aggiorna lo stato locale e ri-renderizza le tabelle partite senza
+        // dover ricaricare tutto (più veloce, meno "flash" nell'interfaccia)
+        if (!state) state = {};
+        state.currentMatch = isAlreadyCurrent
+          ? { matchId: null, phaseNumber: null }
+          : { matchId, phaseNumber };
+
+        renderMatches();
+        if (document.getElementById('phaseContentContainer')) {
+          renderMatchesInPhase();
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', e.message || 'Impossibile aggiornare la partita in corso');
+      }
     }
 
     function sortClassificationBy(criterion) {
@@ -5862,6 +5890,7 @@
           <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>
           <button class="btn btn-warning" onclick="clearMatchTime('${match.id}')" style="font-size: 12px; padding: 4px 8px">🗑️</button>
           <button class="btn btn-green" onclick="openScoreboard('${match.id}')" style="font-size: 12px; padding: 4px 8px">Tabellone</button>
+          <button class="btn" onclick="toggleCurrentMatch('${match.id}', ${phase.phaseNumber})" title="${state.currentMatch?.matchId === match.id ? 'Partita in corso — clicca per togliere' : 'Imposta come partita in corso (tablescore.html?current)'}" style="font-size: 12px; padding: 4px 8px; background: ${state.currentMatch?.matchId === match.id ? '#ff9800' : '#eee'}; color: ${state.currentMatch?.matchId === match.id ? '#fff' : '#333'}">${state.currentMatch?.matchId === match.id ? '⭐ In corso' : '☆'}</button>
         </td>
       </tr>`).join('')}
       </tbody></table>

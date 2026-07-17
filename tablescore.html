@@ -456,6 +456,11 @@
     // auto-refresh periodico.
     let isViewMode = false;
     let liveRefreshIntervalHandle = null;
+    // 🆕 Modalità "partita corrente": matchId/phase non sono nell'URL, vengono
+    // risolti dal server (state.currentMatch, impostato dall'admin con la
+    // stellina ⭐ accanto alla partita) — utile per un link fisso su
+    // TV/proiettore che cambia partita automaticamente quando cambia l'admin.
+    let isCurrentMode = false;
 
     // 🔧 Regole della partita risolte dal server (admin_get_match → matchRules):
     // dipendono dalla fase e, per il knockout, dal round specifico (setsPerRound).
@@ -479,8 +484,10 @@
       matchId = params.get('matchId');
       phaseNumber = params.get('phase');
       isViewMode = params.get('mode') === 'view';
+      isCurrentMode = params.has('current');
+      if (isCurrentMode) isViewMode = true; // ?current implica sempre sola visualizzazione
 
-      if (!matchId || !phaseNumber) {
+      if (!isCurrentMode && (!matchId || !phaseNumber)) {
         alert('Errore: Partita non trovata');
         if (!isViewMode) window.close();
         return;
@@ -554,6 +561,21 @@
       return { match: null, phaseName: null };
     }
 
+    // 🆕 Mostra un messaggio di attesa (non un errore) quando siamo in
+    // modalità ?current ma l'admin non ha ancora marcato nessuna partita
+    // come "in corso" — la pagina resta aperta e riprova al prossimo refresh.
+    function showWaitingForCurrentMatch() {
+      document.getElementById('matchInfo').textContent = 'In attesa della partita...';
+      document.getElementById('matchMeta').textContent = "L'amministratore non ha ancora impostato nessuna partita come 'in corso'";
+      document.getElementById('currentSet').textContent = '';
+      document.getElementById('score1').textContent = '–';
+      document.getElementById('score2').textContent = '–';
+      document.getElementById('team1Name').textContent = '';
+      document.getElementById('team2Name').textContent = '';
+      document.getElementById('team1Sets').innerHTML = '';
+      document.getElementById('team2Sets').innerHTML = '';
+    }
+
     async function initViewMode() {
       try {
         const response = await fetch(`${API}?action=get_public`);
@@ -564,16 +586,36 @@
           return;
         }
 
-        const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
-        if (!match) {
-          alert('Partita non trovata');
-          return;
+        // 🆕 In modalità ?current, matchId/phase non arrivano dall'URL: si
+        // risolvono dal flag impostato dall'admin (state.currentMatch).
+        if (isCurrentMode) {
+          const cm = data.data.currentMatch;
+          if (!cm || !cm.matchId) {
+            showWaitingForCurrentMatch();
+          } else {
+            matchId = cm.matchId;
+            phaseNumber = cm.phaseNumber;
+            const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
+            if (match) {
+              matchData = match;
+              phaseName = foundPhaseName;
+              loadScoreboardState();
+              render();
+            } else {
+              showWaitingForCurrentMatch();
+            }
+          }
+        } else {
+          const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
+          if (!match) {
+            alert('Partita non trovata');
+            return;
+          }
+          matchData = match;
+          phaseName = foundPhaseName;
+          loadScoreboardState();
+          render();
         }
-
-        matchData = match;
-        phaseName = foundPhaseName;
-        loadScoreboardState();
-        render();
 
         // Imposta il refresh periodico secondo l'intervallo configurato
         // dall'admin (Impostazioni → Torneo), default 5s se non impostato.
@@ -592,8 +634,25 @@
         const data = await response.json();
         if (!data.ok || !data.data) return;
 
+        // 🆕 In modalità ?current ri-risolviamo matchId/phase ad OGNI refresh:
+        // se l'admin ha spostato la stellina su un'altra partita nel
+        // frattempo, il tabellone deve seguire, non restare bloccato sulla
+        // prima partita caricata.
+        if (isCurrentMode) {
+          const cm = data.data.currentMatch;
+          if (!cm || !cm.matchId) {
+            showWaitingForCurrentMatch();
+            return;
+          }
+          matchId = cm.matchId;
+          phaseNumber = cm.phaseNumber;
+        }
+
         const { match, phaseName: foundPhaseName } = findMatchInPublicData(data.data, phaseNumber, matchId);
-        if (!match) return;
+        if (!match) {
+          if (isCurrentMode) showWaitingForCurrentMatch();
+          return;
+        }
 
         matchData = match;
         phaseName = foundPhaseName;

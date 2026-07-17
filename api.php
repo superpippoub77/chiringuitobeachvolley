@@ -796,6 +796,11 @@ function initialState(): array {
         'teams' => [],
         'phases' => [],
         'currentPhaseIdx' => 1,  // 🆕 Fase selezionata di default
+        // 🆕 Partita marcata come "in corso" dall'admin: usata da
+        // tablescore.html?current per mostrare sempre la partita giusta senza
+        // dover passare matchId/phase espliciti (utile per un link fisso su
+        // TV/proiettore che cambia partita quando l'admin la cambia).
+        'currentMatch' => ['matchId' => null, 'phaseNumber' => null],
         'meta' => [
             'lastUpdated' => null
         ]
@@ -819,6 +824,11 @@ function mergeState(array $existingState, array $newState): array {
     // 🆕 Preserva il phase index selezionato dall'utente
     if (isset($existingState['currentPhaseIdx']) && is_numeric($existingState['currentPhaseIdx'])) {
         $merged['currentPhaseIdx'] = $existingState['currentPhaseIdx'];
+    }
+    
+    // 🆕 Preserva la partita marcata come "in corso" (tablescore.html?current)
+    if (isset($existingState['currentMatch']) && is_array($existingState['currentMatch'])) {
+        $merged['currentMatch'] = $existingState['currentMatch'];
     }
     
     // Preserva i metadata
@@ -2163,6 +2173,8 @@ function publicState(array $state): array {
         // 🆕 Intervallo di auto-refresh (secondi) per il tabellone pubblico in
         // sola visualizzazione; default 5s se non configurato dall'admin.
         'liveScoreboardRefreshSeconds' => max(2, min(60, (int)($config['tournament']['liveScoreboardRefreshSeconds'] ?? 5))),
+        // 🆕 Partita marcata come "in corso" dall'admin (tablescore.html?current)
+        'currentMatch' => $state['currentMatch'] ?? ['matchId' => null, 'phaseNumber' => null],
         'phases' => array_map(function ($phase, $idx) use ($state) {
             // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
             if (($phase['type'] ?? '') === 'groups') {
@@ -11116,6 +11128,46 @@ if ($action === 'admin_self_update_engine' && $method === 'POST') {
         'errors' => $result['errors'],
         'error' => $result['ok'] ? null : implode(', ', $result['errors'])
     ]);
+}
+
+
+// 🆕 Imposta (o toglie) la partita marcata come "in corso": usata da
+// tablescore.html?current per mostrare sempre la partita giusta senza dover
+// passare matchId/phase espliciti nell'URL.
+if ($action === 'admin_set_current_match' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $matchId = trim((string)($body['matchId'] ?? ''));
+    $phase = $body['phaseNumber'] ?? null;
+
+    $result = withStateTransaction(function (&$state) use ($matchId, $phase) {
+        if ($matchId === '' || $phase === null) {
+            // Nessun matchId/phase: toglie il flag (nessuna partita "in corso")
+            $state['currentMatch'] = ['matchId' => null, 'phaseNumber' => null];
+            return ['ok' => true, 'currentMatch' => $state['currentMatch']];
+        }
+
+        // Verifica che la partita esista davvero prima di marcarla come corrente
+        $found = false;
+        foreach ($state['phases'] ?? [] as $p) {
+            if ((int)($p['phaseNumber'] ?? -1) === (int)$phase) {
+                foreach ($p['matches'] ?? [] as $m) {
+                    if (($m['id'] ?? null) === $matchId) {
+                        $found = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+        if (!$found) {
+            return ['ok' => false, 'error' => 'Partita non trovata'];
+        }
+
+        $state['currentMatch'] = ['matchId' => $matchId, 'phaseNumber' => (int)$phase];
+        return ['ok' => true, 'currentMatch' => $state['currentMatch']];
+    });
+
+    jsonResponse($result['ok'] ? 200 : 404, $result);
 }
 
 

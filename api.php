@@ -3965,8 +3965,18 @@ if ($action === 'register_team' && $method === 'POST') {
         }
     }
 
-    if ($name === '' || count($playersData) < 2) {
-        jsonResponse(422, ['ok' => false, 'error' => 'Compila nome squadra e almeno 2 giocatori']);
+    // Leggi configurazione (serve già qui per validare min/max giocatori)
+    $config = readConfig();
+    $managerEmail = $config['contact']['managerEmail'] ?? '';
+    $minPlayers = (int)($config['tournament']['maxPlayersOnCourt'] ?? 2);
+    $maxPlayers = (int)($config['tournament']['maxPlayersPerTeam'] ?? 3);
+
+    if ($name === '' || count($playersData) < $minPlayers) {
+        jsonResponse(422, ['ok' => false, 'error' => "Compila nome squadra e almeno {$minPlayers} giocatori (quelli che giocano in campo)"]);
+    }
+
+    if (count($playersData) > $maxPlayers) {
+        jsonResponse(422, ['ok' => false, 'error' => "Massimo {$maxPlayers} giocatori per squadra"]);
     }
 
     // Valida nomi giocatori
@@ -3975,10 +3985,6 @@ if ($action === 'register_team' && $method === 'POST') {
             jsonResponse(422, ['ok' => false, 'error' => 'Tutti i giocatori devono avere un nome']);
         }
     }
-
-    // Leggi configurazione per email del gestore
-    $config = readConfig();
-    $managerEmail = $config['contact']['managerEmail'] ?? '';
 
     // Controlla se le iscrizioni sono chiuse
     if ($config['tournament']['registrationsClosed'] ?? false) {

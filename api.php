@@ -851,6 +851,19 @@ function uid(): string {
     return bin2hex(random_bytes(8));
 }
 
+/**
+ * Genera uno slug URL-friendly da un nome torneo (es. "Chiringuito Beach
+ * Volley 2026" → "chiringuito-beach-volley-2026"). Usato sia alla creazione
+ * di un nuovo torneo (create_tournament) sia quando l'admin aggiorna il nome
+ * senza specificare uno slug esplicito (admin_update_config).
+ */
+function slugify(string $name): string {
+    $slug = strtolower(trim($name));
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    $slug = trim((string)$slug, '-');
+    return mb_substr($slug, 0, 50);
+}
+
 function randomInt(int $min, int $max): int {
     return random_int($min, $max);
 }
@@ -7649,7 +7662,13 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
         if (isset($t['name'])) $config['tournament']['name'] = mb_substr(trim((string)$t['name']), 0, 100);
-        if (isset($t['slug'])) $config['tournament']['slug'] = mb_substr(preg_replace('/[^a-z0-9-]/', '', trim(strtolower((string)$t['slug']))), 0, 50);
+        if (isset($t['slug'])) {
+            $config['tournament']['slug'] = mb_substr(preg_replace('/[^a-z0-9-]/', '', trim(strtolower((string)$t['slug']))), 0, 50);
+        } elseif (isset($t['name']) && empty($config['tournament']['slug'])) {
+            // 🆕 Se si aggiorna il nome ma non lo slug, e non ne esiste già uno,
+            // lo generiamo automaticamente (prima restava vuoto per sempre).
+            $config['tournament']['slug'] = slugify($config['tournament']['name']);
+        }
         if (isset($t['maxTeams'])) $config['tournament']['maxTeams'] = max(2, min(100, (int)$t['maxTeams']));
         if (isset($t['maxPlayersPerTeam'])) $config['tournament']['maxPlayersPerTeam'] = max(1, min(12, (int)$t['maxPlayersPerTeam']));
         if (isset($t['maxPlayersOnCourt'])) $config['tournament']['maxPlayersOnCourt'] = max(1, min(6, (int)$t['maxPlayersOnCourt']));
@@ -10244,7 +10263,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
     $emptyTournament = [
         'settings' => [
             'maxTeams' => 0,
-            'tournamentName' => ''
+            'tournamentName' => $tournamentName
         ],
         'teams' => [],
         'phases' => [
@@ -10271,7 +10290,8 @@ if ($action === 'create_tournament' && $method === 'POST') {
     $configJsonFile = $tournamentDir . '/data/config.json';
     $emptyConfig = [
         'tournament' => [
-            'name' => '',
+            'name' => $tournamentName,
+            'slug' => slugify($tournamentName),
             'maxTeams' => 16,
             'maxPlayersPerTeam' => 3,
             'maxPlayersOnCourt' => 2,

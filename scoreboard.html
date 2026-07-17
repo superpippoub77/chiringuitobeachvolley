@@ -270,6 +270,7 @@
     }
 
     input,
+    select,
     button {
       border-radius: 10px;
       padding: 10px;
@@ -278,7 +279,8 @@
       font-family: inherit;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--sun);
       box-shadow: 0 0 0 3px rgba(234, 91, 12, 0.14);
@@ -940,91 +942,7 @@
     </div>
 
       <section class="page active" id="page-iscrizione">
-        <h3>Registrazione squadra</h3>
-        <div class="note">Il torneo e solo misto. Dopo l'invio, la squadra entra in attesa finche l'amministratore non
-          conferma.</div>
-        <div id="closedNotice" class="closed-notice hidden">🚫 Le iscrizioni al torneo sono chiuse</div>
-        <div class="form-grid" id="registrationForm">
-          <input id="fName" placeholder="Nome squadra">
-
-          <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-            <h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4>
-          </div>
-
-          <div style="grid-column: 1/-1; margin-top: 10px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
-            <h4 style="margin: 0 0 15px 0;">Giocatore 1</h4>
-            <input id="fP1" placeholder="Nome completo">
-            <select id="fP1Level" style="padding: 8px; margin-top: 8px;">
-              <option value="">Livello (opzionale)</option>
-              <option value="principiante">Principiante</option>
-              <option value="intermedio">Intermedio</option>
-              <option value="avanzato">Avanzato</option>
-              <option value="professionista">Professionista</option>
-            </select>
-            <input id="fP1Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
-              style="margin-top: 8px;">
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-              <input type="radio" name="captain" value="1" id="fP1Captain" checked style="width: auto;">
-              <span>👑 Capitano</span>
-            </label>
-          </div>
-
-          <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
-            <h4 style="margin: 0 0 15px 0;">Giocatore 2</h4>
-            <input id="fP2" placeholder="Nome completo">
-            <select id="fP2Level" style="padding: 8px; margin-top: 8px;">
-              <option value="">Livello (opzionale)</option>
-              <option value="principiante">Principiante</option>
-              <option value="intermedio">Intermedio</option>
-              <option value="avanzato">Avanzato</option>
-              <option value="professionista">Professionista</option>
-            </select>
-            <input id="fP2Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
-              style="margin-top: 8px;">
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-              <input type="radio" name="captain" value="2" id="fP2Captain" style="width: auto;">
-              <span>👑 Capitano</span>
-            </label>
-          </div>
-
-          <div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">
-            <h4 style="margin: 0 0 15px 0;">Giocatore 3 (opzionale)</h4>
-            <input id="fP3" placeholder="Nome completo (opzionale)">
-            <select id="fP3Level" style="padding: 8px; margin-top: 8px;">
-              <option value="">Livello (opzionale)</option>
-              <option value="principiante">Principiante</option>
-              <option value="intermedio">Intermedio</option>
-              <option value="avanzato">Avanzato</option>
-              <option value="professionista">Professionista</option>
-            </select>
-            <input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)"
-              style="margin-top: 8px;">
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-              <input type="radio" name="captain" value="3" id="fP3Captain" style="width: auto;">
-              <span>👑 Capitano</span>
-            </label>
-          </div>
-
-          <div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-            <h4 style="margin: 0 0 10px 0;">Contatti</h4>
-          </div>
-
-          <input id="fPhone" placeholder="Telefono">
-        </div>
-
-        <div class="form-check">
-          <input type="checkbox" id="fPrivacy">
-          <label for="fPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
-        </div>
-
-        <div class="form-check">
-          <input type="checkbox" id="fCookies">
-          <label for="fCookies">Accetto l'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label>
-        </div>
-
-        <div style="margin-top:10px;">
-          <button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button>
-        </div>
+        <!-- Il contenuto (form + lista squadre) viene generato da renderIscrizione() -->
       </section>
 
       <section class="page" id="page-teams"></section>
@@ -1619,9 +1537,20 @@
         html += '<input id="fP3" placeholder="Nome completo (opzionale)">';
         html += '<select id="fP3Level" style="padding: 8px; margin-top: 8px;"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>';
         html += '<input id="fP3Image" type="file" accept="image/*" placeholder="Foto giocatore (opzionale)" style="margin-top: 8px;">';
+        html += '<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="3" id="fP3Captain" style="width: auto;"><span>👑 Capitano</span></label>';
         html += '</div>';
-        html += '<div style="grid-column: 1/-1; margin-top: 10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
-        html += '</div></div>';
+        // 🔧 FIX: mancavano telefono, privacy e cookie — registerTeam() legge
+        // questi campi PRIMA di qualunque try/catch, quindi se non esistono
+        // (perché questo render sovrascrive il form statico completo ad ogni
+        // refresh, incluso l'auto-refresh ogni 30s) l'iscrizione si rompe con
+        // un errore JS silenzioso invece di essere inviata.
+        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Contatti</h4></div>';
+        html += '<input id="fPhone" placeholder="Telefono">';
+        html += '</div>'; // chiude .form-grid
+        html += '<div class="form-check"><input type="checkbox" id="fPrivacy"><label for="fPrivacy">Accetto l\'<a href="policy.html" target="_blank">informativa privacy</a></label></div>';
+        html += '<div class="form-check"><input type="checkbox" id="fCookies"><label for="fCookies">Accetto l\'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label></div>';
+        html += '<div style="margin-top:10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
+        html += '</div>';
       }
 
       // Lista squadre

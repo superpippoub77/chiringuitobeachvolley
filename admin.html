@@ -1822,6 +1822,12 @@
               </div>
             </div>
           </div>
+          </div>
+          <!-- FIX: mancava qui la chiusura della tab "Avanzate" (settings-advanced).
+               Senza, "JSON Editor" e "Debug" restavano annidati DENTRO la tab
+               Avanzate invece di essere tab indipendenti: dato che Avanzate è
+               display:none quando non selezionata, tutto ciò che le finiva
+               dentro per sbaglio restava invisibile qualunque tab si cliccasse. -->
 
           <!-- TAB 6: JSON EDITOR -->
           <div class="settings-tab-content" id="settings-jsoneditor">
@@ -1891,7 +1897,6 @@
                 <strong>💡 Info:</strong> Apri la console del browser (F12) per vedere i log dettagliati. Usa i pulsanti qui per visualizzare state, config e fasi.
               </div>
             </div>
-          </div>
           </div>
         `;
         

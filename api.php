@@ -6348,7 +6348,11 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             $newPhase['sortCriterion'] = $sortCriterion;
             
             // 🆕 Salva il flag includeThirdPlace per generare il 3°/4° posto
-            $newPhase['includeThirdPlace'] = !empty($body['includeThirdPlace']);
+            // 🔧 FIX: prima leggeva $body['includeThirdPlace'], ma $body non è
+            // catturato da questa closure (vedi la lista use() della funzione)
+            // — risultava sempre false a prescindere dalla checkbox selezionata.
+            // $includeThirdPlace è invece la variabile corretta, già catturata.
+            $newPhase['includeThirdPlace'] = $includeThirdPlace;
             
             // 🆕 Popola gli standings con le squadre ordinate come nel seeding
             // (serve per mostrare il seeding nel scoreboard pubblico)

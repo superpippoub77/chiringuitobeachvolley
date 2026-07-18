@@ -816,6 +816,14 @@
         <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
         <button class="btn btn-primary" onclick="typeof login === 'function' && login()">Accedi</button>
       </div>
+      <div id="biometricLoginRow" style="display: none; margin-top: 10px; text-align: center">
+        <button class="btn" style="background: #333; color: #fff; padding: 10px 16px; border-radius: 24px" onclick="loginWithBiometric()">
+          👆 Accedi con impronta/Face ID
+        </button>
+        <div style="margin-top: 6px">
+          <a href="#" onclick="disableBiometric(); return false" style="font-size: 11px; color: #999">Disattiva su questo dispositivo</a>
+        </div>
+      </div>
     </div>
 
     <div id="app" class="hidden">
@@ -1559,6 +1567,138 @@
       }
     }
 
+    // ==================== SBLOCCO BIOMETRICO LOCALE (WebAuthn) ====================
+    // 🆕 Non è un login biometrico "universale" verificato dal server ad ogni
+    // accesso: è uno sblocco LOCALE a questo dispositivo. Dopo il primo login
+    // normale, l'utente può abilitare l'impronta/Face ID; da quel momento, su
+    // QUESTO stesso telefono/browser, un tocco sul sensore recupera il token
+    // già salvato e completa l'accesso senza richiedere di nuovo la password.
+    // Cambiando dispositivo serve rifare il login normale una volta.
+
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary);
+    }
+
+    function base64ToArrayBuffer(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    async function isBiometricAvailable() {
+      if (!window.PublicKeyCredential || !PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+        return false;
+      }
+      try {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Mostra il pulsante di sblocco biometrico se è già stato abilitato su
+    // questo dispositivo (chiamata al caricamento della pagina).
+    async function initBiometricLoginButton() {
+      const row = document.getElementById('biometricLoginRow');
+      if (!row) return;
+      const enabled = localStorage.getItem('biometricEnabled') === '1'
+        && localStorage.getItem('biometricCredentialId')
+        && localStorage.getItem('biometricAdminToken');
+      if (enabled && await isBiometricAvailable()) {
+        row.style.display = 'block';
+      }
+    }
+
+    // Chiesto dopo un login normale riuscito: crea una credenziale WebAuthn
+    // legata al sensore biometrico di questo dispositivo, e salva insieme ad
+    // essa il token di sessione appena ottenuto (per poterlo recuperare al
+    // prossimo sblocco biometrico).
+    async function offerEnableBiometric() {
+      if (localStorage.getItem('biometricEnabled') === '1') return; // già abilitato
+      if (!(await isBiometricAvailable())) return; // nessun sensore su questo dispositivo
+
+      const wants = confirm('Vuoi abilitare l\'accesso con impronta digitale / Face ID su questo dispositivo? La prossima volta potrai entrare con un tocco, senza reinserire la password.');
+      if (!wants) return;
+
+      try {
+        const challenge = crypto.getRandomValues(new Uint8Array(32));
+        const userId = crypto.getRandomValues(new Uint8Array(16));
+        const email = document.getElementById('adminEmail')?.value?.trim() || 'admin';
+
+        const credential = await navigator.credentials.create({
+          publicKey: {
+            challenge,
+            rp: { name: 'Pannello Admin Torneo' },
+            user: { id: userId, name: email, displayName: email },
+            pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+            authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+            timeout: 60000
+          }
+        });
+
+        localStorage.setItem('biometricCredentialId', arrayBufferToBase64(credential.rawId));
+        localStorage.setItem('biometricAdminToken', token);
+        localStorage.setItem('biometricEnabled', '1');
+        await showInfoDialog('✅ Fatto', 'Accesso con impronta/Face ID abilitato su questo dispositivo.');
+        await initBiometricLoginButton();
+      } catch (e) {
+        console.error('Impossibile abilitare il riconoscimento biometrico:', e);
+      }
+    }
+
+    // Sblocco: verifica l'impronta/Face ID con l'autenticatore della
+    // piattaforma e, se riuscito, recupera il token già salvato per
+    // completare l'accesso senza richiedere la password.
+    async function loginWithBiometric() {
+      const credentialIdB64 = localStorage.getItem('biometricCredentialId');
+      const savedToken = localStorage.getItem('biometricAdminToken');
+      if (!credentialIdB64 || !savedToken) {
+        await showInfoDialog('Non disponibile', 'Il riconoscimento biometrico non è ancora stato abilitato su questo dispositivo. Accedi prima con la password.');
+        return;
+      }
+
+      try {
+        const challenge = crypto.getRandomValues(new Uint8Array(32));
+        const assertion = await navigator.credentials.get({
+          publicKey: {
+            challenge,
+            allowCredentials: [{ id: base64ToArrayBuffer(credentialIdB64), type: 'public-key', transports: ['internal'] }],
+            userVerification: 'required',
+            timeout: 60000
+          }
+        });
+
+        if (assertion) {
+          token = savedToken;
+          localStorage.setItem('adminToken', token);
+          document.getElementById('loginBox').classList.add('hidden');
+          document.getElementById('app').classList.remove('hidden');
+          document.getElementById('logoutBtn').classList.remove('hidden');
+          await refresh();
+        }
+      } catch (e) {
+        console.error('Riconoscimento biometrico non riuscito:', e);
+        await showInfoDialog('Riconoscimento non riuscito', 'Impronta/Face ID non riconosciuti, oppure operazione annullata. Riprova o accedi con la password.');
+      }
+    }
+
+    // Rimuove lo sblocco biometrico da questo dispositivo (non tocca la
+    // sessione/account: serve solo a rifare il login con password la
+    // prossima volta).
+    function disableBiometric() {
+      localStorage.removeItem('biometricCredentialId');
+      localStorage.removeItem('biometricAdminToken');
+      localStorage.removeItem('biometricEnabled');
+      const row = document.getElementById('biometricLoginRow');
+      if (row) row.style.display = 'none';
+    }
+
+    initBiometricLoginButton();
+
     async function login() {
       const emailField = document.getElementById('adminEmail');
       const passwordField = document.getElementById('adminPassword');
@@ -1587,6 +1727,7 @@
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('logoutBtn').classList.remove('hidden');
         await refresh();
+        await offerEnableBiometric();
       } catch (e) { await showInfoDialog('Errore login', e.message); }
     }
 

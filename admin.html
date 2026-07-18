@@ -12659,6 +12659,16 @@ html += `
                 </span>
               </label>
             </div>
+
+            <div id="npMaximizeSeedSeparationDiv" style="display: ${(prefill.teamSource || 'phase') === 'phase' ? 'block' : 'none'}; padding: 10px; background: #fff3e0; border-radius: 4px; border-left: 4px solid #ff9800">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer">
+                <input type="checkbox" id="npMaximizeSeedSeparation" ${prefill.maximizeSeedSeparation ? 'checked' : ''} onchange="updateSeedingPreview()" style="cursor: pointer; width: 18px; height: 18px">
+                <span style="flex: 1">
+                  <strong>🌟 Teste di serie il più lontano possibile</strong><br>
+                  <span style="font-size: 12px; color: #555">Se attivo, le squadre arrivate 1e nel proprio girone vengono posizionate nel tabellone in modo da incontrarsi il più tardi possibile (idealmente solo in finale, con più di 2 teste di serie potrebbero incontrarsi già in semifinale — è il massimo matematicamente ottenibile).</span>
+                </span>
+              </label>
+            </div>
             
             <div style="padding: 10px; background: #fce4ec; border-radius: 4px; border-left: 4px solid #e91e63">
               <label style="display: flex; align-items: center; gap: 10px; cursor: pointer">
@@ -12766,6 +12776,7 @@ html += `
         teamsAdvance: teamsAdvanceValue,
         sortCriterion: phase.sortCriterion || 1,
         avoidGroupRematches: phase.avoidGroupRematches || false,
+        maximizeSeedSeparation: phase.maximizeSeedSeparation || false,
         includeThirdPlace: phase.includeThirdPlace || false
       });
     }
@@ -12785,10 +12796,15 @@ html += `
     function updateAvoidGroupRematchesVisibility() {
       const type = document.getElementById('npType')?.value;
       const teamSource = document.getElementById('npTeamSource')?.value;
+      const shouldShow = (type === 'knockout' && teamSource === 'phase');
       const div = document.getElementById('npAvoidGroupRematchesDiv');
       if (div) {
         // Mostra il checkbox solo se: knockout + source da fase precedente
-        div.style.display = (type === 'knockout' && teamSource === 'phase') ? 'block' : 'none';
+        div.style.display = shouldShow ? 'block' : 'none';
+      }
+      const seedDiv = document.getElementById('npMaximizeSeedSeparationDiv');
+      if (seedDiv) {
+        seedDiv.style.display = shouldShow ? 'block' : 'none';
       }
     }
     
@@ -13030,6 +13046,12 @@ html += `
       const avoidGroupRematches = type === 'knockout' && teamSource === 'phase' 
         ? !!document.getElementById('npAvoidGroupRematches')?.checked 
         : false;
+
+      // 🆕 Leggi il flag maximizeSeedSeparation per knockout (teste di serie
+      // il più lontano possibile nel tabellone)
+      const maximizeSeedSeparation = type === 'knockout' && teamSource === 'phase'
+        ? !!document.getElementById('npMaximizeSeedSeparation')?.checked
+        : false;
       
       // Leggi il flag includeThirdPlace per knockout
       const includeThirdPlace = type === 'knockout'
@@ -13043,7 +13065,7 @@ html += `
         sortCriterion = selectedRadio ? parseInt(selectedRadio.value, 10) : 1;
       }
 
-      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion, avoidGroupRematches, includeThirdPlace };
+      const payload = { targetPhaseNumber, name, type, teamSource, numGroups, teamsAdvancePerGroup, overwrite: !!overwrite, sortCriterion, avoidGroupRematches, maximizeSeedSeparation, includeThirdPlace };
 
       if (teamSource === 'phase') {
         payload.sourcePhaseNumber = parseInt(document.getElementById('npSourcePhase')?.value, 10);
@@ -13062,8 +13084,9 @@ html += `
         const criterionNames = { 1: 'Media Punti', 2: '% Vittorie', 3: 'Media+Quoziente+Diff' };
         const criterionMsg = type === 'knockout' ? ` (Seeding: ${criterionNames[sortCriterion]})` : '';
         const avoidGroupMsg = avoidGroupRematches ? ' ✓ Evita rematch dello stesso girone' : '';
+        const seedSeparationMsg = maximizeSeedSeparation ? ' ✓ Teste di serie il più lontano possibile' : '';
         const thirdPlaceMsg = includeThirdPlace ? ' ✓ Con finale 3°/4° posto' : '';
-        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.${avoidGroupMsg}${thirdPlaceMsg}`);
+        await showInfoDialog('✅ Fase creata', `Fase ${targetPhaseNumber} creata con ${res.teamsCount} squadre reali${criterionMsg}.${avoidGroupMsg}${seedSeparationMsg}${thirdPlaceMsg}`);
       } catch (e) {
         await showInfoDialog('❌ Errore', e.message);
       }

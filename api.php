@@ -79,35 +79,6 @@ function writeJsonFile(string $file, array $data): void {
     file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
-/**
- * Come writeJsonFile(), ma con lock esclusivo per tutta la scrittura. Da
- * usare per le operazioni "sostituisci tutto il file" (reset, ripristino di
- * un backup/snapshot) che non fanno una vera lettura-modifica-scrittura (per
- * quello c'è withStateTransaction/withJsonFileTransaction) ma devono comunque
- * evitare di scrivere mentre un'altra richiesta sta leggendo o scrivendo lo
- * stesso file nello stesso istante.
- */
-function writeJsonFileLocked(string $file, array $data): void {
-    $dir = dirname($file);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-    $fp = fopen($file, 'c+');
-    if ($fp === false) {
-        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire il file: ' . basename($file)]);
-    }
-    if (!flock($fp, LOCK_EX)) {
-        fclose($fp);
-        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare il file: ' . basename($file)]);
-    }
-    ftruncate($fp, 0);
-    rewind($fp);
-    fwrite($fp, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-    fflush($fp);
-    flock($fp, LOCK_UN);
-    fclose($fp);
-}
-
 function formatBytes(int $bytes, int $precision = 2): string {
     $units = ['B', 'KB', 'MB', 'GB'];
     $bytes = max($bytes, 0);
@@ -687,29 +658,7 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     return $merged;
 }
 
-// 🆕 Lock condiviso per config.json: vedi readConfig()/writeConfig() sotto.
-$__configLockFp = null;
-
 function readConfig(): array {
-    global $__configLockFp;
-
-    // 🆕 Acquisisce (se non già acquisito in questa richiesta) un lock
-    // esclusivo su config.json, che resta attivo fino alla successiva
-    // writeConfig() (o fino alla fine della richiesta, se non si scrive).
-    // Questo rende automaticamente atomica ogni sequenza "leggi → modifica →
-    // scrivi" fatta dai ~25 punti del codice che chiamano readConfig() poi
-    // writeConfig(), senza dover modificare ciascuno di essi singolarmente:
-    // prima due richieste concorrenti potevano leggere lo stesso config,
-    // modificarlo ciascuna per conto proprio, e l'ultima a scrivere
-    // cancellava senza accorgersene le modifiche dell'altra ("lost update").
-    if ($__configLockFp === null) {
-        $fp = @fopen(CONFIG_FILE, 'c+');
-        if ($fp !== false) {
-            flock($fp, LOCK_EX);
-            $__configLockFp = $fp;
-        }
-    }
-
     $default = defaultConfig();
     
     if (!file_exists(CONFIG_FILE)) {
@@ -742,8 +691,6 @@ function readConfig(): array {
 }
 
 function writeConfig(array $config): void {
-    global $__configLockFp;
-
     // Crittografa se encryption è abilitata
     if (isset($config['security']['encryptionEnabled']) && $config['security']['encryptionEnabled'] && isset($config['security']['encryptionPassword'])) {
         try {
@@ -756,15 +703,6 @@ function writeConfig(array $config): void {
     }
     
     writeJsonFile(CONFIG_FILE, $config);
-
-    // 🆕 Rilascia il lock acquisito da readConfig() per questa richiesta
-    // (se una richiesta chiama solo readConfig() senza mai scrivere, il lock
-    // si rilascia comunque automaticamente alla fine della richiesta).
-    if ($__configLockFp !== null) {
-        flock($__configLockFp, LOCK_UN);
-        fclose($__configLockFp);
-        $__configLockFp = null;
-    }
 }
 
 function saveToHistory(string $description = 'Modifica'): void {
@@ -2622,6 +2560,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         
         $qualified = [];
         $eliminated = [];
+        $groupWinners = []; // 🆕 teamId delle squadre arrivate 1e nel proprio girone
         $complete = !empty($standings);
 
         $groupIdx = 0;
@@ -2656,6 +2595,9 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             foreach ($rows as $idx => $row) {
                 if ($idx < $advanceCount) {
                     $qualified[] = $row['teamId'];
+                    if ($idx === 0) {
+                        $groupWinners[] = $row['teamId']; // 🆕 1a classificata del girone
+                    }
                 } else {
                     $eliminated[] = $row['teamId'];
                 }
@@ -2720,8 +2662,8 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             error_log("🔍 DEBUG getTeamsFromPhaseBranch: Sorted qualified by criterion $sortCriterion");
         }
         
-        error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated) . ", complete=" . ($complete ? 'true' : 'false'));
-        return ['qualified' => $qualified, 'eliminated' => $eliminated, 'complete' => $complete];
+        error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated) . ", groupWinners count=" . count($groupWinners) . ", complete=" . ($complete ? 'true' : 'false'));
+        return ['qualified' => $qualified, 'eliminated' => $eliminated, 'groupWinners' => $groupWinners, 'complete' => $complete];
     }
 
     if ($type === 'knockout') {
@@ -2810,7 +2752,125 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
  * Se $teamGroupMap è fornito (array team_id => group_id), evita di accoppiare
  * squadre dello stesso gruppo/girone nel primo turno.
  */
-function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGroupMap = null): array {
+/**
+ * Genera l'ordine classico di posizionamento delle teste di serie in un
+ * tabellone a eliminazione diretta (lo stesso usato nei tornei di tennis):
+ * la testa di serie 1 e la 2 possono incontrarsi solo in finale, le teste 1-4
+ * solo dalla semifinale in poi, e così via — massima separazione possibile.
+ *
+ * Ritorna un array di lunghezza $bracketSize dove $order[i] = il rango (1 =
+ * più forte) della testa di serie che occupa la posizione i del tabellone.
+ * Le posizioni pari/dispari adiacenti (0-1, 2-3, ...) formano gli incontri
+ * del primo turno, esattamente come genera già generateGenericKnockoutMatches().
+ */
+function generateStandardSeedSlotOrder(int $bracketSize): array {
+    $order = [1];
+    $size = 1;
+    while ($size < $bracketSize) {
+        $size *= 2;
+        $newOrder = [];
+        foreach ($order as $s) {
+            $newOrder[] = $s;
+            $newOrder[] = $size + 1 - $s;
+        }
+        $order = $newOrder;
+    }
+    return $order;
+}
+
+/**
+ * Posiziona le squadre nel tabellone tenendo le teste di serie (in genere le
+ * prime classificate di girone) il più lontano possibile tra loro, secondo
+ * l'ordine classico di generateStandardSeedSlotOrder(). Le squadre non-teste
+ * di serie riempiono gli slot rimanenti, preferendo (quando possibile, se
+ * $teamGroupMap è fornita) di non affiancare a una testa di serie
+ * un'avversaria del suo stesso girone nel primo turno.
+ *
+ * Se le teste di serie sono più delle posizioni "vere" da testa di serie
+ * previste dal tabellone (raro, ma possibile con gironi piccoli), quelle in
+ * eccesso vengono comunque piazzate rispettando il miglior ordine disponibile.
+ */
+function seedProtectedBracketPlacement(array $teams, int $bracketSize, ?array $teamGroupMap, array $seedTeamIds): array {
+    $teamIds = array_values(array_filter(array_map(fn($t) => $t['id'] ?? null, $teams)));
+
+    // Separa teste di serie (nell'ordine di ranking generale già presente in
+    // $teams) dalle altre squadre qualificate.
+    $seeds = [];
+    $others = [];
+    foreach ($teamIds as $id) {
+        if (in_array($id, $seedTeamIds, true)) {
+            $seeds[] = $id;
+        } else {
+            $others[] = $id;
+        }
+    }
+
+    $slotOrder = generateStandardSeedSlotOrder($bracketSize); // slotOrder[slotIndex] = rango 1-based
+    $slotForSeedRank = [];
+    foreach ($slotOrder as $slotIndex => $seedRank) {
+        $slotForSeedRank[$seedRank] = $slotIndex;
+    }
+
+    $slots = array_fill(0, $bracketSize, null);
+
+    // Posiziona le teste di serie nei loro slot dedicati (rango 1, 2, 3, ...)
+    foreach ($seeds as $rankIdx => $teamId) {
+        $seedRank = $rankIdx + 1;
+        $slotIndex = $slotForSeedRank[$seedRank] ?? null;
+        if ($slotIndex !== null) {
+            $slots[$slotIndex] = $teamId;
+        }
+    }
+
+    // Riempi gli slot rimanenti con le altre squadre: per ogni slot vuoto,
+    // preferisci una squadra di girone diverso da quella già assegnata allo
+    // slot "compagno" del suo incontro di primo turno (che potrebbe essere
+    // una testa di serie oppure un'altra squadra già piazzata poco prima).
+    $usedOthers = [];
+    foreach ($slots as $slotIndex => $value) {
+        if ($value !== null) continue;
+
+        $partnerSlot = ($slotIndex % 2 === 0) ? $slotIndex + 1 : $slotIndex - 1;
+        $partnerTeamId = $slots[$partnerSlot] ?? null;
+        $partnerGroup = ($partnerTeamId !== null && $teamGroupMap !== null) ? ($teamGroupMap[$partnerTeamId] ?? null) : null;
+
+        $chosenIndex = null;
+        if ($partnerGroup !== null) {
+            foreach ($others as $idx => $candidateId) {
+                if (isset($usedOthers[$idx])) continue;
+                $candidateGroup = $teamGroupMap[$candidateId] ?? null;
+                if ($candidateGroup !== null && $candidateGroup !== $partnerGroup) {
+                    $chosenIndex = $idx;
+                    break;
+                }
+            }
+        }
+        if ($chosenIndex === null) {
+            foreach ($others as $idx => $candidateId) {
+                if (!isset($usedOthers[$idx])) {
+                    $chosenIndex = $idx;
+                    break;
+                }
+            }
+        }
+        if ($chosenIndex !== null) {
+            $usedOthers[$chosenIndex] = true;
+            $slots[$slotIndex] = $others[$chosenIndex];
+        }
+    }
+
+    // Costruisci le coppie finali (slot 0-1, 2-3, ... = incontri di primo turno)
+    $pairs = [];
+    for ($i = 0; $i < $bracketSize; $i += 2) {
+        $pairs[] = [
+            'team1' => $slots[$i],
+            'team2' => $slots[$i + 1] ?? null
+        ];
+    }
+    return $pairs;
+}
+
+function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGroupMap = null, ?array $seedTeamIds = null, bool $maximizeSeedSeparation = false): array {
     // 🔧 FORMULA CORRETTA: 1 vs ultimo, 2 vs penultimo, 3 vs terzultimo, etc.
     // Le squadre arrivano già ordinate dalla classifica girone (1°, 2°, 3°...)
     // In caso di bye (squadre < bracketSize), le squadre più forti ricevono bye
@@ -2820,6 +2880,13 @@ function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGrou
     
     // Se non ci sono squadre, return vuoto
     if ($n < 1) return $pairs;
+
+    // 🆕 Modalità "massima separazione teste di serie": se attiva e ci sono
+    // teste di serie da proteggere, usa il posizionamento a tabellone
+    // classico invece della formula/greedy pairing standard.
+    if ($maximizeSeedSeparation && !empty($seedTeamIds)) {
+        return seedProtectedBracketPlacement($teams, $bracketSize, $teamGroupMap, $seedTeamIds);
+    }
     
     // Se non abbiamo mappatura di gruppi, usa seeding standard
     if ($teamGroupMap === null) {
@@ -2904,7 +2971,7 @@ function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGrou
 }
 
 
-function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = null): array {
+function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = null, ?array $seedTeamIds = null, bool $maximizeSeedSeparation = false): array {
     $n = count($teams);
     if ($n < 2) return [];
 
@@ -2912,7 +2979,7 @@ function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = nul
     $bracketSize = 1;
     while ($bracketSize < $n) $bracketSize *= 2;
 
-    $seeding = genericBalancedSeeding($teams, $bracketSize, $teamGroupMap); // 🔧 generalizzato per qualsiasi dimensione, non solo 8
+    $seeding = genericBalancedSeeding($teams, $bracketSize, $teamGroupMap, $seedTeamIds, $maximizeSeedSeparation); // 🔧 generalizzato per qualsiasi dimensione, non solo 8
 
     // Etichette dei turni in base alla dimensione del bracket
     $roundLabelFor = function (int $teamsInRound) {
@@ -6245,6 +6312,9 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
     $numGroups = (int)($body['numGroups'] ?? 2);
     // 🔧 Flag per evitare rematch dello stesso girone nel knockout
     $avoidGroupRematches = !empty($body['avoidGroupRematches']);
+    // 🆕 Se attivo, le teste di serie (1e classificate di girone) vengono
+    // tenute il più lontano possibile nel tabellone (idealmente fino alla finale).
+    $maximizeSeedSeparation = !empty($body['maximizeSeedSeparation']);
     
     // 🆕 Flag per generare il match di 3°/4° posto durante avanzamento knockout
     $includeThirdPlace = !empty($body['includeThirdPlace']);
@@ -6285,7 +6355,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         }
     }
 
-    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $avoidGroupRematches, $includeThirdPlace, $overwrite, $preservedMatchRules) {
+    $result = withStateTransaction(function (&$state) use ($targetPhaseNumber, $name, $type, $teamSource, $sourcePhaseNumber, $sourceBranch, $sortCriterion, $teamsAdvancePerGroup, $numGroups, $avoidGroupRematches, $maximizeSeedSeparation, $includeThirdPlace, $overwrite, $preservedMatchRules) {
         ensurePhases($state);
 
         $existingIdx = array_search($targetPhaseNumber, array_column($state['phases'], 'phaseNumber'), true);
@@ -6428,10 +6498,13 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             }
             $newPhase['matches'] = $matches;
         } else { // knockout
-            // 🔧 Se avoidGroupRematches è attivo e la sorgente è una fase di gruppi,
-            // crea una mappatura team -> group per evitare accoppiamenti dello stesso girone
+            // 🔧 Se avoidGroupRematches o maximizeSeedSeparation sono attivi e la
+            // sorgente è una fase di gruppi, crea una mappatura team -> group
+            // (serve a entrambi: la prima per evitare accoppiamenti dello
+            // stesso girone, la seconda come preferenza secondaria quando
+            // sceglie l'avversaria di primo turno di una testa di serie)
             $teamGroupMap = null;
-            if ($avoidGroupRematches && $teamSource === 'phase') {
+            if (($avoidGroupRematches || $maximizeSeedSeparation) && $teamSource === 'phase') {
                 $sourcePhase = array_values(array_filter($state['phases'], fn($p) => ($p['phaseNumber'] ?? null) === $sourcePhaseNumber))[0] ?? null;
                 if ($sourcePhase && ($sourcePhase['type'] ?? null) === 'groups' && !empty($sourcePhase['groups'])) {
                     $teamGroupMap = [];
@@ -6441,11 +6514,18 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                             $teamGroupMap[$tid] = $groupId;
                         }
                     }
-                    error_log("🔧 avoidGroupRematches: mappatura creata per " . count($teamGroupMap) . " squadre");
+                    error_log("🔧 avoidGroupRematches/maximizeSeedSeparation: mappatura creata per " . count($teamGroupMap) . " squadre");
                 }
             }
-            
-            $matches = generateGenericKnockoutMatches($teams, $teamGroupMap);
+
+            // 🆕 Teste di serie = 1e classificate di girone (solo se la sorgente
+            // è effettivamente una fase a gironi e il ramo è "qualified", cioè
+            // esattamente lo scenario "teste di serie uscite dai gironi").
+            $seedTeamIds = ($maximizeSeedSeparation && $sourceBranch === 'qualified')
+                ? ($branchResult['groupWinners'] ?? [])
+                : [];
+
+            $matches = generateGenericKnockoutMatches($teams, $teamGroupMap, $seedTeamIds, $maximizeSeedSeparation);
             // Aggiungi team1Name/team2Name per comodità di visualizzazione
             foreach ($matches as &$m) {
                 if (!empty($m['team1Id'])) $m['team1Name'] = $teamMap[$m['team1Id']]['name'] ?? '';
@@ -6456,6 +6536,9 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             
             // 🔧 Salva il flag avoidGroupRematches per eventuale ricalcolo futuro
             $newPhase['avoidGroupRematches'] = $avoidGroupRematches;
+
+            // 🆕 Salva il flag maximizeSeedSeparation per eventuale ricalcolo futuro
+            $newPhase['maximizeSeedSeparation'] = $maximizeSeedSeparation;
             
             // 🆕 Salva il criterio di ordinamento utilizzato per il seeding
             $newPhase['sortCriterion'] = $sortCriterion;
@@ -6569,7 +6652,8 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         'hasRepescage' => false,
         'notes' => 'Creata con il motore automatico (squadre reali)',
         'sortCriterion' => $type === 'knockout' ? $sortCriterion : null,
-        'avoidGroupRematches' => $type === 'knockout' ? $avoidGroupRematches : null
+        'avoidGroupRematches' => $type === 'knockout' ? $avoidGroupRematches : null,
+        'maximizeSeedSeparation' => $type === 'knockout' ? $maximizeSeedSeparation : null
     ];
     if ($existingCfgIdx === null) {
         $cfg['phases'][] = $newCfgEntry;
@@ -7185,7 +7269,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'maxSteps' => 10
             ]
         ];
-        writeJsonFileLocked(CONFIG_FILE, $emptyConfig);
+        writeJsonFile(CONFIG_FILE, $emptyConfig);
         
         // Scrivi file di stato del torneo completamente vuoto
         $emptyState = [
@@ -7208,12 +7292,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'lastUpdated' => null
             ]
         ];
-        // 🔧 FIX: scriveva tournament.json senza lock, in corsa con qualunque
-        // altra operazione in corso nello stesso istante.
-        withStateTransaction(function (&$state) use ($emptyState) {
-            $state = $emptyState;
-            return [];
-        });
+        writeJsonFile(DATA_FILE, $emptyState);
         
         // Elimina cronologia autosave
         if (file_exists(HISTORY_FILE)) {
@@ -7783,7 +7862,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         error_log("📝 admin_update_config: INIZIO");
         $body = bodyJson();
         error_log("📝 admin_update_config: bodyJson() OK, keys=" . json_encode(array_keys($body)));
-
+        
         $config = readConfig();
         error_log("📝 admin_update_config: readConfig() OK");
     
@@ -7984,15 +8063,11 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         error_log("  Post-save Court[$idx]: name={$court['courtName']}, courtId={$court['courtId']}, availability=" . count($court['availability'] ?? []));
     }
     
-    // 🔧 FIX: prima leggeva/scriveva tournament.json senza alcun lock, in
-    // corsa con qualunque altra withStateTransaction() in corso nello stesso
-    // istante (es. un punteggio salvato nello stesso momento). Ora passa dalla
-    // stessa transazione con lock già usata ovunque altrove nel sistema.
-    withStateTransaction(function (&$state) use ($config) {
-        $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
-        $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
-        return [];
-    });
+    // Aggiorna anche lo state con le nuove impostazioni da config
+    $state = readJsonFile(DATA_FILE, initialState());
+    $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
+    $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
+    writeJsonFile(DATA_FILE, $state);
     
     // Salva snapshot nella history se autosave è abilitato
     saveToHistory('Aggiornamento configurazione');
@@ -9850,7 +9925,7 @@ if ($action === 'admin_import_backup' && $method === 'POST') {
         }
         
         // Ripristina tutti i dati
-        writeJsonFileLocked(CONFIG_FILE, $backup['config']);
+        writeJsonFile(CONFIG_FILE, $backup['config']);
         writeJsonFile(__DIR__ . '/data/teams.json', $backup['teams'] ?? []);
         writeJsonFile(__DIR__ . '/data/groups.json', $backup['groups'] ?? []);
         writeJsonFile(__DIR__ . '/data/matches.json', $backup['matches'] ?? []);
@@ -10014,8 +10089,8 @@ if ($action === 'admin_restore_backup' && $method === 'POST') {
         }
         
         // Ripristina tutti i dati
-        writeJsonFileLocked(CONFIG_FILE, $backup['config']);
-        writeJsonFileLocked(DATA_FILE, [
+        writeJsonFile(CONFIG_FILE, $backup['config']);
+        writeJsonFile(DATA_FILE, [
             'teams' => $backup['teams'] ?? [],
             'groups' => $backup['groups'] ?? [],
             'groupMatches' => $backup['groupMatches'] ?? [],
@@ -10101,11 +10176,8 @@ if ($action === 'admin_undo_step' && $method === 'POST') {
     $targetSnapshot = $history['snapshots'][$steps];
     
     // Ripristina config e state
-    writeJsonFileLocked(CONFIG_FILE, $targetSnapshot['config']);
-    withStateTransaction(function (&$state) use ($targetSnapshot) {
-        $state = $targetSnapshot['state'];
-        return [];
-    });
+    writeJsonFile(CONFIG_FILE, $targetSnapshot['config']);
+    writeJsonFile(DATA_FILE, $targetSnapshot['state']);
     
     // Salva questa azione nella history per nuovi step futuri
     $newHistory = [
@@ -10166,40 +10238,14 @@ function generateGUID(): string {
 }
 
 // Leggi la lista dei tornei
-// 🆕 Lock condiviso per il registro multi-tenant tournaments.json, stesso
-// meccanismo di $__configLockFp per config.json: acquisito al primo
-// getTournamentsRegistry(), rilasciato al successivo writeTournamentsRegistry()
-// (o a fine richiesta). Copre automaticamente i 18 punti del codice che
-// leggono/modificano/scrivono questo registro (creazione/disabilitazione/
-// abilitazione/eliminazione tornei, aggiornamento bulk) senza doverli
-// modificare uno per uno.
-$__tournamentsRegistryLockFp = null;
-
 function getTournamentsRegistry(): array {
-    global $__tournamentsRegistryLockFp;
     $registryFile = __DIR__ . '/data/tournaments.json';
-
-    if ($__tournamentsRegistryLockFp === null) {
-        $fp = @fopen($registryFile, 'c+');
-        if ($fp !== false) {
-            flock($fp, LOCK_EX);
-            $__tournamentsRegistryLockFp = $fp;
-        }
-    }
-
     return readJsonFile($registryFile, ['tournaments' => []]);
 }
 
 // Scrivi la lista dei tornei
 function writeTournamentsRegistry(array $data): void {
-    global $__tournamentsRegistryLockFp;
     writeJsonFile(__DIR__ . '/data/tournaments.json', $data);
-
-    if ($__tournamentsRegistryLockFp !== null) {
-        flock($__tournamentsRegistryLockFp, LOCK_UN);
-        fclose($__tournamentsRegistryLockFp);
-        $__tournamentsRegistryLockFp = null;
-    }
 }
 
 // Copia ricorsivamente una directory
@@ -11469,7 +11515,7 @@ if ($action === 'admin_generate_from_flow' && $method === 'POST') {
         
         // Salva la configurazione delle fasi
         $config['phases'] = $phases;
-        writeConfig($config);
+        writeJsonFile(CONFIG_FILE, $config);
         
         // Salva anche il flusso come reference
         $flow['processedAt'] = date('Y-m-d H:i:s');
@@ -11501,25 +11547,25 @@ if ($action === 'save_match_duration' && $method === 'POST') {
         }
         
         // ✅ REFACTORED: Leggi lo stato e cerca nelle fasi
-        // 🔧 FIX: leggeva e scriveva tournament.json senza lock, in corsa con
-        // qualunque altra operazione concorrente sullo stesso file.
+        $state = readJsonFile(DATA_FILE, []);
         $found = false;
-        withStateTransaction(function (&$state) use ($matchId, $duration, &$found) {
-            foreach ($state['phases'] ?? [] as &$phase) {
-                foreach ($phase['matches'] ?? [] as &$match) {
-                    if (($match['id'] ?? '') === $matchId) {
-                        $match['duration'] = $duration;
-                        $found = true;
-                        break 2;
-                    }
+        
+        // Cerca la partita in tutte le fasi
+        foreach ($state['phases'] ?? [] as &$phase) {
+            foreach ($phase['matches'] ?? [] as &$match) {
+                if (($match['id'] ?? '') === $matchId) {
+                    $match['duration'] = $duration;
+                    $found = true;
+                    break 2;
                 }
-                unset($match);
             }
-            unset($phase);
-            return [];
-        });
+            unset($match);
+        }
+        unset($phase);
         
         if ($found) {
+            writeJsonFile(DATA_FILE, $state);
+            
             // Formatta il tempo
             $hours = intdiv($duration, 3600);
             $minutes = intdiv($duration % 3600, 60);
@@ -11575,19 +11621,8 @@ if ($action === 'admin_get_json' && $method === 'GET') {
             exit;
         }
         
-        // Leggi il file con lock condiviso (LOCK_SH): impedisce di leggere
-        // un contenuto "a metà" se un'altra richiesta lo sta scrivendo nello
-        // stesso istante (aspetta che l'eventuale scrittore in corso finisca
-        // e rilasci il suo lock esclusivo, poi legge in sicurezza).
-        $fp = fopen($filePath, 'r');
-        if ($fp === false) {
-            jsonResponse(500, ['ok' => false, 'error' => 'Errore apertura file']);
-            exit;
-        }
-        flock($fp, LOCK_SH);
-        $content = stream_get_contents($fp);
-        flock($fp, LOCK_UN);
-        fclose($fp);
+        // Leggi il file
+        $content = file_get_contents($filePath);
         if ($content === false) {
             jsonResponse(500, ['ok' => false, 'error' => 'Errore lettura file']);
             exit;
@@ -11652,12 +11687,7 @@ if ($action === 'admin_save_json' && $method === 'POST') {
         }
         
         // Salva il file con flock per evitare race conditions
-        // 🔧 FIX: 'w' troncava il file all'apertura, PRIMA di acquisire il
-        // lock — il lock quindi non proteggeva nulla, perché il contenuto
-        // veniva già azzerato nell'istante di fopen(), a prescindere da
-        // quando/se la lock veniva poi ottenuta. 'c+' apre senza troncare:
-        // il troncamento avviene esplicitamente DOPO aver acquisito il lock.
-        $fp = fopen($filePath, 'c+');
+        $fp = fopen($filePath, 'w');
         if (!$fp) {
             jsonResponse(500, ['ok' => false, 'error' => 'Errore apertura file']);
             exit;
@@ -11672,8 +11702,6 @@ if ($action === 'admin_save_json' && $method === 'POST') {
         // Formatta il JSON prima di salvare (indentato per leggibilità)
         $formatted = json_encode(json_decode($content, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
-        ftruncate($fp, 0);
-        rewind($fp);
         if (fwrite($fp, $formatted) === false) {
             flock($fp, LOCK_UN);
             fclose($fp);
@@ -11681,7 +11709,6 @@ if ($action === 'admin_save_json' && $method === 'POST') {
             exit;
         }
         
-        fflush($fp);
         flock($fp, LOCK_UN);
         fclose($fp);
         

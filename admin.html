@@ -6880,6 +6880,19 @@
               <div style="background: white; padding: 8px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #666">
                 <strong>Qualificate vanno a:</strong> ${escapeHtml(phase.qualifiedGoTo || 'Non specificato')}
               </div>
+
+              <!-- 🆕 Riepilogo dei flag di seeding usati per generare questo
+                   tabellone: prima erano visibili SOLO nel modale di "Ricalcola",
+                   non quando si apriva semplicemente la fase per guardarla. -->
+              <div style="background: white; padding: 10px; margin-top: 8px; border-radius: 4px; font-size: 12px; color: #444; border-left: 3px solid #ff9800">
+                <strong>🎯 Come è stato generato il tabellone:</strong>
+                <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px">
+                  <div>📊 Criterio di ordinamento: <strong>${({1:'Media Punti per Partita', 2:'% Vittorie', 3:'Media + Quoziente + Diff'})[phase.sortCriterion || 1]}</strong></div>
+                  <div>🚫 Evita rematch dello stesso girone: <strong>${phase.avoidGroupRematches ? 'Sì' : 'No'}</strong></div>
+                  <div>🌟 Teste di serie il più lontano possibile: <strong>${phase.maximizeSeedSeparation ? 'Sì' : 'No'}</strong></div>
+                </div>
+                <small style="color: #888; display: block; margin-top: 6px">Queste impostazioni determinano la struttura del tabellone: per cambiarle bisogna rigenerarlo da zero con "🔄 Ricalcola" (le partite già giocate andranno perse).</small>
+              </div>
             </div>
           </div>
 

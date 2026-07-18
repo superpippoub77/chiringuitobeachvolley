@@ -12692,7 +12692,8 @@ html += `
             </select>
           </div>
 
-          <div id="npKnockoutSortFields" style="display: ${(prefill.type || 'groups') === 'knockout' ? 'flex' : 'none'}; flex-direction: column; gap: 10px; padding: 10px; background: #fef5e7; border-radius: 6px; border: 2px solid #f39c12">
+          <div id="npKnockoutSortFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #fef5e7; border-radius: 6px; border: 2px solid #f39c12">
+            <div style="font-size: 12px; color: #a06b0a; font-weight: bold">📌 Queste regole si applicano solo se scegli "🏆 Castello (eliminazione diretta)" come formula della fase.</div>
             <div>
               <label style="font-weight: bold; display: block; margin-bottom: 8px">📊 Criterio di ordinamento per il seeding:</label>
               <div style="display: flex; flex-direction: column; gap: 8px">
@@ -12848,20 +12849,23 @@ html += `
       const groupsFields = document.getElementById('npGroupsFields');
       if (groupsFields) groupsFields.style.display = (type === 'groups') ? 'flex' : 'none';
       
-      const knockoutSortFields = document.getElementById('npKnockoutSortFields');
-      if (knockoutSortFields) knockoutSortFields.style.display = (type === 'knockout') ? 'flex' : 'none';
+      // 🔧 Il blocco #npKnockoutSortFields ora è sempre visibile (vedi nota al
+      // suo interno che chiarisce quando si applica davvero), quindi qui non
+      // lo nascondiamo più in base al tipo scelto.
       
-      // Aggiorna visibilità del checkbox avoidGroupRematches
+      // Aggiorna visibilità del checkbox avoidGroupRematches/maximizeSeedSeparation
       updateAvoidGroupRematchesVisibility();
     }
     
     function updateAvoidGroupRematchesVisibility() {
-      const type = document.getElementById('npType')?.value;
       const teamSource = document.getElementById('npTeamSource')?.value;
-      const shouldShow = (type === 'knockout' && teamSource === 'phase');
+      // 🔧 Non dipende più anche dal tipo (knockout): questi flag hanno senso
+      // solo se le squadre arrivano da una fase precedente (serve sapere i
+      // gironi/l'ordine di arrivo), a prescindere da quale formula sia
+      // attualmente selezionata nel menu.
+      const shouldShow = (teamSource === 'phase');
       const div = document.getElementById('npAvoidGroupRematchesDiv');
       if (div) {
-        // Mostra il checkbox solo se: knockout + source da fase precedente
         div.style.display = shouldShow ? 'block' : 'none';
       }
       const seedDiv = document.getElementById('npMaximizeSeedSeparationDiv');

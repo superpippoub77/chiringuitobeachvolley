@@ -685,6 +685,35 @@
         grid-template-columns: 1fr !important;
       }
 
+      /* 🆕 Un campo che nella griglia a 2 colonne "occupava" entrambe le
+         colonne (style="grid-column: span 2") su una griglia mobile a una
+         sola colonna va semplicemente a tutta larghezza come tutti gli altri. */
+      [style*="grid-column: span 2"] {
+        grid-column: 1 !important;
+      }
+
+      /* 🆕 Scroll orizzontale universale per TUTTE le tabelle su mobile:
+         prima solo 2 tabelle su 13 avevano questo trattamento (quelle con le
+         celle punteggio), le altre (classifiche, elenco squadre, sponsor,
+         ecc.) sforavano illeggibili. display:block sulla tabella la rende
+         scorrevole orizzontalmente mantenendo le colonne allineate, invece di
+         schiacciare tutto o sforare lo schermo. */
+      table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        max-width: 100%;
+      }
+
+      /* Le tabelle che hanno già un contenitore scrollabile dedicato (con
+         min-width esplicito, es. l'elenco partite) non necessitano di questo
+         doppio trattamento sulla tabella stessa. */
+      table[style*="min-width"] {
+        display: table;
+        white-space: normal;
+      }
+
       .row {
         flex-direction: column;
       }

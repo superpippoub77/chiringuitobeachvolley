@@ -672,6 +672,19 @@
         grid-template-columns: 1fr !important;
       }
 
+      /* 🆕 Molti form nelle Impostazioni usano griglie inline a colonne fisse
+         (es. style="display: grid; grid-template-columns: 1fr 1fr") invece
+         della classe .form-grid-modal, quindi non beneficiavano della regola
+         qui sopra: su mobile restavano illeggibili, con le etichette e i
+         campi schiacciati fianco a fianco. Il selettore per sottostringa
+         intercetta solo i pattern "1fr 1fr..." (colonne fisse), NON tocca le
+         griglie con repeat(auto-fit/auto-fill/N, ...) usate per gallery,
+         immagini squadre, temi colore ecc., che devono restare multi-colonna
+         anche su mobile. */
+      [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+
       .row {
         flex-direction: column;
       }

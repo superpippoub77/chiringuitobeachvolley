@@ -883,6 +883,18 @@
         min-height: 70px;
         font-size: 11px;
       }
+
+      /* 🆕 Riga foto+nome+livello di ogni giocatore nel form di iscrizione:
+         su mobile va in colonna (foto sopra, campi sotto) invece di
+         rischiare di apparire schiacciata fianco a fianco. */
+      [style*="align-items: flex-start; flex-wrap: wrap"] {
+        flex-direction: column;
+        align-items: center !important;
+      }
+
+      [style*="align-items: flex-start; flex-wrap: wrap"] > div {
+        width: 100%;
+      }
     }
   </style>
 </head>

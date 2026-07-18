@@ -8085,16 +8085,18 @@ if ($action === 'admin_update_config' && $method === 'POST') {
 
     // 🆕 Sincronizza lo slug nel registro centrale multi-tenant (tournaments.json),
     // cosi il router .../<slug> lo trova con una sola lettura veloce, senza
-    // dover scandire il config.json di ogni singolo torneo. Se questa
-    // installazione non è un torneo creato tramite create_tournament (es. il
-    // deployment "root" storico), semplicemente non trova un codice
-    // corrispondente nel registro e non fa nulla.
+    // dover scandire il config.json di ogni singolo torneo. Se il torneo non
+    // era ancora presente nel registro (es. creato prima che esistesse questa
+    // funzionalità, o l'installazione "root" storica), lo aggiunge.
     try {
         $myCode = basename(__DIR__);
         $registry = getTournamentsRegistry();
         $registryChanged = false;
+        $found = false;
+
         foreach ($registry['tournaments'] ?? [] as &$t) {
             if (($t['code'] ?? null) === $myCode) {
+                $found = true;
                 $newSlug = $config['tournament']['slug'] ?? '';
                 if (($t['slug'] ?? '') !== $newSlug) {
                     $t['slug'] = $newSlug;
@@ -8104,6 +8106,40 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             }
         }
         unset($t);
+
+        if (!$found) {
+            // 🔧 Aggiunge una voce nel registro solo se questa installazione è
+            // davvero una sottocartella di una root multi-tenant: altrimenti
+            // (es. questo stesso deployment È la root) non avrebbe senso farlo,
+            // creerebbe una voce che punta a se stessa.
+            $isGenuineTenantSubfolder = (getMultiTenantRootDir() !== __DIR__);
+
+            if ($isGenuineTenantSubfolder) {
+                // Recupera l'email del gestore dal file di sessione del torneo,
+                // se presente (creato da create_tournament); altrimenti dal
+                // contatto in config.json come ripiego.
+                $envFile = __DIR__ . '/.tournament-config.json';
+                $managerEmailForRegistry = '';
+                if (file_exists($envFile)) {
+                    $envData = readJsonFile($envFile, []);
+                    $managerEmailForRegistry = $envData['managerEmail'] ?? '';
+                }
+                if ($managerEmailForRegistry === '') {
+                    $managerEmailForRegistry = $config['contact']['managerEmail'] ?? '';
+                }
+
+                $registry['tournaments'][] = [
+                    'code' => $myCode,
+                    'email' => $managerEmailForRegistry,
+                    'name' => $config['tournament']['name'] ?? '',
+                    'slug' => $config['tournament']['slug'] ?? '',
+                    'path' => $myCode,
+                    'createdAt' => date('Y-m-d H:i:s')
+                ];
+                $registryChanged = true;
+            }
+        }
+
         if ($registryChanged) {
             writeTournamentsRegistry($registry);
         }
@@ -10279,15 +10315,59 @@ function generateGUID(): string {
     return strtoupper(substr(bin2hex(random_bytes(6)), 0, 12));
 }
 
+/**
+ * Determina la cartella ROOT dell'installazione multi-tenant, indipendentemente
+ * da dove si trovi fisicamente l'api.php in esecuzione in questo momento: se la
+ * cartella padre contiene un proprio api.php + data/tournaments.json, significa
+ * che questa installazione è una sottocartella di torneo (root = cartella
+ * padre); altrimenti questa stessa installazione È la root.
+ *
+ * 🔧 FIX: getTournamentsRegistry()/writeTournamentsRegistry() usavano prima
+ * sempre __DIR__ direttamente — dentro la cartella di un singolo torneo,
+ * __DIR__ è quella cartella, NON quella centrale multi-tenant: leggevano e
+ * scrivevano quindi silenziosamente in un file locale sbagliato invece che
+ * nel registro condiviso reale.
+ */
+function getMultiTenantRootDir(): string {
+    $parentDir = dirname(__DIR__);
+    if (file_exists($parentDir . '/api.php') && file_exists($parentDir . '/data/tournaments.json')) {
+        return $parentDir;
+    }
+    return __DIR__;
+}
+
+// 🆕 Lock condiviso per il registro multi-tenant tournaments.json, stesso
+// meccanismo di $__configLockFp per config.json: acquisito al primo
+// getTournamentsRegistry(), rilasciato al successivo writeTournamentsRegistry()
+// (o a fine richiesta).
+$__tournamentsRegistryLockFp = null;
+
 // Leggi la lista dei tornei
 function getTournamentsRegistry(): array {
-    $registryFile = __DIR__ . '/data/tournaments.json';
+    global $__tournamentsRegistryLockFp;
+    $registryFile = getMultiTenantRootDir() . '/data/tournaments.json';
+
+    if ($__tournamentsRegistryLockFp === null) {
+        $fp = @fopen($registryFile, 'c+');
+        if ($fp !== false) {
+            flock($fp, LOCK_EX);
+            $__tournamentsRegistryLockFp = $fp;
+        }
+    }
+
     return readJsonFile($registryFile, ['tournaments' => []]);
 }
 
 // Scrivi la lista dei tornei
 function writeTournamentsRegistry(array $data): void {
-    writeJsonFile(__DIR__ . '/data/tournaments.json', $data);
+    global $__tournamentsRegistryLockFp;
+    writeJsonFile(getMultiTenantRootDir() . '/data/tournaments.json', $data);
+
+    if ($__tournamentsRegistryLockFp !== null) {
+        flock($__tournamentsRegistryLockFp, LOCK_UN);
+        fclose($__tournamentsRegistryLockFp);
+        $__tournamentsRegistryLockFp = null;
+    }
 }
 
 // Copia ricorsivamente una directory

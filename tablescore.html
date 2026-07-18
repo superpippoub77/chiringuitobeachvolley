@@ -1010,6 +1010,24 @@
 
         document.getElementById('statusInfo').textContent = '✅ Salvato alle ' + new Date().toLocaleTimeString('it-IT');
         document.getElementById('statusInfo').style.color = '';
+
+        // 🆕 Notifica altre schede (in particolare admin.html) che questa
+        // partita è stata aggiornata, cosi la riga corrispondente si
+        // aggiorna in automatico senza bisogno di ricaricare la pagina.
+        try {
+          if ('BroadcastChannel' in window) {
+            const channel = new BroadcastChannel('tournament-updates');
+            channel.postMessage({
+              type: 'match-score-updated',
+              matchId: matchId,
+              phaseNumber: parseInt(phaseNumber, 10),
+              sets: scoreboardState.sets
+            });
+            channel.close();
+          }
+        } catch (broadcastErr) {
+          console.warn('Impossibile notificare altre schede del salvataggio:', broadcastErr);
+        }
       } catch (e) {
         console.error('Errore salvataggio:', e);
         document.getElementById('statusInfo').textContent = '❌ Errore salvataggio: ' + e.message;

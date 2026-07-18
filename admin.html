@@ -1219,6 +1219,55 @@
     const API = 'api.php';
     let token = localStorage.getItem('adminToken') || '';
     let state = null;
+
+    // 🆕 Sincronizzazione automatica col tabellone (tablescore.html) aperto in
+    // un'altra scheda: quando lì si salva un punteggio, questa scheda riceve
+    // subito la notifica e aggiorna la riga della partita, senza bisogno di
+    // ricaricare manualmente la pagina.
+    const tournamentUpdatesChannel = ('BroadcastChannel' in window) ? new BroadcastChannel('tournament-updates') : null;
+    if (tournamentUpdatesChannel) {
+      tournamentUpdatesChannel.onmessage = (event) => {
+        const msg = event.data;
+        if (msg && msg.type === 'match-score-updated') {
+          applyRemoteMatchScoreUpdate(msg.matchId, msg.phaseNumber, msg.sets);
+        }
+      };
+    }
+
+    // Aggiorna lo stato locale e le celle punteggio visibili per una partita,
+    // a seguito di una notifica ricevuta da un'altra scheda (tablescore.html).
+    function applyRemoteMatchScoreUpdate(matchId, phaseNumber, sets) {
+      if (!Array.isArray(sets)) return;
+
+      // Aggiorna lo stato locale, cosi eventuali re-render successivi restano coerenti
+      const phase = (state?.phases || []).find(p => p.phaseNumber === phaseNumber);
+      const match = phase?.matches?.find(m => m.id === matchId);
+      if (match) {
+        match.sets = sets;
+        if (sets.length) {
+          match.score1 = sets[sets.length - 1].team1;
+          match.score2 = sets[sets.length - 1].team2;
+        }
+      }
+
+      // Aggiorna le celle visibili nella tabella partite, se questa riga è
+      // attualmente a schermo (potrebbe non esserlo se si sta guardando
+      // un'altra fase in questo momento: in tal caso l'aggiornamento resta
+      // comunque salvato in state e comparirà al prossimo render di quella fase)
+      sets.forEach((s, idx) => {
+        [['t1', s.team1], ['t2', s.team2]].forEach(([suffix, value]) => {
+          const inputId = `s${idx}-${suffix}-${matchId}`;
+          const cellId = `${inputId}-cell`;
+          const input = document.getElementById(inputId);
+          const cell = document.getElementById(cellId);
+          if (input) input.value = value ?? '';
+          if (cell) {
+            cell.textContent = value ?? '–';
+            cell.classList.toggle('empty', value === null || value === undefined);
+          }
+        });
+      });
+    }
     let config = {};
     // 🔧 FIX: traccia la tab attiva per ripristinarla dopo refresh() invece di tornare
     // sempre a "Impostazioni" (o alla tab indicata nella URL, che poteva essere obsoleta)

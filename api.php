@@ -8075,11 +8075,41 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         error_log("  Post-save Court[$idx]: name={$court['courtName']}, courtId={$court['courtId']}, availability=" . count($court['availability'] ?? []));
     }
     
-    // Aggiorna anche lo state con le nuove impostazioni da config
-    $state = readJsonFile(DATA_FILE, initialState());
-    $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
-    $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
-    writeJsonFile(DATA_FILE, $state);
+    // 🔧 FIX: leggeva/scriveva tournament.json senza alcun lock, in corsa con
+    // qualunque altra withStateTransaction() in corso nello stesso istante.
+    withStateTransaction(function (&$state) use ($config) {
+        $state['settings']['tournamentName'] = $config['tournament']['name'] ?? '';
+        $state['settings']['maxTeams'] = $config['tournament']['maxTeams'] ?? 0;
+        return [];
+    });
+
+    // 🆕 Sincronizza lo slug nel registro centrale multi-tenant (tournaments.json),
+    // cosi il router .../<slug> lo trova con una sola lettura veloce, senza
+    // dover scandire il config.json di ogni singolo torneo. Se questa
+    // installazione non è un torneo creato tramite create_tournament (es. il
+    // deployment "root" storico), semplicemente non trova un codice
+    // corrispondente nel registro e non fa nulla.
+    try {
+        $myCode = basename(__DIR__);
+        $registry = getTournamentsRegistry();
+        $registryChanged = false;
+        foreach ($registry['tournaments'] ?? [] as &$t) {
+            if (($t['code'] ?? null) === $myCode) {
+                $newSlug = $config['tournament']['slug'] ?? '';
+                if (($t['slug'] ?? '') !== $newSlug) {
+                    $t['slug'] = $newSlug;
+                    $registryChanged = true;
+                }
+                break;
+            }
+        }
+        unset($t);
+        if ($registryChanged) {
+            writeTournamentsRegistry($registry);
+        }
+    } catch (Exception $e) {
+        @error_log('Sincronizzazione slug nel registro fallita (non bloccante): ' . $e->getMessage());
+    }
     
     // Salva snapshot nella history se autosave è abilitato
     saveToHistory('Aggiornamento configurazione');
@@ -10671,6 +10701,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'code' => $tournamentCode,
         'email' => $managerEmail,
         'name' => $tournamentName,
+        'slug' => slugify($tournamentName), // 🆕 per la raggiungibilità .../<slug>
         'path' => $tournamentCode,
         'createdAt' => date('Y-m-d H:i:s')
     ];

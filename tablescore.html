@@ -133,7 +133,7 @@
     }
 
     .score-display {
-      font-size: clamp(70px, 12vw, 200px);
+      font-size: clamp(120px, 24vw, 420px);
       font-weight: 400;
       line-height: 1;
       margin: 20px 0;
@@ -336,6 +336,98 @@
       animation: liveBlink 1.2s infinite;
     }
 
+    /* 🆕 Inversione colori: pulsante in alto per passare da sfondo scuro
+       (default) a sfondo chiaro, con tutti i testi che si adattano di
+       conseguenza — utile in pieno sole o su schermi che riflettono. */
+    #colorSchemeToggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 500;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #ff9800;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    body.light-mode {
+      background: #eeeeee;
+      color: #111;
+    }
+
+    body.light-mode #colorSchemeToggle {
+      background: #ffffff;
+      color: #111;
+      border-color: #ff9800;
+    }
+
+    body.light-mode .scoreboard {
+      background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+      box-shadow: 0 10px 50px rgba(0, 0, 0, 0.15);
+    }
+
+    body.light-mode .header {
+      border-bottom-color: #ff9800;
+    }
+
+    body.light-mode .match-info {
+      color: #b45309;
+    }
+
+    body.light-mode .match-meta {
+      color: #555;
+    }
+
+    body.light-mode .team-section {
+      background: linear-gradient(135deg, #ffffff 0%, #f2f2f2 100%);
+    }
+
+    body.light-mode .team-name {
+      color: #222;
+    }
+
+    body.light-mode .team-section.team1 .team-name {
+      color: #1565c0;
+    }
+
+    body.light-mode .team-section.team2 .team-name {
+      color: #c62828;
+    }
+
+    body.light-mode .team-section.team1 .score-display {
+      color: #1565c0;
+    }
+
+    body.light-mode .team-section.team2 .score-display {
+      color: #c62828;
+    }
+
+    body.light-mode .score-display {
+      text-shadow: 0 0 20px currentColor, 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    body.light-mode .set-dot {
+      border-color: #bbb;
+      background: #e8e8e8;
+      color: #333;
+    }
+
+    body.light-mode .status-info {
+      color: #666;
+    }
+
+    body.light-mode .timeout-section.used {
+      background: #ccc;
+    }
+
     @keyframes liveBlink {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.25; }
@@ -380,6 +472,7 @@
   </style>
 </head>
 <body>
+  <button id="colorSchemeToggle" onclick="toggleColorScheme()" title="Inverti colori (sfondo chiaro/scuro)">🌓</button>
   <div class="scoreboard">
     <div class="live-badge"><span class="dot"></span>LIVE — aggiornamento automatico</div>
     <div class="header">
@@ -450,6 +543,17 @@
     // scrittura, nessuna autenticazione richiesta, solo lettura pubblica con
     // auto-refresh periodico.
     let isViewMode = false;
+
+    // 🆕 Inversione colori (sfondo chiaro/scuro): la preferenza viene
+    // ricordata (localStorage) cosi resta impostata anche riaprendo la pagina.
+    function toggleColorScheme() {
+      const isLight = document.body.classList.toggle('light-mode');
+      localStorage.setItem('tablescoreColorScheme', isLight ? 'light' : 'dark');
+    }
+
+    if (localStorage.getItem('tablescoreColorScheme') === 'light') {
+      document.body.classList.add('light-mode');
+    }
     let liveRefreshIntervalHandle = null;
     // 🆕 Modalità "partita corrente": matchId/phase non sono nell'URL, vengono
     // risolti dal server (state.currentMatch, impostato dall'admin con la

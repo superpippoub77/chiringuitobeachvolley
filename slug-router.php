@@ -1,0 +1,84 @@
+<?php
+/**
+ * Router per raggiungere un torneo tramite il suo SLUG (es. "chiringuito-beach-volley-2026")
+ * invece che tramite il codice alfanumerico generato dal sistema (es. "a1b2c3d4e5f6").
+ *
+ * Come funziona: l'.htaccess in questa stessa cartella intercetta qualunque
+ * richiesta a un percorso che NON corrisponde a una cartella o file realmente
+ * esistente (quindi non tocca in alcun modo l'accesso normale tramite codice,
+ * che continua a funzionare esattamente come prima) e la inoltra qui. Questo
+ * script cerca lo slug nel registro centrale multi-tenant (data/tournaments.json)
+ * e, se lo trova, reindirizza al percorso reale (.../<codice>/...).
+ *
+ * Nota: è un REDIRECT (la barra degli indirizzi del browser cambia e mostra
+ * il codice), non una riscrittura invisibile — l'applicazione usa ovunque
+ * percorsi relativi (api.php, immagini, upload) pensati per essere serviti
+ * dalla cartella del proprio codice, quindi mascherare l'URL rischierebbe di
+ * rompere quei percorsi. Un redirect è il modo sicuro e affidabile per rendere
+ * raggiungibile un torneo anche dal suo slug.
+ */
+
+$slug = trim((string)($_GET['slug'] ?? ''), '/');
+$path = trim((string)($_GET['path'] ?? ''), '/');
+
+if ($slug === '') {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Torneo non trovato.";
+    exit;
+}
+
+// Normalizza lo slug richiesto nello stesso modo in cui viene generato/salvato
+// (minuscolo, solo lettere/numeri/trattini) per un confronto affidabile.
+function normalizeSlugForCompare(string $s): string {
+    $s = strtolower(trim($s));
+    $s = preg_replace('/[^a-z0-9-]/', '', $s);
+    return $s;
+}
+
+$registryFile = __DIR__ . '/data/tournaments.json';
+$registry = ['tournaments' => []];
+if (file_exists($registryFile)) {
+    $raw = @file_get_contents($registryFile);
+    $decoded = $raw !== false ? json_decode($raw, true) : null;
+    if (is_array($decoded)) {
+        $registry = $decoded;
+    }
+}
+
+$wantedSlug = normalizeSlugForCompare($slug);
+$matchedCode = null;
+
+foreach ($registry['tournaments'] ?? [] as $t) {
+    $tSlug = normalizeSlugForCompare((string)($t['slug'] ?? ''));
+    if ($tSlug !== '' && $tSlug === $wantedSlug) {
+        // Salta i tornei disabilitati: si comportano come se non esistessero
+        if (!empty($t['disabled'])) {
+            continue;
+        }
+        $matchedCode = $t['path'] ?? $t['code'] ?? null;
+        break;
+    }
+}
+
+if ($matchedCode === null) {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Nessun torneo trovato per \"" . htmlspecialchars($slug) . "\".";
+    exit;
+}
+
+$destination = '/' . rawurlencode($matchedCode) . '/' . ($path !== '' ? $path : '');
+if (!empty($_SERVER['QUERY_STRING'])) {
+    // Rimuovi i parametri slug/path che abbiamo aggiunto noi tramite la
+    // regola di rewrite, mantenendo eventuali altri parametri originali
+    // dell'URL (es. ?tab=settings) per non perderli nel redirect.
+    parse_str($_SERVER['QUERY_STRING'], $qs);
+    unset($qs['slug'], $qs['path']);
+    if (!empty($qs)) {
+        $destination .= '?' . http_build_query($qs);
+    }
+}
+
+header('Location: ' . $destination, true, 302);
+exit;

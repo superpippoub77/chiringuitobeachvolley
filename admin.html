@@ -1654,6 +1654,7 @@
                   </button>
                 </div>
                 <small style="color: #666; display: block; margin-top: 4px">Identificativo unico per gli URL (lettere minuscole, numeri e trattini)</small>
+                ${t.slug ? `<small style="color: #0078d4; display: block; margin-top: 4px">🔗 Raggiungibile anche da: <code>.../${escapeHtml(t.slug)}</code> (oltre che dal codice torneo)</small>` : ''}
               </div>
               <div class="field">
                 <label>Max squadre</label>

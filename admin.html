@@ -3127,6 +3127,7 @@
         <div class="team-info">
           <strong>${escapeHtml(team.name)}</strong>
           <small>${playersText}</small>
+          ${team.email ? `<small style="display: block; color: #6b5d45; margin-top: 2px">✉️ ${escapeHtml(team.email)}</small>` : ''}
           ${team.phone ? `<small style="display: block; color: #6b5d45; margin-top: 2px">📱 ${escapeHtml(team.phone)}</small>` : ''}
           ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
         </div>
@@ -3544,6 +3545,7 @@
               id: teamId,
               name: document.getElementById('mTeamName').value.trim(),
               players: playersData,
+              email: document.getElementById('mEmail').value.trim(),
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
               paid: document.getElementById('mPaid').checked,
@@ -3625,6 +3627,10 @@
               <input id="mTeamName" type="text" maxlength="50" value="${escapeHtml(team.name)}">
             </div>
             ${playersHtml}
+            <div class="field full">
+              <label>Email</label>
+              <input id="mEmail" type="email" maxlength="100" value="${escapeHtml(team.email || '')}">
+            </div>
             <div class="field full">
               <label>Telefono</label>
               <input id="mPhone" type="text" maxlength="20" value="${escapeHtml(team.phone || '')}">

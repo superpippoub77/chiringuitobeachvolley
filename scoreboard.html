@@ -1660,6 +1660,7 @@
         // refresh, incluso l'auto-refresh ogni 30s) l'iscrizione si rompe con
         // un errore JS silenzioso invece di essere inviata.
         html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Contatti</h4></div>';
+        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)">';
         html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)">';
         html += '</div>'; // chiude .form-grid
         html += '<div class="form-check"><input type="checkbox" id="fPrivacy"><label for="fPrivacy">Accetto l\'<a href="policy.html" target="_blank">informativa privacy</a></label></div>';
@@ -2484,6 +2485,7 @@
 
     async function registerTeam() {
       const name = document.getElementById('fName').value.trim();
+      const email = document.getElementById('fEmail').value.trim();
       const phone = document.getElementById('fPhone').value.trim();
       const privacyOk = document.getElementById('fPrivacy').checked;
       const cookiesOk = document.getElementById('fCookies').checked;
@@ -2539,6 +2541,14 @@
         return;
       }
 
+      // 🆕 Validazione email: richiesta e deve avere un formato plausibile
+      // (stesso controllo replicato lato server per sicurezza).
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailPattern.test(email)) {
+        await showInfoDialog('Email non valida', 'Inserisci un indirizzo email valido.');
+        return;
+      }
+
       if (!privacyOk) {
         await showInfoDialog('Privacy richiesta', 'Devi accettare l\'informativa privacy');
         return;
@@ -2567,10 +2577,11 @@
           });
         }
 
-        console.log('Registrazione squadra...', { name, playersData, phone });
+        console.log('Registrazione squadra...', { name, playersData, email, phone });
         const r = await api('register_team', 'POST', {
           name,
           players: playersData,
+          email,
           phone,
           category: 'Misto'
         });

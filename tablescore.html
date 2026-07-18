@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tabellone Punteggi - Chiringuito Beach Volley</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/dseg7-classic/index.css">
   <style>
     * {
       margin: 0;
@@ -132,12 +133,14 @@
     }
 
     .score-display {
-      font-size: 120px;
-      font-weight: bold;
+      font-size: clamp(70px, 12vw, 200px);
+      font-weight: 400;
       line-height: 1;
       margin: 20px 0;
-      text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
-      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 40px currentColor, 0 0 15px rgba(255, 255, 255, 0.4);
+      font-family: 'DSEG7 Classic', 'Courier New', monospace;
+      letter-spacing: 4px;
+      white-space: nowrap;
     }
 
     .team-section.team1 .score-display {
@@ -351,10 +354,6 @@
         grid-template-columns: 1fr;
       }
 
-      .score-display {
-        font-size: 80px;
-      }
-
       .bottom-controls {
         grid-template-columns: 1fr 1fr;
       }
@@ -363,10 +362,6 @@
     @media (max-width: 600px) {
       .scoreboard {
         padding: 15px;
-      }
-
-      .score-display {
-        font-size: 60px;
       }
 
       .team-name {

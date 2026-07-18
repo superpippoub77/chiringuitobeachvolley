@@ -4113,6 +4113,7 @@ if ($action === 'register_team' && $method === 'POST') {
     $name = trim((string)($body['name'] ?? ''));
     $category = 'Misto';
     $phone = normalizePhoneInternational(trim((string)($body['phone'] ?? '')));
+    $teamEmail = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
 
     // Supporta sia nuovo formato (players array) che vecchio formato (player1, player2, player3)
     $playersData = [];
@@ -4153,6 +4154,11 @@ if ($action === 'register_team' && $method === 'POST') {
     $phoneDigitsCount = strlen(preg_replace('/\D/', '', $phone));
     if ($phone === '' || $phoneDigitsCount < 8 || $phoneDigitsCount > 15) {
         jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un numero di telefono valido (con il prefisso internazionale se non italiano)']);
+    }
+
+    // 🆕 Validazione email: richiesta e deve avere un formato plausibile
+    if ($teamEmail === '' || !filter_var($teamEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un indirizzo email valido']);
     }
 
     if (count($playersData) > $maxPlayers) {
@@ -4229,6 +4235,7 @@ if ($action === 'register_team' && $method === 'POST') {
             'name' => $name,
             'category' => $category,
             'players' => $players,
+            'email' => $teamEmail,
             'phone' => $phone,
             'paid' => false,
             'approved' => false,
@@ -4554,6 +4561,9 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             if (isset($body['phone'])) {
                 $team['phone'] = mb_substr(normalizePhoneInternational(trim((string)$body['phone'])), 0, 20);
             }
+            if (isset($body['email'])) {
+                $team['email'] = mb_substr(trim((string)$body['email']), 0, 100);
+            }
             $team['category'] = 'Misto';
             break;
         }
@@ -4599,13 +4609,14 @@ if ($action === 'admin_add_team' && $method === 'POST') {
     $body = bodyJson();
     $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 50);
     $phone = mb_substr(normalizePhoneInternational(trim((string)($body['phone'] ?? ''))), 0, 20);
+    $teamEmail = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
     $players = $body['players'] ?? [];
     
     if ($name === '') {
         jsonResponse(422, ['ok' => false, 'error' => 'Nome squadra obbligatorio']);
     }
 
-    $result = withStateTransaction(function (&$state) use ($name, $phone, $players) {
+    $result = withStateTransaction(function (&$state) use ($name, $phone, $teamEmail, $players) {
         if (tournamentStarted($state)) {
             return ['ok' => false, 'error' => 'Non puoi aggiungere squadre: il torneo è già iniziato'];
         }
@@ -4643,6 +4654,7 @@ if ($action === 'admin_add_team' && $method === 'POST') {
             'name' => $name,
             'category' => 'Misto',
             'players' => $normalizedPlayers,
+            'email' => $teamEmail,
             'phone' => $phone,
             'paid' => false,
             'approved' => false,

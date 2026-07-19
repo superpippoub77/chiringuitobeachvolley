@@ -68,7 +68,15 @@ if ($matchedCode === null) {
     exit;
 }
 
-$destination = '/' . rawurlencode($matchedCode) . '/' . ($path !== '' ? $path : '');
+// 🔧 FIX: prima costruiva il redirect come percorso assoluto dalla radice
+// del DOMINIO (es. "/D812A86C16DE/"), ma l'app vive sotto una sottocartella
+// (es. "/projects/bm/"), non alla radice del sito — il redirect finiva quindi
+// nel posto sbagliato. Deriviamo il percorso base direttamente dalla
+// posizione reale di QUESTO script (SCRIPT_NAME), così funziona
+// automaticamente qualunque sia la sottocartella in cui è installato,
+// invece di doverla indovinare/scrivere a mano.
+$scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+$destination = $scriptDir . '/' . rawurlencode($matchedCode) . '/' . ($path !== '' ? $path : '');
 if (!empty($_SERVER['QUERY_STRING'])) {
     // Rimuovi i parametri slug/path che abbiamo aggiunto noi tramite la
     // regola di rewrite, mantenendo eventuali altri parametri originali

@@ -11365,6 +11365,67 @@ if ($action === 'delete_tournament' && $method === 'POST') {
 // 🆕 Aggiorna in blocco i file "motore" (api.php, admin.html, tablescore.html,
 // index.html da scoreboard.html) di uno o più tornei selezionati, prendendoli
 // dalla cartella principale (root). Usato dal pannello multi-tenant.
+// 🆕 Ripara/aggiunge lo slug di ogni torneo nel registro centrale, rileggendo
+// direttamente il config.json di ciascuno (senza passare dal loro api.php,
+// che potrebbe essere una versione vecchia senza la sincronizzazione
+// automatica). Utile per i tornei creati/modificati prima che questa
+// funzionalità esistesse, o la cui copia di api.php non è ancora aggiornata.
+if ($action === 'repair_tournament_slugs' && $method === 'POST') {
+    $body = bodyJson();
+    $panelToken = trim((string)($body['panelToken'] ?? ''));
+
+    $registry = getTournamentsRegistry();
+    $validSession = false;
+    if ($panelToken === 'admin') {
+        $validSession = true;
+    } else {
+        foreach ($registry['panelSessions'] ?? [] as $session) {
+            if ($session['token'] === $panelToken && strtotime($session['expiresAt']) > time()) {
+                $validSession = true;
+                break;
+            }
+        }
+    }
+    if (!$validSession) {
+        jsonResponse(401, ['ok' => false, 'error' => 'Sessione non valida']);
+    }
+
+    $fixed = [];
+    $registryChanged = false;
+
+    foreach ($registry['tournaments'] ?? [] as &$t) {
+        $tournamentDir = __DIR__ . '/' . ($t['path'] ?? $t['code'] ?? '');
+        $tournamentConfigFile = $tournamentDir . '/data/config.json';
+
+        if (!file_exists($tournamentConfigFile)) {
+            continue; // cartella/torneo non trovato, salta senza errore
+        }
+
+        $raw = @file_get_contents($tournamentConfigFile);
+        $decoded = $raw !== false ? json_decode($raw, true) : null;
+        if (!is_array($decoded)) {
+            continue; // config illeggibile/corrotto, salta senza errore
+        }
+
+        $realSlug = $decoded['tournament']['slug'] ?? '';
+        $realName = $decoded['tournament']['name'] ?? ($t['name'] ?? '');
+
+        if (($t['slug'] ?? '') !== $realSlug || ($t['name'] ?? '') !== $realName) {
+            $fixed[] = ['code' => $t['code'] ?? '', 'name' => $realName, 'slug' => $realSlug];
+            $t['slug'] = $realSlug;
+            $t['name'] = $realName;
+            $registryChanged = true;
+        }
+    }
+    unset($t);
+
+    if ($registryChanged) {
+        writeTournamentsRegistry($registry);
+    }
+
+    jsonResponse(200, ['ok' => true, 'fixed' => $fixed]);
+}
+
 if ($action === 'multitenant_update_tournaments' && $method === 'POST') {
     $body = bodyJson();
     $tournamentCodes = $body['tournamentCodes'] ?? [];

@@ -1236,6 +1236,7 @@
               Seleziona tutti
             </label>
             <button class="btn btn-primary" onclick="updateSelectedTournaments()" style="font-size: 0.9rem; padding: 8px 14px">🔄 Aggiorna Selezionati</button>
+            <button class="btn" style="font-size: 0.9rem; padding: 8px 14px; background: #607d8b; color: #fff" onclick="repairMissingSlugs()" title="Rilegge il config.json di ogni torneo e aggiorna/aggiunge lo slug nel registro centrale, anche se quel torneo ha ancora una versione vecchia del codice">🔧 Ripara slug mancanti</button>
             <span id="multitenantUpdateStatus" style="font-size: 0.85rem; color: #6a5737"></span>
           </div>
           <div id="multitenantTournamentsList" style="margin-top: 16px"></div>
@@ -8969,6 +8970,43 @@ html += `
         if (failed.length > 0) {
           message += '\n\n⚠️ Problemi riscontrati:\n' + failed.map(f => `- ${f.name || f.code}: ${(f.errors || []).join(', ')}`).join('\n');
         }
+        alert(message);
+
+        if (statusEl) statusEl.textContent = '';
+        await loadMultitenantTournaments();
+      } catch (e) {
+        alert('❌ Errore: ' + e.message);
+        if (statusEl) statusEl.textContent = '';
+      }
+    }
+
+    // 🆕 Ripara/aggiunge lo slug di ogni torneo nel registro centrale,
+    // rileggendo direttamente il config.json di ciascuno dalla root: funziona
+    // anche per tornei la cui copia di api.php è ancora una versione vecchia
+    // (che quindi non sincronizza da sola lo slug quando viene modificato).
+    async function repairMissingSlugs() {
+      const statusEl = document.getElementById('multitenantUpdateStatus');
+      if (statusEl) statusEl.textContent = '⏳ Controllo slug in corso...';
+
+      try {
+        const response = await fetch(`${API}?action=repair_tournament_slugs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ panelToken: 'admin' })
+        });
+
+        const data = await response.json();
+
+        if (!data.ok) {
+          alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+          if (statusEl) statusEl.textContent = '';
+          return;
+        }
+
+        const fixed = data.fixed || [];
+        let message = fixed.length
+          ? `✅ Slug sistemati per ${fixed.length} torneo/i:\n` + fixed.map(f => `- ${f.name || f.code}: "${f.slug}"`).join('\n')
+          : '✅ Tutti gli slug erano già allineati, nessuna modifica necessaria.';
         alert(message);
 
         if (statusEl) statusEl.textContent = '';

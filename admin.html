@@ -8985,17 +8985,21 @@ html += `
     // anche per tornei la cui copia di api.php è ancora una versione vecchia
     // (che quindi non sincronizza da sola lo slug quando viene modificato).
     async function repairMissingSlugs() {
+      alert('DEBUG: repairMissingSlugs() chiamata correttamente');
       const statusEl = document.getElementById('multitenantUpdateStatus');
       if (statusEl) statusEl.textContent = '⏳ Controllo slug in corso...';
 
       try {
+        console.log('🔧 repairMissingSlugs: invio richiesta a', `${API}?action=repair_tournament_slugs`);
         const response = await fetch(`${API}?action=repair_tournament_slugs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ panelToken: 'admin' })
         });
+        console.log('🔧 repairMissingSlugs: risposta HTTP status =', response.status);
 
         const data = await response.json();
+        console.log('🔧 repairMissingSlugs: dati ricevuti =', data);
 
         if (!data.ok) {
           alert('❌ Errore: ' + (data.error || 'Errore sconosciuto'));
@@ -9012,6 +9016,7 @@ html += `
         if (statusEl) statusEl.textContent = '';
         await loadMultitenantTournaments();
       } catch (e) {
+        console.error('🔧 repairMissingSlugs: ERRORE CATTURATO =', e);
         alert('❌ Errore: ' + e.message);
         if (statusEl) statusEl.textContent = '';
       }

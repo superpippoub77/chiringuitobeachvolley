@@ -4196,7 +4196,7 @@ if ($action === 'register_team' && $method === 'POST') {
 
     $emailResult = null;
 
-    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $managerEmail, &$emailResult) {
+    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);

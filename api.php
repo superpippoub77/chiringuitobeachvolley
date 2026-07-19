@@ -11370,9 +11370,9 @@ if ($action === 'delete_tournament' && $method === 'POST') {
 // che potrebbe essere una versione vecchia senza la sincronizzazione
 // automatica). Utile per i tornei creati/modificati prima che questa
 // funzionalità esistesse, o la cui copia di api.php non è ancora aggiornata.
-if ($action === 'repair_tournament_slugs' && $method === 'POST') {
-    $body = bodyJson();
-    $panelToken = trim((string)($body['panelToken'] ?? ''));
+if ($action === 'repair_tournament_slugs' && ($method === 'POST' || $method === 'GET')) {
+    $body = $method === 'POST' ? bodyJson() : [];
+    $panelToken = trim((string)($body['panelToken'] ?? $_GET['panelToken'] ?? ''));
 
     $registry = getTournamentsRegistry();
     $validSession = false;
@@ -11392,12 +11392,15 @@ if ($action === 'repair_tournament_slugs' && $method === 'POST') {
 
     $fixed = [];
     $registryChanged = false;
+    $debugInfo = [];
 
     foreach ($registry['tournaments'] ?? [] as &$t) {
         $tournamentDir = __DIR__ . '/' . ($t['path'] ?? $t['code'] ?? '');
         $tournamentConfigFile = $tournamentDir . '/data/config.json';
+        $exists = file_exists($tournamentConfigFile);
+        $debugInfo[] = ['code' => $t['code'] ?? '', 'checkedPath' => $tournamentConfigFile, 'fileExists' => $exists];
 
-        if (!file_exists($tournamentConfigFile)) {
+        if (!$exists) {
             continue; // cartella/torneo non trovato, salta senza errore
         }
 
@@ -11423,7 +11426,7 @@ if ($action === 'repair_tournament_slugs' && $method === 'POST') {
         writeTournamentsRegistry($registry);
     }
 
-    jsonResponse(200, ['ok' => true, 'fixed' => $fixed]);
+    jsonResponse(200, ['ok' => true, 'fixed' => $fixed, 'debug' => $debugInfo, '_apiDir' => __DIR__]);
 }
 
 if ($action === 'multitenant_update_tournaments' && $method === 'POST') {

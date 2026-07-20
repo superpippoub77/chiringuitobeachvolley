@@ -1723,8 +1723,8 @@
             const inputType = field.type === 'number' ? 'number' : 'text';
             const requiredAttr = field.required ? 'required' : '';
             const requiredMark = field.required ? ' *' : '';
-            html += `<div>
-              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box; grid-column: 1/-1" ${requiredAttr}>
+            html += `<div style="grid-column: 1/-1">
+              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box" ${requiredAttr}>
             </div>`;
           });
         }

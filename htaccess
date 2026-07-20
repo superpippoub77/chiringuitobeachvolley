@@ -1,10 +1,14 @@
 # Raggiungibilità dei tornei anche tramite slug (oltre al codice alfanumerico).
 # Vedi slug-router.php per i dettagli di come funziona.
 #
-# Questa regola si attiva SOLO quando il percorso richiesto non corrisponde a
-# nessuna cartella o file realmente esistente: l'accesso normale tramite
-# codice (.../<codice>/...) continua quindi a funzionare esattamente come
-# prima, senza alcuna modifica.
+# Due meccanismi indipendenti, usati insieme per massima compatibilità con
+# hosting diversi:
+# 1) RewriteRule (mod_rewrite) - si attiva SOLO quando il percorso richiesto
+#    non corrisponde a nessuna cartella/file reale, quindi non tocca in alcun
+#    modo l'accesso normale tramite codice.
+# 2) ErrorDocument 404 - fallback più compatibile, funziona anche se
+#    mod_rewrite non è disponibile/consentito in questa cartella: quando
+#    Apache genererebbe un 404 qui dentro, serve invece slug-router.php.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /projects/bm/
@@ -14,3 +18,5 @@
   RewriteCond %{REQUEST_URI} !^/projects/bm/slug-router\.php
   RewriteRule ^([a-zA-Z0-9\-]+)(/(.*))?$ slug-router.php?slug=$1&path=$3 [L,QSA]
 </IfModule>
+
+ErrorDocument 404 /projects/bm/slug-router.php

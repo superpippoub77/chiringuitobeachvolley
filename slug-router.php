@@ -21,6 +21,22 @@
 $slug = trim((string)($_GET['slug'] ?? ''), '/');
 $path = trim((string)($_GET['path'] ?? ''), '/');
 
+// 🆕 Se non arriva via query string (RewriteRule con mod_rewrite), prova a
+// derivarlo dalla URL originale richiesta così come la fornisce Apache
+// quando questo script viene invocato tramite "ErrorDocument 404" — più
+// compatibile, perché funziona anche quando mod_rewrite non è disponibile o
+// non è consentito nel .htaccess di questa cartella.
+if ($slug === '' && !empty($_SERVER['REDIRECT_URL'])) {
+    $requestedPath = trim((string)$_SERVER['REDIRECT_URL'], '/');
+    $scriptDirRel = trim(str_replace('\\', '/', dirname((string)($_SERVER['SCRIPT_NAME'] ?? ''))), '/');
+    if ($scriptDirRel !== '' && strpos($requestedPath, $scriptDirRel) === 0) {
+        $requestedPath = trim(substr($requestedPath, strlen($scriptDirRel)), '/');
+    }
+    $parts = explode('/', $requestedPath, 2);
+    $slug = $parts[0] ?? '';
+    $path = $parts[1] ?? '';
+}
+
 if ($slug === '') {
     http_response_code(404);
     header('Content-Type: text/plain; charset=utf-8');

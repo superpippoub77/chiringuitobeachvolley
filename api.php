@@ -801,6 +801,8 @@ function initialState(): array {
         // dover passare matchId/phase espliciti (utile per un link fisso su
         // TV/proiettore che cambia partita quando l'admin la cambia).
         'currentMatch' => ['matchId' => null, 'phaseNumber' => null],
+        // 🆕 Contatore di visualizzazioni della pagina pubblica (scoreboard.html)
+        'pageViews' => 0,
         'meta' => [
             'lastUpdated' => null
         ]
@@ -829,6 +831,11 @@ function mergeState(array $existingState, array $newState): array {
     // 🆕 Preserva la partita marcata come "in corso" (tablescore.html?current)
     if (isset($existingState['currentMatch']) && is_array($existingState['currentMatch'])) {
         $merged['currentMatch'] = $existingState['currentMatch'];
+    }
+
+    // 🆕 Preserva il contatore di visualizzazioni della pagina pubblica
+    if (isset($existingState['pageViews']) && is_numeric($existingState['pageViews'])) {
+        $merged['pageViews'] = (int)$existingState['pageViews'];
     }
     
     // Preserva i metadata
@@ -2203,6 +2210,8 @@ function publicState(array $state): array {
         'liveScoreboardRefreshSeconds' => max(2, min(60, (int)($config['tournament']['liveScoreboardRefreshSeconds'] ?? 5))),
         // 🆕 Partita marcata come "in corso" dall'admin (tablescore.html?current)
         'currentMatch' => $state['currentMatch'] ?? ['matchId' => null, 'phaseNumber' => null],
+        // 🆕 Contatore di visualizzazioni della pagina pubblica
+        'pageViews' => (int)($state['pageViews'] ?? 0),
         'phases' => array_map(function ($phase, $idx) use ($state) {
             // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
             if (($phase['type'] ?? '') === 'groups') {
@@ -4106,6 +4115,21 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($action === 'get_public' && $method === 'GET') {
     $state = readJsonFile(DATA_FILE, initialState());
     jsonResponse(200, ['ok' => true, 'data' => publicState($state)]);
+}
+
+// 🆕 Incrementa il contatore di visitatori unici e restituisce il nuovo
+// totale. Nessuna autenticazione richiesta. La deduplicazione "una volta per
+// browser" è gestita lato client (scoreboard.html usa un flag in
+// localStorage per chiamare questo endpoint una sola volta a testa): qui il
+// server si limita a incrementare ogni volta che viene chiamato.
+if ($action === 'track_page_view' && $method === 'POST') {
+    $newCount = 0;
+    withStateTransaction(function (&$state) use (&$newCount) {
+        $state['pageViews'] = (int)($state['pageViews'] ?? 0) + 1;
+        $newCount = $state['pageViews'];
+        return [];
+    });
+    jsonResponse(200, ['ok' => true, 'pageViews' => $newCount]);
 }
 
 if ($action === 'register_team' && $method === 'POST') {

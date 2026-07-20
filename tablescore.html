@@ -524,6 +524,11 @@
       <button class="btn-action btn-save" onclick="saveMatch()">💾 SALVA</button>
     </div>
 
+    <div class="bottom-controls" style="grid-template-columns: 1fr 1fr; margin-top: 15px">
+      <button class="btn-action" style="background: #1976d2" onclick="playWhistleSound()">🔊 FISCHIO ARBITRO</button>
+      <button class="btn-action" style="background: #c62828" onclick="playHornSound()">📯 TROMBA FINE PARTITA</button>
+    </div>
+
     <div class="status-info" id="statusInfo">
       Auto-save attivato
     </div>
@@ -538,6 +543,81 @@
     let currentSetIndex = 0;
     let history = [];
     let saveTimeout = null;
+
+    // 🆕 Fischio arbitro / tromba fine partita: suoni generati al volo con la
+    // Web Audio API (nessun file audio da ospitare/scaricare). Un unico
+    // AudioContext condiviso, creato alla prima interazione (i browser non
+    // permettono di avviarlo prima di un gesto dell'utente).
+    let sfxAudioContext = null;
+    function getSfxAudioContext() {
+      if (!sfxAudioContext) {
+        sfxAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (sfxAudioContext.state === 'suspended') {
+        sfxAudioContext.resume();
+      }
+      return sfxAudioContext;
+    }
+
+    // Fischio: un tono acuto con un rapido "trillo" (tipico dei fischietti da
+    // arbitro), due colpi brevi in sequenza.
+    function playWhistleSound() {
+      const ctx = getSfxAudioContext();
+      const now = ctx.currentTime;
+
+      function blast(startTime, duration) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(2800, startTime);
+        osc.frequency.linearRampToValueAtTime(3200, startTime + duration * 0.5);
+        osc.frequency.linearRampToValueAtTime(2800, startTime + duration);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
+        gain.gain.linearRampToValueAtTime(0.0001, startTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+      }
+
+      blast(now, 0.22);
+      blast(now + 0.28, 0.22);
+    }
+
+    // Tromba/sirena fine partita: tono basso e prolungato con una leggera
+    // modulazione, tipico degli air-horn da stadio.
+    function playHornSound() {
+      const ctx = getSfxAudioContext();
+      const now = ctx.currentTime;
+      const duration = 1.4;
+
+      const osc = ctx.createOscillator();
+      const vibrato = ctx.createOscillator();
+      const vibratoGain = ctx.createGain();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+
+      vibrato.frequency.setValueAtTime(6, now);
+      vibratoGain.gain.setValueAtTime(4, now);
+      vibrato.connect(vibratoGain);
+      vibratoGain.connect(osc.frequency);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.4, now + 0.08);
+      gain.gain.setValueAtTime(0.4, now + duration - 0.3);
+      gain.gain.linearRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      vibrato.start(now);
+      osc.stop(now + duration);
+      vibrato.stop(now + duration);
+    }
 
     // 🆕 Modalità sola visualizzazione (aperta da scoreboard.html): nessuna
     // scrittura, nessuna autenticazione richiesta, solo lettura pubblica con

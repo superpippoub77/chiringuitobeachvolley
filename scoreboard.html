@@ -2381,6 +2381,27 @@
       // Classifiche mostravano sempre e solo la Fase 1 anche selezionando
       // un'altra fase a gironi (es. Fase 3 - Silver).
       const activePhase = getActivePublicPhase();
+
+      // 🆕 Per una fase knockout non esiste una "classifica" nel senso
+      // classico: mostriamo invece come è stato determinato l'ordinamento/
+      // seeding usato per costruire il tabellone (stessa informazione già
+      // visibile in admin.html), invece del messaggio "non disponibili".
+      if (activePhase?.type === 'knockout') {
+        const criterionNames = { 1: 'Media Punti per Partita', 2: '% Vittorie', 3: 'Media + Quoziente + Diff' };
+        const criterionLabel = criterionNames[activePhase.sortCriterion || 1] || criterionNames[1];
+        c.innerHTML = `<h3>📈 Classifica</h3>
+          <div style="background: #fff8ea; border: 1px solid #d9bf8c; border-radius: 8px; padding: 14px; margin-top: 8px">
+            <p style="margin: 0 0 10px 0; color: #6a5737">Questa è una fase a eliminazione diretta: non esiste una classifica nel senso classico. Ecco come è stato costruito il tabellone:</p>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px">
+              <div>📊 Criterio di ordinamento delle squadre: <strong>${esc(criterionLabel)}</strong></div>
+              <div>🚫 Evita rematch dello stesso girone al primo turno: <strong>${activePhase.avoidGroupRematches ? 'Sì' : 'No'}</strong></div>
+              <div>🌟 Teste di serie il più lontano possibile: <strong>${activePhase.maximizeSeedSeparation ? 'Sì' : 'No'}</strong></div>
+            </div>
+            <p style="margin: 10px 0 0 0; font-size: 12px; color: #888">Il tabellone e i risultati delle partite si trovano nella scheda "🏆 Partite" / "Fase finale".</p>
+          </div>`;
+        return;
+      }
+
       const standings = activePhase?.standings || [];
 
       if (!standings.length) {

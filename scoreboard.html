@@ -982,6 +982,9 @@
         <a href="#" onclick="window.open('tablescore.html?current', '_blank'); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📺 Tabellone</a>
+        <a href="#" onclick="openNewsletterSignup(); return false;"
+          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 Newsletter</a>
       </nav>
 
     <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
@@ -1025,6 +1028,35 @@
       <div id="modalBody" class="modal-body"></div>
       <div class="modal-footer">
         <button id="modalOk" class="btn-modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🆕 Iscrizione newsletter: email e/o telefono, indipendente dalle squadre -->
+  <div id="newsletterOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeNewsletterSignup()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="newsletterTitle">
+      <div class="modal-head">
+        <h4 id="newsletterTitle">📬 Resta aggiornato</h4>
+        <button class="modal-close" aria-label="Chiudi" onclick="closeNewsletterSignup()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Iscriviti per essere contattato con aggiornamenti sul torneo, anche se non iscrivi una squadra. Basta uno tra email e telefono (puoi anche inserirli entrambi).</p>
+        <div class="field">
+          <label>Email</label>
+          <input id="nlEmail" type="email" placeholder="nome@esempio.it" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Telefono</label>
+          <input id="nlPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px">
+        </div>
+        <div class="form-check" style="margin-top: 12px">
+          <input type="checkbox" id="nlPrivacy">
+          <label for="nlPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
+        </div>
+        <div id="newsletterStatus" style="margin-top: 10px; font-size: 13px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="submitNewsletterSignup()">Iscrivimi</button>
       </div>
     </div>
   </div>
@@ -2666,6 +2698,65 @@
         closeBtn.addEventListener('click', onClose);
         backdrop.addEventListener('click', onBackdrop);
       });
+    }
+
+    // 🆕 Iscrizione newsletter (email e/o telefono, indipendente dalle squadre)
+    function openNewsletterSignup() {
+      document.getElementById('newsletterStatus').textContent = '';
+      document.getElementById('newsletterOverlay').classList.remove('hidden');
+    }
+
+    function closeNewsletterSignup() {
+      document.getElementById('newsletterOverlay').classList.add('hidden');
+    }
+
+    async function submitNewsletterSignup() {
+      const email = document.getElementById('nlEmail').value.trim();
+      const phone = document.getElementById('nlPhone').value.trim();
+      const privacyOk = document.getElementById('nlPrivacy').checked;
+      const statusEl = document.getElementById('newsletterStatus');
+
+      if (!email && !phone) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci almeno un\'email o un numero di telefono.';
+        return;
+      }
+
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (email && !emailPattern.test(email)) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Email non valida.';
+        return;
+      }
+
+      if (phone) {
+        const phoneDigitsCount = phone.replace(/\D/g, '').length;
+        if (phoneDigitsCount < 8 || phoneDigitsCount > 15) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = 'Numero di telefono non valido.';
+          return;
+        }
+      }
+
+      if (!privacyOk) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Devi accettare l\'informativa privacy.';
+        return;
+      }
+
+      try {
+        const r = await api('newsletter_signup', 'POST', { email, phone, privacyAccepted: true });
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = r.alreadyRegistered
+          ? '✅ Sei già iscritto — contatti aggiornati.'
+          : '✅ Iscrizione avvenuta con successo!';
+        document.getElementById('nlEmail').value = '';
+        document.getElementById('nlPhone').value = '';
+        document.getElementById('nlPrivacy').checked = false;
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = '❌ ' + (e.message || 'Errore sconosciuto');
+      }
     }
 
     function esc(s) {

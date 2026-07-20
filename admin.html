@@ -3361,6 +3361,7 @@
             <option value="all">Tutte le squadre iscritte (confermate)</option>
             <option value="phase">Squadre di una fase</option>
             <option value="group">Squadre di un girone</option>
+            <option value="newsletter">Iscritti alla newsletter (con telefono)</option>
           </select>
         </div>
         <div class="field" id="waPhaseField" style="display: none; margin-top: 10px">
@@ -3405,13 +3406,29 @@
       groupSelect.innerHTML = groups.map(g => `<option value="${escapeHtml(g.label || g.name)}">${escapeHtml(g.label || g.name)}</option>`).join('');
     }
 
-    // 🆕 Risolve l'elenco di squadre in base all'ambito scelto (tutte/fase/girone)
-    function getTeamsForWhatsAppScope() {
+    // 🆕 Risolve l'elenco di squadre/contatti in base all'ambito scelto
+    // (tutte/fase/girone/iscritti newsletter). Asincrona perché l'ambito
+    // "newsletter" richiede una chiamata al server.
+    async function getTeamsForWhatsAppScope() {
       const scope = document.getElementById('waScope').value;
       const allApproved = (state?.teams || []).filter(t => t.approved);
 
       if (scope === 'all') {
         return allApproved;
+      }
+
+      if (scope === 'newsletter') {
+        try {
+          const data = await callApi('admin_get_newsletter_subscribers', 'GET', null, true);
+          // Adatta ogni iscritto al formato {name, phone} già usato dal resto
+          // del generatore di link, cosi non serve duplicare la logica sotto.
+          return (data.subscribers || [])
+            .filter(s => s.phone)
+            .map(s => ({ name: s.email || s.phone, phone: s.phone }));
+        } catch (e) {
+          console.error('Errore caricamento iscritti newsletter:', e);
+          return [];
+        }
       }
 
       const phaseNumber = parseInt(document.getElementById('waPhase')?.value, 10);
@@ -3440,8 +3457,8 @@
       return [];
     }
 
-    function generateWhatsAppContactList() {
-      const teams = getTeamsForWhatsAppScope();
+    async function generateWhatsAppContactList() {
+      const teams = await getTeamsForWhatsAppScope();
       const messageTemplate = document.getElementById('waMessage').value.trim();
       const container = document.getElementById('waContactList');
 

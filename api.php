@@ -44,6 +44,10 @@ const CONFIG_FILE = __DIR__ . '/data/config.json';
 const VERSION_FILE = __DIR__ . '/data/version.json';
 const RELEASES_FILE = __DIR__ . '/data/releases.json';
 const HISTORY_FILE = __DIR__ . '/data/history.json';
+// 🆕 Lista iscritti "newsletter" (email/telefono), completamente indipendente
+// da squadre/torneo/config: chi si iscrive qui non fa necessariamente parte
+// di una squadra iscritta al torneo.
+const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
 const UPLOADS_DIR = __DIR__ . '/data/uploads';
 const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
@@ -779,6 +783,44 @@ function withStateTransaction(callable $callback): array {
     ftruncate($fp, 0);
     rewind($fp);
     fwrite($fp, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * Lettura-modifica-scrittura atomica (con lock) per il file indipendente
+ * della newsletter (data/newsletter.json) — stesso meccanismo di
+ * withStateTransaction(), applicato a un file completamente separato da
+ * squadre/torneo/config.
+ */
+function withNewsletterTransaction(callable $callback): array {
+    $dir = dirname(NEWSLETTER_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(NEWSLETTER_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire la lista newsletter']);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare la lista newsletter']);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['subscribers']) ? $decoded : ['subscribers' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     fflush($fp);
     flock($fp, LOCK_UN);
     fclose($fp);
@@ -4116,6 +4158,72 @@ if ($action === 'get_public' && $method === 'GET') {
     $state = readJsonFile(DATA_FILE, initialState());
     jsonResponse(200, ['ok' => true, 'data' => publicState($state)]);
 }
+
+// 🆕 Iscrizione alla "newsletter": email e/o telefono, indipendente da
+// squadre/torneo (una persona può iscriversi senza iscrivere una squadra).
+// Richiede almeno uno dei due, valida il formato di quello/i forniti.
+if ($action === 'newsletter_signup' && $method === 'POST') {
+    $body = bodyJson();
+    $email = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
+    $phoneRaw = trim((string)($body['phone'] ?? ''));
+    $phone = $phoneRaw !== '' ? normalizePhoneInternational($phoneRaw) : '';
+    $privacyOk = !empty($body['privacyAccepted']);
+
+    if ($email === '' && $phone === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci almeno un\'email o un numero di telefono']);
+    }
+
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Email non valida']);
+    }
+
+    if ($phone !== '') {
+        $phoneDigitsCount = strlen(preg_replace('/\D/', '', $phone));
+        if ($phoneDigitsCount < 8 || $phoneDigitsCount > 15) {
+            jsonResponse(422, ['ok' => false, 'error' => 'Numero di telefono non valido (con prefisso internazionale se non italiano)']);
+        }
+    }
+
+    if (!$privacyOk) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Devi accettare l\'informativa privacy']);
+    }
+
+    $result = withNewsletterTransaction(function (&$list) use ($email, $phone) {
+        // Deduplica: se esiste già un iscritto con la stessa email o lo
+        // stesso telefono, aggiorna quella voce (aggiungendo l'eventuale
+        // altro contatto mancante) invece di crearne una seconda.
+        $emailLower = strtolower($email);
+        foreach ($list['subscribers'] as &$sub) {
+            $subEmail = strtolower((string)($sub['email'] ?? ''));
+            $subPhone = (string)($sub['phone'] ?? '');
+            if (($email !== '' && $subEmail === $emailLower) || ($phone !== '' && $subPhone === $phone)) {
+                if ($email !== '') $sub['email'] = $email;
+                if ($phone !== '') $sub['phone'] = $phone;
+                $sub['updatedAt'] = date('c');
+                return ['ok' => true, 'alreadyRegistered' => true];
+            }
+        }
+        unset($sub);
+
+        $list['subscribers'][] = [
+            'id' => bin2hex(random_bytes(8)),
+            'email' => $email,
+            'phone' => $phone,
+            'createdAt' => date('c')
+        ];
+        return ['ok' => true, 'alreadyRegistered' => false];
+    });
+
+    jsonResponse(200, $result);
+}
+
+// 🆕 Legge la lista iscritti newsletter (richiede autenticazione admin)
+if ($action === 'admin_get_newsletter_subscribers' && $method === 'GET') {
+    requireAdmin();
+    $list = readJsonFile(NEWSLETTER_FILE, ['subscribers' => []]);
+    jsonResponse(200, ['ok' => true, 'subscribers' => $list['subscribers'] ?? []]);
+}
+
 
 // 🆕 Incrementa il contatore di visitatori unici e restituisce il nuovo
 // totale. Nessuna autenticazione richiesta. La deduplicazione "una volta per

@@ -38,7 +38,12 @@ if ($slug === '' && !empty($_SERVER['REDIRECT_URL'])) {
 }
 
 if ($slug === '') {
-    http_response_code(404);
+    // 🔧 FIX: NON usare http_response_code(404) qui. Con "ErrorDocument 404"
+    // configurato su questa stessa cartella, un 404 emesso da QUESTO script
+    // richiama di nuovo ErrorDocument, che rilancia questo stesso script,
+    // all'infinito ("troppi redirect" / 404 finale quando Apache si ferma).
+    // Un 200 con un messaggio semplice evita completamente il ciclo.
+    http_response_code(200);
     header('Content-Type: text/plain; charset=utf-8');
     echo "Torneo non trovato.";
     exit;
@@ -78,7 +83,9 @@ foreach ($registry['tournaments'] ?? [] as $t) {
 }
 
 if ($matchedCode === null) {
-    http_response_code(404);
+    // 🔧 Stesso motivo del blocco sopra: niente http_response_code(404) qui,
+    // per non richiamare di nuovo ErrorDocument in un ciclo infinito.
+    http_response_code(200);
     header('Content-Type: text/plain; charset=utf-8');
     echo "Nessun torneo trovato per \"" . htmlspecialchars($slug) . "\".";
     exit;

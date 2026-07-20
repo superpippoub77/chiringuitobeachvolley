@@ -4088,8 +4088,21 @@ function simulateAll(array &$state): bool {
 }
 
 function authToken(): ?string {
+    // 🔧 FIX: quando la richiesta passa attraverso una riscrittura Apache
+    // (mod_rewrite) — come ora succede nella cartella principale per via del
+    // .htaccess dello slug — l'header Authorization può arrivare a PHP sotto
+    // "REDIRECT_HTTP_AUTHORIZATION" invece che "HTTP_AUTHORIZATION". Senza
+    // questo controllo aggiuntivo, un login corretto ottiene comunque un
+    // token valido, ma la richiesta successiva (che deve autenticarsi con
+    // quel token) fallisce con 401 perché l'header non viene trovato.
     $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+    $auth = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    if ($auth === '') {
+        $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    }
+    if ($auth === '') {
+        $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    }
     if (strpos($auth, 'Bearer ') !== 0) return null;
     return substr($auth, 7);
 }

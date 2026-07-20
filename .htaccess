@@ -13,6 +13,12 @@
   RewriteEngine On
   RewriteBase /projects/bm/
 
+  # 🆕 Inoltra esplicitamente l'header Authorization (necessario per il
+  # login dei pannelli admin dei singoli tornei): su alcune configurazioni,
+  # con RewriteEngine attivo, questo header può non arrivare a PHP senza
+  # questa regola.
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_URI} !^/projects/bm/slug-router\.php

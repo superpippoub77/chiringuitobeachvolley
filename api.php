@@ -2259,6 +2259,14 @@ function publicState(array $state): array {
         // 🆕 Intervallo di auto-refresh (secondi) per il tabellone pubblico in
         // sola visualizzazione; default 5s se non configurato dall'admin.
         'liveScoreboardRefreshSeconds' => max(2, min(60, (int)($config['tournament']['liveScoreboardRefreshSeconds'] ?? 5))),
+        // 🆕 Info kit torneo (descrizione + immagine), configurate in
+        // Impostazioni → Avanzate ma prima non venivano mai mostrate nella
+        // pagina pubblica, anche se già salvate al momento dell'iscrizione.
+        'kit' => [
+            'enabled' => (bool)($config['kit']['enabled'] ?? false),
+            'description' => $config['kit']['description'] ?? '',
+            'imageFile' => $config['kit']['imageFile'] ?? ''
+        ],
         // 🆕 Partita marcata come "in corso" dall'admin (tablescore.html?current)
         'currentMatch' => $state['currentMatch'] ?? ['matchId' => null, 'phaseNumber' => null],
         // 🆕 Contatore di visualizzazioni della pagina pubblica
@@ -7954,7 +7962,15 @@ if ($action === 'get_config' && $method === 'GET') {
 			'registrationDeadline' =>$tournament['registrationDeadline'] ?? ''
         ],
         'schedule' => $config['schedule'] ?? [],
-        'phases' => $publicPhases
+        'phases' => $publicPhases,
+        // 🆕 Info kit torneo (descrizione + immagine): configurate in
+        // Impostazioni → Avanzate ma prima non venivano mai esposte alla
+        // pagina pubblica, anche se già salvate al momento dell'iscrizione.
+        'kit' => [
+            'enabled' => (bool)($config['kit']['enabled'] ?? false),
+            'description' => $config['kit']['description'] ?? '',
+            'imageFile' => $config['kit']['imageFile'] ?? ''
+        ]
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
@@ -8161,6 +8177,22 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         // 🆕 Intervallo (in secondi) di auto-refresh del tabellone pubblico in
         // sola visualizzazione (scoreboard.html -> tablescore.html?mode=view)
         if (isset($t['liveScoreboardRefreshSeconds'])) $config['tournament']['liveScoreboardRefreshSeconds'] = max(2, min(60, (int)$t['liveScoreboardRefreshSeconds']));
+    }
+
+    // 🔧 FIX: il campo 'kit' non veniva mai letto qui — il pulsante "Salva
+    // Configurazione Kit" inviava enabled/description, ma non venivano mai
+    // salvati davvero (solo l'immagine, gestita da un endpoint separato).
+    if (isset($body['kit']) && is_array($body['kit'])) {
+        $k = $body['kit'];
+        if (!isset($config['kit']) || !is_array($config['kit'])) {
+            $config['kit'] = [];
+        }
+        if (isset($k['enabled'])) $config['kit']['enabled'] = (bool)$k['enabled'];
+        // La descrizione ora arriva dall'editor Jodit (HTML formattato:
+        // grassetto/corsivo/liste/link), quindi non va spogliata dei tag
+        // come se fosse testo semplice — solo limitata in lunghezza.
+        if (isset($k['description'])) $config['kit']['description'] = mb_substr((string)$k['description'], 0, 5000);
+        if (isset($k['imageFile'])) $config['kit']['imageFile'] = (string)$k['imageFile'];
     }
     
     if (isset($body['schedule']) && is_array($body['schedule']['courts'] ?? null)) {

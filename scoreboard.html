@@ -1667,6 +1667,22 @@
         html += `<div style="background: #ffebee; color: #c62828; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-weight: bold">${reason}</div>`;
       } else {
         // Form di iscrizione
+
+        // 🆕 Info kit torneo (se configurato in Impostazioni → Avanzate):
+        // prima era salvato ma non veniva mai mostrato qui.
+        if (config?.kit?.enabled && (config.kit.description || config.kit.imageFile)) {
+          html += '<div style="background: #fff8ea; border: 1px solid #d9bf8c; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap">';
+          if (config.kit.imageFile) {
+            html += `<img src="${esc(config.kit.imageFile)}" alt="Kit torneo" style="max-width: 120px; max-height: 120px; border-radius: 8px; object-fit: cover; flex-shrink: 0">`;
+          }
+          html += '<div style="flex: 1; min-width: 200px">';
+          html += '<h4 style="margin: 0 0 6px 0">🎁 Kit del torneo</h4>';
+          if (config.kit.description) {
+            html += `<div style="margin: 0; color: #6a5737; line-height: 1.5">${config.kit.description}</div>`;
+          }
+          html += '</div></div>';
+        }
+
         html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 24px">';
         html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
         html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Il torneo è solo misto. Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';

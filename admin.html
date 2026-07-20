@@ -2196,7 +2196,7 @@
               <div id="kitConfigContent" style="opacity: ${config.kit?.enabled ? '1' : '0.5'}; pointer-events: ${config.kit?.enabled ? 'auto' : 'none'}; transition: opacity 0.3s">
                 <div style="margin-bottom: 12px">
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Descrizione Kit</label>
-                  <textarea id="cfg-kitDescription" placeholder="Es: Maglietta da Beach Volley, Bandana, Bottiglia d'acqua riutilizzabile" style="width: 100%; height: 80px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical; line-height: 1.4">${escapeHtml(config.kit?.description || '')}</textarea>
+                  <div id="cfg-kitDescription" style="border: 1px solid #ddd; border-radius: 4px; background: white"></div>
                   <small style="color: #666; display: block; margin-top: 4px">Descrivi i contenuti del kit che i partecipanti riceveranno all'iscrizione</small>
                 </div>
                 
@@ -2500,6 +2500,14 @@
               kitImagePreview.innerHTML = '<div style="color: #aaa; padding: 20px">Nessuna immagine kit caricata</div>';
             }
           }
+
+          // 🆕 Editor Jodit per la descrizione del kit (stesso usato per le
+          // notizie). Le Impostazioni vengono ridisegnate per intero ogni
+          // volta che questa funzione gira, quindi il contenitore precedente
+          // (se esisteva) è già stato rimosso dal DOM: distruggiamo la
+          // vecchia istanza e ne creiamo una nuova sul contenitore appena
+          // inserito, invece di provare a riutilizzarla.
+          initKitEditor(config.kit?.description || '');
           
           const kitImageUploadInput = document.getElementById('kitImageUpload');
           if (kitImageUploadInput) {
@@ -2793,7 +2801,7 @@
     async function saveKitConfig() {
       try {
         const kitEnabled = document.getElementById('cfg-kitEnabled')?.checked || false;
-        const kitDescription = document.getElementById('cfg-kitDescription')?.value?.trim() || '';
+        const kitDescription = kitEditor ? kitEditor.value.trim() : '';
         
         if (kitEnabled && !kitDescription) {
           await showInfoDialog('Attenzione', 'Se abiliti il kit, inserisci almeno una descrizione');
@@ -9938,6 +9946,32 @@ html += `
     let editingNewsId = null;
     let currentNewsImageFile = '';
     let newsEditor = null;
+
+    // 🆕 Editor Jodit per la descrizione del kit torneo (stesso usato per le
+    // notizie). A differenza di initNewsEditor() (che crea l'istanza una
+    // sola volta, perché il suo contenitore resta fisso nella pagina),
+    // questo distrugge e ricrea l'istanza ogni volta: il contenitore
+    // #cfg-kitDescription viene rigenerato ad ogni ridisegno di Impostazioni
+    // (l'intera pagina viene ricostruita), quindi riusare la vecchia istanza
+    // la lascerebbe agganciata a un elemento non più nel DOM.
+    let kitEditor = null;
+    function initKitEditor(initialValue) {
+      if (typeof Jodit === 'undefined') return;
+      if (kitEditor) {
+        try { kitEditor.destroy(); } catch (e) { /* ignora, contenitore già rimosso */ }
+        kitEditor = null;
+      }
+      const container = document.getElementById('cfg-kitDescription');
+      if (!container) return;
+      kitEditor = new Jodit('#cfg-kitDescription', {
+        height: 150,
+        width: '100%',
+        toolbarButtonSize: 'small',
+        buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'link', '|', 'eraser'],
+        placeholder: 'Es: Maglietta da Beach Volley, Bandana, Bottiglia d\'acqua riutilizzabile'
+      });
+      kitEditor.value = initialValue || '';
+    }
 
     function initNewsEditor() {
       if (!newsEditor && typeof Jodit !== 'undefined') {

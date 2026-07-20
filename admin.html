@@ -2865,6 +2865,10 @@
         const payload = { kit: config.kit };
         await callApi('admin_update_config', 'POST', payload, true);
         await showInfoDialog('✅ Successo', 'Configurazione kit salvata');
+        // 🔧 FIX: senza questo, checkbox ed editor restavano fermi allo stato
+        // precedente al salvataggio finché non si ricaricava l'intera pagina
+        // (il tab "Impostazioni" non si ri-renderizza da solo navigandoci sopra).
+        await renderSettings();
       } catch (e) {
         await showInfoDialog('❌ Errore', e.message);
       }
@@ -10046,6 +10050,7 @@ html += `
         const result = await callApi('admin_update_custom_fields', 'POST', { customFields: finalFields }, true);
         customFieldsData = result.customFields;
         renderCustomFields();
+        config.customFields = result.customFields;
 
         await showInfoDialog('Successo', '✅ Campi personalizzati salvati');
       } catch (e) {

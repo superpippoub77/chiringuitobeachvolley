@@ -99,7 +99,13 @@ if ($matchedCode === null) {
 // automaticamente qualunque sia la sottocartella in cui è installato,
 // invece di doverla indovinare/scrivere a mano.
 $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
-$destination = $scriptDir . '/' . rawurlencode($matchedCode) . '/' . ($path !== '' ? $path : '');
+// 🔧 FIX: reindirizza esplicitamente a "index.html" invece che a una cartella
+// "nuda" (solo la barra finale). Se per qualche motivo Apache non risolve da
+// solo l'index di quella cartella, genererebbe un altro 404 lì — che con
+// ErrorDocument configurato richiamerebbe di nuovo QUESTO stesso script,
+// creando un ciclo (esattamente il "troppi redirect" osservato). Puntare a
+// un file esplicito ed esistente elimina questa ambiguità alla radice.
+$destination = $scriptDir . '/' . rawurlencode($matchedCode) . '/' . ($path !== '' ? $path : 'index.html');
 if (!empty($_SERVER['QUERY_STRING'])) {
     // Rimuovi i parametri slug/path che abbiamo aggiunto noi tramite la
     // regola di rewrite, mantenendo eventuali altri parametri originali

@@ -285,12 +285,11 @@
     }
 
     .team {
-      display: grid;
-      grid-template-columns: 2fr 1fr auto;
+      display: flex;
+      flex-direction: column;
       gap: 8px;
-      padding: 8px;
+      padding: 10px 8px;
       border-bottom: 1px dashed #e7d6b5;
-      align-items: center;
     }
 
     .team:last-child {
@@ -1874,16 +1873,43 @@
       }
     }
 
-    async function editTodoItem(id, currentText) {
-      const newText = prompt('Modifica il punto:', currentText);
-      if (newText === null || newText.trim() === '' || newText.trim() === currentText) return;
-
-      try {
-        await callApi('admin_edit_todo', 'POST', { id, text: newText.trim() }, true);
-        await refresh();
-      } catch (e) {
-        await showInfoDialog('Errore', e.message);
-      }
+    function editTodoItem(id, currentText) {
+      openModal({
+        title: 'Modifica punto',
+        bodyHtml: `
+          <div class="field">
+            <label>Testo</label>
+            <input id="todoEditInput" type="text" value="${escapeHtml(currentText)}" maxlength="200" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px" onkeypress="if(event.key==='Enter') document.getElementById('todoEditSaveBtn').click()">
+          </div>
+        `,
+        buttons: [
+          {
+            text: 'Annulla',
+            className: 'btn',
+            closeOnClick: true
+          },
+          {
+            text: '💾 Salva',
+            className: 'btn btn-primary',
+            onClick: async () => {
+              const input = document.getElementById('todoEditInput');
+              const newText = input.value.trim();
+              if (!newText || newText === currentText) return;
+              try {
+                await callApi('admin_edit_todo', 'POST', { id, text: newText }, true);
+                await refresh();
+              } catch (e) {
+                await showInfoDialog('Errore', e.message);
+              }
+            },
+            closeOnClick: true
+          }
+        ]
+      });
+      // Assegna un id al pulsante "Salva" appena creato, per poterlo attivare con Invio
+      const footerButtons = document.querySelectorAll('#modalFooter button');
+      if (footerButtons[1]) footerButtons[1].id = 'todoEditSaveBtn';
+      document.getElementById('todoEditInput')?.focus();
     }
 
     async function renderSettings() {
@@ -3429,7 +3455,7 @@
           <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
           <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
         </div>
-        <div class="row" style="justify-content:flex-end">
+        <div class="row">
           ${contactButtonsHtml}
           <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
           ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}

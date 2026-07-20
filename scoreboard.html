@@ -1677,7 +1677,7 @@
         html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
         html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Il torneo è solo misto. Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';
         html += '<div class="form-grid" id="registrationForm2">';
-        html += '<input id="fName" placeholder="Nome squadra">';
+        html += '<input id="fName" placeholder="Nome squadra" style="width: 100%; box-sizing: border-box">';
         html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4></div>';
 
         // 🆕 Loop dinamico sui giocatori in base alla configurazione del torneo:
@@ -1698,7 +1698,7 @@
           html += renderPlayerPhotoBox(i);
           html += `<div style="flex: 1; min-width: 180px">`;
           const namePlaceholder = isRequired ? 'Nome completo' : 'Nome completo (opzionale)';
-          html += `<input id="fP${i}" placeholder="${namePlaceholder}"${isRequired ? ' required' : ''}>`;
+          html += `<input id="fP${i}" placeholder="${namePlaceholder}" style="width: 100%; box-sizing: border-box"${isRequired ? ' required' : ''}>`;
           html += `<select id="fP${i}Level" style="padding: 8px; margin-top: 8px; width: 100%"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>`;
           html += `</div></div>`;
           html += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="${i}" id="fP${i}Captain"${i === 1 ? ' checked' : ''} style="width: auto;"><span>👑 Capitano</span></label>`;
@@ -1711,8 +1711,8 @@
         // refresh, incluso l'auto-refresh ogni 30s) l'iscrizione si rompe con
         // un errore JS silenzioso invece di essere inviata.
         html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Contatti</h4></div>';
-        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)">';
-        html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)">';
+        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)" style="width: 100%; box-sizing: border-box">';
+        html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; box-sizing: border-box">';
 
         // 🆕 Campi personalizzati definiti dall'organizzatore (oltre a
         // nome/email/telefono/giocatori già previsti sopra)
@@ -1724,7 +1724,7 @@
             const requiredAttr = field.required ? 'required' : '';
             const requiredMark = field.required ? ' *' : '';
             html += `<div>
-              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" ${requiredAttr}>
+              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box" ${requiredAttr}>
             </div>`;
           });
         }

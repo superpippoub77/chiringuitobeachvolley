@@ -2842,20 +2842,28 @@
       try {
         const kitEnabled = document.getElementById('cfg-kitEnabled')?.checked || false;
         const kitDescription = kitEditor ? kitEditor.value.trim() : '';
-        
+
+        console.log('🎁 DEBUG saveKitConfig: kitEnabled =', kitEnabled, '| kitDescription =', kitDescription, '| kitEditor esiste?', !!kitEditor);
+
         if (kitEnabled && !kitDescription) {
           await showInfoDialog('Attenzione', 'Se abiliti il kit, inserisci almeno una descrizione');
           return;
         }
-        
+
         if (!config.kit) config.kit = {};
         config.kit.enabled = kitEnabled;
         config.kit.description = kitDescription;
-        
+
         const payload = { kit: config.kit };
-        await callApi('admin_update_config', 'POST', payload, true);
+        console.log('🎁 DEBUG saveKitConfig: payload inviato =', JSON.stringify(payload));
+
+        const result = await callApi('admin_update_config', 'POST', payload, true);
+        console.log('🎁 DEBUG saveKitConfig: risposta server =', JSON.stringify(result));
+        alert('DEBUG kit salvato:\n\nInviato: ' + JSON.stringify(payload.kit) + '\n\nRicevuto dal server: ' + JSON.stringify(result.config?.kit));
+
         await showInfoDialog('✅ Successo', 'Configurazione kit salvata');
       } catch (e) {
+        console.error('🎁 DEBUG saveKitConfig: ERRORE =', e);
         await showInfoDialog('❌ Errore', e.message);
       }
     }

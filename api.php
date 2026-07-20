@@ -75,12 +75,27 @@ function readJsonFile(string $file, array $default = []): array {
     return is_array($decoded) ? $decoded : $default;
 }
 
-function writeJsonFile(string $file, array $data): void {
+function writeJsonFile(string $file, array $data): bool {
     $dir = dirname($file);
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
-    file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    // 🔧 FIX: json_encode() e file_put_contents() possono fallire in
+    // silenzio (es. contenuto non codificabile, permessi di scrittura
+    // mancanti, disco pieno) — prima il loro esito non veniva mai
+    // controllato: la risposta all'admin diceva "salvato con successo"
+    // anche quando il file su disco non veniva realmente scritto.
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        error_log('❌ writeJsonFile: json_encode fallito per ' . $file . ': ' . json_last_error_msg());
+        return false;
+    }
+    $result = @file_put_contents($file, $json);
+    if ($result === false) {
+        error_log('❌ writeJsonFile: file_put_contents fallito per ' . $file . ' (permessi di scrittura mancanti sulla cartella data/? disco pieno?)');
+        return false;
+    }
+    return true;
 }
 
 function formatBytes(int $bytes, int $precision = 2): string {
@@ -536,6 +551,7 @@ function defaultConfig(): array {
             'currency' => 'EUR'
         ],
         'notes' => [],
+        'customFields' => [],
         'news' => [],
         'autosave' => [
             'enabled' => false,
@@ -640,6 +656,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['notes'])) {
         $merged['notes'] = $existingConfig['notes'];
     }
+
+    // 🆕 Preserva i campi personalizzati del modulo di iscrizione
+    if (isset($existingConfig['customFields'])) {
+        $merged['customFields'] = $existingConfig['customFields'];
+    }
     
     // Preserva news
     if (isset($existingConfig['news'])) {
@@ -705,7 +726,7 @@ function readConfig(): array {
     return mergeConfig($existing, $default);
 }
 
-function writeConfig(array $config): void {
+function writeConfig(array $config): bool {
     // Crittografa se encryption è abilitata
     if (isset($config['security']['encryptionEnabled']) && $config['security']['encryptionEnabled'] && isset($config['security']['encryptionPassword'])) {
         try {
@@ -717,7 +738,11 @@ function writeConfig(array $config): void {
         }
     }
     
-    writeJsonFile(CONFIG_FILE, $config);
+    // 🔧 FIX: restituisce l'esito reale della scrittura (prima era void e
+    // un fallimento silenzioso di file_put_contents/json_encode passava
+    // inosservato — chi chiamava questa funzione non aveva modo di sapere
+    // che il salvataggio non era davvero andato a buon fine).
+    return writeJsonFile(CONFIG_FILE, $config);
 }
 
 function saveToHistory(string $description = 'Modifica'): void {
@@ -4368,6 +4393,32 @@ if ($action === 'register_team' && $method === 'POST') {
         }
     }
 
+    // 🆕 Valida i valori dei campi personalizzati definiti dall'organizzatore
+    // (se il torneo ne ha configurati): obbligatorietà e tipo (numero/testo).
+    $customFieldValues = [];
+    foreach ($config['customFields'] ?? [] as $fieldDef) {
+        $fieldId = $fieldDef['id'] ?? '';
+        if ($fieldId === '') continue;
+        $label = $fieldDef['label'] ?? '';
+        $rawValue = $body['customFieldValues'][$fieldId] ?? null;
+
+        if (($fieldDef['type'] ?? 'string') === 'number') {
+            if ($rawValue !== null && $rawValue !== '' && !is_numeric($rawValue)) {
+                jsonResponse(422, ['ok' => false, 'error' => "Il campo \"$label\" deve essere un numero"]);
+            }
+            $normalizedValue = ($rawValue !== null && $rawValue !== '') ? (float)$rawValue : null;
+        } else {
+            $normalizedValue = mb_substr(trim((string)($rawValue ?? '')), 0, 500);
+            if ($normalizedValue === '') $normalizedValue = null;
+        }
+
+        if (!empty($fieldDef['required']) && ($normalizedValue === null)) {
+            jsonResponse(422, ['ok' => false, 'error' => "Il campo \"$label\" è obbligatorio"]);
+        }
+
+        $customFieldValues[$fieldId] = $normalizedValue;
+    }
+
     // Controlla se le iscrizioni sono chiuse
     if ($config['tournament']['registrationsClosed'] ?? false) {
         jsonResponse(403, [
@@ -4392,7 +4443,7 @@ if ($action === 'register_team' && $method === 'POST') {
 
     $emailResult = null;
 
-    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, &$emailResult) {
+    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, $customFieldValues, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -4435,6 +4486,8 @@ if ($action === 'register_team' && $method === 'POST') {
             'phone' => $phone,
             'paid' => false,
             'approved' => false,
+            // 🆕 Valori dei campi personalizzati definiti dall'organizzatore
+            'customFieldValues' => $customFieldValues,
             'createdAt' => gmdate('c')
         ];
 
@@ -7584,6 +7637,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'currency' => 'EUR'
             ],
             'notes' => [],
+            'customFields' => [],
             'news' => [],
             'autosave' => [
                 'enabled' => false,
@@ -8014,7 +8068,9 @@ if ($action === 'get_config' && $method === 'GET') {
             'enabled' => (bool)($config['kit']['enabled'] ?? false),
             'description' => $config['kit']['description'] ?? '',
             'imageFile' => $config['kit']['imageFile'] ?? ''
-        ]
+        ],
+        // 🆕 Campi personalizzati del modulo di iscrizione
+        'customFields' => $config['customFields'] ?? []
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
@@ -9561,6 +9617,36 @@ if ($action === 'admin_update_payment_config' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'payment' => $config['payment']]);
 }
 
+// 🆕 Campi personalizzati del modulo di iscrizione: l'organizzatore definisce
+// N campi (testo o numero, obbligatori o no) che compaiono nella form
+// pubblica di iscrizione, oltre a nome/email/telefono/giocatori già previsti.
+if ($action === 'admin_update_custom_fields' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    if (isset($body['customFields']) && is_array($body['customFields'])) {
+        $fields = [];
+        foreach ($body['customFields'] as $f) {
+            $label = mb_substr(trim((string)($f['label'] ?? '')), 0, 100);
+            if ($label === '') continue; // un campo senza etichetta non ha senso, salta
+            $type = ($f['type'] ?? 'string') === 'number' ? 'number' : 'string';
+            $fields[] = [
+                'id' => trim((string)($f['id'] ?? bin2hex(random_bytes(4)))),
+                'label' => $label,
+                'type' => $type,
+                'required' => (bool)($f['required'] ?? false)
+            ];
+        }
+        $config['customFields'] = $fields;
+    }
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento campi personalizzati iscrizione');
+
+    jsonResponse(200, ['ok' => true, 'customFields' => $config['customFields'] ?? []]);
+}
+
 if ($action === 'admin_update_notes' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();
@@ -11071,6 +11157,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
             'currency' => 'EUR'
         ],
         'notes' => [],
+        'customFields' => [],
         'news' => [],
         'autosave' => [
             'enabled' => false,

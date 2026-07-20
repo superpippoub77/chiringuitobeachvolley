@@ -2025,6 +2025,16 @@
               </div>
             </div>
             </div>
+
+            <div class="card" style="background: #f0f7ff; padding: 12px; margin-top: 12px">
+              <h4 style="margin-top: 0">📝 Campi Personalizzati Iscrizione</h4>
+              <p class="muted" style="margin-top: 0">Aggiungi campi extra al modulo di iscrizione (oltre a nome/email/telefono/giocatori già previsti). Ogni campo può essere testo o numero, obbligatorio o facoltativo.</p>
+              <div id="customFieldsContainer" style="margin-top: 10px"></div>
+              <div class="row" style="margin-top: 10px">
+                <button class="btn" onclick="addCustomField()">➕ Aggiungi Campo</button>
+                <button class="btn btn-green" onclick="saveCustomFields()">💾 Salva Campi Personalizzati</button>
+              </div>
+            </div>
           </div>
 
           <!-- TAB 2: COMUNICAZIONI -->
@@ -2534,6 +2544,10 @@
           // vecchia istanza e ne creiamo una nuova sul contenitore appena
           // inserito, invece di provare a riutilizzarla.
           initKitEditor(config.kit?.description || '');
+
+          // 🆕 Campi personalizzati del modulo di iscrizione
+          customFieldsData = config.customFields || [];
+          renderCustomFields();
           
           const kitImageUploadInput = document.getElementById('kitImageUpload');
           if (kitImageUploadInput) {
@@ -9963,6 +9977,73 @@ html += `
       }
     }
     
+    // ==================== CAMPI PERSONALIZZATI ISCRIZIONE ====================
+    let customFieldsData = [];
+
+    function renderCustomFields() {
+      const container = document.getElementById('customFieldsContainer');
+      if (!container) return;
+
+      if (!customFieldsData.length) {
+        container.innerHTML = '<p class="muted">Nessun campo personalizzato aggiunto. Clicca "Aggiungi Campo" per iniziare.</p>';
+        return;
+      }
+
+      container.innerHTML = customFieldsData.map((field, idx) => `
+        <div class="card" style="background: #fafafa; padding: 12px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-left: 4px solid #0078d4">
+          <input type="text" value="${escapeHtml(field.label || '')}" data-cf-idx="${idx}" data-field="label" class="cf-input"
+                 placeholder="Es: Taglia maglietta" style="flex: 2; min-width: 160px; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+          <select data-cf-idx="${idx}" data-field="type" class="cf-input" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+            <option value="string" ${field.type !== 'number' ? 'selected' : ''}>Testo</option>
+            <option value="number" ${field.type === 'number' ? 'selected' : ''}>Numero</option>
+          </select>
+          <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; margin: 0">
+            <input type="checkbox" data-cf-idx="${idx}" data-field="required" class="cf-input" ${field.required ? 'checked' : ''}>
+            Obbligatorio
+          </label>
+          <button class="btn btn-danger" onclick="removeCustomField(${idx})">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    function addCustomField() {
+      customFieldsData.push({ id: bin2hex(8), label: '', type: 'string', required: false });
+      renderCustomFields();
+    }
+
+    function removeCustomField(idx) {
+      customFieldsData.splice(idx, 1);
+      renderCustomFields();
+    }
+
+    async function saveCustomFields() {
+      try {
+        // Raccogli i dati dai campi (stesso schema di saveNotes)
+        const inputs = document.querySelectorAll('.cf-input');
+        const updated = [];
+
+        inputs.forEach(input => {
+          const idx = parseInt(input.dataset.cfIdx);
+          const field = input.dataset.field;
+          if (!updated[idx]) updated[idx] = { ...customFieldsData[idx] };
+
+          if (field === 'label') updated[idx].label = input.value.trim();
+          else if (field === 'type') updated[idx].type = input.value;
+          else if (field === 'required') updated[idx].required = input.checked;
+        });
+
+        const finalFields = updated.filter(f => f && f.label);
+
+        const result = await callApi('admin_update_custom_fields', 'POST', { customFields: finalFields }, true);
+        customFieldsData = result.customFields;
+        renderCustomFields();
+
+        await showInfoDialog('Successo', '✅ Campi personalizzati salvati');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     async function saveNotes() {
       try {
         // Raccogli i dati dai campi

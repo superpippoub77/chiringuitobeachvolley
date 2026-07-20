@@ -1711,8 +1711,8 @@
         // refresh, incluso l'auto-refresh ogni 30s) l'iscrizione si rompe con
         // un errore JS silenzioso invece di essere inviata.
         html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Contatti</h4></div>';
-        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)" style="width: 100%; box-sizing: border-box">';
-        html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; box-sizing: border-box">';
+        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">';
+        html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">';
 
         // 🆕 Campi personalizzati definiti dall'organizzatore (oltre a
         // nome/email/telefono/giocatori già previsti sopra)
@@ -1724,7 +1724,7 @@
             const requiredAttr = field.required ? 'required' : '';
             const requiredMark = field.required ? ' *' : '';
             html += `<div>
-              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box" ${requiredAttr}>
+              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box; grid-column: 1/-1" ${requiredAttr}>
             </div>`;
           });
         }

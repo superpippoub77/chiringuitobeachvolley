@@ -661,6 +661,19 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['customFields'])) {
         $merged['customFields'] = $existingConfig['customFields'];
     }
+
+    // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
+    // OGNI lettura del config (quasi ogni richiesta) sovrascriveva il kit
+    // salvato con i valori di default (disabilitato/vuoto), perché il resto
+    // di questa funzione parte da $defaultConfig e copia dentro solo i campi
+    // esplicitamente elencati qui. Il kit veniva quindi perso subito dopo il
+    // salvataggio, alla primissima richiesta successiva che chiamava
+    // readConfig() — spiegando perché risultava sempre assente sia in
+    // admin.html che in scoreboard.html, pur essendo scritto correttamente
+    // su disco nell'istante del salvataggio.
+    if (isset($existingConfig['kit'])) {
+        $merged['kit'] = $existingConfig['kit'];
+    }
     
     // Preserva news
     if (isset($existingConfig['news'])) {
@@ -4089,7 +4102,10 @@ function simulateAll(array &$state): bool {
 
     // ✅ REFACTORED: Itera sui match della prima fase
     $groupsPhase = &$state['phases'][0];
-    foreach ($groupsPhase['matches'] ?? [] as &$match) {
+    if (!isset($groupsPhase['matches']) || !is_array($groupsPhase['matches'])) {
+        $groupsPhase['matches'] = [];
+    }
+    foreach ($groupsPhase['matches'] as &$match) {
         [$a, $b] = randomScore($numSets);
         $match['score1'] = $a;
         $match['score2'] = $b;
@@ -4097,19 +4113,26 @@ function simulateAll(array &$state): bool {
     unset($match);
 
     // ✅ REFACTORED: Verifica se ci sono fasi di playoff
-    $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
-    if (count($playoffPhases) === 0) {
+    $playoffPhasesCount = count(array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout'));
+    if ($playoffPhasesCount === 0) {
         if (!createPlayoff($state)) {
             return false;
         }
-        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
     }
 
-    // ✅ REFACTORED: Simula i quarti di finale
-    foreach ($playoffPhases as &$phase) {
+    // 🔧 FIX RADICALE: array_filter() restituisce una COPIA indipendente —
+    // modificare gli elementi tramite riferimento in un foreach successivo
+    // non tocca affatto l'array originale $state['phases']. I punteggi
+    // "simulati" non venivano quindi mai davvero salvati. Ora itera
+    // direttamente $state['phases'] (l'array vero), scartando le fasi non
+    // knockout con un semplice "continue" invece di pre-filtrarle.
+
+    // ✅ Simula i quarti di finale
+    foreach ($state['phases'] as &$phase) {
         if (($phase['type'] ?? null) !== 'knockout') continue;
+        if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
         
-        foreach ($phase['matches'] ?? [] as &$match) {
+        foreach ($phase['matches'] as &$match) {
             if (($match['type'] ?? null) === 'quarterFinal') {
                 [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
@@ -4122,11 +4145,12 @@ function simulateAll(array &$state): bool {
 
     updatePlayoffTree($state);
 
-    // ✅ REFACTORED: Simula le semifinali
-    foreach ($playoffPhases as &$phase) {
+    // ✅ Simula le semifinali
+    foreach ($state['phases'] as &$phase) {
         if (($phase['type'] ?? null) !== 'knockout') continue;
+        if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
         
-        foreach ($phase['matches'] ?? [] as &$match) {
+        foreach ($phase['matches'] as &$match) {
             if (($match['type'] ?? null) === 'semiFinal' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
                 [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
@@ -4139,11 +4163,12 @@ function simulateAll(array &$state): bool {
 
     updatePlayoffTree($state);
 
-    // ✅ REFACTORED: Simula terzo posto e finale
-    foreach ($playoffPhases as &$phase) {
+    // ✅ Simula terzo posto e finale
+    foreach ($state['phases'] as &$phase) {
         if (($phase['type'] ?? null) !== 'knockout') continue;
+        if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
         
-        foreach ($phase['matches'] ?? [] as &$match) {
+        foreach ($phase['matches'] as &$match) {
             if (($match['type'] ?? null) === 'thirdPlace' && ($match['team1Id'] ?? null) && ($match['team2Id'] ?? null)) {
                 [$a, $b] = randomScore($numSets);
                 $match['score1'] = $a;
@@ -4621,7 +4646,14 @@ if ($action === 'admin_toggle_todo' && $method === 'POST') {
 
     $found = false;
     withStateTransaction(function (&$state) use ($id, &$found) {
-        foreach ($state['todoList'] ?? [] as &$item) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        // 🔧 FIX: "foreach ($state['todoList'] ?? [] as &$item)" spezzava
+        // silenziosamente il riferimento — l'operatore ?? produce una copia
+        // temporanea, non un vero riferimento all'array originale, quindi le
+        // modifiche a $item si perdevano invece di finire in $state.
+        foreach ($state['todoList'] as &$item) {
             if (($item['id'] ?? '') === $id) {
                 $item['done'] = !($item['done'] ?? false);
                 $item['completedAt'] = $item['done'] ? date('c') : null;
@@ -4666,7 +4698,13 @@ if ($action === 'admin_edit_todo' && $method === 'POST') {
 
     $found = false;
     withStateTransaction(function (&$state) use ($id, $text, &$found) {
-        foreach ($state['todoList'] ?? [] as &$item) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        // 🔧 FIX: stesso bug del riferimento spezzato da ?? nel foreach (vedi
+        // admin_toggle_todo) — questo è il motivo per cui modificare un punto
+        // "riusciva" (nessun errore, ok:true) ma il testo non cambiava mai davvero.
+        foreach ($state['todoList'] as &$item) {
             if (($item['id'] ?? '') === $id) {
                 $item['text'] = $text;
                 $found = true;
@@ -7165,12 +7203,17 @@ if ($action === 'admin_update_playoff_match' && $method === 'POST') {
     $matchType = (string)($body['type'] ?? ''); // 'quarterFinal', 'semiFinal', 'thirdPlace', 'final'
 
     withStateTransaction(function (&$state) use ($body, $matchId, $matchType) {
-        // ✅ REFACTORED: Trova la fase di playoff e il match
+        // 🔧 FIX RADICALE: array_filter() restituisce una copia indipendente
+        // — modificare gli elementi tramite riferimento non tocca l'array
+        // originale. Il punteggio non veniva quindi mai davvero salvato.
+        // Ora itera direttamente $state['phases'], scartando le fasi non
+        // knockout con un "continue" invece di pre-filtrarle.
         $found = false;
-        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
-        
-        foreach ($playoffPhases as &$phase) {
-            foreach ($phase['matches'] ?? [] as &$match) {
+
+        foreach ($state['phases'] as &$phase) {
+            if (($phase['type'] ?? null) !== 'knockout') continue;
+            if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
+            foreach ($phase['matches'] as &$match) {
                 if ($match['id'] === $matchId) {
                     $found = true;
                     $match['score1'] = array_key_exists('score1', $body) ? (is_null($body['score1']) ? null : (int)$body['score1']) : $match['score1'];
@@ -7202,11 +7245,13 @@ if ($action === 'admin_swap_knockout_teams' && $method === 'POST') {
         $found = false;
         $result = ['team1Name' => '', 'team2Name' => ''];
 
-        // ✅ REFACTORED: Cerca nelle fasi di knockout
-        $playoffPhases = array_filter($state['phases'], fn($p) => ($p['type'] ?? null) === 'knockout');
-        
-        foreach ($playoffPhases as &$phase) {
-            foreach ($phase['matches'] ?? [] as &$match) {
+        // 🔧 FIX RADICALE: stesso motivo di admin_update_playoff_match sopra
+        // — array_filter() creava una copia indipendente, vanificando lo
+        // scambio squadre. Itera direttamente $state['phases'].
+        foreach ($state['phases'] as &$phase) {
+            if (($phase['type'] ?? null) !== 'knockout') continue;
+            if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
+            foreach ($phase['matches'] as &$match) {
                 if ($match['id'] !== $matchId) continue;
                 
                 // Scambio squadre
@@ -8484,7 +8529,14 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         $registryChanged = false;
         $found = false;
 
-        foreach ($registry['tournaments'] ?? [] as &$t) {
+        if (!isset($registry['tournaments']) || !is_array($registry['tournaments'])) {
+            $registry['tournaments'] = [];
+        }
+        // 🔧 FIX: "foreach ($registry['tournaments'] ?? [] as &$t)" spezzava
+        // silenziosamente il riferimento (?? produce una copia temporanea) —
+        // la sincronizzazione dello slug per un torneo GIÀ presente nel
+        // registro non veniva mai davvero scritta su disco.
+        foreach ($registry['tournaments'] as &$t) {
             if (($t['code'] ?? null) === $myCode) {
                 $found = true;
                 $newSlug = $config['tournament']['slug'] ?? '';
@@ -11815,7 +11867,15 @@ if ($action === 'repair_tournament_slugs' && ($method === 'POST' || $method === 
     $registryChanged = false;
     $debugInfo = [];
 
-    foreach ($registry['tournaments'] ?? [] as &$t) {
+    if (!isset($registry['tournaments']) || !is_array($registry['tournaments'])) {
+        $registry['tournaments'] = [];
+    }
+    // 🔧 FIX: "foreach ($registry['tournaments'] ?? [] as &$t)" spezzava
+    // silenziosamente il riferimento (?? produce una copia temporanea) — la
+    // risposta di questo endpoint SEMBRAVA indicare successo (l'elenco
+    // "fixed" veniva comunque costruito correttamente, essendo un array
+    // separato), ma la scrittura reale sul registro non avveniva mai.
+    foreach ($registry['tournaments'] as &$t) {
         $tournamentDir = __DIR__ . '/' . ($t['path'] ?? $t['code'] ?? '');
         $tournamentConfigFile = $tournamentDir . '/data/config.json';
         $exists = file_exists($tournamentConfigFile);
@@ -12155,25 +12215,34 @@ if ($action === 'save_match_duration' && $method === 'POST') {
         }
         
         // ✅ REFACTORED: Leggi lo stato e cerca nelle fasi
-        $state = readJsonFile(DATA_FILE, []);
+        // 🔧 FIX: "foreach ($state['phases'] ?? [] as &$phase)" e il ciclo
+        // interno sulle partite spezzavano silenziosamente il riferimento
+        // (?? produce una copia temporanea, non un vero riferimento), quindi
+        // la durata non veniva mai davvero salvata nonostante la risposta
+        // dicesse "successo". Ora usa anche withStateTransaction invece di
+        // leggere/scrivere il file senza alcun lock.
         $found = false;
-        
-        // Cerca la partita in tutte le fasi
-        foreach ($state['phases'] ?? [] as &$phase) {
-            foreach ($phase['matches'] ?? [] as &$match) {
-                if (($match['id'] ?? '') === $matchId) {
-                    $match['duration'] = $duration;
-                    $found = true;
-                    break 2;
-                }
+        $durationResult = null;
+        withStateTransaction(function (&$state) use ($matchId, $duration, &$found) {
+            if (!isset($state['phases']) || !is_array($state['phases'])) {
+                return [];
             }
-            unset($match);
-        }
-        unset($phase);
+            foreach ($state['phases'] as &$phase) {
+                if (!isset($phase['matches']) || !is_array($phase['matches'])) continue;
+                foreach ($phase['matches'] as &$match) {
+                    if (($match['id'] ?? '') === $matchId) {
+                        $match['duration'] = $duration;
+                        $found = true;
+                        break 2;
+                    }
+                }
+                unset($match);
+            }
+            unset($phase);
+            return [];
+        });
         
         if ($found) {
-            writeJsonFile(DATA_FILE, $state);
-            
             // Formatta il tempo
             $hours = intdiv($duration, 3600);
             $minutes = intdiv($duration % 3600, 60);

@@ -583,7 +583,7 @@
 
     .countdown {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 8px;
       margin-top: 10px;
     }
@@ -706,7 +706,7 @@
       }
 
       .countdown {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
       }
 
       .match-status {
@@ -874,6 +874,10 @@
         gap: 10px;
       }
 
+      .countdown {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
       .bracket-column {
         min-width: 160px;
       }
@@ -917,6 +921,16 @@
         <div class="hero-cell">2 contro 2 (max 3 giocatori iscritti)</div>
       </div>
       <div class="countdown" id="countdownContainer">
+        <div id="statsOverviewSection" style="display: contents">
+        <div class="stat">
+          <div class="n" id="statTeams">0</div>
+          <div class="l">Squadre confermate</div>
+        </div>
+        <div class="stat">
+          <div class="n" id="statPending">0</div>
+          <div class="l">In attesa</div>
+        </div>
+        </div>
         <div class="countdown-item"><span id="countDays">0</span><span class="countdown-label">giorni</span></div>
         <div class="countdown-item"><span id="countHours">0</span><span class="countdown-label">ore</span></div>
         <div class="countdown-item"><span id="countMinutes">0</span><span class="countdown-label">minuti</span></div>
@@ -939,16 +953,6 @@
 
       <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
           href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
-      <div id="statsOverviewSection" class="stats">
-      <div class="stat">
-        <div class="n" id="statTeams">0</div>
-        <div class="l">Squadre confermate</div>
-      </div>
-      <div class="stat">
-        <div class="n" id="statPending">0</div>
-        <div class="l">In attesa</div>
-      </div>
-      </div>
       </section>
 
       <section id="newsSection" style="margin-top: 24px; display: none">
@@ -1477,7 +1481,7 @@
       if (regDeadline) deadlineExpired = new Date() > new Date(regDeadline);
       const tournamentStarted = regClosed || deadlineExpired;
       const statsSection = document.getElementById('statsOverviewSection');
-      if (statsSection) statsSection.style.display = tournamentStarted ? 'none' : 'grid';
+      if (statsSection) statsSection.style.display = tournamentStarted ? 'none' : 'contents';
 
       renderTeams();
       renderGroups();

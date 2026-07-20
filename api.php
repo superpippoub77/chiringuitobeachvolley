@@ -845,6 +845,10 @@ function initialState(): array {
         'currentMatch' => ['matchId' => null, 'phaseNumber' => null],
         // 🆕 Contatore di visualizzazioni della pagina pubblica (scoreboard.html)
         'pageViews' => 0,
+        // 🆕 Todo list di preparazione torneo: punti fatti/da fare per
+        // organizzare correttamente il torneo (uso interno admin, non
+        // riguarda squadre/partite/config).
+        'todoList' => [],
         'meta' => [
             'lastUpdated' => null
         ]
@@ -878,6 +882,11 @@ function mergeState(array $existingState, array $newState): array {
     // 🆕 Preserva il contatore di visualizzazioni della pagina pubblica
     if (isset($existingState['pageViews']) && is_numeric($existingState['pageViews'])) {
         $merged['pageViews'] = (int)$existingState['pageViews'];
+    }
+
+    // 🆕 Preserva la todo list di preparazione torneo
+    if (isset($existingState['todoList']) && is_array($existingState['todoList'])) {
+        $merged['todoList'] = $existingState['todoList'];
     }
     
     // Preserva i metadata
@@ -4473,6 +4482,110 @@ HTML;
     }
 
     jsonResponse(200, $response);
+}
+
+// ==================== TODO LIST PREPARAZIONE TORNEO ====================
+// 🆕 Checklist interna per l'admin: punti fatti/da fare per organizzare
+// correttamente il torneo. Non riguarda squadre/partite/config, è solo uno
+// strumento di lavoro per chi organizza.
+
+if ($action === 'admin_add_todo' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $text = mb_substr(trim((string)($body['text'] ?? '')), 0, 200);
+
+    if ($text === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il testo del punto non può essere vuoto']);
+    }
+
+    $newItem = null;
+    withStateTransaction(function (&$state) use ($text, &$newItem) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        $newItem = [
+            'id' => bin2hex(random_bytes(8)),
+            'text' => $text,
+            'done' => false,
+            'createdAt' => date('c')
+        ];
+        $state['todoList'][] = $newItem;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'item' => $newItem]);
+}
+
+if ($action === 'admin_toggle_todo' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID punto obbligatorio']);
+    }
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($id, &$found) {
+        foreach ($state['todoList'] ?? [] as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                $item['done'] = !($item['done'] ?? false);
+                $item['completedAt'] = $item['done'] ? date('c') : null;
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Punto non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_delete_todo' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID punto obbligatorio']);
+    }
+
+    withStateTransaction(function (&$state) use ($id) {
+        $state['todoList'] = array_values(array_filter($state['todoList'] ?? [], fn($item) => ($item['id'] ?? '') !== $id));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
+if ($action === 'admin_edit_todo' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    $text = mb_substr(trim((string)($body['text'] ?? '')), 0, 200);
+    if ($id === '' || $text === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID e testo obbligatori']);
+    }
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($id, $text, &$found) {
+        foreach ($state['todoList'] ?? [] as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                $item['text'] = $text;
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Punto non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 if ($action === 'admin_login' && $method === 'POST') {

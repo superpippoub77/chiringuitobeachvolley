@@ -837,6 +837,7 @@
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
+        <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
         <button class="tab" data-page="multitenant-admin" onclick="showPage('multitenant-admin', this)" style="background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: white">⚙️ Multi-Tenant Admin</button>
       </div>
 
@@ -1214,6 +1215,20 @@
             <button type="button" class="btn btn-danger" onclick="resetTournament()" style="background: #d32f2f; cursor: pointer;">🗑️ Cancella Tutto e Ripristina</button>
           </div>
         </div>
+      </div>
+
+      <div id="page-todo" class="card page hidden">
+        <h3>✅ Preparazione Torneo</h3>
+        <p class="muted">Tieni traccia di cosa è stato fatto e cosa manca per arrivare pronti al torneo. Solo per uso interno: non ha nessun effetto su squadre/gironi/partite.</p>
+
+        <div id="todoProgressBar" style="margin: 12px 0"></div>
+
+        <div class="row" style="margin-top: 10px; gap: 8px">
+          <input id="todoNewText" type="text" placeholder="Es: Confermare disponibilità campi con il comune" maxlength="200" style="flex: 1" onkeypress="if(event.key==='Enter') addTodoItem()">
+          <button class="btn btn-primary" onclick="addTodoItem()">➕ Aggiungi</button>
+        </div>
+
+        <div id="todoListContainer" style="margin-top: 16px"></div>
       </div>
 
       <div id="page-multitenant-admin" class="card page hidden">
@@ -1772,6 +1787,7 @@
       renderPhases();
       renderPhasesUI();
       renderMatches();
+      renderTodoList();
       updateButtonStates();
       
       // 🔧 FIX: ripristina la tab su cui l'utente si trovava (non quella nella URL,
@@ -1784,6 +1800,89 @@
         if (defaultTabButton) {
           showPage('settings', defaultTabButton);
         }
+      }
+    }
+
+    // ==================== TODO LIST PREPARAZIONE TORNEO ====================
+    function renderTodoList() {
+      const bar = document.getElementById('todoProgressBar');
+      const container = document.getElementById('todoListContainer');
+      if (!bar || !container) return;
+
+      const items = (state?.todoList || []).slice();
+      const done = items.filter(i => i.done).length;
+      const total = items.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      bar.innerHTML = total > 0 ? `
+        <div style="display: flex; justify-content: space-between; font-size: 13px; color: #6a5737; margin-bottom: 4px">
+          <span>${done} di ${total} completati</span>
+          <span>${pct}%</span>
+        </div>
+        <div style="background: #eee; border-radius: 8px; height: 10px; overflow: hidden">
+          <div style="background: ${pct === 100 ? '#2e5d1f' : '#ea5b0c'}; height: 100%; width: ${pct}%; transition: width 0.3s"></div>
+        </div>
+      ` : '';
+
+      if (!items.length) {
+        container.innerHTML = '<p class="muted">Nessun punto ancora inserito. Aggiungi il primo qui sopra.</p>';
+        return;
+      }
+
+      // Da fare prima, fatti dopo (così i completati non "ingombrano" in cima)
+      const sorted = items.slice().sort((a, b) => (a.done === b.done) ? 0 : (a.done ? 1 : -1));
+
+      container.innerHTML = sorted.map(item => `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 6px; background: ${item.done ? '#f0f5ee' : '#fff8ea'}; border: 1px solid ${item.done ? '#c8dcc0' : '#d9bf8c'}; border-radius: 6px">
+          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="toggleTodoItem('${item.id}')" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0">
+          <span style="flex: 1; ${item.done ? 'text-decoration: line-through; color: #888' : ''}">${escapeHtml(item.text)}</span>
+          <button class="btn" style="padding: 4px 8px; font-size: 12px" onclick="editTodoItem('${item.id}', '${escapeHtml(item.text).replace(/'/g, "\\'")}')" title="Modifica testo">✏️</button>
+          <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px" onclick="deleteTodoItem('${item.id}')" title="Elimina">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    async function addTodoItem() {
+      const input = document.getElementById('todoNewText');
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+        await callApi('admin_add_todo', 'POST', { text }, true);
+        input.value = '';
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function toggleTodoItem(id) {
+      try {
+        await callApi('admin_toggle_todo', 'POST', { id }, true);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function deleteTodoItem(id) {
+      try {
+        await callApi('admin_delete_todo', 'POST', { id }, true);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function editTodoItem(id, currentText) {
+      const newText = prompt('Modifica il punto:', currentText);
+      if (newText === null || newText.trim() === '' || newText.trim() === currentText) return;
+
+      try {
+        await callApi('admin_edit_todo', 'POST', { id, text: newText.trim() }, true);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
       }
     }
 

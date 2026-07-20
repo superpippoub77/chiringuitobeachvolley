@@ -3871,7 +3871,7 @@
                 playersData.push({
                   name: nameInput.value.trim(),
                   isCaptain: captainCheckbox ? captainCheckbox.checked : false,
-                  level: levelSelect ? parseInt(levelSelect.value) || 2 : 2
+                  level: levelSelect ? levelSelect.value : ''
                 });
               }
             }
@@ -3900,10 +3900,23 @@
         <h4 style="margin: 0 0 12px 0">Giocatori (Max ${maxPlayers})</h4>`;
 
       for (let i = 0; i < maxPlayers; i++) {
-        const player = players[i] || { name: '', isCaptain: false, imageFile: '', level: 2 };
+        const player = players[i] || { name: '', isCaptain: false, imageFile: '', level: '' };
         const imageUrl = player.imageFile ? player.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
-        const playerLevel = player.level || 2;
-        const levelLabels = ['Amatore', 'Intermedio', 'Avanzato', 'Professionista', 'Top'];
+        // 🔧 FIX: prima questo select usava una scala numerica 0-4 diversa e
+        // incompatibile con quella testuale della form pubblica di iscrizione
+        // (principiante/intermedio/avanzato/professionista) — aprendo una
+        // squadra già iscritta per modificarla, il livello non corrispondeva
+        // mai a nessuna opzione, e salvando veniva sovrascritto con un
+        // numero sbagliato, perdendo il valore originale. Ora usa le stesse
+        // identiche opzioni testuali.
+        const playerLevel = player.level || '';
+        const levelOptions = [
+          ['', 'Livello (opzionale)'],
+          ['principiante', 'Principiante'],
+          ['intermedio', 'Intermedio'],
+          ['avanzato', 'Avanzato'],
+          ['professionista', 'Professionista']
+        ];
         playersHtml += `
           <div style="border: 1px solid #e0e0e0; padding: 10px; margin-bottom: 10px; border-radius: 4px; background: white; display: flex; gap: 8px; align-items: flex-start">
             <div style="cursor: pointer; position: relative; flex-shrink: 0" onclick="document.getElementById('playerImage${i}').click()">
@@ -3937,7 +3950,7 @@
                   👨‍💼 Capitano
                 </label>
                 <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; flex: 1; cursor: pointer; box-sizing: border-box" onchange="updateTeamWeight()">
-                  ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${playerLevel === l ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
+                  ${levelOptions.map(([val, label]) => `<option value="${val}" ${playerLevel === val ? 'selected' : ''}>${label}</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -4016,6 +4029,16 @@
       return '#1565c0'; // Blu
     }
 
+    // 🆕 Converte il livello testuale (principiante..professionista) in un
+    // valore numerico per il calcolo del peso squadra. Gestisce anche i
+    // vecchi valori numerici (0-4) eventualmente già salvati, per compatibilità.
+    function playerLevelToNumeric(level) {
+      if (level === null || level === undefined || level === '') return 2;
+      if (!isNaN(parseFloat(level)) && isFinite(level)) return parseInt(level);
+      const map = { principiante: 1, intermedio: 2, avanzato: 3, professionista: 4 };
+      return map[String(level).toLowerCase().trim()] ?? 2;
+    }
+
     function calculateTeamWeight() {
       const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
       let totalLevel = 0;
@@ -4025,7 +4048,7 @@
         const levelSelect = document.getElementById(`mPlayer${i}Level`);
         const nameInput = document.getElementById(`mPlayer${i}Name`);
         if (nameInput && nameInput.value.trim() && levelSelect) {
-          totalLevel += parseInt(levelSelect.value) || 2;
+          totalLevel += playerLevelToNumeric(levelSelect.value);
           playerCount++;
         }
       }
@@ -4062,7 +4085,13 @@
         return;
       }
 
-      const levelLabels = ['Amatore', 'Intermedio', 'Avanzato', 'Professionista', 'Top'];
+      const levelOptionsForAdd = [
+        ['', 'Livello (opzionale)'],
+        ['principiante', 'Principiante'],
+        ['intermedio', 'Intermedio'],
+        ['avanzato', 'Avanzato'],
+        ['professionista', 'Professionista']
+      ];
       const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
 
       let playersHtml = `<div style="border: 1px solid #ddd; padding: 12px; border-radius: 4px; margin-top: 10px; background: #f9f9f9; grid-column: 1 / -1">
@@ -4089,7 +4118,7 @@
                   👨‍💼 Capitano
                 </label>
                 <select id="nPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; flex: 1; cursor: pointer; box-sizing: border-box" onchange="updateAddTeamWeight()">
-                  ${[0, 1, 2, 3, 4].map(l => `<option value="${l}" ${l === 2 ? 'selected' : ''}>${l} - ${levelLabels[l]}</option>`).join('')}
+                  ${levelOptionsForAdd.map(([val, label]) => `<option value="${val}">${label}</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -4148,7 +4177,7 @@
                   players.push({
                     name: nameInput.value.trim(),
                     isCaptain: captainInput?.checked || false,
-                    level: parseInt(levelInput?.value) || 2
+                    level: levelInput?.value || ''
                   });
                 }
               }
@@ -4188,7 +4217,7 @@
         const levelSelect = document.getElementById(`nPlayer${i}Level`);
         const nameInput = document.getElementById(`nPlayer${i}Name`);
         if (nameInput && nameInput.value.trim() && levelSelect) {
-          totalLevel += parseInt(levelSelect.value) || 2;
+          totalLevel += playerLevelToNumeric(levelSelect.value);
           playerCount++;
         }
       }

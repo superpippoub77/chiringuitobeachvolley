@@ -939,7 +939,7 @@
 
       <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
           href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
-      <div id="statsOverviewSection" style="display: contents">
+      <div id="statsOverviewSection" class="stats">
       <div class="stat">
         <div class="n" id="statTeams">0</div>
         <div class="l">Squadre confermate</div>
@@ -947,14 +947,6 @@
       <div class="stat">
         <div class="n" id="statPending">0</div>
         <div class="l">In attesa</div>
-      </div>
-      <div class="stat">
-        <div class="n" id="statGroups">0</div>
-        <div class="l">Gironi</div>
-      </div>
-      <div class="stat">
-        <div class="n" id="statMatches">0</div>
-        <div class="l">Partite</div>
       </div>
       </div>
       </section>
@@ -1473,25 +1465,19 @@
     }
 
     function renderAll() {
-      // ✅ REFACTORED: Leggi da phases[0] invece di campi obsoleti
-      const groupsCount = state.phases?.[0]?.groups?.length || 0;
-      const groupMatchesCount = state.phases?.[0]?.matches?.length || 0;
-
       document.getElementById('statTeams').textContent = state.teams.length;
       document.getElementById('statPending').textContent = state.pendingCount || 0;
-      document.getElementById('statGroups').textContent = groupsCount;
-      document.getElementById('statMatches').textContent = groupMatchesCount;
 
-      // 🆕 Nasconde i 4 riquadri riepilogativi (squadre/in attesa/gironi/partite)
-      // una volta che il torneo è iniziato (iscrizioni chiuse o scadenza superata):
-      // a torneo avviato quei numeri sono meno rilevanti della vista Gironi/Partite.
+      // 🆕 Nasconde i riquadri riepilogativi (squadre/in attesa) una volta che
+      // il torneo è iniziato (iscrizioni chiuse o scadenza superata): a
+      // torneo avviato quei numeri sono meno rilevanti della vista Gironi/Partite.
       const regClosed = config?.tournament?.registrationsClosed ?? false;
       const regDeadline = config?.tournament?.registrationDeadline ?? '';
       let deadlineExpired = false;
       if (regDeadline) deadlineExpired = new Date() > new Date(regDeadline);
       const tournamentStarted = regClosed || deadlineExpired;
       const statsSection = document.getElementById('statsOverviewSection');
-      if (statsSection) statsSection.style.display = tournamentStarted ? 'none' : 'contents';
+      if (statsSection) statsSection.style.display = tournamentStarted ? 'none' : 'grid';
 
       renderTeams();
       renderGroups();

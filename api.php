@@ -370,6 +370,10 @@ function sendEmailViaPHPMailer(string $to, string $subject, string $body, string
 
 
         // Contenuto
+        // 🔧 FIX: senza CharSet esplicito, PHPMailer usa ISO-8859-1 di default,
+        // corrompendo qualunque emoji o carattere accentato (es. "📋" diventava
+        // "ðŸ“‹" nell'oggetto dell'email).
+        $mail->CharSet = 'UTF-8';
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body = $body;
@@ -449,8 +453,15 @@ function sendEmailFallback(string $to, string $subject, string $body, string $fr
         $headers .= "From: noreply@" . ($_SERVER['HTTP_HOST'] ?? 'beachmaster.local') . "\r\n";
     }
     
+    // 🔧 FIX: mail() nativa non codifica mai da sola l'oggetto — un oggetto
+    // con emoji/accenti passato grezzo risultava illeggibile (mojibake) nel
+    // client di posta. mb_encode_mimeheader lo codifica correttamente in
+    // UTF-8 (formato "=?UTF-8?B?...?="), come già avviene automaticamente
+    // per il corpo tramite l'header Content-type sopra.
+    $encodedSubject = mb_encode_mimeheader($subject, 'UTF-8', 'B', "\r\n");
+    
     // Invia email - usa mail() nativa PHP
-    $result = @mail($to, $subject, $body, $headers);
+    $result = @mail($to, $encodedSubject, $body, $headers);
     
     // Log del risultato
     if ($result) {
@@ -2023,6 +2034,29 @@ function generateDummyTeamName(int $index): string {
  * Livelli: 0=Amatore, 1=Intermedio, 2=Avanzato, 3=Professionista, 4=Top
  * Default per vecchio formato: 2 (Avanzato)
  */
+/**
+ * Converte un livello giocatore (stringa "principiante".."professionista",
+ * usata dalla form pubblica di iscrizione) in un valore numerico per il
+ * calcolo del peso squadra. Gestisce anche vecchi valori già numerici, per
+ * compatibilità con dati salvati prima che esistesse la scala testuale.
+ *
+ * 🔧 FIX: prima in più punti si faceva (int)$player['level'] direttamente —
+ * per un valore testuale come "avanzato" questo dà sempre 0 in PHP (cast di
+ * una stringa non numerica), perdendo silenziosamente il livello realmente
+ * selezionato in fase di iscrizione.
+ */
+function playerLevelToNumeric($level): int {
+    if ($level === null || $level === '') return 2;
+    if (is_numeric($level)) return (int)$level;
+    $map = [
+        'principiante' => 1,
+        'intermedio' => 2,
+        'avanzato' => 3,
+        'professionista' => 4
+    ];
+    return $map[strtolower(trim((string)$level))] ?? 2;
+}
+
 function getTeamWeight(array $team): float {
     $players = $team['players'] ?? [];
     if (empty($players)) {
@@ -2034,7 +2068,7 @@ function getTeamWeight(array $team): float {
     
     foreach ($players as $player) {
         if (is_array($player) && !empty($player['name'])) {
-            $level = (int)($player['level'] ?? 2);
+            $level = playerLevelToNumeric($player['level'] ?? null);
             $totalLevel += $level;
             $playerCount++;
         } elseif (is_string($player) && !empty($player)) {
@@ -4436,7 +4470,7 @@ if ($action === 'register_team' && $method === 'POST') {
 <body>
     <div class="container">
         <div class="header">
-            <h2>⚽ Nuova Iscrizione Squadra</h2>
+            <h2>🏐 Nuova Iscrizione Squadra</h2>
         </div>
         <div class="content">
             <p>Una nuova squadra si è iscritta al torneo.</p>
@@ -4807,7 +4841,13 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
                                 'isCaptain' => (bool)($player['isCaptain'] ?? false),
-                                'level' => (int)($player['level'] ?? 2) // Valori 0-4, default 2
+                                // 🔧 FIX: salva il livello come arriva (testo:
+                                // principiante/intermedio/avanzato/professionista),
+                                // invece di convertirlo a intero — un cast diretto
+                                // dava sempre 0 per un valore testuale, cancellando
+                                // il livello scelto in fase di iscrizione ad ogni
+                                // salvataggio da "Modifica squadra".
+                                'level' => is_string($player['level'] ?? null) ? trim((string)$player['level']) : ($player['level'] ?? null)
                             ];
                         }
                     } elseif (is_string($player)) {
@@ -4817,7 +4857,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
                                 'isCaptain' => false,
-                                'level' => 2 // Default level per vecchio formato
+                                'level' => null // Sconosciuto per vecchio formato (solo nome)
                             ];
                         }
                     }
@@ -4907,7 +4947,11 @@ if ($action === 'admin_add_team' && $method === 'POST') {
                         $normalizedPlayers[] = [
                             'name' => $playerName,
                             'isCaptain' => (bool)($player['isCaptain'] ?? false),
-                            'level' => max(1, min(5, (int)($player['level'] ?? 3)))
+                            // 🔧 FIX: salva il livello come testo (principiante/
+                            // intermedio/avanzato/professionista), coerente con
+                            // register_team e admin_update_team — un cast a
+                            // intero perdeva sempre il valore reale.
+                            'level' => is_string($player['level'] ?? null) ? trim((string)$player['level']) : null
                         ];
                     }
                 }
@@ -8951,7 +8995,7 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
     </style>
 </head>
 <body>
-    <h1>⚽ Regolamento Torneo: $tournamentName</h1>
+    <h1>🏐 Regolamento Torneo: $tournamentName</h1>
     
     <div class="section">
         <h2>1. Informazioni Generali</h2>

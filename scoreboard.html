@@ -906,6 +906,19 @@
         width: 100%;
       }
     }
+
+    /* 🆕 Nasconde la pagina con una breve dissolvenza fino a quando tema,
+       logo, sfondo e contenuto non sono TUTTI pronti insieme — invece di
+       mostrare il tema di default e poi "scattare" al tema vero, poi al
+       logo vero, poi allo sfondo vero, ognuno nel momento in cui la propria
+       richiesta finisce (il "flickering" percepito appena si apre la pagina). */
+    body {
+      opacity: 0;
+    }
+    body.page-ready {
+      opacity: 1;
+      transition: opacity 0.2s ease-in;
+    }
   </style>
 </head>
 
@@ -2975,9 +2988,24 @@
       }
     }
 
-    loadState().catch(err => {
-      console.error('Errore caricamento:', err);
-    });
+    // 🆕 Aspetta che stato del torneo E tema/logo/sfondo siano pronti
+    // INSIEME prima di rivelare la pagina (rimuove la classe che la tiene
+    // invisibile) — invece di mostrare subito un tema/logo/sfondo di
+    // default e poi "scattare" a quelli veri non appena ciascuna richiesta
+    // finisce (il flickering percepito appena si apre la pagina).
+    let pageRevealed = false;
+    function revealPage() {
+      if (pageRevealed) return;
+      pageRevealed = true;
+      document.body.classList.add('page-ready');
+    }
+    Promise.all([
+      loadState().catch(err => console.error('Errore caricamento:', err)),
+      loadTheme().catch(err => console.error('Errore caricamento tema:', err))
+    ]).finally(revealPage);
+    // Rete di sicurezza: se il caricamento fosse insolitamente lento, mostra
+    // comunque la pagina dopo 3 secondi invece di lasciarla invisibile a lungo.
+    setTimeout(revealPage, 3000);
     trackPageView();
 
     // Aggiorna il countdown ogni secondo
@@ -3111,8 +3139,9 @@
       document.head.appendChild(style);
     }
 
-    // Carica il tema all'avvio
-    loadTheme();
+    // 🆕 loadTheme() viene ora chiamata insieme a loadState() all'inizio
+    // dello script (vedi Promise.all sopra), per evitare lo "scatto"
+    // visivo separato quando questa chiamata da sola finiva più tardi.
 
     // ==================== SPONSOR TICKER ====================
 

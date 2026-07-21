@@ -625,6 +625,10 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['display']['backgroundFile'])) {
         $merged['display']['backgroundFile'] = $existingConfig['display']['backgroundFile'];
     }
+    // 🆕 Preserva quanto scurire lo sfondo (velo semi-trasparente)
+    if (isset($existingConfig['display']['backgroundOverlayOpacity'])) {
+        $merged['display']['backgroundOverlayOpacity'] = $existingConfig['display']['backgroundOverlayOpacity'];
+    }
     
     // Preserva la sezione contact (email del gestore, etc.)
     if (isset($existingConfig['contact'])) {
@@ -8630,6 +8634,12 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             if (array_filter($customThemes, fn($t) => $t['id'] === $theme)) {
                 $config['display']['theme'] = $theme;
             }
+        }
+
+        // 🆕 Quanto scurire lo sfondo (velo semi-trasparente), 0-90%
+        if (isset($body['display']['backgroundOverlayOpacity'])) {
+            $overlayOpacity = (int)$body['display']['backgroundOverlayOpacity'];
+            $config['display']['backgroundOverlayOpacity'] = max(0, min(90, $overlayOpacity));
         }
     }
     

@@ -49,6 +49,19 @@
       max-width: 1080px;
       margin: 0 auto;
       padding: 18px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* 🆕 Overlay scuro sopra lo sfondo (regolabile da Impostazioni →
+       Visualizzazione), per far risaltare meglio i testi su sfondi chiari
+       o troppo dettagliati. */
+    #backgroundDarkOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0);
+      pointer-events: none;
+      z-index: 1;
     }
 
     .hero {
@@ -952,6 +965,7 @@
     <div class="page-spinner"></div>
     <div style="font-family: 'Original Surfer', cursive; color: #6a5737; font-size: 15px">Caricamento torneo...</div>
   </div>
+  <div id="backgroundDarkOverlay"></div>
   <div class="container">
     <section class="hero">
       <div class="hero-top">
@@ -3133,6 +3147,14 @@
               document.body.style.backgroundSize = 'cover';
               document.body.style.backgroundPosition = 'center';
               document.body.style.backgroundAttachment = 'fixed';
+            }
+
+            // 🆕 Applica l'overlay scuro sopra lo sfondo, regolabile da
+            // Impostazioni → Visualizzazione (0-90%).
+            const overlayEl = document.getElementById('backgroundDarkOverlay');
+            if (overlayEl) {
+              const overlayOpacity = Math.max(0, Math.min(90, data.config.display.backgroundOverlayOpacity || 0));
+              overlayEl.style.background = `rgba(0, 0, 0, ${overlayOpacity / 100})`;
             }
           }
         }

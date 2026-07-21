@@ -2256,6 +2256,18 @@
               <button class="btn btn-primary" onclick="document.getElementById('backgroundUpload').click()">📤 Carica Sfondo</button>
               <button class="btn btn-danger" onclick="removeBackground()" style="margin-left: 8px">🗑️ Rimuovi Sfondo</button>
             </div>
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #e0c7c7">
+              <label style="display: flex; justify-content: space-between; font-weight: bold">
+                <span>🌑 Scurisci lo sfondo</span>
+                <span id="backgroundOverlayValue">${config.display?.backgroundOverlayOpacity ?? 0}%</span>
+              </label>
+              <input type="range" id="cfg-backgroundOverlayOpacity" min="0" max="90" step="5"
+                     value="${config.display?.backgroundOverlayOpacity ?? 0}"
+                     style="width: 100%; margin-top: 6px"
+                     oninput="document.getElementById('backgroundOverlayValue').textContent = this.value + '%'"
+                     onchange="saveBackgroundOverlay(this.value)">
+              <small style="color: #666; display: block; margin-top: 4px">Aggiunge un velo scuro sopra lo sfondo, utile per far risaltare meglio i testi. 0% = nessun effetto.</small>
+            </div>
           </div>
 
           <div class="card" style="background: #e8f5f0; padding: 12px; margin-top: 12px">
@@ -2925,6 +2937,18 @@
         delete config.display.logoFile;
         await renderSettings();
         await showInfoDialog('Successo', 'Logo rimosso');
+      }
+    }
+
+    // 🆕 Salva quanto scurire lo sfondo (velo semi-trasparente sopra
+    // l'immagine di sfondo, utile per far risaltare meglio i testi).
+    async function saveBackgroundOverlay(value) {
+      try {
+        if (!config.display) config.display = {};
+        config.display.backgroundOverlayOpacity = parseInt(value) || 0;
+        await callApi('admin_update_config', 'POST', { display: config.display }, true);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore salvataggio: ' + e.message);
       }
     }
 

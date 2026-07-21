@@ -1034,6 +1034,9 @@
         <a href="#" onclick="showPhase('groups'); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
+        <a href="#" id="navBarLink" onclick="showPhase('shop'); return false;"
+          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🍹 Bar</a>
         <a href="#" onclick="showPhase('gallery'); loadGalleryPage(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📸 Galleria</a>
@@ -1068,6 +1071,7 @@
       <section class="page" id="page-playoff"></section>
       <section class="page" id="page-ranking"></section>
       <section class="page" id="page-gallery"></section>
+      <section class="page" id="page-shop"></section>
 
       <footer>
         <a href="policy.html" target="_blank">Privacy Policy</a>
@@ -3217,6 +3221,252 @@
       }
     }
 
+    // ==================== 🆕 BAR / SHOP DEL TORNEO ====================
+    let shopCategories = [];
+    let shopCart = []; // [{productId, name, price, qty}]
+    let shopPaypalClientId = '';
+    let shopPaypalCurrency = 'EUR';
+    let shopPaypalSdkPromise = null;
+
+    async function loadShopMenu() {
+      try {
+        const response = await fetch(`${API}?action=get_shop`);
+        const data = await response.json();
+        if (!data.ok) return;
+
+        shopCategories = data.categories || [];
+        shopPaypalClientId = data.paypalClientId || '';
+        shopPaypalCurrency = data.paypalCurrency || 'EUR';
+
+        // 🆕 La voce "Bar" compare solo se abilitato E con almeno un prodotto disponibile
+        const hasProducts = shopCategories.some(c => (c.products || []).length > 0);
+        const navLink = document.getElementById('navBarLink');
+        if (navLink) {
+          navLink.style.display = (data.enabled && hasProducts) ? 'inline-block' : 'none';
+        }
+
+        if (data.enabled && hasProducts) {
+          renderShopPage();
+        }
+      } catch (e) {
+        console.error('Errore caricamento bar:', e);
+      }
+    }
+
+    function renderShopPage() {
+      const c = document.getElementById('page-shop');
+      if (!c) return;
+
+      let html = '<h3>🍹 Bar del Torneo</h3>';
+
+      shopCategories.forEach(cat => {
+        html += `<h4 style="color: #2e5d1f; margin-top: 18px">${esc(cat.name)}</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px">`;
+        (cat.products || []).forEach(p => {
+          const allergensText = (p.allergens || []).length ? `<div style="font-size: 11px; color: #b45309; margin-top: 2px">⚠️ ${(p.allergens || []).map(a => esc(a)).join(', ')}</div>` : '';
+          html += `<div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #fafafa">
+            <div style="font-weight: bold">${esc(p.name)}</div>
+            ${p.description ? `<div style="font-size: 13px; color: #666; margin-top: 2px">${esc(p.description)}</div>` : ''}
+            ${allergensText}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px">
+              <strong style="color: #d32f2f">€ ${(p.price || 0).toFixed(2)}</strong>
+              <button class="btn" style="background: #2e5d1f; color: white" onclick="addToShopCart('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${p.price})">➕ Aggiungi</button>
+            </div>
+          </div>`;
+        });
+        html += '</div>';
+      });
+
+      html += `<div id="shopCartSection" style="margin-top: 24px; padding: 16px; background: #fff8ea; border-radius: 8px; border: 1px solid #e5d5b0">
+        <h4 style="margin-top: 0">🛒 Il tuo carrello</h4>
+        <div id="shopCartItems"></div>
+      </div>`;
+
+      c.innerHTML = html;
+      renderShopCart();
+    }
+
+    function addToShopCart(productId, name, price) {
+      const existing = shopCart.find(i => i.productId === productId);
+      if (existing) {
+        existing.qty++;
+      } else {
+        shopCart.push({ productId, name, price, qty: 1 });
+      }
+      renderShopCart();
+    }
+
+    function changeShopCartQty(productId, delta) {
+      const item = shopCart.find(i => i.productId === productId);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) {
+        shopCart = shopCart.filter(i => i.productId !== productId);
+      }
+      renderShopCart();
+    }
+
+    function shopCartTotal() {
+      return shopCart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    }
+
+    function renderShopCart() {
+      const container = document.getElementById('shopCartItems');
+      if (!container) return;
+
+      if (!shopCart.length) {
+        container.innerHTML = '<p class="muted">Il carrello è vuoto. Aggiungi qualcosa dal menu qui sopra!</p>';
+        return;
+      }
+
+      const total = shopCartTotal();
+      let html = shopCart.map(item => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e5d5b0">
+          <span>${esc(item.name)} <small style="color: #888">(€ ${item.price.toFixed(2)} cad.)</small></span>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <button class="btn" style="padding: 2px 10px" onclick="changeShopCartQty('${item.productId}', -1)">−</button>
+            <span style="min-width: 20px; text-align: center">${item.qty}</span>
+            <button class="btn" style="padding: 2px 10px" onclick="changeShopCartQty('${item.productId}', 1)">+</button>
+            <strong style="min-width: 60px; text-align: right">€ ${(item.price * item.qty).toFixed(2)}</strong>
+          </div>
+        </div>
+      `).join('');
+
+      html += `<div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; color: #d32f2f">Totale: € ${total.toFixed(2)}</div>`;
+
+      html += `<div style="margin-top: 14px">
+        <label style="display: block; margin-bottom: 4px; font-weight: bold">Il tuo nome</label>
+        <input id="shopCustomerName" type="text" placeholder="Nome e cognome" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+        <label style="display: block; margin: 10px 0 4px 0; font-weight: bold">Note (opzionale)</label>
+        <input id="shopOrderNotes" type="text" placeholder="Es: senza ghiaccio" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+      </div>`;
+
+      html += `<div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px">
+        <button class="btn" style="background: #ff9800; color: white; padding: 12px; font-weight: bold" onclick="submitShopOrderCassa()">💵 Ordina e paga in cassa</button>`;
+
+      if (shopPaypalClientId) {
+        html += `<div id="shopPaypalButtonContainer"></div>`;
+      }
+
+      html += `</div>`;
+
+      container.innerHTML = html;
+
+      if (shopPaypalClientId) {
+        renderShopPaypalButton();
+      }
+    }
+
+    async function submitShopOrderCassa() {
+      const customerName = document.getElementById('shopCustomerName')?.value.trim();
+      if (!customerName) {
+        alert('Inserisci il tuo nome per procedere con l\'ordine.');
+        return;
+      }
+      if (!shopCart.length) {
+        alert('Il carrello è vuoto.');
+        return;
+      }
+
+      try {
+        const payload = {
+          customerName,
+          items: shopCart.map(i => ({ productId: i.productId, qty: i.qty })),
+          paymentMethod: 'cassa',
+          notes: document.getElementById('shopOrderNotes')?.value.trim() || ''
+        };
+        const r = await fetch(`${API}?action=shop_place_order`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          alert('Errore: ' + (data.error || 'invio ordine fallito'));
+          return;
+        }
+        shopCart = [];
+        renderShopCart();
+        await showInfoDialog('✅ Ordine inviato', `Grazie ${esc(customerName)}! Il tuo ordine è stato ricevuto.\n\nPresentati in cassa per pagare e ritirare (totale: € ${data.order.total.toFixed(2)}).`);
+      } catch (e) {
+        alert('Errore invio ordine: ' + e.message);
+      }
+    }
+
+    // 🆕 Carica l'SDK PayPal dinamicamente (una sola volta), col Client ID
+    // configurato dall'organizzatore in Impostazioni → Bar.
+    function loadPaypalSdk() {
+      if (shopPaypalSdkPromise) return shopPaypalSdkPromise;
+      shopPaypalSdkPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(shopPaypalClientId)}&currency=${encodeURIComponent(shopPaypalCurrency)}`;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error('Impossibile caricare PayPal'));
+        document.head.appendChild(script);
+      });
+      return shopPaypalSdkPromise;
+    }
+
+    // 🆕 NOTA: questo pagamento è verificato solo lato client (l'SDK PayPal
+    // gestisce l'addebito reale sull'account del cliente), ma la conferma
+    // "pagato" sul nostro server si fida della risposta del browser dopo
+    // l'approvazione — non c'è una verifica server-to-server con le API
+    // PayPal (servirebbe il Client Secret, non configurato qui). Per un bar
+    // di torneo è un compromesso ragionevole, ma è bene saperlo.
+    async function renderShopPaypalButton() {
+      const container = document.getElementById('shopPaypalButtonContainer');
+      if (!container) return;
+      container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
+
+      try {
+        const paypal = await loadPaypalSdk();
+        container.innerHTML = '';
+
+        paypal.Buttons({
+          createOrder: (data, actions) => {
+            const customerName = document.getElementById('shopCustomerName')?.value.trim();
+            if (!customerName) {
+              alert('Inserisci il tuo nome prima di pagare con PayPal.');
+              return Promise.reject(new Error('Nome mancante'));
+            }
+            return actions.order.create({
+              purchase_units: [{ amount: { value: shopCartTotal().toFixed(2), currency_code: shopPaypalCurrency } }]
+            });
+          },
+          onApprove: async (data, actions) => {
+            await actions.order.capture();
+            const customerName = document.getElementById('shopCustomerName')?.value.trim();
+            try {
+              const payload = {
+                customerName,
+                items: shopCart.map(i => ({ productId: i.productId, qty: i.qty })),
+                paymentMethod: 'paypal',
+                notes: document.getElementById('shopOrderNotes')?.value.trim() || ''
+              };
+              const r = await fetch(`${API}?action=shop_place_order`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+              });
+              const orderData = await r.json();
+              if (orderData.ok) {
+                await fetch(`${API}?action=shop_confirm_paypal_payment`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: orderData.order.id })
+                });
+              }
+              shopCart = [];
+              renderShopCart();
+              await showInfoDialog('✅ Pagamento completato', `Grazie ${esc(customerName)}! Il pagamento PayPal è andato a buon fine, il tuo ordine è confermato.`);
+            } catch (e) {
+              alert('Pagamento riuscito ma errore nel registrare l\'ordine: ' + e.message + '\nMostra la ricevuta PayPal in cassa.');
+            }
+          },
+          onError: (err) => {
+            console.error('Errore PayPal:', err);
+            alert('Si è verificato un errore con PayPal. Puoi comunque ordinare e pagare in cassa.');
+          }
+        }).render('#shopPaypalButtonContainer');
+      } catch (e) {
+        container.innerHTML = '<p class="muted">PayPal non disponibile al momento. Usa "Ordina e paga in cassa".</p>';
+      }
+    }
+
     function renderSponsorTicker(sponsors) {
       const container = document.getElementById('sponsorTickerContainer');
       const track = document.getElementById('sponsorTickerTrack');
@@ -3262,6 +3512,7 @@
 
     // Carica sponsor all'avvio
     loadSponsors();
+    loadShopMenu();
 
     // ==================== NEWS SECTION ====================
 

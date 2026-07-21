@@ -884,6 +884,7 @@
         <button class="tab" data-page="sponsors" onclick="showPage('sponsors', this)">🏪 Sponsor</button>
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
+        <button class="tab" data-page="shop" onclick="showPage('shop', this)">🍹 Bar</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1052,6 +1053,44 @@
             <button class="btn btn-primary" onclick="addNote()">+ Aggiungi Nota</button>
             <button class="btn btn-green" onclick="saveNotes()">Salva Note</button>
           </div>
+        </div>
+      </div>
+
+      <div id="page-shop" class="card page hidden">
+        <h3>🍹 Bar del Torneo</h3>
+        <p class="muted">Configura il menu del bar (categorie e prodotti) e gestisci gli ordini ricevuti. La voce "Bar" compare nella home pubblica solo se il bar è abilitato e ha almeno un prodotto disponibile.</p>
+
+        <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">⚙️ Impostazioni Bar</h4>
+          <label><input type="checkbox" id="shopEnabled"> Bar abilitato (visibile nella home)</label>
+          <div class="field" style="margin-top: 10px">
+            <label>PayPal Client ID (opzionale)</label>
+            <input id="shopPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa">
+            <small style="color: #666; display: block; margin-top: 4px">Se compilato, i clienti potranno scegliere di pagare online con PayPal oltre che in cassa. Si ottiene creando un'app su developer.paypal.com.</small>
+          </div>
+          <div class="field">
+            <label>Valuta PayPal</label>
+            <select id="shopPaypalCurrency">
+              <option value="EUR">EUR (€)</option>
+              <option value="USD">USD ($)</option>
+              <option value="GBP">GBP (£)</option>
+            </select>
+          </div>
+          <button class="btn btn-green" onclick="saveShopSettings()" style="margin-top: 10px">💾 Salva Impostazioni Bar</button>
+        </div>
+
+        <div class="card" style="background: #fff8ea; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">📋 Categorie e Prodotti</h4>
+          <div id="shopCategoriesContainer"></div>
+          <div class="row" style="margin-top: 10px">
+            <button class="btn" onclick="addShopCategory()">➕ Aggiungi Categoria</button>
+            <button class="btn btn-green" onclick="saveShopCategories()">💾 Salva Menu</button>
+          </div>
+        </div>
+
+        <div class="card" style="background: #f0f0f0; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">🧾 Ordini Ricevuti</h4>
+          <div id="shopOrdersContainer"></div>
         </div>
       </div>
 
@@ -1641,6 +1680,8 @@
         renderPaymentAndNotes();
       } else if (page === 'news') {
         renderNews();
+      } else if (page === 'shop') {
+        loadShopData();
       } else if (page === 'gallery') {
         renderGallery();
       } else if (page === 'groups') {
@@ -10368,6 +10409,261 @@ html += `
       } catch (e) {
         await showInfoDialog('Errore', 'Errore: ' + e.message);
       }
+    }
+
+    // ==================== 🆕 BAR / SHOP DEL TORNEO ====================
+    let shopCategoriesData = [];
+    let shopOrdersData = [];
+
+    async function loadShopData() {
+      try {
+        const result = await callApi('admin_get_shop', 'GET', null, true);
+        shopCategoriesData = result.categories || [];
+        shopOrdersData = result.orders || [];
+
+        document.getElementById('shopEnabled').checked = config.shopSettings?.enabled || false;
+        document.getElementById('shopPaypalClientId').value = config.shopSettings?.paypalClientId || '';
+        document.getElementById('shopPaypalCurrency').value = config.shopSettings?.paypalCurrency || 'EUR';
+
+        renderShopCategories();
+        renderShopOrders();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore caricamento bar: ' + e.message);
+      }
+    }
+
+    async function saveShopSettings() {
+      try {
+        const payload = {
+          enabled: document.getElementById('shopEnabled').checked,
+          paypalClientId: document.getElementById('shopPaypalClientId').value.trim(),
+          paypalCurrency: document.getElementById('shopPaypalCurrency').value
+        };
+        const result = await callApi('admin_update_shop_settings', 'POST', payload, true);
+        config.shopSettings = result.shopSettings;
+        await showInfoDialog('✅ Successo', 'Impostazioni bar salvate');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function renderShopCategories() {
+      const container = document.getElementById('shopCategoriesContainer');
+      if (!container) return;
+
+      if (!shopCategoriesData.length) {
+        container.innerHTML = '<p class="muted">Nessuna categoria. Clicca "Aggiungi Categoria" per iniziare.</p>';
+        return;
+      }
+
+      container.innerHTML = shopCategoriesData.map((cat, catIdx) => `
+        <div class="card" style="background: #fafafa; padding: 10px; margin-bottom: 10px; border-left: 4px solid #ff9800">
+          <div style="display: flex; gap: 8px; align-items: center">
+            <input type="text" value="${escapeHtml(cat.name || '')}" data-shop-cat-idx="${catIdx}" data-shop-field="catName" class="shop-input"
+                   placeholder="Nome categoria (es: Bevande)" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold">
+            <button class="btn btn-danger" onclick="removeShopCategory(${catIdx})">🗑️ Categoria</button>
+          </div>
+          <div style="margin-top: 8px">
+            ${(cat.products || []).map((p, prodIdx) => `
+              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; padding: 6px; background: white; border-radius: 4px; border: 1px solid #eee">
+                <input type="text" value="${escapeHtml(p.name || '')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodName" class="shop-input"
+                       placeholder="Nome prodotto" style="flex: 2; min-width: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+                <input type="text" value="${escapeHtml(p.description || '')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodDesc" class="shop-input"
+                       placeholder="Descrizione" style="flex: 2; min-width: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+                <input type="number" step="0.01" min="0" value="${p.price ?? 0}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodPrice" class="shop-input"
+                       placeholder="Prezzo €" style="width: 80px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+                <input type="text" value="${(p.allergens || []).join(', ')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodAllergens" class="shop-input"
+                       placeholder="Allergeni (separati da virgola)" style="flex: 2; min-width: 140px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+                <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 13px; margin: 0">
+                  <input type="checkbox" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodAvailable" class="shop-input" ${(p.available ?? true) ? 'checked' : ''}>
+                  Disponibile
+                </label>
+                <button class="btn btn-danger" onclick="removeShopProduct(${catIdx}, ${prodIdx})" style="padding: 4px 8px">🗑️</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="btn" style="margin-top: 8px" onclick="addShopProduct(${catIdx})">➕ Aggiungi Prodotto</button>
+        </div>
+      `).join('');
+    }
+
+    function addShopCategory() {
+      shopCategoriesData.push({ id: bin2hex(8), name: '', products: [] });
+      renderShopCategories();
+    }
+
+    function removeShopCategory(catIdx) {
+      shopCategoriesData.splice(catIdx, 1);
+      renderShopCategories();
+    }
+
+    function addShopProduct(catIdx) {
+      if (!shopCategoriesData[catIdx].products) shopCategoriesData[catIdx].products = [];
+      shopCategoriesData[catIdx].products.push({ id: bin2hex(8), name: '', description: '', price: 0, allergens: [], available: true });
+      renderShopCategories();
+    }
+
+    function removeShopProduct(catIdx, prodIdx) {
+      shopCategoriesData[catIdx].products.splice(prodIdx, 1);
+      renderShopCategories();
+    }
+
+    async function saveShopCategories() {
+      try {
+        // Raccogli i dati dai campi (stesso schema delle altre sezioni con salvataggio generale)
+        const inputs = document.querySelectorAll('.shop-input');
+        const updatedCats = shopCategoriesData.map(c => ({ ...c, products: (c.products || []).map(p => ({ ...p })) }));
+
+        inputs.forEach(input => {
+          const catIdx = parseInt(input.dataset.shopCatIdx);
+          const prodIdx = input.dataset.shopProdIdx !== undefined ? parseInt(input.dataset.shopProdIdx) : null;
+          const field = input.dataset.shopField;
+
+          if (field === 'catName') {
+            updatedCats[catIdx].name = input.value.trim();
+            return;
+          }
+          const prod = updatedCats[catIdx].products[prodIdx];
+          if (!prod) return;
+          if (field === 'prodName') prod.name = input.value.trim();
+          else if (field === 'prodDesc') prod.description = input.value.trim();
+          else if (field === 'prodPrice') prod.price = parseFloat(input.value) || 0;
+          else if (field === 'prodAllergens') prod.allergens = input.value.split(',').map(a => a.trim()).filter(Boolean);
+          else if (field === 'prodAvailable') prod.available = input.checked;
+        });
+
+        const finalCats = updatedCats.filter(c => c.name);
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: finalCats }, true);
+        shopCategoriesData = result.categories;
+        renderShopCategories();
+
+        await showInfoDialog('✅ Successo', 'Menu del bar salvato');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function renderShopOrders() {
+      const container = document.getElementById('shopOrdersContainer');
+      if (!container) return;
+
+      if (!shopOrdersData.length) {
+        container.innerHTML = '<p class="muted">Nessun ordine ricevuto.</p>';
+        return;
+      }
+
+      // Più recenti in cima
+      const sorted = [...shopOrdersData].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      container.innerHTML = sorted.map(order => {
+        const itemsText = (order.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
+        const isPaid = order.paymentStatus === 'pagato';
+        const paymentLabel = order.paymentMethod === 'paypal' ? '💳 PayPal' : '💵 Cassa';
+        return `<div class="card" style="background: white; padding: 10px; margin-bottom: 8px; border-left: 4px solid ${isPaid ? '#4caf50' : '#ff9800'}">
+          <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+            <div>
+              <strong>${escapeHtml(order.customerName)}</strong>
+              <span class="badge" style="background: #eee; margin-left: 6px">${paymentLabel}</span>
+              <span class="badge ${isPaid ? 'ok' : 'no'}" style="margin-left: 4px">${isPaid ? 'Pagato' : 'Da pagare'}</span>
+              <div style="font-size: 13px; color: #555; margin-top: 4px">${itemsText}</div>
+              ${order.notes ? `<div style="font-size: 12px; color: #888; margin-top: 2px">📝 ${escapeHtml(order.notes)}</div>` : ''}
+              <div style="font-size: 11px; color: #999; margin-top: 2px">${new Date(order.createdAt).toLocaleString('it-IT')}</div>
+            </div>
+            <div style="text-align: right">
+              <div style="font-size: 18px; font-weight: bold; color: #d32f2f">€ ${(order.total || 0).toFixed(2)}</div>
+            </div>
+          </div>
+          <div class="row" style="margin-top: 8px">
+            <button class="btn ${isPaid ? '' : 'btn-green'}" onclick="toggleOrderPaymentStatus('${order.id}', '${isPaid ? 'da_pagare' : 'pagato'}')">
+              ${isPaid ? '↩️ Segna da pagare' : '✅ Segna pagato'}
+            </button>
+            <button class="btn btn-primary" onclick="openEditShopOrder('${order.id}')">✏️ Modifica</button>
+            <button class="btn btn-danger" onclick="deleteShopOrder('${order.id}')">🗑️ Elimina</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function toggleOrderPaymentStatus(orderId, newStatus) {
+      try {
+        await callApi('admin_update_order_status', 'POST', { orderId, paymentStatus: newStatus }, true);
+        await loadShopData();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function deleteShopOrder(orderId) {
+      const confirmed = await showConfirmDialog('Elimina ordine', 'Vuoi davvero eliminare questo ordine?');
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_order', 'POST', { orderId }, true);
+        await loadShopData();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function openEditShopOrder(orderId) {
+      const order = shopOrdersData.find(o => o.id === orderId);
+      if (!order) return;
+
+      const itemsHtml = (order.items || []).map((item, idx) => `
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px">
+          <span style="flex: 1">${escapeHtml(item.name)} (€ ${item.price.toFixed(2)} cad.)</span>
+          <input type="number" min="0" value="${item.qty}" id="editOrderQty${idx}" style="width: 60px; padding: 4px; border: 1px solid #ddd; border-radius: 4px">
+        </div>
+      `).join('');
+
+      openModal({
+        title: 'Modifica ordine',
+        bodyHtml: `
+          <div class="form-grid-modal">
+            <div class="field full">
+              <label>Nome cliente</label>
+              <input id="editOrderCustomerName" type="text" value="${escapeHtml(order.customerName)}">
+            </div>
+            <div class="field full">
+              <label>Articoli (imposta a 0 per rimuovere)</label>
+              ${itemsHtml}
+            </div>
+            <div class="field full">
+              <label>Note</label>
+              <input id="editOrderNotes" type="text" value="${escapeHtml(order.notes || '')}">
+            </div>
+          </div>
+        `,
+        buttons: [
+          { text: 'Annulla', className: 'btn', closeOnClick: true },
+          {
+            text: 'Salva modifiche',
+            className: 'btn btn-primary',
+            onClick: async () => {
+              const items = (order.items || [])
+                .map((item, idx) => ({
+                  productId: item.productId,
+                  name: item.name,
+                  price: item.price,
+                  qty: parseInt(document.getElementById(`editOrderQty${idx}`).value) || 0
+                }))
+                .filter(i => i.qty > 0);
+
+              try {
+                await callApi('admin_update_order', 'POST', {
+                  orderId,
+                  items,
+                  customerName: document.getElementById('editOrderCustomerName').value.trim(),
+                  notes: document.getElementById('editOrderNotes').value.trim()
+                }, true);
+                closeModal();
+                await loadShopData();
+              } catch (e) {
+                await showInfoDialog('Errore salvataggio', e.message);
+              }
+            }
+          }
+        ]
+      });
     }
 
     async function saveNotes() {

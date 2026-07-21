@@ -39,6 +39,8 @@ register_shutdown_function(function () {
 });
 
 const DATA_FILE = __DIR__ . '/data/tournament.json';
+// 🆕 Bar/Shop del torneo: prodotti per categoria + ordini, in un file separato
+const SHOP_FILE = __DIR__ . '/data/shop.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
 const VERSION_FILE = __DIR__ . '/data/version.json';
@@ -555,6 +557,7 @@ function defaultConfig(): array {
             'currency' => 'EUR'
         ],
         'notes' => [],
+        'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [
@@ -668,6 +671,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva i campi personalizzati del modulo di iscrizione
     if (isset($existingConfig['customFields'])) {
         $merged['customFields'] = $existingConfig['customFields'];
+    }
+
+    // 🆕 Preserva le impostazioni Bar/Shop (PayPal)
+    if (isset($existingConfig['shopSettings'])) {
+        $merged['shopSettings'] = $existingConfig['shopSettings'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -845,6 +853,71 @@ function withStateTransaction(callable $callback): array {
     fclose($fp);
 
     return is_array($result) ? $result : [];
+}
+
+/**
+ * 🆕 Struttura di default del file shop.json (Bar del torneo).
+ */
+function defaultShopState(): array {
+    return [
+        'categories' => [],
+        'orders' => []
+    ];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock file) sul file shop.json, stesso schema
+ * già usato per tournament.json in withStateTransaction().
+ */
+function withShopTransaction(callable $callback): array {
+    $dir = dirname(SHOP_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(SHOP_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire il file del bar']);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare il file del bar']);
+    }
+
+    $raw = stream_get_contents($fp);
+    $loaded = json_decode($raw ?: '', true);
+    $shop = is_array($loaded) ? array_merge(defaultShopState(), $loaded) : defaultShopState();
+
+    $result = $callback($shop);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($shop, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🆕 Lettura semplice (senza transazione) del file shop.json, per gli
+ * endpoint che leggono soltanto.
+ */
+function readShopState(): array {
+    return array_merge(defaultShopState(), readJsonFile(SHOP_FILE, defaultShopState()));
+}
+
+/**
+ * 🆕 Ricalcola il totale di un ordine dalla lista articoli (prezzo * qty).
+ */
+function computeOrderTotal(array $items): float {
+    $total = 0.0;
+    foreach ($items as $item) {
+        $total += (float)($item['price'] ?? 0) * (int)($item['qty'] ?? 0);
+    }
+    return round($total, 2);
 }
 
 /**
@@ -7811,6 +7884,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'currency' => 'EUR'
             ],
             'notes' => [],
+            'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
             'customFields' => [],
             'news' => [],
             'autosave' => [
@@ -9919,6 +9993,322 @@ if ($action === 'admin_update_custom_fields' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'customFields' => $config['customFields'] ?? []]);
 }
 
+// 🆕 Salva le impostazioni del Bar/Shop (abilitazione, PayPal Client ID, valuta)
+if ($action === 'admin_update_shop_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['shopSettings'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'paypalClientId' => mb_substr(trim((string)($body['paypalClientId'] ?? '')), 0, 200),
+        'paypalCurrency' => in_array($body['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $body['paypalCurrency'] : 'EUR'
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento impostazioni Bar/Shop');
+
+    jsonResponse(200, ['ok' => true, 'shopSettings' => $config['shopSettings']]);
+}
+
+// ==================== 🆕 BAR / SHOP DEL TORNEO ====================
+
+// Lettura pubblica del menu (solo categorie/prodotti disponibili, niente ordini)
+if ($action === 'get_shop' && $method === 'GET') {
+    $config = readConfig();
+    $shopSettings = $config['shopSettings'] ?? ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'];
+    $shop = readShopState();
+
+    // Espone solo i prodotti disponibili (available !== false), non tutto
+    $publicCategories = array_map(function ($cat) {
+        return [
+            'id' => $cat['id'] ?? '',
+            'name' => $cat['name'] ?? '',
+            'products' => array_values(array_filter($cat['products'] ?? [], fn($p) => ($p['available'] ?? true) !== false))
+        ];
+    }, $shop['categories'] ?? []);
+    // Rimuovi le categorie rimaste senza prodotti disponibili
+    $publicCategories = array_values(array_filter($publicCategories, fn($c) => count($c['products']) > 0));
+
+    jsonResponse(200, [
+        'ok' => true,
+        'enabled' => (bool)($shopSettings['enabled'] ?? false),
+        'categories' => $publicCategories,
+        'paypalClientId' => $shopSettings['paypalClientId'] ?? '',
+        'paypalCurrency' => $shopSettings['paypalCurrency'] ?? 'EUR'
+    ]);
+}
+
+// Lettura admin: tutte le categorie/prodotti (anche non disponibili) + tutti gli ordini
+if ($action === 'admin_get_shop' && $method === 'GET') {
+    requireAdmin();
+    $shop = readShopState();
+    jsonResponse(200, ['ok' => true, 'categories' => $shop['categories'] ?? [], 'orders' => $shop['orders'] ?? []]);
+}
+
+// Salva l'intero elenco di categorie/prodotti (sostituisce tutto, stesso
+// schema già usato per i campi personalizzati e le note)
+if ($action === 'admin_update_shop_categories' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+
+    if (!isset($body['categories']) || !is_array($body['categories'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'categories mancante o non valido']);
+    }
+
+    $categories = [];
+    foreach ($body['categories'] as $cat) {
+        $catName = mb_substr(trim((string)($cat['name'] ?? '')), 0, 100);
+        if ($catName === '') continue;
+
+        $products = [];
+        foreach ((array)($cat['products'] ?? []) as $p) {
+            $prodName = mb_substr(trim((string)($p['name'] ?? '')), 0, 100);
+            if ($prodName === '') continue;
+            $price = is_numeric($p['price'] ?? null) ? round((float)$p['price'], 2) : 0;
+            if ($price < 0) $price = 0;
+
+            $allergens = [];
+            foreach ((array)($p['allergens'] ?? []) as $a) {
+                $a = mb_substr(trim((string)$a), 0, 50);
+                if ($a !== '') $allergens[] = $a;
+            }
+
+            $products[] = [
+                'id' => trim((string)($p['id'] ?? bin2hex(random_bytes(4)))),
+                'name' => $prodName,
+                'description' => mb_substr(trim((string)($p['description'] ?? '')), 0, 300),
+                'price' => $price,
+                'allergens' => $allergens,
+                'available' => (bool)($p['available'] ?? true)
+            ];
+        }
+
+        $categories[] = [
+            'id' => trim((string)($cat['id'] ?? bin2hex(random_bytes(4)))),
+            'name' => $catName,
+            'products' => $products
+        ];
+    }
+
+    withShopTransaction(function (&$shop) use ($categories) {
+        $shop['categories'] = $categories;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'categories' => $categories]);
+}
+
+// Il cliente invia un ordine dalla pagina pubblica
+if ($action === 'shop_place_order' && $method === 'POST') {
+    $body = bodyJson();
+    $config = readConfig();
+    $shopSettings = $config['shopSettings'] ?? ['enabled' => false];
+
+    if (!($shopSettings['enabled'] ?? false)) {
+        jsonResponse(403, ['ok' => false, 'error' => 'Il bar non è al momento disponibile']);
+    }
+
+    $customerName = mb_substr(trim((string)($body['customerName'] ?? '')), 0, 100);
+    if ($customerName === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un nome per l\'ordine']);
+    }
+
+    $rawItems = $body['items'] ?? [];
+    if (!is_array($rawItems) || count($rawItems) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il carrello è vuoto']);
+    }
+
+    $paymentMethod = ($body['paymentMethod'] ?? 'cassa') === 'paypal' ? 'paypal' : 'cassa';
+
+    // 🔧 Ricalcola i prezzi lato server dal catalogo reale (non fidarsi del
+    // prezzo inviato dal client, che potrebbe essere manomesso)
+    $shop = readShopState();
+    $catalogById = [];
+    foreach ($shop['categories'] ?? [] as $cat) {
+        foreach ($cat['products'] ?? [] as $p) {
+            $catalogById[$p['id']] = $p;
+        }
+    }
+
+    $orderItems = [];
+    foreach ($rawItems as $it) {
+        $productId = (string)($it['productId'] ?? '');
+        $qty = max(1, (int)($it['qty'] ?? 1));
+        if (!isset($catalogById[$productId])) continue; // prodotto sconosciuto/rimosso, salta
+        $product = $catalogById[$productId];
+        if (($product['available'] ?? true) === false) continue; // non più disponibile, salta
+
+        $orderItems[] = [
+            'productId' => $productId,
+            'name' => $product['name'],
+            'price' => $product['price'],
+            'qty' => $qty
+        ];
+    }
+
+    if (count($orderItems) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nessun articolo valido nel carrello (potrebbero non essere più disponibili)']);
+    }
+
+    $order = [
+        'id' => bin2hex(random_bytes(8)),
+        'customerName' => $customerName,
+        'items' => $orderItems,
+        'total' => computeOrderTotal($orderItems),
+        'paymentMethod' => $paymentMethod,
+        // 🆕 Un ordine pagato con PayPal risulta già "pagato" solo se il
+        // client conferma la cattura del pagamento (vedi shop_confirm_paypal_payment);
+        // qui viene creato provvisoriamente come "da_pagare".
+        'paymentStatus' => 'da_pagare',
+        'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
+        'createdAt' => gmdate('c')
+    ];
+
+    withShopTransaction(function (&$shop) use ($order) {
+        $shop['orders'][] = $order;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'order' => $order]);
+}
+
+// 🆕 Il client conferma che il pagamento PayPal è stato catturato con
+// successo (chiamata dal callback onApprove del bottone PayPal). NOTA:
+// questo è un meccanismo semplificato — non verifica la cattura contro le
+// API server-to-server di PayPal, si fida della conferma del browser.
+// Per un sistema con volumi importanti servirebbe una verifica server-side
+// con le credenziali PayPal (Client Secret), non incluse qui.
+if ($action === 'shop_confirm_paypal_payment' && $method === 'POST') {
+    $body = bodyJson();
+    $orderId = (string)($body['orderId'] ?? '');
+    if ($orderId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'orderId mancante']);
+    }
+
+    $found = false;
+    withShopTransaction(function (&$shop) use ($orderId, &$found) {
+        foreach ($shop['orders'] as &$order) {
+            if (($order['id'] ?? '') === $orderId) {
+                $order['paymentStatus'] = 'pagato';
+                $order['paidVia'] = 'paypal';
+                $found = true;
+                break;
+            }
+        }
+        unset($order);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Ordine non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: cambia lo stato di pagamento di un ordine (da pagare / pagato)
+if ($action === 'admin_update_order_status' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $orderId = (string)($body['orderId'] ?? '');
+    $status = ($body['paymentStatus'] ?? '') === 'pagato' ? 'pagato' : 'da_pagare';
+
+    $found = false;
+    withShopTransaction(function (&$shop) use ($orderId, $status, &$found) {
+        foreach ($shop['orders'] as &$order) {
+            if (($order['id'] ?? '') === $orderId) {
+                $order['paymentStatus'] = $status;
+                if ($status === 'pagato' && empty($order['paidVia'])) {
+                    $order['paidVia'] = 'cassa';
+                }
+                $found = true;
+                break;
+            }
+        }
+        unset($order);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Ordine non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: modifica gli articoli di un ordine già ricevuto (ricalcola il totale)
+if ($action === 'admin_update_order' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $orderId = (string)($body['orderId'] ?? '');
+    if ($orderId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'orderId mancante']);
+    }
+
+    $shop = readShopState();
+    $catalogById = [];
+    foreach ($shop['categories'] ?? [] as $cat) {
+        foreach ($cat['products'] ?? [] as $p) {
+            $catalogById[$p['id']] = $p;
+        }
+    }
+
+    $newItems = [];
+    foreach ((array)($body['items'] ?? []) as $it) {
+        $productId = (string)($it['productId'] ?? '');
+        $qty = max(1, (int)($it['qty'] ?? 1));
+        // Se il prodotto esiste ancora nel catalogo usa il prezzo/nome
+        // aggiornato, altrimenti mantieni quanto già salvato nell'ordine
+        // (evita di perdere articoli ormai rimossi dal catalogo).
+        if (isset($catalogById[$productId])) {
+            $newItems[] = ['productId' => $productId, 'name' => $catalogById[$productId]['name'], 'price' => $catalogById[$productId]['price'], 'qty' => $qty];
+        } else {
+            $newItems[] = ['productId' => $productId, 'name' => (string)($it['name'] ?? 'Articolo'), 'price' => (float)($it['price'] ?? 0), 'qty' => $qty];
+        }
+    }
+
+    $found = false;
+    withShopTransaction(function (&$shop) use ($orderId, $newItems, $body, &$found) {
+        foreach ($shop['orders'] as &$order) {
+            if (($order['id'] ?? '') === $orderId) {
+                if (count($newItems) > 0) {
+                    $order['items'] = $newItems;
+                    $order['total'] = computeOrderTotal($newItems);
+                }
+                if (isset($body['customerName'])) {
+                    $name = mb_substr(trim((string)$body['customerName']), 0, 100);
+                    if ($name !== '') $order['customerName'] = $name;
+                }
+                if (isset($body['notes'])) {
+                    $order['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
+                }
+                $found = true;
+                break;
+            }
+        }
+        unset($order);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Ordine non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elimina un ordine
+if ($action === 'admin_delete_order' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $orderId = (string)($body['orderId'] ?? '');
+
+    withShopTransaction(function (&$shop) use ($orderId) {
+        $shop['orders'] = array_values(array_filter($shop['orders'] ?? [], fn($o) => ($o['id'] ?? '') !== $orderId));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
 if ($action === 'admin_update_notes' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();
@@ -11434,6 +11824,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
             'currency' => 'EUR'
         ],
         'notes' => [],
+        'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [

@@ -3487,33 +3487,44 @@
     }
 
     function teamRow(team) {
-      // Formatta giocatori: supporta sia vecchio formato string che nuovo {name, isCaptain}
-      let playersHtml = '';
-      let playersImages = '';
-      if (Array.isArray(team.players) && team.players.length > 0) {
-        playersHtml = team.players.map(p => {
-          let name = '';
-          let isCaptain = false;
-          if (typeof p === 'string') {
-            name = p;
-          } else if (p && p.name) {
-            name = p.name;
-            isCaptain = p.isCaptain || false;
-          }
-          if (!name) return '';
-          return isCaptain ? `<strong>${escapeHtml(name)} 👨‍💼</strong>` : escapeHtml(name);
-        }).filter(Boolean).join(' | ');
-        
-        // Crea HTML per le immagini dei giocatori
-        playersImages = team.players.map((p, idx) => {
-          if (typeof p === 'string') return '';
-          const imageUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
-          const title = (p && p.name) ? escapeHtml(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
-          return `<img src="${imageUrl}" title="${title}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; cursor: pointer" onclick="openTeamDialog('${team.id}')">`;
-        }).filter(Boolean).join('');
+      const levelLabels = { principiante: 'Principiante', intermedio: 'Intermedio', avanzato: 'Avanzato', professionista: 'Professionista' };
+      const levelOptions = [
+        ['', 'Livello'], ['principiante', 'Principiante'], ['intermedio', 'Intermedio'],
+        ['avanzato', 'Avanzato'], ['professionista', 'Professionista']
+      ];
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+      const placeholderImg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
+
+      // Normalizza giocatori: supporta sia vecchio formato string che nuovo {name, isCaptain, level}
+      let players = [];
+      if (Array.isArray(team.players)) {
+        players = team.players.map(p => typeof p === 'string' ? { name: p, isCaptain: false } : (p || {}));
       }
-      const playersText = playersHtml || '<em style="color:#999">Giocatori non inseriti</em>';
-      
+
+      // 🆕 Un box per giocatore, con nome e livello modificabili in linea e
+      // radio per il capitano — stessa impostazione visiva di scoreboard.html
+      // (foto in alto, nome sotto, livello sotto ancora).
+      let playerBoxes = '';
+      for (let i = 0; i < maxPlayers; i++) {
+        const p = players[i] || {};
+        const imgUrl = p.imageFile || placeholderImg;
+        const isCap = !!p.isCaptain;
+        playerBoxes += `<div style="text-align: center; width: 100px">
+          <div style="position: relative; width: 56px; height: 56px; margin: 0 auto; cursor: pointer" onclick="openTeamDialog('${team.id}')" title="Clicca per cambiare la foto">
+            <img src="${imgUrl}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
+            ${isCap ? '<span style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
+          </div>
+          <input type="text" id="row_${team.id}_p${i}_name" value="${escapeHtml(p.name || '')}" placeholder="Giocatore ${i + 1}"
+                 style="width: 100%; margin-top: 4px; padding: 3px; font-size: 12px; font-weight: 600; text-align: center; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box">
+          <select id="row_${team.id}_p${i}_level" style="width: 100%; margin-top: 3px; padding: 2px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px">
+            ${levelOptions.map(([val, label]) => `<option value="${val}" ${(p.level || '') === val ? 'selected' : ''}>${label}</option>`).join('')}
+          </select>
+          <label style="display: block; font-size: 11px; margin-top: 3px; font-weight: normal">
+            <input type="radio" name="row_${team.id}_captain" value="${i}" ${isCap ? 'checked' : ''} style="cursor: pointer"> Capitano
+          </label>
+        </div>`;
+      }
+
       // Calcola il peso della squadra
       const weight = getTeamWeight(team);
       const weightColor = getWeightColor(weight);
@@ -3528,26 +3539,99 @@
            <a href="tel:${team.phone.replace(/[^\d+]/g, '')}" class="btn" style="background: #0078d4; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px" title="Chiama ${escapeHtml(team.name)} (${escapeHtml(team.phone)})">📞 Chiama</a>`
         : '';
 
-      return `<div class="team">
-        <div class="team-info">
-          <strong>${escapeHtml(team.name)}</strong>
-          <small>${playersText}</small>
-          ${team.email ? `<small style="display: block; color: #6b5d45; margin-top: 2px">✉️ ${escapeHtml(team.email)}</small>` : ''}
-          ${team.phone ? `<small style="display: block; color: #6b5d45; margin-top: 2px">📱 ${escapeHtml(team.phone)}</small>` : ''}
-          ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
+      return `<div class="team" data-team-id="${team.id}" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
+        <div style="min-width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px">
+          <input type="text" id="row_${team.id}_name" value="${escapeHtml(team.name)}" style="font-size: 15px; font-weight: bold; padding: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+          <input type="email" id="row_${team.id}_email" value="${escapeHtml(team.email || '')}" placeholder="Email" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+          <input type="text" id="row_${team.id}_phone" value="${escapeHtml(team.phone || '')}" placeholder="Telefono" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+          <div>
+            ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
+            <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold" title="Peso squadra = Media livelli giocatori">⚖️ ${weight}</span>
+          </div>
+          <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_approved" ${team.approved ? 'checked' : ''}> Confermata</label>
+          <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_paid" ${team.paid ? 'checked' : ''}> Pagato</label>
+          <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_kit" ${team.kitDelivered ? 'checked' : ''}> Kit consegnato</label>
         </div>
-        <div class="chips">
-          ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
-          <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold" title="Peso squadra = Media livelli giocatori">⚖️ ${weight}</span>
-          <span class="badge ${team.approved ? 'ok' : 'no'}">${team.approved ? 'Confermato' : 'In attesa'}</span>
-          <span class="badge ${team.paid ? 'ok' : 'no'}">${team.paid ? 'Pagato' : 'Non pagato'}</span>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
+          ${playerBoxes}
         </div>
-        <div class="row">
+        <div class="row" style="width: 100%; margin-top: 4px">
           ${contactButtonsHtml}
-          <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica</button>
+          <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica completa</button>
           ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
         </div>
       </div>`;
+    }
+
+    // 🆕 Raccoglie i dati modificati in linea per UNA squadra dai suoi input,
+    // nello stesso formato atteso da admin_update_team.
+    function collectTeamRowData(team) {
+      const nameEl = document.getElementById(`row_${team.id}_name`);
+      if (!nameEl) return null; // riga non trovata nel DOM (non dovrebbe succedere)
+
+      const maxPlayers = config.tournament?.maxPlayersPerTeam || 3;
+      const captainRadio = document.querySelector(`input[name="row_${team.id}_captain"]:checked`);
+      const captainIdx = captainRadio ? parseInt(captainRadio.value) : -1;
+
+      const players = [];
+      for (let i = 0; i < maxPlayers; i++) {
+        const nameInput = document.getElementById(`row_${team.id}_p${i}_name`);
+        const levelSelect = document.getElementById(`row_${team.id}_p${i}_level`);
+        if (nameInput && nameInput.value.trim()) {
+          players.push({
+            name: nameInput.value.trim(),
+            isCaptain: captainIdx === i,
+            level: levelSelect ? levelSelect.value : ''
+          });
+        }
+      }
+
+      return {
+        id: team.id,
+        name: nameEl.value.trim(),
+        email: document.getElementById(`row_${team.id}_email`)?.value.trim() || '',
+        phone: document.getElementById(`row_${team.id}_phone`)?.value.trim() || '',
+        approved: document.getElementById(`row_${team.id}_approved`)?.checked || false,
+        paid: document.getElementById(`row_${team.id}_paid`)?.checked || false,
+        kitDelivered: document.getElementById(`row_${team.id}_kit`)?.checked || false,
+        players
+      };
+    }
+
+    // 🆕 Salvataggio generale: raccoglie le modifiche in linea di TUTTE le
+    // squadre visibili e le salva una per una (sequenziale, per non
+    // sovraccaricare il server con troppe richieste simultanee).
+    async function saveAllTeamsInline() {
+      const teams = state.teams || [];
+      if (!teams.length) {
+        await showInfoDialog('Info', 'Nessuna squadra da salvare.');
+        return;
+      }
+
+      const btn = document.getElementById('saveAllTeamsBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvataggio in corso...'; }
+
+      let savedCount = 0;
+      const errors = [];
+      for (const team of teams) {
+        const payload = collectTeamRowData(team);
+        if (!payload) continue;
+        try {
+          await callApi('admin_update_team', 'POST', payload, true);
+          savedCount++;
+        } catch (e) {
+          errors.push(`${team.name}: ${e.message}`);
+        }
+      }
+
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Salva Tutto'; }
+
+      if (errors.length) {
+        await showInfoDialog('Salvataggio parziale', `Salvate ${savedCount} squadre su ${teams.length}.\n\nErrori:\n${errors.join('\n')}`);
+      } else {
+        await showInfoDialog('✅ Successo', `${savedCount} squadre salvate correttamente.`);
+      }
+      await refresh();
     }
 
     // 🆕 Normalizza un numero di telefono per il link wa.me di WhatsApp
@@ -3741,7 +3825,11 @@
       `;
       
       c.innerHTML = addButton + 
-        `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p><p class="muted">Apri "Modifica" per aggiornare tutti i dettagli squadra in una sola finestra.</p>` + 
+        `<p>Totale: <strong>${all.length}</strong> | In attesa: <strong>${state.pendingCount || 0}</strong></p>
+         <p class="muted">Modifica i campi direttamente nelle righe sotto, poi clicca "Salva Tutto" per confermare tutte le modifiche insieme — oppure usa "Modifica completa" su una singola squadra per la foto e altri dettagli.</p>
+         <div style="margin-bottom: 14px">
+           <button id="saveAllTeamsBtn" class="btn" style="background: #ff9800; color: white; padding: 10px 18px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold" onclick="saveAllTeamsInline()">💾 Salva Tutto</button>
+         </div>` + 
         all.map(teamRow).join('');
       
       // Aggiungi event listener al bottone "Aggiungi Squadra" (solo se presente:

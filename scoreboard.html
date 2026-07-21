@@ -501,6 +501,9 @@
 
     .modal {
       width: min(520px, 100%);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
       background: #fffdf8;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -515,6 +518,7 @@
       padding: 12px 14px;
       background: #f8edd6;
       border-bottom: 1px solid #ebd9b6;
+      flex-shrink: 0;
     }
 
     .modal-head h4 {
@@ -536,6 +540,7 @@
       padding: 14px;
       color: var(--ink);
       line-height: 1.45;
+      overflow-y: auto;
     }
 
     .modal-footer {
@@ -544,6 +549,7 @@
       display: flex;
       justify-content: flex-end;
       background: #fff8ea;
+      flex-shrink: 0;
     }
 
     .btn-modal {

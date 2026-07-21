@@ -1982,8 +1982,6 @@
           <div class="settings-subtabs" id="settingsSubtabs">
             <button class="settings-subtab-btn active" onclick="showSettingsTab('tournament', this)">📋 Torneo</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('communications', this)">📧 Comunicazioni</button>
-            <button class="settings-subtab-btn" onclick="showSettingsTab('calendar', this)">📅 Calendario</button>
-            <button class="settings-subtab-btn" onclick="showSettingsTab('phases', this)">🏆 Fasi</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('display', this)">🎨 Visualizzazione</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('advanced', this)">📦 Avanzate</button>
             <button class="settings-subtab-btn" onclick="showSettingsTab('jsoneditor', this)">💾 JSON Editor</button>
@@ -2174,23 +2172,6 @@
           </div>
 
           <!-- TAB 3: CALENDARIO -->
-          <div class="settings-tab-content" id="settings-calendar">
-            <div class="card" style="background: #e8f5e9; padding: 12px">
-              <h4 style="margin-top: 0">📅 Schedule Giorni</h4>
-              <p class="muted">Configurati ${s.days ? s.days.length : 0} giorni di torneo</p>
-              <button class="btn btn-primary" style="width: 100%" onclick="showScheduleConfig()">Configura giorni e fasce</button>
-            </div>
-          </div>
-
-          <!-- TAB 3B: FASI -->
-          <div class="settings-tab-content" id="settings-phases">
-            <div class="card" style="background: #e8f1f5; padding: 12px">
-              <h4 style="margin-top: 0">🏆 Assegna Giornate e Slot alle Fasi</h4>
-              <p class="muted">Configura giornate e orari per ogni fase del torneo.</p>
-              <div id="phasesScheduleContainer" style="margin-top: 14px"></div>
-            </div>
-          </div>
-
           <!-- TAB 4: VISUALIZZAZIONE -->
           <div class="settings-tab-content" id="settings-display">
             <div class="card" style="background: #f0e8f5; padding: 12px">
@@ -2666,9 +2647,6 @@
       
       // Carica la lista dei backup dal server
       loadBackupsList().catch(e => console.error('Errore caricamento backup list:', e));
-      
-      // Renderizza lo schedule delle fasi
-      renderPhasesScheduleConfig();
 
       // 🆕 Ripristina la sotto-scheda che era aperta prima di questo
       // ri-render (l'HTML appena ricostruito riparte sempre da "Torneo" come

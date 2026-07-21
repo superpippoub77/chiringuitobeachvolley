@@ -1625,7 +1625,14 @@
         const weight = getTeamWeight(t);
         const weightColor = getWeightColor(weight);
 
-        return `<div class="team" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
+        // 🆕 Badge "NEW" per le squadre iscritte di recente (ultime 48 ore)
+        const isNew = t.createdAt && (Date.now() - new Date(t.createdAt).getTime()) < 48 * 60 * 60 * 1000;
+        const newBadgeHtml = isNew
+          ? `<div style="position: absolute; top: -10px; right: -8px; background: #e53935; color: #fff; font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 4px; transform: rotate(-8deg); box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 1; letter-spacing: 0.5px">NEW</div>`
+          : '';
+
+        return `<div class="team" style="position: relative; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
+          ${newBadgeHtml}
           <div style="min-width: 160px; flex-shrink: 0">
             <strong style="font-size: 15px">${esc(t.name)}</strong>
             <div style="margin-top: 4px">

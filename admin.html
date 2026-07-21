@@ -296,6 +296,53 @@
       border-bottom: 0;
     }
 
+    /* 🆕 Scheda squadra a griglia (Squadre e conferme): colonna info a
+       sinistra, box giocatori a destra su desktop; impilati su mobile. */
+    .team-card {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      gap: 16px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fafafa;
+      align-items: start;
+    }
+
+    .team-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .team-card-players {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .team-card-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      border-top: 1px solid #e7d6b5;
+      padding-top: 10px;
+    }
+
+    @media (max-width: 720px) {
+      .team-card {
+        grid-template-columns: 1fr;
+      }
+      .team-card-players {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      }
+    }
+
     .badge {
       font-size: 12px;
       border-radius: 999px;
@@ -3509,14 +3556,14 @@
         const p = players[i] || {};
         const imgUrl = p.imageFile || placeholderImg;
         const isCap = !!p.isCaptain;
-        playerBoxes += `<div style="text-align: center; width: 100px">
+        playerBoxes += `<div style="text-align: center">
           <div style="position: relative; width: 56px; height: 56px; margin: 0 auto; cursor: pointer" onclick="openTeamDialog('${team.id}')" title="Clicca per cambiare la foto">
             <img src="${imgUrl}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
             ${isCap ? '<span style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
           </div>
           <input type="text" id="row_${team.id}_p${i}_name" value="${escapeHtml(p.name || '')}" placeholder="Giocatore ${i + 1}"
                  style="width: 100%; margin-top: 4px; padding: 3px; font-size: 12px; font-weight: 600; text-align: center; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box">
-          <select id="row_${team.id}_p${i}_level" style="width: 100%; margin-top: 3px; padding: 2px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px">
+          <select id="row_${team.id}_p${i}_level" style="width: 100%; margin-top: 3px; padding: 2px; font-size: 11px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box">
             ${levelOptions.map(([val, label]) => `<option value="${val}" ${(p.level || '') === val ? 'selected' : ''}>${label}</option>`).join('')}
           </select>
           <label style="display: block; font-size: 11px; margin-top: 3px; font-weight: normal">
@@ -3539,11 +3586,11 @@
            <a href="tel:${team.phone.replace(/[^\d+]/g, '')}" class="btn" style="background: #0078d4; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px" title="Chiama ${escapeHtml(team.name)} (${escapeHtml(team.phone)})">📞 Chiama</a>`
         : '';
 
-      return `<div class="team" data-team-id="${team.id}" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
-        <div style="min-width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px">
-          <input type="text" id="row_${team.id}_name" value="${escapeHtml(team.name)}" style="font-size: 15px; font-weight: bold; padding: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
-          <input type="email" id="row_${team.id}_email" value="${escapeHtml(team.email || '')}" placeholder="Email" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
-          <input type="text" id="row_${team.id}_phone" value="${escapeHtml(team.phone || '')}" placeholder="Telefono" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+      return `<div class="team-card" data-team-id="${team.id}">
+        <div class="team-card-info">
+          <input type="text" id="row_${team.id}_name" value="${escapeHtml(team.name)}" style="font-size: 15px; font-weight: bold; padding: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; width: 100%">
+          <input type="email" id="row_${team.id}_email" value="${escapeHtml(team.email || '')}" placeholder="Email" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; width: 100%">
+          <input type="text" id="row_${team.id}_phone" value="${escapeHtml(team.phone || '')}" placeholder="Telefono" style="font-size: 12px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; width: 100%">
           <div>
             ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
             <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold" title="Peso squadra = Media livelli giocatori">⚖️ ${weight}</span>
@@ -3552,10 +3599,10 @@
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_paid" ${team.paid ? 'checked' : ''}> Pagato</label>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_kit" ${team.kitDelivered ? 'checked' : ''}> Kit consegnato</label>
         </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
+        <div class="team-card-players">
           ${playerBoxes}
         </div>
-        <div class="row" style="width: 100%; margin-top: 4px">
+        <div class="team-card-actions">
           ${contactButtonsHtml}
           <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica completa</button>
           ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
@@ -9197,6 +9244,16 @@ html += `
           const dateDiv = document.createElement('div');
           dateDiv.style.cssText = 'font-size: 0.85rem; color: #6a5737; margin-bottom: 12px';
           dateDiv.textContent = '📅 Creato: ' + new Date(tournament.createdAt).toLocaleDateString('it-IT');
+
+          // 🆕 Slug (se configurato): mostra il link diretto alla pagina
+          // pubblica del torneo raggiungibile tramite lo slug, oltre al codice.
+          let slugDiv = null;
+          if (tournament.slug) {
+            slugDiv = document.createElement('div');
+            slugDiv.style.cssText = 'font-size: 0.85rem; color: #0078d4; margin-bottom: 12px; word-break: break-all';
+            const slugUrl = window.location.href.replace(/admin\.html.*$/, '') + tournament.slug + '/';
+            slugDiv.innerHTML = `🔗 Slug: <a href="${slugUrl}" target="_blank" rel="noopener">${slugUrl}</a>`;
+          }
           
           const buttonsDiv = document.createElement('div');
           buttonsDiv.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #d9bf8c';
@@ -9241,7 +9298,21 @@ html += `
             }
           };
           
+          // 🆕 Pulsante Apri Pagina Pubblica: usa lo slug se configurato,
+          // altrimenti il percorso basato sul codice del torneo.
+          const openPublicBtn = document.createElement('button');
+          openPublicBtn.textContent = '🌐 Apri Pagina Pubblica';
+          openPublicBtn.className = 'btn';
+          openPublicBtn.style.cssText = 'flex: 1; min-width: 80px; padding: 8px 12px; font-size: 0.9rem; background: #6a1b9a; color: white';
+          openPublicBtn.onclick = () => {
+            const url = tournament.slug
+              ? window.location.href.replace(/admin\.html.*$/, '') + tournament.slug + '/'
+              : tournament.path + '/index.html';
+            window.open(url, '_blank');
+          };
+
           buttonsDiv.appendChild(accessBtn);
+          buttonsDiv.appendChild(openPublicBtn);
           buttonsDiv.appendChild(updateBtn);
           buttonsDiv.appendChild(toggleBtn);
           buttonsDiv.appendChild(deleteBtn);
@@ -9251,6 +9322,7 @@ html += `
           item.appendChild(codeDiv);
           item.appendChild(emailDiv);
           item.appendChild(dateDiv);
+          if (slugDiv) item.appendChild(slugDiv);
           item.appendChild(buttonsDiv);
           container.appendChild(item);
         });

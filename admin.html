@@ -1324,6 +1324,17 @@
         <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 20px">
           <h4 style="margin-top: 0">🎟️ Partecipazione Spettatori</h4>
           <p class="muted">Persone che hanno segnalato la loro presenza all'evento senza iscrivere una squadra (dalla home pubblica, "Partecipa").</p>
+
+          <div class="card" style="background: white; padding: 10px; margin-bottom: 12px">
+            <label><input type="checkbox" id="attendanceEnabled"> Voce "Partecipa" abilitata nella home pubblica</label>
+            <div class="field" style="margin-top: 8px">
+              <label>Numero massimo di partecipanti (0 = nessun limite)</label>
+              <input id="attendanceMaxParticipants" type="number" min="0" value="0" style="width: 100%; max-width: 200px">
+              <small style="color: #666; display: block; margin-top: 4px">Conta la somma delle persone di tutte le adesioni (non il numero di moduli inviati). Oltre il limite, il modulo rifiuta nuove adesioni.</small>
+            </div>
+            <button class="btn btn-green" onclick="saveAttendanceSettings()" style="margin-top: 8px">💾 Salva Impostazioni Partecipazione</button>
+          </div>
+
           <div id="attendeesTotals" style="margin-bottom: 10px"></div>
           <div id="attendeesContainer"></div>
         </div>
@@ -10425,8 +10436,25 @@ html += `
     let shopOrdersData = [];
 
     // ==================== 🆕 ADESIONI SPETTATORI ====================
+    async function saveAttendanceSettings() {
+      try {
+        const payload = {
+          enabled: document.getElementById('attendanceEnabled').checked,
+          maxParticipants: parseInt(document.getElementById('attendanceMaxParticipants').value) || 0
+        };
+        const result = await callApi('admin_update_attendance_settings', 'POST', payload, true);
+        config.attendanceSettings = result.attendanceSettings;
+        await showInfoDialog('✅ Successo', 'Impostazioni partecipazione salvate');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     async function loadAttendees() {
       try {
+        document.getElementById('attendanceEnabled').checked = config.attendanceSettings?.enabled || false;
+        document.getElementById('attendanceMaxParticipants').value = config.attendanceSettings?.maxParticipants || 0;
+
         const result = await callApi('admin_get_attendees', 'GET', null, true);
         const totals = result.totals || {};
         document.getElementById('attendeesTotals').innerHTML = `

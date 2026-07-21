@@ -560,6 +560,7 @@ function defaultConfig(): array {
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
         'customFields' => [],
         'news' => [],
         'autosave' => [
@@ -678,6 +679,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva le impostazioni Bar/Shop (PayPal)
     if (isset($existingConfig['shopSettings'])) {
         $merged['shopSettings'] = $existingConfig['shopSettings'];
+    }
+
+    // 🆕 Preserva le impostazioni di partecipazione spettatori
+    if (isset($existingConfig['attendanceSettings'])) {
+        $merged['attendanceSettings'] = $existingConfig['attendanceSettings'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -4531,6 +4537,13 @@ if ($action === 'admin_get_newsletter_subscribers' && $method === 'GET') {
 // email, telefono, numero di persone totali e quanti tra loro sono bambini.
 
 if ($action === 'attendance_signup' && $method === 'POST') {
+    $config = readConfig();
+    $attendanceSettings = $config['attendanceSettings'] ?? ['enabled' => false, 'maxParticipants' => 0];
+
+    if (!($attendanceSettings['enabled'] ?? false)) {
+        jsonResponse(403, ['ok' => false, 'error' => 'La partecipazione come spettatore non è al momento disponibile']);
+    }
+
     $body = bodyJson();
     $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 100);
     $email = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
@@ -4569,15 +4582,71 @@ if ($action === 'attendance_signup' && $method === 'POST') {
         'createdAt' => date('c')
     ];
 
-    withAttendanceTransaction(function (&$list) use ($attendee) {
+    $maxParticipants = (int)($attendanceSettings['maxParticipants'] ?? 0);
+    $limitExceeded = false;
+
+    withAttendanceTransaction(function (&$list) use ($attendee, $maxParticipants, &$limitExceeded) {
+        if ($maxParticipants > 0) {
+            $currentTotal = 0;
+            foreach ($list['attendees'] ?? [] as $a) {
+                $currentTotal += (int)($a['totalPeople'] ?? 0);
+            }
+            if ($currentTotal + $attendee['totalPeople'] > $maxParticipants) {
+                $limitExceeded = true;
+                return [];
+            }
+        }
         $list['attendees'][] = $attendee;
         return [];
     });
+
+    if ($limitExceeded) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Posti esauriti: non c\'è più disponibilità sufficiente per il numero di persone indicato']);
+    }
 
     jsonResponse(200, ['ok' => true, 'attendee' => $attendee]);
 }
 
 // Admin: legge tutte le adesioni spettatori, con i totali già calcolati
+// Admin: salva abilitazione e numero massimo di partecipanti
+if ($action === 'admin_update_attendance_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['attendanceSettings'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'maxParticipants' => max(0, (int)($body['maxParticipants'] ?? 0))
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento impostazioni partecipazione spettatori');
+
+    jsonResponse(200, ['ok' => true, 'attendanceSettings' => $config['attendanceSettings']]);
+}
+
+// Pubblico: dice se la partecipazione spettatori è abilitata e quanti posti restano
+if ($action === 'get_attendance_status' && $method === 'GET') {
+    $config = readConfig();
+    $attendanceSettings = $config['attendanceSettings'] ?? ['enabled' => false, 'maxParticipants' => 0];
+    $maxParticipants = (int)($attendanceSettings['maxParticipants'] ?? 0);
+
+    $currentTotal = 0;
+    if ($maxParticipants > 0) {
+        $list = readJsonFile(ATTENDANCE_FILE, ['attendees' => []]);
+        foreach ($list['attendees'] ?? [] as $a) {
+            $currentTotal += (int)($a['totalPeople'] ?? 0);
+        }
+    }
+
+    jsonResponse(200, [
+        'ok' => true,
+        'enabled' => (bool)($attendanceSettings['enabled'] ?? false),
+        'maxParticipants' => $maxParticipants,
+        'remainingSpots' => $maxParticipants > 0 ? max(0, $maxParticipants - $currentTotal) : null
+    ]);
+}
+
 if ($action === 'admin_get_attendees' && $method === 'GET') {
     requireAdmin();
     $list = readJsonFile(ATTENDANCE_FILE, ['attendees' => []]);
@@ -8014,6 +8083,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
             ],
             'notes' => [],
             'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+            'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
             'customFields' => [],
             'news' => [],
             'autosave' => [
@@ -11964,6 +12034,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
         'customFields' => [],
         'news' => [],
         'autosave' => [

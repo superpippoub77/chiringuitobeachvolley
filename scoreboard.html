@@ -1046,8 +1046,8 @@
         <a href="#" onclick="openNewsletterSignup(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 Newsletter</a>
-        <a href="#" onclick="openAttendanceSignup(); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+        <a href="#" id="navAttendanceLink" onclick="openAttendanceSignup(); return false;"
+          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ Partecipa</a>
         <a href="#" onclick="openContactModal(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
@@ -3037,8 +3037,34 @@
 
     // 🆕 Partecipazione come spettatore (non giocatore): nome, email,
     // telefono, numero di persone e quanti tra loro sono bambini.
+    let attendanceRemainingSpots = null; // null = nessun limite
+
+    async function loadAttendanceStatus() {
+      try {
+        const response = await fetch(`${API}?action=get_attendance_status`);
+        const data = await response.json();
+        if (!data.ok) return;
+
+        const navLink = document.getElementById('navAttendanceLink');
+        if (navLink) navLink.style.display = data.enabled ? 'inline-block' : 'none';
+
+        attendanceRemainingSpots = data.remainingSpots;
+      } catch (e) {
+        console.error('Errore verifica partecipazione:', e);
+      }
+    }
+
     function openAttendanceSignup() {
-      document.getElementById('attendanceStatus').textContent = '';
+      const statusEl = document.getElementById('attendanceStatus');
+      if (attendanceRemainingSpots !== null && attendanceRemainingSpots <= 0) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = '⚠️ Posti esauriti, non è più possibile confermare nuove presenze.';
+      } else if (attendanceRemainingSpots !== null) {
+        statusEl.style.color = '#666';
+        statusEl.textContent = `Posti ancora disponibili: ${attendanceRemainingSpots}`;
+      } else {
+        statusEl.textContent = '';
+      }
       document.getElementById('attendanceOverlay').classList.remove('hidden');
     }
 
@@ -3095,6 +3121,9 @@
         document.getElementById('attPhone').value = '';
         document.getElementById('attTotalPeople').value = '1';
         document.getElementById('attChildren').value = '0';
+        if (attendanceRemainingSpots !== null) {
+          attendanceRemainingSpots = Math.max(0, attendanceRemainingSpots - totalPeople);
+        }
       } catch (e) {
         statusEl.style.color = '#b71c1c';
         statusEl.textContent = '❌ ' + (e.message || 'Errore sconosciuto');
@@ -3619,6 +3648,7 @@
     // Carica sponsor all'avvio
     loadSponsors();
     loadShopMenu();
+    loadAttendanceStatus();
 
     // ==================== NEWS SECTION ====================
 

@@ -970,11 +970,11 @@
       </div>
       <div class="countdown" id="countdownContainer">
         <div id="statsOverviewSection" style="display: contents">
-        <div class="stat">
+        <div class="stat" onclick="showPhase('teams'); document.getElementById('mainContent').scrollIntoView({behavior: 'smooth'});" style="cursor: pointer" title="Vai alla scheda Squadre">
           <div class="n" id="statTeams">0</div>
           <div class="l">Squadre confermate</div>
         </div>
-        <div class="stat">
+        <div class="stat" onclick="showPhase('teams'); document.getElementById('mainContent').scrollIntoView({behavior: 'smooth'});" style="cursor: pointer" title="Vai alla scheda Squadre">
           <div class="n" id="statPending">0</div>
           <div class="l">In attesa</div>
         </div>

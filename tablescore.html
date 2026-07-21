@@ -651,12 +651,28 @@
       maxTimeoutsPerSet: 1
     };
 
+    // 🆕 Multi-sport: 'beachvolley' (default, comportamento invariato),
+    // 'beachtennis' (stesso sistema del volley), 'beachsoccer' (2 tempi, gol,
+    // nessuna soglia di vittoria per "tempo" - si passa al tempo successivo
+    // quando decide l'admin/l'orologio, non in base al punteggio).
+    let sportType = 'beachvolley';
+
     // Dati tabellone
     let scoreboardState = {
       team1: { name: '', score: 0, setsWon: 0, timeout: false, timeoutsUsed: 0 },
       team2: { name: '', score: 0, setsWon: 0, timeout: false, timeoutsUsed: 0 },
       sets: []
     };
+
+    // 🆕 Adatta le etichette dei pulsanti in base allo sport (Tempo/Gol per il
+    // calcio, invariato Set/Punti per volley/tennis).
+    function applySportTerminology() {
+      const isSoccer = sportType === 'beachsoccer';
+      const nextBtn = document.querySelector('.btn-next-set');
+      const resetBtn = document.querySelector('.btn-reset');
+      if (nextBtn) nextBtn.textContent = isSoccer ? '⏭️ PROSSIMO TEMPO' : '⏭️ PROSSIMO SET';
+      if (resetBtn) resetBtn.textContent = isSoccer ? '🔄 RESET TEMPO' : '🔄 RESET SET';
+    }
 
     async function initTablescore() {
       const params = new URLSearchParams(window.location.search);
@@ -713,6 +729,8 @@
             matchRules.setsToWin = data.matchRules.numSets ?? matchRules.setsToWin;
             matchRules.maxTimeoutsPerSet = data.matchRules.maxTimeoutsPerSet ?? matchRules.maxTimeoutsPerSet;
           }
+          sportType = data.sportType || 'beachvolley';
+          applySportTerminology();
           loadScoreboardState();
           render();
         } else {
@@ -764,6 +782,9 @@
           alert('Errore di caricamento del torneo');
           return;
         }
+
+        sportType = data.data.sportType || 'beachvolley';
+        applySportTerminology();
 
         // 🆕 In modalità ?current, matchId/phase non arrivano dall'URL: si
         // risolvono dal flag impostato dall'admin (state.currentMatch).
@@ -903,7 +924,7 @@
       }
       document.getElementById('matchMeta').textContent = metaParts.join(' · ');
 
-      document.getElementById('currentSet').textContent = `SET ${currentSetIndex + 1}`;
+      document.getElementById('currentSet').textContent = `${sportType === 'beachsoccer' ? 'TEMPO' : 'SET'} ${currentSetIndex + 1}`;
 
       // Team info
       document.getElementById('team1Name').textContent = scoreboardState.team1.name;
@@ -921,6 +942,9 @@
     }
 
     function totalPossibleSets() {
+      // 🆕 Beach Soccer: sempre esattamente 2 tempi, non un "meglio di N" set.
+      if (sportType === 'beachsoccer') return 2;
+
       // 🆕 In modalità sola visualizzazione non abbiamo le matchRules risolte
       // dal server (i dati arrivano dall'endpoint pubblico, non da
       // admin_get_match): mostriamo semplicemente i set effettivamente
@@ -1048,6 +1072,10 @@
     }
 
     function isSetOver(s1, s2) {
+      // 🆕 Beach Soccer: il tempo finisce quando decide l'admin (in base al
+      // cronometro/durata reale), non al raggiungimento di una soglia di
+      // punteggio come nel volley/tennis.
+      if (sportType === 'beachsoccer') return true;
       const win = matchRules.winScore;
       const cap = matchRules.maxScore;
       if (s1 >= cap || s2 >= cap) return true; // tetto massimo raggiunto
@@ -1058,12 +1086,35 @@
     function nextSet() {
       const s1 = scoreboardState.team1.score;
       const s2 = scoreboardState.team2.score;
-      if (!isSetOver(s1, s2)) {
+      if (sportType !== 'beachsoccer' && !isSetOver(s1, s2)) {
         alert(`Il set non è concluso! (si vince a ${matchRules.winScore} con 2 punti di margine, tetto massimo ${matchRules.maxScore})`);
         return;
       }
 
       saveHistory();
+
+      // 🆕 Beach Soccer: l'incontro finisce sempre dopo esattamente 2 tempi
+      // (non "il meglio di N set" come nel volley) — il risultato finale è
+      // la somma dei gol nei due tempi, il pareggio è un esito valido.
+      if (sportType === 'beachsoccer') {
+        if (currentSetIndex >= 1) {
+          alert('Secondo tempo concluso! Salva il risultato per confermarlo.');
+          render();
+          autoSave();
+          return;
+        }
+        currentSetIndex++;
+        if (currentSetIndex >= scoreboardState.sets.length) {
+          scoreboardState.sets.push({ team1: 0, team2: 0 });
+        }
+        scoreboardState.team1.score = scoreboardState.sets[currentSetIndex].team1;
+        scoreboardState.team2.score = scoreboardState.sets[currentSetIndex].team2;
+        scoreboardState.team1.timeoutsUsed = 0;
+        scoreboardState.team2.timeoutsUsed = 0;
+        render();
+        autoSave();
+        return;
+      }
 
       // Conta i set vinti includendo quello appena concluso
       let team1SetsWon = 0, team2SetsWon = 0;

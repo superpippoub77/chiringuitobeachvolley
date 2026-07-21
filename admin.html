@@ -1967,6 +1967,15 @@
                 <input id="cfg-tournamentName" type="text" maxlength="100" value="${escapeHtml(t.name || '')}" placeholder="Es: Beach Volley 2026">
               </div>
               <div class="field">
+                <label>🏖️ Tipo di sport</label>
+                <select id="cfg-sportType">
+                  <option value="beachvolley" ${(t.sportType || 'beachvolley') === 'beachvolley' ? 'selected' : ''}>🏐 Beach Volley</option>
+                  <option value="beachtennis" ${t.sportType === 'beachtennis' ? 'selected' : ''}>🎾 Beach Tennis</option>
+                  <option value="beachsoccer" ${t.sportType === 'beachsoccer' ? 'selected' : ''}>⚽ Beach Soccer</option>
+                </select>
+                <small style="color: #666; display: block; margin-top: 4px">Beach Volley e Beach Tennis usano lo stesso sistema a set. Beach Soccer usa 2 tempi, gol, e ammette il pareggio nei gironi.</small>
+              </div>
+              <div class="field">
                 <label>Slug (identificativo URL)</label>
                 <div style="display: flex; gap: 8px; align-items: center">
                   <input id="cfg-tournamentSlug" type="text" maxlength="50" value="${escapeHtml(t.slug || '')}" placeholder="Es: beach-volley-2026" pattern="[a-z0-9-]*" title="Solo lettere minuscole, numeri e trattini" style="flex: 1">
@@ -3013,6 +3022,7 @@
         const payload = {
           tournament: {
             name: document.getElementById('cfg-tournamentName').value.trim(),
+            sportType: document.getElementById('cfg-sportType')?.value || 'beachvolley',
             slug: document.getElementById('cfg-tournamentSlug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || '',
             maxTeams: maxTeamsVal > 0 ? Math.max(2, maxTeamsVal) : 0,
             maxPlayersPerTeam: Math.max(1, Math.min(12, maxPlayersPerTeamVal)),

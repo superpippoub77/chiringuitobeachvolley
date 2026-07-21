@@ -519,6 +519,10 @@ function defaultConfig(): array {
     return [
         'tournament' => [
             'name' => '',
+            // 🆕 Tipo di sport: 'beachvolley' (default, invariato per i tornei
+            // esistenti), 'beachtennis' (stesso sistema a set del volley),
+            // 'beachsoccer' (2 tempi, gol, pareggio ammesso nei gironi)
+            'sportType' => 'beachvolley',
             'maxTeams' => 0,
             'maxPlayersPerTeam' => 3,
             'maxPlayersOnCourt' => 2,
@@ -1263,8 +1267,36 @@ function getConfigPhaseByNumber(array $config, int $phaseNumber): ?array {
  * Ritorna [setsWon1, setsWon2, hasResult] dove hasResult=false se la partita
  * non ha ancora un punteggio registrato.
  */
-function getMatchSetsWon(array $match): array {
+function getMatchSetsWon(array $match, string $sportType = 'beachvolley'): array {
     $sets = $match['sets'] ?? [];
+
+    // 🆕 Beach Soccer: il punteggio sono i gol totali segnati nei tempi
+    // (non "quanti tempi ha vinto ciascuna squadra" come nel volley) — e il
+    // pareggio è un risultato valido, non "nessun vincitore ancora".
+    if ($sportType === 'beachsoccer') {
+        if (empty($sets)) {
+            $s1 = $match['score1'] ?? null;
+            $s2 = $match['score2'] ?? null;
+            if ($s1 === null || $s2 === null) {
+                return [0, 0, false];
+            }
+            return [(int)$s1, (int)$s2, true];
+        }
+        $goals1 = 0;
+        $goals2 = 0;
+        $any = false;
+        foreach ($sets as $s) {
+            $t1 = $s['team1'] ?? null;
+            $t2 = $s['team2'] ?? null;
+            if ($t1 === null || $t2 === null) continue;
+            $any = true;
+            $goals1 += (int)$t1;
+            $goals2 += (int)$t2;
+        }
+        return [$goals1, $goals2, $any];
+    }
+
+    // Beach Volley / Beach Tennis: comportamento invariato (conteggio set vinti)
     if (empty($sets)) {
         $s1 = $match['score1'] ?? null;
         $s2 = $match['score2'] ?? null;
@@ -1315,6 +1347,17 @@ function getPhaseWinPoints(array $config, int $phaseNumber): int {
     $configPhase = getConfigPhaseByNumber($config, $phaseNumber);
     $rules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase);
     return (int)($rules['winPoints'] ?? 2);
+}
+
+/**
+ * 🆕 Punti di classifica per un pareggio (rilevante solo per Beach Soccer,
+ * dove il pareggio è un risultato valido). Default 1 punto, configurabile
+ * come winPoints.
+ */
+function getPhaseDrawPoints(array $config, int $phaseNumber): int {
+    $configPhase = getConfigPhaseByNumber($config, $phaseNumber);
+    $rules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase);
+    return (int)($rules['drawPoints'] ?? 1);
 }
 
 /**
@@ -2331,6 +2374,8 @@ function publicState(array $state): array {
         // 🆕 Intervallo di auto-refresh (secondi) per il tabellone pubblico in
         // sola visualizzazione; default 5s se non configurato dall'admin.
         'liveScoreboardRefreshSeconds' => max(2, min(60, (int)($config['tournament']['liveScoreboardRefreshSeconds'] ?? 5))),
+        // 🆕 Tipo di sport (beachvolley/beachtennis/beachsoccer)
+        'sportType' => $config['tournament']['sportType'] ?? 'beachvolley',
         // 🆕 Info kit torneo (descrizione + immagine), configurate in
         // Impostazioni → Avanzate ma prima non venivano mai mostrate nella
         // pagina pubblica, anche se già salvate al momento dell'iscrizione.
@@ -2422,6 +2467,9 @@ function computeStandings(array $state): array {
     $allMatches = $groupsPhase['matches'] ?? [];
     $config = readConfig();
     $winPoints = getPhaseWinPoints($config, (int)($groupsPhase['phaseNumber'] ?? 1));
+    // 🆕 Multi-sport: Beach Soccer ammette il pareggio nei gironi
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
+    $drawPoints = getPhaseDrawPoints($config, (int)($groupsPhase['phaseNumber'] ?? 1));
 
     // Itera su ogni gruppo: ogni $group è salvato come { name, teamIds: [...] } (solo ID),
     // quindi va risolto tramite $teamMap per ottenere i dati completi delle squadre.
@@ -2458,6 +2506,7 @@ function computeStandings(array $state): array {
                     'name' => $team['name'] ?? 'N/D',
                     'played' => 0,
                     'won' => 0,
+                    'drawn' => 0,
                     'lost' => 0,
                     'points' => 0,
                     'scored' => 0,
@@ -2472,7 +2521,7 @@ function computeStandings(array $state): array {
             if ($matchGroupName !== $groupName && $matchGroupName !== ('Girone ' . $groupName)) {
                 continue;
             }
-            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match, $sportType);
             if (!$hasResult) {
                 continue;
             }
@@ -2498,6 +2547,12 @@ function computeStandings(array $state): array {
                 $rows[$t2]['won']++;
                 $rows[$t1]['lost']++;
                 $rows[$t2]['points'] += $winPoints;
+            } elseif ($sportType === 'beachsoccer') {
+                // 🆕 Pareggio: risultato valido solo per il calcio
+                $rows[$t1]['drawn']++;
+                $rows[$t2]['drawn']++;
+                $rows[$t1]['points'] += $drawPoints;
+                $rows[$t2]['points'] += $drawPoints;
             }
         }
 
@@ -2555,6 +2610,9 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
     $allMatches = $groupsPhase['matches'] ?? [];
     $config = readConfig();
     $winPoints = getPhaseWinPoints($config, $phaseNumber);
+    // 🆕 Multi-sport: Beach Soccer ammette il pareggio nei gironi
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
+    $drawPoints = getPhaseDrawPoints($config, $phaseNumber);
     
     error_log("🔍 DEBUG computeStandingsForPhase: groups count=" . count($groups) . ", matches count=" . count($allMatches));
 
@@ -2591,7 +2649,7 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
             if ($team) {
                 $rows[$teamId] = [
                     'teamId' => $teamId, 'name' => $team['name'] ?? 'N/D',
-                    'played' => 0, 'won' => 0, 'lost' => 0, 'points' => 0,
+                    'played' => 0, 'won' => 0, 'drawn' => 0, 'lost' => 0, 'points' => 0,
                     'scored' => 0, 'conceded' => 0, 'diff' => 0
                 ];
             }
@@ -2600,7 +2658,7 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
         foreach ($allMatches as $match) {
             $matchGroupName = $match['groupName'] ?? $match['group'] ?? '';
             if ($matchGroupName !== $groupName && $matchGroupName !== ('Girone ' . $groupName)) continue;
-            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match, $sportType);
             if (!$hasResult) continue;
             $t1 = $match['team1'] ?? $match['team1Id'] ?? null;
             $t2 = $match['team2'] ?? $match['team2Id'] ?? null;
@@ -2615,6 +2673,10 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
                 $rows[$t1]['won']++; $rows[$t2]['lost']++; $rows[$t1]['points'] += $winPoints;
             } elseif ($won2 > $won1) {
                 $rows[$t2]['won']++; $rows[$t1]['lost']++; $rows[$t2]['points'] += $winPoints;
+            } elseif ($sportType === 'beachsoccer') {
+                // 🆕 Pareggio: risultato valido solo per il calcio
+                $rows[$t1]['drawn']++; $rows[$t2]['drawn']++;
+                $rows[$t1]['points'] += $drawPoints; $rows[$t2]['points'] += $drawPoints;
             }
         }
 
@@ -2830,13 +2892,16 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         $eliminated = [];
         $complete = true;
         $firstRoundType = $roundsOrder[0] ?? null;
+        // 🆕 Multi-sport: serve per interpretare correttamente il punteggio
+        // (gol totali per il calcio, set vinti per volley/tennis)
+        $sportTypeForBranch = readConfig()['tournament']['sportType'] ?? 'beachvolley';
 
         foreach ($matches as $m) {
             if (($m['type'] ?? '') === 'thirdPlace') continue; // non conta per l'avanzamento
             // 🔧 FIX: usa i set vinti (getMatchSetsWon), non il punteggio grezzo
             // dell'ultimo set — con partite multi-set score1/score2 sono solo
             // il set in corso/ultimo, non l'esito complessivo dell'incontro.
-            [$won1, $won2, $hasScore] = getMatchSetsWon($m);
+            [$won1, $won2, $hasScore] = getMatchSetsWon($m, $sportTypeForBranch);
 
             // Eliminati: perdenti di QUALSIASI turno giocato (chi perde è fuori, indipendentemente dal turno)
             if ($hasScore) {
@@ -3209,6 +3274,13 @@ function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = nul
 function advanceKnockoutBracket(array &$phase): void {
     if (($phase['type'] ?? '') !== 'knockout' || empty($phase['matches'])) return;
 
+    // 🆕 Multi-sport: serve per interpretare correttamente il punteggio (gol
+    // totali per il calcio, set vinti per volley/tennis). Nota: per il calcio
+    // in un turno a eliminazione diretta, un pareggio non determina un
+    // vincitore automatico (qui non c'è gestione rigori/supplementari) — il
+    // turno resta "da completare" finché il punteggio non è diverso.
+    $sportTypeForAdvance = readConfig()['tournament']['sportType'] ?? 'beachvolley';
+
     $matches = &$phase['matches'];
 
     $byRoundIndex = [];
@@ -3242,7 +3314,7 @@ function advanceKnockoutBracket(array &$phase): void {
                 // 🔧 FIX: usa i set vinti (getMatchSetsWon), non score1/score2 grezzi
                 // — con partite multi-set questi rappresentano solo il set in corso/
                 // ultimo, non l'esito complessivo dell'incontro.
-                [$won1, $won2, $hasResult] = getMatchSetsWon($m);
+                [$won1, $won2, $hasResult] = getMatchSetsWon($m, $sportTypeForAdvance);
                 if ($hasResult) {
                     if ($won1 > $won2) {
                         $winnerId = $m['team1Id']; $winnerName = $m['team1Name'] ?? null;
@@ -3424,13 +3496,13 @@ function buildGroupMatches(array &$state): void {
     $state['phases'][0]['matches'] = $matches;
 }
 
-function winnerLoser(?array $match): array {
+function winnerLoser(?array $match, string $sportType = 'beachvolley'): array {
     if (!$match) {
         return ['winner' => null, 'loser' => null];
     }
     // 🔧 FIX: usa i set vinti (getMatchSetsWon), non score1/score2 grezzi —
     // con partite multi-set questi rappresentano solo il set in corso/ultimo.
-    [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+    [$won1, $won2, $hasResult] = getMatchSetsWon($match, $sportType);
     if (!$hasResult) {
         return ['winner' => null, 'loser' => null];
     }
@@ -8098,6 +8170,8 @@ if ($action === 'get_config' && $method === 'GET') {
         'display' => $display,
         'tournament' => [
             'name' => $tournament['name'] ?? '',
+            // 🆕 Tipo di sport, serve alla pagina pubblica per la terminologia corretta
+            'sportType' => $tournament['sportType'] ?? 'beachvolley',
             'maxTeams' => $tournament['maxTeams'] ?? 16,
             'maxPlayersPerTeam' => $tournament['maxPlayersPerTeam'] ?? 3,
             'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2,
@@ -8300,6 +8374,10 @@ if ($action === 'admin_update_config' && $method === 'POST') {
     if (isset($body['tournament'])) {
         $t = $body['tournament'];
         if (isset($t['name'])) $config['tournament']['name'] = mb_substr(trim((string)$t['name']), 0, 100);
+        // 🆕 Tipo di sport (beachvolley/beachtennis/beachsoccer)
+        if (isset($t['sportType']) && in_array($t['sportType'], ['beachvolley', 'beachtennis', 'beachsoccer'], true)) {
+            $config['tournament']['sportType'] = $t['sportType'];
+        }
         if (isset($t['slug'])) {
             $config['tournament']['slug'] = mb_substr(preg_replace('/[^a-z0-9-]/', '', trim(strtolower((string)$t['slug']))), 0, 50);
         } elseif (isset($t['name']) && empty($config['tournament']['slug'])) {
@@ -10114,8 +10192,11 @@ if ($action === 'admin_get_match' && $method === 'GET') {
     $configPhase = getConfigPhaseByNumber($config, (int)$phase);
     $round = isset($match['round']) ? (int)$match['round'] : null;
     $matchRules = resolvePhaseMatchRules($config['tournament'] ?? [], $configPhase, $round);
+    // 🆕 Tipo di sport: determina se il tabellone mostra "Set"/"Punti" (volley/
+    // tennis, comportamento invariato) oppure "Tempo"/"Gol" (calcio).
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
 
-    jsonResponse(200, ['ok' => true, 'match' => $match, 'phaseName' => $phaseName, 'matchRules' => $matchRules]);
+    jsonResponse(200, ['ok' => true, 'match' => $match, 'phaseName' => $phaseName, 'matchRules' => $matchRules, 'sportType' => $sportType]);
 }
 
 if ($action === 'admin_update_match_score' && $method === 'POST') {
@@ -10278,6 +10359,8 @@ if ($action === 'admin_advance_knockout_round' && $method === 'POST') {
         }
         
         $matches = &$phaseData['matches'];
+        // 🆕 Multi-sport: serve per interpretare correttamente il punteggio
+        $sportTypeForRound = readConfig()['tournament']['sportType'] ?? 'beachvolley';
         
         // 1️⃣ Estrai i vincitori dal round corrente
         $fromRoundMatches = array_filter($matches, fn($m) => ($m['round'] ?? 0) == $fromRound);
@@ -10288,7 +10371,7 @@ if ($action === 'admin_advance_knockout_round' && $method === 'POST') {
             // non dal punteggio grezzo score1/score2 — quest'ultimo per le partite
             // multi-set rappresenta solo il set in corso/ultimo, non l'esito
             // complessivo dell'incontro.
-            [$won1, $won2, $hasResult] = getMatchSetsWon($match);
+            [$won1, $won2, $hasResult] = getMatchSetsWon($match, $sportTypeForRound);
             if (!$hasResult) {
                 // Match non giocato
                 return ['ok' => false, 'error' => "Match " . ($match['label'] ?? 'sconosciuto') . " non ha ancora punteggi"];

@@ -9362,7 +9362,13 @@ HTML;
             }
             $notesText .= '</ul></div>';
         }
-        
+
+        // 🔧 FIX: "$(date(...))" non è sintassi PHP valida dentro un heredoc
+        // (i heredoc interpolano solo variabili semplici, non chiamate di
+        // funzione) — veniva mostrato il testo letterale invece della data
+        // vera. Calcola la data PRIMA, in una variabile normale.
+        $generatedDate = date('d/m/Y H:i');
+
         $html = <<<HTML
 <!DOCTYPE html>
 <html lang="it">
@@ -9443,7 +9449,7 @@ HTML;
     $notesText
     
     <div class="generated">
-        <p>📄 Regolamento generato automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p>📄 Regolamento generato automaticamente il <strong>$generatedDate</strong></p>
         <p><em>Questo regolamento è valido solo per il torneo <strong>$tournamentName</strong></em></p>
     </div>
 </body>
@@ -9468,7 +9474,9 @@ if ($action === 'admin_generate_policy' && $method === 'POST') {
         $config = readConfig();
         $tournament = $config['tournament'] ?? [];
         $tournamentName = htmlspecialchars($tournament['name'] ?? 'Torneo Beach Volley', ENT_QUOTES, 'UTF-8');
-        
+        // 🔧 FIX: stesso motivo del regolamento - calcola la data prima dell'heredoc
+        $generatedDate = date('d/m/Y H:i');
+
         $html = <<<HTML
 <!DOCTYPE html>
 <html lang="it">
@@ -9549,7 +9557,7 @@ if ($action === 'admin_generate_policy' && $method === 'POST') {
     </div>
     
     <div class="generated">
-        <p>🔒 Privacy Policy generata automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p>🔒 Privacy Policy generata automaticamente il <strong>$generatedDate</strong></p>
         <p><em>Valida per il torneo <strong>$tournamentName</strong></em></p>
     </div>
 </body>
@@ -9574,7 +9582,9 @@ if ($action === 'admin_generate_cookie_policy' && $method === 'POST') {
         $config = readConfig();
         $tournament = $config['tournament'] ?? [];
         $tournamentName = htmlspecialchars($tournament['name'] ?? 'Torneo Beach Volley', ENT_QUOTES, 'UTF-8');
-        
+        // 🔧 FIX: stesso motivo del regolamento - calcola la data prima dell'heredoc
+        $generatedDate = date('d/m/Y H:i');
+
         $html = <<<HTML
 <!DOCTYPE html>
 <html lang="it">
@@ -9682,7 +9692,7 @@ if ($action === 'admin_generate_cookie_policy' && $method === 'POST') {
     </div>
     
     <div class="generated">
-        <p>🍪 Cookie Policy generata automaticamente il <strong>$(date('d/m/Y H:i'))</strong></p>
+        <p>🍪 Cookie Policy generata automaticamente il <strong>$generatedDate</strong></p>
         <p><em>Valida per il torneo <strong>$tournamentName</strong></em></p>
     </div>
 </body>

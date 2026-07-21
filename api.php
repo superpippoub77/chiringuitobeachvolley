@@ -4978,7 +4978,47 @@ if ($action === 'admin_update_team' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'ID squadra obbligatorio']);
     }
 
-    withStateTransaction(function (&$state) use ($body, $id) {
+    // 🆕 Campi personalizzati: valida PRIMA di aprire la transazione di
+    // stato (stessa validazione usata in fase di iscrizione: obbligatorietà,
+    // tipo numero, valore tra le opzioni per il tipo select). Prima
+    // "Modifica squadra" non li gestiva affatto, quindi non potevano mai
+    // essere corretti dall'admin.
+    $customFieldValues = null;
+    if (isset($body['customFieldValues']) && is_array($body['customFieldValues'])) {
+        $configForFields = readConfig();
+        $customFieldValues = [];
+        foreach ($configForFields['customFields'] ?? [] as $fieldDef) {
+            $fieldId = $fieldDef['id'] ?? '';
+            if ($fieldId === '') continue;
+            $label = $fieldDef['label'] ?? '';
+            $rawValue = $body['customFieldValues'][$fieldId] ?? null;
+
+            if (($fieldDef['type'] ?? 'string') === 'number') {
+                if ($rawValue !== null && $rawValue !== '' && !is_numeric($rawValue)) {
+                    jsonResponse(422, ['ok' => false, 'error' => "Il campo \"$label\" deve essere un numero"]);
+                }
+                $normalizedValue = ($rawValue !== null && $rawValue !== '') ? (float)$rawValue : null;
+            } elseif (($fieldDef['type'] ?? 'string') === 'select') {
+                $normalizedValue = mb_substr(trim((string)($rawValue ?? '')), 0, 100);
+                if ($normalizedValue === '') {
+                    $normalizedValue = null;
+                } elseif (!in_array($normalizedValue, $fieldDef['options'] ?? [], true)) {
+                    jsonResponse(422, ['ok' => false, 'error' => "Il valore scelto per \"$label\" non è tra quelli disponibili"]);
+                }
+            } else {
+                $normalizedValue = mb_substr(trim((string)($rawValue ?? '')), 0, 500);
+                if ($normalizedValue === '') $normalizedValue = null;
+            }
+
+            if (!empty($fieldDef['required']) && $normalizedValue === null) {
+                jsonResponse(422, ['ok' => false, 'error' => "Il campo \"$label\" è obbligatorio"]);
+            }
+
+            $customFieldValues[$fieldId] = $normalizedValue;
+        }
+    }
+
+    withStateTransaction(function (&$state) use ($body, $id, $customFieldValues) {
         $found = false;
         foreach ($state['teams'] as &$team) {
             if ($team['id'] !== $id) continue;
@@ -5039,6 +5079,12 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             }
             if (isset($body['email'])) {
                 $team['email'] = mb_substr(trim((string)$body['email']), 0, 100);
+            }
+
+            // 🆕 Campi personalizzati: gia' validati prima di aprire questa
+            // transazione, qui si assegna soltanto.
+            if ($customFieldValues !== null) {
+                $team['customFieldValues'] = $customFieldValues;
             }
             $team['category'] = 'Misto';
             break;

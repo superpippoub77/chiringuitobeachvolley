@@ -3963,6 +3963,13 @@
               }
             }
 
+            // 🆕 Raccogli i valori dei campi personalizzati (se il torneo ne ha configurati)
+            const customFieldValues = {};
+            (config.customFields || []).forEach(field => {
+              const el = document.getElementById(`mCustom_${field.id}`);
+              if (el) customFieldValues[field.id] = el.value.trim();
+            });
+
             const payload = {
               id: teamId,
               name: document.getElementById('mTeamName').value.trim(),
@@ -3971,7 +3978,8 @@
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
               paid: document.getElementById('mPaid').checked,
-              kitDelivered: document.getElementById('mKitDelivered').checked
+              kitDelivered: document.getElementById('mKitDelivered').checked,
+              customFieldValues
             };
             await callApi('admin_update_team', 'POST', payload, true);
             closeModal();
@@ -4053,6 +4061,33 @@
         <small style="color: #666; display: block; margin-top: 8px">• Livello: 0=Amatore ... 4=Top | • Capitano responsabile: squadra | • Peso: media dei livelli dei giocatori inseriti</small>
       </div>`;
 
+      // 🆕 Campi personalizzati: mostra ogni campo definito dall'organizzatore
+      // con il valore attuale della squadra precompilato, cosi l'admin puo'
+      // correggerli - prima "Modifica squadra" non li mostrava affatto.
+      const teamCustomValues = team.customFieldValues || {};
+      let customFieldsHtml = '';
+      if ((config.customFields || []).length) {
+        customFieldsHtml = `<div class="field full" style="border-top: 1px solid #ddd; padding-top: 10px; margin-top: 4px">
+          <h4 style="margin: 0 0 8px 0">Campi personalizzati</h4>
+        </div>`;
+        config.customFields.forEach(field => {
+          const currentValue = teamCustomValues[field.id] ?? '';
+          customFieldsHtml += `<div class="field full">
+            <label>${escapeHtml(field.label)}${field.required ? ' *' : ''}</label>`;
+          if (field.type === 'select') {
+            const options = field.options || [];
+            customFieldsHtml += `<select id="mCustom_${field.id}">
+              <option value="">-- Seleziona --</option>
+              ${options.map(opt => `<option value="${escapeHtml(opt)}" ${currentValue === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
+            </select>`;
+          } else {
+            const inputType = field.type === 'number' ? 'number' : 'text';
+            customFieldsHtml += `<input id="mCustom_${field.id}" type="${inputType}" value="${escapeHtml(String(currentValue))}">`;
+          }
+          customFieldsHtml += `</div>`;
+        });
+      }
+
       openModal({
         title: 'Modifica squadra',
         bodyHtml: `
@@ -4070,6 +4105,7 @@
               <label>Telefono</label>
               <input id="mPhone" type="text" maxlength="20" value="${escapeHtml(team.phone || '')}">
             </div>
+            ${customFieldsHtml}
             <div class="field">
               <label><input id="mApproved" type="checkbox" ${team.approved ? 'checked' : ''}> Iscrizione approvata</label>
             </div>
@@ -4098,7 +4134,10 @@
       
       team.players.forEach(p => {
         if (p && p.name) {
-          totalLevel += (p.level || 2);
+          // 🔧 FIX: sommava direttamente p.level (una stringa come
+          // "principiante"), causando "⚖️ NaN" — ora converte correttamente
+          // in numero con la stessa funzione usata ovunque nel sistema.
+          totalLevel += playerLevelToNumeric(p.level);
           playerCount++;
         }
       });
@@ -4992,9 +5031,12 @@
         const teamsWithWeight = allTeams.map(team => {
           // Calcola peso medio della squadra
           const players = team.players || [];
-          const validPlayers = players.filter(p => p && p.level !== undefined);
-          const avgWeight = validPlayers.length > 0 
-            ? validPlayers.reduce((sum, p) => sum + (p.level || 0), 0) / validPlayers.length 
+          // 🔧 FIX: sommava direttamente p.level (una stringa come
+          // "principiante"), causando NaN e rompendo l'ordinamento per un
+          // bilanciamento equo dei gironi — ora converte correttamente in numero.
+          const validPlayers = players.filter(p => p && p.name);
+          const avgWeight = validPlayers.length > 0
+            ? validPlayers.reduce((sum, p) => sum + playerLevelToNumeric(p.level), 0) / validPlayers.length
             : 0;
           return { ...team, weight: avgWeight };
         });
@@ -7645,9 +7687,12 @@
         const team = (state.teams || []).find(t => t.name === teamName);
         if (!team) return 0;
         const players = team.players || [];
-        const validPlayers = players.filter(p => p && p.level !== undefined);
-        return validPlayers.length > 0 
-          ? validPlayers.reduce((sum, p) => sum + (p.level || 0), 0) / validPlayers.length 
+        // 🔧 FIX: sommava direttamente p.level (una stringa come
+        // "principiante"), causando NaN — ora converte correttamente in
+        // numero con la stessa funzione usata ovunque nel sistema.
+        const validPlayers = players.filter(p => p && p.name);
+        return validPlayers.length > 0
+          ? validPlayers.reduce((sum, p) => sum + playerLevelToNumeric(p.level), 0) / validPlayers.length
           : 0;
       }
 

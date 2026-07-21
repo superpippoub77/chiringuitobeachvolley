@@ -1552,9 +1552,9 @@
         const playerBoxes = (t.players || [])
           .map((p, idx) => {
             if (typeof p === 'string') {
-              return p ? `<div style="text-align: center; width: 72px">
+              return p ? `<div style="text-align: center; width: 92px">
                 <div style="width: 56px; height: 56px; border-radius: 50%; background: #ddd; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 24px">📸</div>
-                <div style="font-size: 12px; font-weight: 600; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${esc(p)}</div>
+                <div style="font-size: 12px; font-weight: 600; margin-top: 4px; line-height: 1.25; word-wrap: break-word">${esc(p)}</div>
               </div>` : '';
             }
             const name = p.name || '';
@@ -1562,12 +1562,12 @@
             const imgUrl = p.imageFile || placeholderImg;
             const levelLabel = levelLabels[p.level] || '';
             const isCap = !!p.isCaptain;
-            return `<div style="text-align: center; width: 72px">
+            return `<div style="text-align: center; width: 92px">
               <div style="position: relative; width: 56px; height: 56px; margin: 0 auto">
                 <img src="${imgUrl}" title="${esc(name)}${isCap ? ' (Capitano)' : ''}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
                 ${isCap ? '<span title="Capitano" style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
               </div>
-              <div style="font-size: 12px; font-weight: 600; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" title="${esc(name)}">${esc(name)}</div>
+              <div style="font-size: 12px; font-weight: 600; margin-top: 4px; line-height: 1.25; word-wrap: break-word" title="${esc(name)}">${esc(name)}</div>
               ${levelLabel ? `<div style="font-size: 11px; color: #888">${levelLabel}</div>` : ''}
             </div>`;
           })

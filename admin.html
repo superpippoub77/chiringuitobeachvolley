@@ -2071,6 +2071,11 @@
                 🧪 Testa Email
               </button>
             </div>
+            <div class="field" style="margin-top: 12px">
+              <label>📞 Telefono del gestore (opzionale)</label>
+              <input id="cfg-managerPhone" type="tel" maxlength="20" value="${config.contact?.managerPhone || ''}" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; padding: 6px">
+              <small style="color: #666; display: block; margin-top: 4px">Se lo inserisci, sulla home compariranno anche i pulsanti Telefono e WhatsApp per contattarti direttamente</small>
+            </div>
           </div>
 
           <div class="card" style="background: #e8ecf1; padding: 12px; margin-top: 12px">
@@ -3038,7 +3043,8 @@
             liveScoreboardRefreshSeconds: Math.max(2, Math.min(60, liveRefreshVal))
           },
           contact: {
-            managerEmail: document.getElementById('cfg-managerEmail').value.trim()
+            managerEmail: document.getElementById('cfg-managerEmail').value.trim(),
+            managerPhone: document.getElementById('cfg-managerPhone')?.value.trim() || ''
           },
           display: {
             theme: config.display?.theme || 'beachmaster'

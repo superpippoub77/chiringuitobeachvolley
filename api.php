@@ -8189,7 +8189,15 @@ if ($action === 'get_config' && $method === 'GET') {
             'imageFile' => $config['kit']['imageFile'] ?? ''
         ],
         // 🆕 Campi personalizzati del modulo di iscrizione
-        'customFields' => $config['customFields'] ?? []
+        'customFields' => $config['customFields'] ?? [],
+        // 🆕 Contatti del gestore (per il pulsante "Contatti" sulla home):
+        // email sempre presente se configurata, telefono solo se inserito
+        // (facoltativo) — se presente, la home mostra anche i pulsanti
+        // Telefono/WhatsApp oltre all'email.
+        'contact' => [
+            'managerEmail' => $config['contact']['managerEmail'] ?? '',
+            'managerPhone' => $config['contact']['managerPhone'] ?? ''
+        ]
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);
 }
@@ -8545,6 +8553,15 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             }
         }
         $config['contact']['managerEmail'] = $managerEmail;
+
+        // 🆕 Telefono del gestore (opzionale): se compilato, sulla home
+        // compaiono anche i pulsanti Telefono/WhatsApp.
+        if (isset($body['contact']['managerPhone'])) {
+            $managerPhoneRaw = trim((string)$body['contact']['managerPhone']);
+            $config['contact']['managerPhone'] = $managerPhoneRaw !== ''
+                ? mb_substr(normalizePhoneInternational($managerPhoneRaw), 0, 20)
+                : '';
+        }
     }
     
     if (isset($body['display']) && is_array($body['display'])) {

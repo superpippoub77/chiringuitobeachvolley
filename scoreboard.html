@@ -981,6 +981,9 @@
         <a href="#" onclick="openNewsletterSignup(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 Newsletter</a>
+        <a href="#" onclick="openContactModal(); return false;"
+          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 Contatti</a>
       </nav>
 
     <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
@@ -1053,6 +1056,20 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal" onclick="submitNewsletterSignup()">Iscrivimi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🆕 Contatti gestore: email sempre, telefono/WhatsApp solo se configurati -->
+  <div id="contactOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeContactModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+      <div class="modal-head">
+        <h4 id="contactTitle">📞 Contatta l'organizzazione</h4>
+        <button class="modal-close" aria-label="Chiudi" onclick="closeContactModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Per segnalare un problema, fare una richiesta o avere informazioni sul torneo.</p>
+        <div id="contactButtonsContainer" style="display: flex; flex-direction: column; gap: 10px"></div>
       </div>
     </div>
   </div>
@@ -2769,6 +2786,37 @@
     function openNewsletterSignup() {
       document.getElementById('newsletterStatus').textContent = '';
       document.getElementById('newsletterOverlay').classList.remove('hidden');
+    }
+
+    // 🆕 Contatti gestore: email sempre presente (se configurata), telefono/
+    // WhatsApp solo se il gestore ha inserito un numero in Impostazioni.
+    function openContactModal() {
+      const email = config?.contact?.managerEmail || '';
+      const phone = config?.contact?.managerPhone || '';
+      const container = document.getElementById('contactButtonsContainer');
+
+      if (!email && !phone) {
+        container.innerHTML = '<p class="muted">Nessun contatto configurato dall\'organizzazione.</p>';
+      } else {
+        let html = '';
+        if (email) {
+          const subject = encodeURIComponent('Segnalazione / richiesta - ' + (config?.tournament?.name || 'Torneo'));
+          const body = encodeURIComponent('Ciao,\n\nScrivo in merito a (bug riscontrato / richiesta / altro):\n\n');
+          html += `<a href="mailto:${esc(email)}?subject=${subject}&body=${body}" class="btn" style="background: #1976d2; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">✉️ Scrivi una email</a>`;
+        }
+        if (phone) {
+          html += `<a href="tel:${esc(phone)}" class="btn" style="background: #555; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">📞 Chiama ${esc(phone)}</a>`;
+          const waNumber = phone.replace(/\D/g, '');
+          html += `<a href="https://wa.me/${waNumber}" target="_blank" class="btn" style="background: #25D366; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">💬 Scrivi su WhatsApp</a>`;
+        }
+        container.innerHTML = html;
+      }
+
+      document.getElementById('contactOverlay').classList.remove('hidden');
+    }
+
+    function closeContactModal() {
+      document.getElementById('contactOverlay').classList.add('hidden');
     }
 
     function closeNewsletterSignup() {

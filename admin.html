@@ -11984,6 +11984,18 @@ html += `
         return;
       }
 
+      // 🔧 FIX: normalizza l'ora con lo zero iniziale (es. "9:30" -> "09:30").
+      // La validazione sopra accetta anche un'ora a una sola cifra, ma il
+      // campo <input type="time"> del form principale richiede rigorosamente
+      // il formato a due cifre: senza questa normalizzazione, il browser
+      // svuotava silenziosamente il campo al primo ridisegno della pagina, e
+      // quell'orario "vuoto" faceva scartare l'intera fascia (e a cascata
+      // l'intera data/campo) al momento del salvataggio.
+      startTime = startTime.replace(/^(\d):/, '0$1:');
+      if (endTime !== '24:00') {
+        endTime = endTime.replace(/^(\d):/, '0$1:');
+      }
+
       // Validazione: endDate >= startDate
       const startDate = new Date(dateStart);
       const endDate = new Date(dateEnd);

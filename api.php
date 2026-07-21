@@ -50,6 +50,8 @@ const HISTORY_FILE = __DIR__ . '/data/history.json';
 // da squadre/torneo/config: chi si iscrive qui non fa necessariamente parte
 // di una squadra iscritta al torneo.
 const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
+// 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
+const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 const UPLOADS_DIR = __DIR__ . '/data/uploads';
 const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
@@ -945,6 +947,42 @@ function withNewsletterTransaction(callable $callback): array {
     $raw = stream_get_contents($fp);
     $decoded = json_decode($raw ?: '', true);
     $list = is_array($decoded) && isset($decoded['subscribers']) ? $decoded : ['subscribers' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock file) sul file delle adesioni spettatori
+ * (data/attendance.json), stesso schema di withNewsletterTransaction().
+ */
+function withAttendanceTransaction(callable $callback): array {
+    $dir = dirname(ATTENDANCE_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(ATTENDANCE_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire la lista adesioni']);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare la lista adesioni']);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['attendees']) ? $decoded : ['attendees' => []];
 
     $result = $callback($list);
 
@@ -4485,6 +4523,97 @@ if ($action === 'admin_get_newsletter_subscribers' && $method === 'GET') {
     requireAdmin();
     $list = readJsonFile(NEWSLETTER_FILE, ['subscribers' => []]);
     jsonResponse(200, ['ok' => true, 'subscribers' => $list['subscribers'] ?? []]);
+}
+
+// ==================== 🆕 ADESIONI SPETTATORI (NON GIOCATORI) ====================
+// Permette a chi vuole partecipare all'evento senza iscrivere una squadra
+// (spettatori, accompagnatori) di segnalare la propria presenza: nome,
+// email, telefono, numero di persone totali e quanti tra loro sono bambini.
+
+if ($action === 'attendance_signup' && $method === 'POST') {
+    $body = bodyJson();
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 100);
+    $email = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
+    $phoneRaw = trim((string)($body['phone'] ?? ''));
+    $phone = $phoneRaw !== '' ? normalizePhoneInternational($phoneRaw) : '';
+    $totalPeople = (int)($body['totalPeople'] ?? 0);
+    $children = (int)($body['children'] ?? 0);
+
+    if ($name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci il tuo nome']);
+    }
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un\'email valida']);
+    }
+    if ($phone === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un numero di telefono']);
+    }
+    $phoneDigitsCount = strlen(preg_replace('/\D/', '', $phone));
+    if ($phoneDigitsCount < 8 || $phoneDigitsCount > 15) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Numero di telefono non valido (con prefisso internazionale se non italiano)']);
+    }
+    if ($totalPeople < 1 || $totalPeople > 100) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il numero di persone deve essere almeno 1']);
+    }
+    if ($children < 0 || $children > $totalPeople) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il numero di bambini non può superare il numero totale di persone']);
+    }
+
+    $attendee = [
+        'id' => bin2hex(random_bytes(8)),
+        'name' => $name,
+        'email' => $email,
+        'phone' => $phone,
+        'totalPeople' => $totalPeople,
+        'children' => $children,
+        'createdAt' => date('c')
+    ];
+
+    withAttendanceTransaction(function (&$list) use ($attendee) {
+        $list['attendees'][] = $attendee;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'attendee' => $attendee]);
+}
+
+// Admin: legge tutte le adesioni spettatori, con i totali già calcolati
+if ($action === 'admin_get_attendees' && $method === 'GET') {
+    requireAdmin();
+    $list = readJsonFile(ATTENDANCE_FILE, ['attendees' => []]);
+    $attendees = $list['attendees'] ?? [];
+
+    $totalPeople = 0;
+    $totalChildren = 0;
+    foreach ($attendees as $a) {
+        $totalPeople += (int)($a['totalPeople'] ?? 0);
+        $totalChildren += (int)($a['children'] ?? 0);
+    }
+
+    jsonResponse(200, [
+        'ok' => true,
+        'attendees' => $attendees,
+        'totals' => [
+            'signups' => count($attendees),
+            'people' => $totalPeople,
+            'children' => $totalChildren,
+            'adults' => $totalPeople - $totalChildren
+        ]
+    ]);
+}
+
+// Admin: elimina una singola adesione
+if ($action === 'admin_delete_attendee' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+
+    withAttendanceTransaction(function (&$list) use ($id) {
+        $list['attendees'] = array_values(array_filter($list['attendees'] ?? [], fn($a) => ($a['id'] ?? '') !== $id));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
 }
 
 

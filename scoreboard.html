@@ -1046,6 +1046,9 @@
         <a href="#" onclick="openNewsletterSignup(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 Newsletter</a>
+        <a href="#" onclick="openAttendanceSignup(); return false;"
+          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ Partecipa</a>
         <a href="#" onclick="openContactModal(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 Contatti</a>
@@ -1122,6 +1125,43 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal" onclick="submitNewsletterSignup()">Iscrivimi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🆕 Partecipazione come spettatore (non giocatore): nome, email, telefono, numero persone e bambini -->
+  <div id="attendanceOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeAttendanceSignup()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="attendanceTitle">
+      <div class="modal-head">
+        <h4 id="attendanceTitle">🎟️ Partecipa all'evento</h4>
+        <button class="modal-close" aria-label="Chiudi" onclick="closeAttendanceSignup()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Non giochi ma vuoi venire a vedere il torneo? Segnala la tua presenza qui, così sappiamo quante persone aspettarci.</p>
+        <div class="field">
+          <label>Nome e cognome</label>
+          <input id="attName" type="text" placeholder="Il tuo nome" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Email</label>
+          <input id="attEmail" type="email" placeholder="nome@esempio.it" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Telefono</label>
+          <input id="attPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Quante persone in totale (te compreso/a)</label>
+          <input id="attTotalPeople" type="number" min="1" value="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Di cui quanti bambini</label>
+          <input id="attChildren" type="number" min="0" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div id="attendanceStatus" style="margin-top: 10px; font-size: 13px"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="submitAttendanceSignup()">Conferma partecipazione</button>
       </div>
     </div>
   </div>
@@ -2989,6 +3029,72 @@
         document.getElementById('nlEmail').value = '';
         document.getElementById('nlPhone').value = '';
         document.getElementById('nlPrivacy').checked = false;
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = '❌ ' + (e.message || 'Errore sconosciuto');
+      }
+    }
+
+    // 🆕 Partecipazione come spettatore (non giocatore): nome, email,
+    // telefono, numero di persone e quanti tra loro sono bambini.
+    function openAttendanceSignup() {
+      document.getElementById('attendanceStatus').textContent = '';
+      document.getElementById('attendanceOverlay').classList.remove('hidden');
+    }
+
+    function closeAttendanceSignup() {
+      document.getElementById('attendanceOverlay').classList.add('hidden');
+    }
+
+    async function submitAttendanceSignup() {
+      const name = document.getElementById('attName').value.trim();
+      const email = document.getElementById('attEmail').value.trim();
+      const phone = document.getElementById('attPhone').value.trim();
+      const totalPeople = parseInt(document.getElementById('attTotalPeople').value) || 0;
+      const children = parseInt(document.getElementById('attChildren').value) || 0;
+      const statusEl = document.getElementById('attendanceStatus');
+
+      if (!name) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci il tuo nome.';
+        return;
+      }
+
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailPattern.test(email)) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci un\'email valida.';
+        return;
+      }
+
+      const phoneDigitsCount = phone.replace(/\D/g, '').length;
+      if (!phone || phoneDigitsCount < 8 || phoneDigitsCount > 15) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci un numero di telefono valido.';
+        return;
+      }
+
+      if (totalPeople < 1) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Il numero di persone deve essere almeno 1.';
+        return;
+      }
+
+      if (children < 0 || children > totalPeople) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Il numero di bambini non può superare il numero totale di persone.';
+        return;
+      }
+
+      try {
+        await api('attendance_signup', 'POST', { name, email, phone, totalPeople, children });
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = '✅ Presenza confermata, grazie!';
+        document.getElementById('attName').value = '';
+        document.getElementById('attEmail').value = '';
+        document.getElementById('attPhone').value = '';
+        document.getElementById('attTotalPeople').value = '1';
+        document.getElementById('attChildren').value = '0';
       } catch (e) {
         statusEl.style.color = '#b71c1c';
         statusEl.textContent = '❌ ' + (e.message || 'Errore sconosciuto');

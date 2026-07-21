@@ -1463,14 +1463,25 @@
     function updateCountdown() {
       // Usa la data di inizio del torneo (da config o fallback)
       const tournamentDateMs = tournamentStartDate.getTime();
+      // 🆕 Blinda contro date non valide (es. torneo non ancora configurato):
+      // senza questo controllo, con una data non valida i calcoli sotto
+      // producevano "NaN" e lo riscrivevano nel DOM ad ogni secondo.
+      if (isNaN(tournamentDateMs)) {
+        setCountdownText('countDays', '0');
+        setCountdownText('countHours', '0');
+        setCountdownText('countMinutes', '0');
+        setCountdownText('countSeconds', '0');
+        return;
+      }
+
       const now = new Date().getTime();
       const diff = tournamentDateMs - now;
 
       if (diff <= 0) {
-        document.getElementById('countDays').textContent = '0';
-        document.getElementById('countHours').textContent = '0';
-        document.getElementById('countMinutes').textContent = '0';
-        document.getElementById('countSeconds').textContent = '0';
+        setCountdownText('countDays', '0');
+        setCountdownText('countHours', '0');
+        setCountdownText('countMinutes', '0');
+        setCountdownText('countSeconds', '0');
         return;
       }
 
@@ -1479,10 +1490,22 @@
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      document.getElementById('countDays').textContent = days;
-      document.getElementById('countHours').textContent = hours;
-      document.getElementById('countMinutes').textContent = minutes;
-      document.getElementById('countSeconds').textContent = seconds;
+      setCountdownText('countDays', days);
+      setCountdownText('countHours', hours);
+      setCountdownText('countMinutes', minutes);
+      setCountdownText('countSeconds', seconds);
+    }
+
+    // 🆕 Scrive il testo solo se e' davvero cambiato, invece di riassegnare
+    // textContent ogni secondo anche quando il valore e' identico (scrittura
+    // DOM ridondante, potenzialmente coinvolta in un ripaint non necessario).
+    function setCountdownText(elementId, value) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const strValue = String(value);
+      if (el.textContent !== strValue) {
+        el.textContent = strValue;
+      }
     }
 
     function renderAll() {

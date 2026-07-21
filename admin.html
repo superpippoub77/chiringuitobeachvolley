@@ -1174,7 +1174,10 @@
             <input type="text" id="ftpHost" placeholder="Host/Indirizzo server" maxlength="255" style="width: 100%; margin-bottom: 8px; padding: 6px">
             <input type="number" id="ftpPort" placeholder="Porta" value="21" style="width: 100%; margin-bottom: 8px; padding: 6px">
             <input type="text" id="ftpUsername" placeholder="Username" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
-            <input type="password" id="ftpPassword" placeholder="Password" maxlength="100" style="width: 100%; margin-bottom: 8px; padding: 6px">
+            <div style="position: relative; margin-bottom: 8px">
+              <input type="password" id="ftpPassword" placeholder="Password" maxlength="100" style="width: 100%; padding: 6px; padding-right: 30px; box-sizing: border-box">
+              <span onclick="togglePasswordVisibility('ftpPassword', this)" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 14px; user-select: none" title="Mostra/nascondi password">👁️</span>
+            </div>
             <input type="text" id="ftpRemotePath" placeholder="Percorso remoto (es: /public_html/updates)" maxlength="255" value="/" style="width: 100%; margin-bottom: 8px; padding: 6px">
             
             <div class="row" style="margin-top: 10px">
@@ -1240,7 +1243,10 @@
         <div id="multitenantLoginForm" style="margin-top: 14px">
           <div style="background: white; padding: 16px; border-radius: 8px; max-width: 300px">
             <label style="display: block; margin-bottom: 8px; font-weight: bold">Password Amministratore:</label>
-            <input type="password" id="multitenantAdminPassword" placeholder="Inserisci password admin" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 6px; margin-bottom: 12px">
+            <div style="position: relative; margin-bottom: 12px">
+              <input type="password" id="multitenantAdminPassword" placeholder="Inserisci password admin" style="width: 100%; padding: 8px; padding-right: 34px; border: 1px solid #d9bf8c; border-radius: 6px; box-sizing: border-box" onkeypress="if(event.key==='Enter') authenticateMultitenantAdmin()">
+              <span onclick="togglePasswordVisibility('multitenantAdminPassword', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 16px; user-select: none" title="Mostra/nascondi password">👁️</span>
+            </div>
             <button class="btn btn-green" onclick="authenticateMultitenantAdmin()">🔓 Accedi</button>
           </div>
         </div>
@@ -2136,7 +2142,10 @@
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Password</label>
-                  <input type="password" id="emailPassword" maxlength="100" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+                  <div style="position: relative">
+                    <input type="password" id="emailPassword" maxlength="100" value="${config.email?.password || ''}" placeholder="••••••••" style="width: 100%; padding: 6px; padding-right: 30px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+                    <span onclick="togglePasswordVisibility('emailPassword', this)" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 14px; user-select: none" title="Mostra/nascondi password">👁️</span>
+                  </div>
                 </div>
                 <div>
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Email Mittente</label>
@@ -2372,7 +2381,10 @@
               <div style="opacity: ${config.security?.encryptionEnabled ? '1' : '0.5'}; pointer-events: ${config.security?.encryptionEnabled ? 'auto' : 'none'}; margin-top: 12px">
                 <div style="margin-bottom: 12px">
                   <label style="display: block; margin-bottom: 6px; font-weight: bold">Password Master (min 8 caratteri)</label>
-                  <input type="password" id="encryptionPassword" placeholder="Scegli una password sicura" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px">
+                  <div style="position: relative">
+                    <input type="password" id="encryptionPassword" placeholder="Scegli una password sicura" style="width: 100%; padding: 8px; padding-right: 32px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box">
+                    <span onclick="togglePasswordVisibility('encryptionPassword', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 15px; user-select: none" title="Mostra/nascondi password">👁️</span>
+                  </div>
                   <small style="color: #666; display: block; margin-top: 4px">Deve contenere maiuscole, minuscole e numeri per massima sicurezza</small>
                 </div>
                 

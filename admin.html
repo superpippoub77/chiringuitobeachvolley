@@ -10073,20 +10073,33 @@ html += `
       }
 
       container.innerHTML = customFieldsData.map((field, idx) => `
-        <div class="card" style="background: #fafafa; padding: 12px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-left: 4px solid #0078d4">
-          <input type="text" value="${escapeHtml(field.label || '')}" data-cf-idx="${idx}" data-field="label" class="cf-input"
-                 placeholder="Es: Taglia maglietta" style="flex: 2; min-width: 160px; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
-          <select data-cf-idx="${idx}" data-field="type" class="cf-input" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px">
-            <option value="string" ${field.type !== 'number' ? 'selected' : ''}>Testo</option>
-            <option value="number" ${field.type === 'number' ? 'selected' : ''}>Numero</option>
-          </select>
-          <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; margin: 0">
-            <input type="checkbox" data-cf-idx="${idx}" data-field="required" class="cf-input" ${field.required ? 'checked' : ''}>
-            Obbligatorio
-          </label>
-          <button class="btn btn-danger" onclick="removeCustomField(${idx})">🗑️</button>
+        <div class="card" style="background: #fafafa; padding: 12px; margin-bottom: 8px; border-left: 4px solid #0078d4">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+            <input type="text" value="${escapeHtml(field.label || '')}" data-cf-idx="${idx}" data-field="label" class="cf-input"
+                   placeholder="Es: Taglia maglietta" style="flex: 2; min-width: 160px; padding: 6px; border: 1px solid #ddd; border-radius: 4px">
+            <select data-cf-idx="${idx}" data-field="type" class="cf-input" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px" onchange="toggleCustomFieldOptions(${idx}, this.value)">
+              <option value="string" ${(!field.type || field.type === 'string') ? 'selected' : ''}>Testo</option>
+              <option value="number" ${field.type === 'number' ? 'selected' : ''}>Numero</option>
+              <option value="select" ${field.type === 'select' ? 'selected' : ''}>Selezione (menu a tendina)</option>
+            </select>
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; margin: 0">
+              <input type="checkbox" data-cf-idx="${idx}" data-field="required" class="cf-input" ${field.required ? 'checked' : ''}>
+              Obbligatorio
+            </label>
+            <button class="btn btn-danger" onclick="removeCustomField(${idx})">🗑️</button>
+          </div>
+          <div id="cfOptionsRow${idx}" style="margin-top: 8px; ${field.type === 'select' ? '' : 'display: none'}">
+            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px">Valori disponibili (uno per riga)</label>
+            <textarea data-cf-idx="${idx}" data-field="options" class="cf-input" rows="3" placeholder="Es:&#10;Piccola&#10;Media&#10;Grande" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit">${(field.options || []).join('\n')}</textarea>
+          </div>
         </div>
       `).join('');
+    }
+
+    // 🆕 Mostra/nasconde il campo opzioni quando si passa a/da "Selezione"
+    function toggleCustomFieldOptions(idx, type) {
+      const row = document.getElementById('cfOptionsRow' + idx);
+      if (row) row.style.display = type === 'select' ? 'block' : 'none';
     }
 
     function addCustomField() {
@@ -10113,9 +10126,19 @@ html += `
           if (field === 'label') updated[idx].label = input.value.trim();
           else if (field === 'type') updated[idx].type = input.value;
           else if (field === 'required') updated[idx].required = input.checked;
+          else if (field === 'options') {
+            updated[idx].options = input.value.split('\n').map(v => v.trim()).filter(v => v !== '');
+          }
         });
 
         const finalFields = updated.filter(f => f && f.label);
+
+        // 🆕 Un campo "Selezione" senza opzioni non avrebbe senso
+        const emptySelect = finalFields.find(f => f.type === 'select' && (!f.options || !f.options.length));
+        if (emptySelect) {
+          await showInfoDialog('Attenzione', `Il campo "${emptySelect.label}" è di tipo Selezione ma non ha nessun valore disponibile: inserisci almeno un\'opzione (una per riga).`);
+          return;
+        }
 
         const result = await callApi('admin_update_custom_fields', 'POST', { customFields: finalFields }, true);
         customFieldsData = result.customFields;

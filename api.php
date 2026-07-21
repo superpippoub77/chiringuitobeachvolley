@@ -4504,6 +4504,13 @@ if ($action === 'register_team' && $method === 'POST') {
                 jsonResponse(422, ['ok' => false, 'error' => "Il campo \"$label\" deve essere un numero"]);
             }
             $normalizedValue = ($rawValue !== null && $rawValue !== '') ? (float)$rawValue : null;
+        } elseif (($fieldDef['type'] ?? 'string') === 'select') {
+            $normalizedValue = mb_substr(trim((string)($rawValue ?? '')), 0, 100);
+            if ($normalizedValue === '') {
+                $normalizedValue = null;
+            } elseif (!in_array($normalizedValue, $fieldDef['options'] ?? [], true)) {
+                jsonResponse(422, ['ok' => false, 'error' => "Il valore scelto per \"$label\" non è tra quelli disponibili"]);
+            }
         } else {
             $normalizedValue = mb_substr(trim((string)($rawValue ?? '')), 0, 500);
             if ($normalizedValue === '') $normalizedValue = null;
@@ -9825,13 +9832,27 @@ if ($action === 'admin_update_custom_fields' && $method === 'POST') {
         foreach ($body['customFields'] as $f) {
             $label = mb_substr(trim((string)($f['label'] ?? '')), 0, 100);
             if ($label === '') continue; // un campo senza etichetta non ha senso, salta
-            $type = ($f['type'] ?? 'string') === 'number' ? 'number' : 'string';
-            $fields[] = [
+            $rawType = $f['type'] ?? 'string';
+            $type = in_array($rawType, ['number', 'select'], true) ? $rawType : 'string';
+
+            $field = [
                 'id' => trim((string)($f['id'] ?? bin2hex(random_bytes(4)))),
                 'label' => $label,
                 'type' => $type,
                 'required' => (bool)($f['required'] ?? false)
             ];
+
+            // 🆕 Tipo "select": elenco di valori predefiniti tra cui scegliere
+            if ($type === 'select') {
+                $options = [];
+                foreach ((array)($f['options'] ?? []) as $opt) {
+                    $opt = mb_substr(trim((string)$opt), 0, 100);
+                    if ($opt !== '') $options[] = $opt;
+                }
+                $field['options'] = array_values(array_unique($options));
+            }
+
+            $fields[] = $field;
         }
         $config['customFields'] = $fields;
     }

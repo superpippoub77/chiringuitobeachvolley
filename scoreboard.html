@@ -1760,12 +1760,23 @@
         if (customFields.length) {
           html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Altre informazioni</h4></div>';
           customFields.forEach(field => {
-            const inputType = field.type === 'number' ? 'number' : 'text';
             const requiredAttr = field.required ? 'required' : '';
             const requiredMark = field.required ? ' *' : '';
-            html += `<div style="grid-column: 1/-1">
-              <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box" ${requiredAttr}>
-            </div>`;
+
+            if (field.type === 'select') {
+              const options = field.options || [];
+              html += `<div style="grid-column: 1/-1">
+                <select id="fCustom_${esc(field.id)}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid var(--line)" ${requiredAttr}>
+                  <option value="">${esc(field.label)}${requiredMark}</option>
+                  ${options.map(opt => `<option value="${esc(opt)}">${esc(opt)}</option>`).join('')}
+                </select>
+              </div>`;
+            } else {
+              const inputType = field.type === 'number' ? 'number' : 'text';
+              html += `<div style="grid-column: 1/-1">
+                <input id="fCustom_${esc(field.id)}" type="${inputType}" data-cf-required="${field.required ? '1' : '0'}" data-cf-label="${esc(field.label)}" placeholder="${esc(field.label)}${requiredMark}" style="width: 100%; box-sizing: border-box" ${requiredAttr}>
+              </div>`;
+            }
           });
         }
 

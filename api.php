@@ -9148,6 +9148,60 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
         $timePerSet = $tournament['timePerSetMinutes'] ?? 35;
         $phases = $config['phases'] ?? [];
         $notes = $config['notes'] ?? [];
+
+        // 🆕 Multi-sport: adatta emoji, formato squadre, regole di gioco e
+        // criteri di classifica in base allo sport configurato, invece di
+        // avere sempre e solo terminologia da Beach Volley.
+        $sportType = $tournament['sportType'] ?? 'beachvolley';
+        $winPointsForRules = getPhaseWinPoints($config, 1);
+
+        if ($sportType === 'beachsoccer') {
+            $sportEmoji = '⚽';
+            $formatLabel = 'Beach Soccer (2 vs 2 o secondo configurazione squadra)';
+            $gameRulesSection = <<<HTML
+        <ul>
+            <li><strong>Durata partita:</strong> 2 tempi da circa {$timePerSet} minuti ciascuno</li>
+            <li><strong>Punteggio:</strong> vince chi segna più gol nella somma dei due tempi</li>
+            <li><strong>Pareggio:</strong> ammesso nella fase a gironi</li>
+            <li><strong>Timeout per tempo:</strong> Massimo $maxTimeouts timeout per tempo</li>
+        </ul>
+HTML;
+            $drawPointsForRules = getPhaseDrawPoints($config, 1);
+            $standingsRulesLine = "Vittoria = $winPointsForRules punti; Pareggio = $drawPointsForRules punt" . ($drawPointsForRules === 1 ? 'o' : 'i') . "; Sconfitta = 0 punti";
+            $absencePenaltyLine = "Assenza alla partita programmata senza giustificazione: sconfitta a tavolino (0-3)";
+            $tieBreakLine = 'Punti totali > Differenza reti > Reti fatte';
+        } elseif ($sportType === 'beachtennis') {
+            $sportEmoji = '🎾';
+            $formatLabel = 'Beach Tennis (2 vs 2)';
+            $gameRulesSection = <<<HTML
+        <ul>
+            <li><strong>Numero set da giocare:</strong> Miglior di $numSets set</li>
+            <li><strong>Punti per vincere un set:</strong> $winScore punti (con minimo 2 di differenza)</li>
+            <li><strong>Massimo punti nel set:</strong> $maxScore punti</li>
+            <li><strong>Timeout per set:</strong> Massimo $maxTimeouts timeout per set</li>
+            <li><strong>Durata set:</strong> Circa $timePerSet minuti a set</li>
+        </ul>
+HTML;
+            $standingsRulesLine = "Vittoria = $winPointsForRules punti; Sconfitta = 0 punti (non è previsto il pareggio)";
+            $absencePenaltyLine = "Assenza alla partita programmata senza giustificazione: penalità di 2 set (0-$winScore, 0-$winScore)";
+            $tieBreakLine = 'Punti totali > Differenza set > Differenza punti';
+        } else {
+            // beachvolley (default)
+            $sportEmoji = '🏐';
+            $formatLabel = 'Beach Volley (2 vs 2)';
+            $gameRulesSection = <<<HTML
+        <ul>
+            <li><strong>Numero set da giocare:</strong> Miglior di $numSets set</li>
+            <li><strong>Punti per vincere un set:</strong> $winScore punti (con minimo 2 di differenza)</li>
+            <li><strong>Massimo punti nel set:</strong> $maxScore punti</li>
+            <li><strong>Timeout per set:</strong> Massimo $maxTimeouts timeout per set</li>
+            <li><strong>Durata set:</strong> Circa $timePerSet minuti a set</li>
+        </ul>
+HTML;
+            $standingsRulesLine = "Vittoria = $winPointsForRules punti; Sconfitta = 0 punti (non è previsto il pareggio)";
+            $absencePenaltyLine = "Assenza alla partita programmata senza giustificazione: penalità di 2 set (0-$winScore, 0-$winScore)";
+            $tieBreakLine = 'Punti totali > Differenza set > Differenza punti';
+        }
         
         $phasesText = '';
         if (!empty($phases)) {
@@ -9198,26 +9252,20 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
     </style>
 </head>
 <body>
-    <h1>🏐 Regolamento Torneo: $tournamentName</h1>
+    <h1>$sportEmoji Regolamento Torneo: $tournamentName</h1>
     
     <div class="section">
         <h2>1. Informazioni Generali</h2>
         <ul>
             <li><strong>Nome Torneo:</strong> $tournamentName</li>
             <li><strong>Numero massimo squadre:</strong> $maxTeams</li>
-            <li><strong>Formato squadre:</strong> Beach Volley (2 vs 2)</li>
+            <li><strong>Formato squadre:</strong> $formatLabel</li>
         </ul>
     </div>
     
     <div class="section">
         <h2>2. Regole di Gioco</h2>
-        <ul>
-            <li><strong>Numero set da giocare:</strong> Miglior di $numSets set</li>
-            <li><strong>Punti per vincere un set:</strong> $winScore punti (con minimo 2 di differenza)</li>
-            <li><strong>Massimo punti nel set:</strong> $maxScore punti</li>
-            <li><strong>Timeout per set:</strong> Massimo $maxTimeouts timeout per set</li>
-            <li><strong>Durata set:</strong> Circa $timePerSet minuti a set</li>
-        </ul>
+        $gameRulesSection
     </div>
     
     $phasesText
@@ -9226,9 +9274,9 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
         <h2>3. Gironi</h2>
         <ul>
             <li><strong>Numero gironi:</strong> $numGroups</li>
-            <li><strong>Criteri di classifica:</strong> Punti totali > Differenza set > Differenza punti</li>
+            <li><strong>Criteri di classifica:</strong> $tieBreakLine</li>
             <li>Le squadre si affrontano in tutti gli incontri con ogni altra squadra dello stesso girone</li>
-            <li>Vittoria = 2 punti; Sconfitta = 0 punti (non è previsto il pareggio)</li>
+            <li>$standingsRulesLine</li>
         </ul>
     </div>
     
@@ -9245,7 +9293,7 @@ if ($action === 'admin_generate_regolamento' && $method === 'POST') {
         <h2>5. Sanzioni</h2>
         <ul>
             <li>Comportamento violento o ingiurioso: squalifica immediata</li>
-            <li>Assenza alla partita programmata senza giustificazione: penalità di 2 set (0-21, 0-21)</li>
+            <li>$absencePenaltyLine</li>
             <li>Ritardo superiore a 15 minuti dall'inizio della partita: perdita della partita</li>
         </ul>
     </div>

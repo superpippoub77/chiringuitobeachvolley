@@ -1544,26 +1544,32 @@
       let html = '<h3>### Gestione squadre</h3>';
       html += `<p>Totale: <strong>${totalTeams}</strong> | In attesa: <strong>${waitingTeams}</strong></p>`;
       html += state.teams.map(t => {
-        let playersHtml = (t.players || [])
-          .map(p => {
-            const name = typeof p === 'string' ? p : (p.name || '');
-            const level = typeof p === 'string' ? null : (p.level || p.skillLevel);
-            const isCap = typeof p === 'string' ? false : (p.isCaptain || false);
-            if (!name) return '';
-            const capIcon = isCap ? ' 👨‍💼' : '';
-            const levelIcon = level ? ` ⭐${level}` : '';
-            return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
-          })
-          .filter(Boolean)
-          .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
+        const levelLabels = { principiante: 'Principiante', intermedio: 'Intermedio', avanzato: 'Avanzato', professionista: 'Professionista' };
+        const placeholderImg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
 
-        // Crea HTML per le immagini dei giocatori
-        let playersImages = (t.players || [])
+        // 🆕 Un box per giocatore: foto in alto, nome subito sotto, livello
+        // sotto ancora, corona 👑 sulla foto per il capitano.
+        const playerBoxes = (t.players || [])
           .map((p, idx) => {
-            if (typeof p === 'string') return '';
-            const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
-            const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') : `Giocatore ${idx + 1}`;
-            return `<img src="${imgUrl}" title="${title}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ccc; cursor: pointer">`;
+            if (typeof p === 'string') {
+              return p ? `<div style="text-align: center; width: 72px">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: #ddd; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 24px">📸</div>
+                <div style="font-size: 12px; font-weight: 600; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">${esc(p)}</div>
+              </div>` : '';
+            }
+            const name = p.name || '';
+            if (!name) return '';
+            const imgUrl = p.imageFile || placeholderImg;
+            const levelLabel = levelLabels[p.level] || '';
+            const isCap = !!p.isCaptain;
+            return `<div style="text-align: center; width: 72px">
+              <div style="position: relative; width: 56px; height: 56px; margin: 0 auto">
+                <img src="${imgUrl}" title="${esc(name)}${isCap ? ' (Capitano)' : ''}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
+                ${isCap ? '<span title="Capitano" style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
+              </div>
+              <div style="font-size: 12px; font-weight: 600; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap" title="${esc(name)}">${esc(name)}</div>
+              ${levelLabel ? `<div style="font-size: 11px; color: #888">${levelLabel}</div>` : ''}
+            </div>`;
           })
           .filter(Boolean)
           .join('');
@@ -1571,16 +1577,19 @@
         const weight = getTeamWeight(t);
         const weightColor = getWeightColor(weight);
 
-        return `<div class="team" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa">
-          <div class="team-info">
-            <strong>${esc(t.name)}</strong>
-            <small>${playersHtml}</small>
-            ${playersImages ? `<div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap">${playersImages}</div>` : ''}
+        return `<div class="team" style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
+          <div style="min-width: 160px; flex-shrink: 0">
+            <strong style="font-size: 15px">${esc(t.name)}</strong>
+            <div style="margin-top: 4px">
+              <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? 'Confermata' : 'In attesa'}</span>
+              ${t.dummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13; margin-left: 4px">Fittizia</span>' : ''}
+            </div>
+            <div style="margin-top: 6px">
+              <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ Media livello: ${weight}</span>
+            </div>
           </div>
-          <div class="chips" style="margin-top: 8px">
-            ${t.dummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
-            <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ ${weight}</span>
-            <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? 'Confermato' : 'In attesa'}</span>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
+            ${playerBoxes || '<em style="color:#999">Giocatori non inseriti</em>'}
           </div>
         </div>`;
       }).join('');
@@ -1588,12 +1597,19 @@
       c.innerHTML = html;
     }
 
+    // 🔧 FIX: cercava ancora il vecchio campo numerico "skillLevel", ma i
+    // livelli sono salvati come testo (principiante/intermedio/avanzato/
+    // professionista) — mostrava quindi sempre "—" invece della media reale.
+    function customFieldLevelToNumeric(level) {
+      const map = { principiante: 1, intermedio: 2, avanzato: 3, professionista: 4 };
+      return map[level] || null;
+    }
+
     function getTeamWeight(team) {
       if (!team.players || !Array.isArray(team.players)) return '—';
       const skillLevels = team.players
-        .map(p => typeof p === 'string' ? null : p.skillLevel)
-        .filter(s => s && !isNaN(s))
-        .map(Number);
+        .map(p => typeof p === 'string' ? null : customFieldLevelToNumeric(p.level))
+        .filter(s => s !== null);
       if (skillLevels.length === 0) return '—';
       const avg = (skillLevels.reduce((a, b) => a + b, 0) / skillLevels.length).toFixed(1);
       return isNaN(avg) ? '—' : avg;

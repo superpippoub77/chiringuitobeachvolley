@@ -812,7 +812,10 @@
         <input id="adminEmail" type="email" placeholder="Email" maxlength="255" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
       </div>
       <div class="row">
-        <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
+        <div style="position: relative; flex: 1">
+          <input id="adminPassword" type="password" placeholder="Password admin" maxlength="100" style="width: 100%; padding-right: 34px; box-sizing: border-box" onkeypress="if(event.key==='Enter' && typeof login === 'function') login()">
+          <span onclick="togglePasswordVisibility('adminPassword', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 16px; user-select: none" title="Mostra/nascondi password">👁️</span>
+        </div>
         <button class="btn btn-primary" onclick="typeof login === 'function' && login()">Accedi</button>
       </div>
       <div id="biometricLoginRow" style="display: none; margin-top: 10px; text-align: center">
@@ -1282,7 +1285,28 @@
 
   <script>
     const API = 'api.php';
-    let token = localStorage.getItem('adminToken') || '';
+
+    // 🆕 FIX: localStorage è condiviso per l'INTERO DOMINIO, non per singola
+    // cartella/torneo. Se si gestiscono più tornei sullo stesso dominio
+    // (es. .../projects/bm/CODICE1/admin.html e .../CODICE2/admin.html), una
+    // chiave generica "adminToken" veniva sovrascritta passando da un
+    // torneo all'altro, causando il logout forzato continuo. Usiamo invece
+    // una chiave che include il percorso della pagina, univoca per torneo.
+    function getAdminTokenStorageKey() {
+      const path = window.location.pathname.replace(/\/[^\/]*$/, '');
+      return 'adminToken_' + path;
+    }
+    function getStoredAdminToken() {
+      return localStorage.getItem(getAdminTokenStorageKey()) || '';
+    }
+    function setStoredAdminToken(value) {
+      localStorage.setItem(getAdminTokenStorageKey(), value);
+    }
+    function removeStoredAdminToken() {
+      localStorage.removeItem(getAdminTokenStorageKey());
+    }
+
+    let token = getStoredAdminToken();
     let state = null;
 
     // 🆕 Sincronizzazione automatica col tabellone (tablescore.html) aperto in
@@ -1467,7 +1491,7 @@
         
         // Se richiede autenticazione, aggiungi il token (leggi da localStorage se non presente in memoria)
         if (auth) {
-          const currentToken = token || localStorage.getItem('adminToken') || '';
+          const currentToken = token || getStoredAdminToken() || '';
           if (currentToken) {
             opts.headers.Authorization = 'Bearer ' + currentToken;
             if (!token) {
@@ -1620,9 +1644,9 @@
     async function initBiometricLoginButton() {
       const row = document.getElementById('biometricLoginRow');
       if (!row) return;
-      const enabled = localStorage.getItem('biometricEnabled') === '1'
-        && localStorage.getItem('biometricCredentialId')
-        && localStorage.getItem('biometricAdminToken');
+      const enabled = localStorage.getItem(getAdminTokenStorageKey() + '_bioEnabled') === '1'
+        && localStorage.getItem(getAdminTokenStorageKey() + '_bioCredId')
+        && localStorage.getItem(getAdminTokenStorageKey() + '_bioToken');
       if (enabled && await isBiometricAvailable()) {
         row.style.display = 'block';
       }
@@ -1633,7 +1657,7 @@
     // essa il token di sessione appena ottenuto (per poterlo recuperare al
     // prossimo sblocco biometrico).
     async function offerEnableBiometric() {
-      if (localStorage.getItem('biometricEnabled') === '1') return; // già abilitato
+      if (localStorage.getItem(getAdminTokenStorageKey() + '_bioEnabled') === '1') return; // già abilitato
       if (!(await isBiometricAvailable())) return; // nessun sensore su questo dispositivo
 
       const wants = confirm('Vuoi abilitare l\'accesso con impronta digitale / Face ID su questo dispositivo? La prossima volta potrai entrare con un tocco, senza reinserire la password.');
@@ -1655,9 +1679,9 @@
           }
         });
 
-        localStorage.setItem('biometricCredentialId', arrayBufferToBase64(credential.rawId));
-        localStorage.setItem('biometricAdminToken', token);
-        localStorage.setItem('biometricEnabled', '1');
+        localStorage.setItem(getAdminTokenStorageKey() + '_bioCredId', arrayBufferToBase64(credential.rawId));
+        localStorage.setItem(getAdminTokenStorageKey() + '_bioToken', token);
+        localStorage.setItem(getAdminTokenStorageKey() + '_bioEnabled', '1');
         await showInfoDialog('✅ Fatto', 'Accesso con impronta/Face ID abilitato su questo dispositivo.');
         await initBiometricLoginButton();
       } catch (e) {
@@ -1669,8 +1693,8 @@
     // piattaforma e, se riuscito, recupera il token già salvato per
     // completare l'accesso senza richiedere la password.
     async function loginWithBiometric() {
-      const credentialIdB64 = localStorage.getItem('biometricCredentialId');
-      const savedToken = localStorage.getItem('biometricAdminToken');
+      const credentialIdB64 = localStorage.getItem(getAdminTokenStorageKey() + '_bioCredId');
+      const savedToken = localStorage.getItem(getAdminTokenStorageKey() + '_bioToken');
       if (!credentialIdB64 || !savedToken) {
         await showInfoDialog('Non disponibile', 'Il riconoscimento biometrico non è ancora stato abilitato su questo dispositivo. Accedi prima con la password.');
         return;
@@ -1689,7 +1713,7 @@
 
         if (assertion) {
           token = savedToken;
-          localStorage.setItem('adminToken', token);
+          setStoredAdminToken(token);
           document.getElementById('loginBox').classList.add('hidden');
           document.getElementById('app').classList.remove('hidden');
           document.getElementById('logoutBtn').classList.remove('hidden');
@@ -1705,14 +1729,23 @@
     // sessione/account: serve solo a rifare il login con password la
     // prossima volta).
     function disableBiometric() {
-      localStorage.removeItem('biometricCredentialId');
-      localStorage.removeItem('biometricAdminToken');
-      localStorage.removeItem('biometricEnabled');
+      localStorage.removeItem(getAdminTokenStorageKey() + '_bioCredId');
+      localStorage.removeItem(getAdminTokenStorageKey() + '_bioToken');
+      localStorage.removeItem(getAdminTokenStorageKey() + '_bioEnabled');
       const row = document.getElementById('biometricLoginRow');
       if (row) row.style.display = 'none';
     }
 
     initBiometricLoginButton();
+
+    // 🆕 Mostra/nasconde la password in tempo reale (occhiolino)
+    function togglePasswordVisibility(inputId, iconEl) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      if (iconEl) iconEl.textContent = isHidden ? '🙈' : '👁️';
+    }
 
     async function login() {
       const emailField = document.getElementById('adminEmail');
@@ -1734,9 +1767,9 @@
       try {
         const r = await callApi('admin_login', 'POST', payload);
         token = r.token;
-        localStorage.setItem('adminToken', token);
+        setStoredAdminToken(token);
         if (r.tournamentCode) {
-          localStorage.setItem('tournamentCode', r.tournamentCode);
+          localStorage.setItem(getAdminTokenStorageKey() + '_code', r.tournamentCode);
         }
         document.getElementById('loginBox').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
@@ -1747,8 +1780,8 @@
     }
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('tournamentCode');
+      removeStoredAdminToken();
+      localStorage.removeItem(getAdminTokenStorageKey() + '_code');
       location.reload();
     });
 
@@ -2492,7 +2525,7 @@
               formData.append('logo', file);
               
               try {
-                const token = localStorage.getItem('adminToken');
+                const token = getStoredAdminToken();
                 const response = await fetch('api.php?action=admin_upload_logo', {
                   method: 'POST',
                   headers: {
@@ -2528,7 +2561,7 @@
               formData.append('background', file);
               
               try {
-                const token = localStorage.getItem('adminToken');
+                const token = getStoredAdminToken();
                 const response = await fetch('api.php?action=admin_upload_background', {
                   method: 'POST',
                   headers: {
@@ -2585,7 +2618,7 @@
               formData.append('kitImage', file);
               
               try {
-                const token = localStorage.getItem('adminToken');
+                const token = getStoredAdminToken();
                 const response = await fetch('api.php?action=admin_upload_kit_image', {
                   method: 'POST',
                   headers: {
@@ -5542,7 +5575,7 @@
       // di aprirne una nuova, e il token admin non veniva passato esplicitamente:
       // se per qualsiasi motivo il localStorage non era ancora disponibile nella
       // nuova scheda, tablescore.html rispondeva 401 Unauthorized.
-      const adminToken = token || localStorage.getItem('adminToken') || '';
+      const adminToken = token || getStoredAdminToken() || '';
       const url = `tablescore.html?matchId=${encodeURIComponent(matchId)}&phase=${encodeURIComponent(currentSelectedPhaseNumber)}&token=${encodeURIComponent(adminToken)}`;
       window.open(url, '_blank');
     }
@@ -9606,7 +9639,7 @@ html += `
         
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'api.php?action=admin_upload_sponsor_logo', true);
-        xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('adminToken'));
+        xhr.setRequestHeader('Authorization', 'Bearer ' + getStoredAdminToken());
         
         xhr.onload = async () => {
           if (xhr.status === 200) {
@@ -9644,7 +9677,7 @@ html += `
         
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'api.php?action=admin_upload_player_image', true);
-        xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('adminToken'));
+        xhr.setRequestHeader('Authorization', 'Bearer ' + getStoredAdminToken());
         
         xhr.onload = async () => {
           if (xhr.status === 200) {
@@ -10677,7 +10710,7 @@ html += `
           // Unauthorized lato server (requireAdmin() nell'api.php).
           const uploadRes = await fetch('api.php?action=admin_upload_gallery_image', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + (token || localStorage.getItem('adminToken') || '') },
+            headers: { 'Authorization': 'Bearer ' + (token || getStoredAdminToken() || '') },
             body: formData
           });
           const uploadData = await uploadRes.json();
@@ -14996,7 +15029,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
         // Se è un errore di autenticazione (401), il token è scaduto
         if (e.message.includes('Non autorizzato') || e.message.includes('401')) {
           console.log('🔐 Token non valido - Logout forzato');
-          localStorage.removeItem('adminToken');
+          removeStoredAdminToken();
           location.reload();
         } else {
           // Se è un altro errore, riprova una volta
@@ -15006,7 +15039,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
             console.log('✅ Retry riuscito');
           } catch (e2) {
             console.error('❌ Retry fallito:', e2.message);
-            localStorage.removeItem('adminToken');
+            removeStoredAdminToken();
             location.reload();
           }
         }
@@ -15056,7 +15089,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
       
       try {
         const response = await fetch(`api.php?action=admin_get_json&file=${encodeURIComponent(fileSelector.value)}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
+          headers: { 'Authorization': `Bearer ${getStoredAdminToken()}` }
         });
         
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -15151,7 +15184,7 @@ ${wizardState.phaseData.eliminatedGoTo || ''}</textarea>
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+            'Authorization': `Bearer ${getStoredAdminToken()}`
           },
           body: JSON.stringify({
             file: fileSelector.value,

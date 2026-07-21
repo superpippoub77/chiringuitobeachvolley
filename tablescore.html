@@ -536,6 +536,22 @@
 
   <script>
     const API = 'api.php';
+
+    // 🆕 Stessa correzione di admin.html: localStorage è condiviso per
+    // l'intero dominio, non per singolo torneo — una chiave generica
+    // "adminToken" veniva sovrascritta passando da un torneo all'altro sullo
+    // stesso dominio.
+    function getAdminTokenStorageKey() {
+      const path = window.location.pathname.replace(/\/[^\/]*$/, '');
+      return 'adminToken_' + path;
+    }
+    function getStoredAdminToken() {
+      return localStorage.getItem(getAdminTokenStorageKey()) || '';
+    }
+    function setStoredAdminToken(value) {
+      localStorage.setItem(getAdminTokenStorageKey(), value);
+    }
+
     let matchId = null;
     let phaseNumber = null;
     let matchData = null;
@@ -703,12 +719,12 @@
       // admin.html (es. finestra "vuota" aperta da window.open).
       const urlToken = params.get('token');
       if (urlToken) {
-        localStorage.setItem('adminToken', urlToken);
+        setStoredAdminToken(urlToken);
       }
 
       // Carica i dati della partita
       try {
-        const token = urlToken || localStorage.getItem('adminToken') || '';
+        const token = urlToken || getStoredAdminToken() || '';
         const response = await fetch(`${API}?action=admin_get_match&matchId=${encodeURIComponent(matchId)}&phase=${encodeURIComponent(phaseNumber)}`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -1184,7 +1200,7 @@
     async function saveMatch(silent = false) {
       const saveBtn = document.querySelector('.btn-save');
       try {
-        const token = localStorage.getItem('adminToken') || '';
+        const token = getStoredAdminToken() || '';
         
         // 🔧 DEBUG CRITICO: Verificare ESATTAMENTE cosa viene inviato
         console.log('💾 TABELLONE: Inizio salvataggio match');

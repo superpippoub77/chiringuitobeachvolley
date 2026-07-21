@@ -1913,16 +1913,19 @@
     }
 
     async function renderSettings() {
-      try {
-        // 🆕 Ricorda quale sotto-scheda (Torneo/Comunicazioni/Avanzate/ecc.) era
-        // aperta prima di ricostruire l'HTML: senza questo, dopo ogni
-        // salvataggio si tornava sempre alla prima scheda di default, invece
-        // di restare dove l'utente stava effettivamente lavorando.
-        const activeSubtabBtn = document.querySelector('.settings-subtab-btn.active');
-        const activeSubtabName = activeSubtabBtn
-          ? (activeSubtabBtn.getAttribute('onclick') || '').match(/showSettingsTab\('([^']+)'/)?.[1]
-          : null;
+      // 🆕 Ricorda quale sotto-scheda (Torneo/Comunicazioni/Avanzate/ecc.) era
+      // aperta prima di ricostruire l'HTML: senza questo, dopo ogni
+      // salvataggio si tornava sempre alla prima scheda di default, invece
+      // di restare dove l'utente stava effettivamente lavorando.
+      // 🔧 Dichiarata FUORI dal blocco try/catch qui sotto: una const/let
+      // dichiarata dentro un blocco { } non è visibile fuori da quel blocco,
+      // e questa variabile serve più avanti, dopo che il try/catch è finito.
+      const activeSubtabBtn = document.querySelector('.settings-subtab-btn.active');
+      const activeSubtabName = activeSubtabBtn
+        ? (activeSubtabBtn.getAttribute('onclick') || '').match(/showSettingsTab\('([^']+)'/)?.[1]
+        : null;
 
+      try {
         const r = await callApi('admin_get_config', 'GET', null, true);
         config = r.config;
         

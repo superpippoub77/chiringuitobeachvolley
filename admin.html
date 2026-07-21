@@ -1914,6 +1914,15 @@
 
     async function renderSettings() {
       try {
+        // 🆕 Ricorda quale sotto-scheda (Torneo/Comunicazioni/Avanzate/ecc.) era
+        // aperta prima di ricostruire l'HTML: senza questo, dopo ogni
+        // salvataggio si tornava sempre alla prima scheda di default, invece
+        // di restare dove l'utente stava effettivamente lavorando.
+        const activeSubtabBtn = document.querySelector('.settings-subtab-btn.active');
+        const activeSubtabName = activeSubtabBtn
+          ? (activeSubtabBtn.getAttribute('onclick') || '').match(/showSettingsTab\('([^']+)'/)?.[1]
+          : null;
+
         const r = await callApi('admin_get_config', 'GET', null, true);
         config = r.config;
         
@@ -2610,6 +2619,15 @@
       
       // Renderizza lo schedule delle fasi
       renderPhasesScheduleConfig();
+
+      // 🆕 Ripristina la sotto-scheda che era aperta prima di questo
+      // ri-render (l'HTML appena ricostruito riparte sempre da "Torneo" come
+      // default, altrimenti si perderebbe sempre la scheda su cui si stava
+      // lavorando dopo ogni salvataggio).
+      if (activeSubtabName && activeSubtabName !== 'tournament') {
+        const btnToActivate = document.querySelector(`[onclick*="showSettingsTab('${activeSubtabName}'"]`);
+        showSettingsTab(activeSubtabName, btnToActivate);
+      }
     }
 
     function showSettingsTab(tabName, button) {

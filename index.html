@@ -4,10 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BeachMaster - Crea il Tuo Torneo di Beach Volley</title>
+  <title>BeachMaster — La piattaforma per tornei di sport da spiaggia</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&family=DM+Sans:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/dseg7-classic/index.css" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -15,53 +16,248 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --dusk-deep: #16213e;
+      --dusk-violet: #3d2645;
+      --sunset-coral: #ff6b47;
+      --floodlight-gold: #ffc94d;
+      --sand-cream: #faf3e4;
+      --ink: #211a14;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #f8edd8 0%, #f1dfbc 50%, #e7cf9e 100%);
-      background-attachment: fixed;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--sand-cream);
+      color: var(--ink);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
     }
 
-    .container {
-      max-width: 600px;
-      width: 100%;
-    }
-
-    .hero {
+    /* ============== HERO ============== */
+    .hero-wrap {
+      position: relative;
+      background: linear-gradient(160deg, var(--dusk-deep) 0%, var(--dusk-violet) 75%);
+      padding: 56px 20px 80px;
+      overflow: hidden;
       text-align: center;
-      margin-bottom: 40px;
     }
 
-    .hero h1 {
+    .hero-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(255, 201, 77, 0.55) 1px, transparent 1.4px);
+      background-size: 46px 46px;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    .hero-eyebrow {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--floodlight-gold);
+      border: 1px solid rgba(255, 201, 77, 0.4);
+      border-radius: 999px;
+      padding: 6px 16px;
+      margin-bottom: 22px;
+    }
+
+    .hero-wrap h1 {
       font-family: 'Original Surfer', cursive;
-      font-size: 3.5rem;
-      color: #201c14;
-      text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
+      font-size: clamp(2.6rem, 7vw, 4.6rem);
+      color: #fffaf0;
+      text-shadow: 0 4px 24px rgba(255, 107, 71, 0.35);
+      line-height: 1.05;
+    }
+
+    .hero-wrap .lead {
+      margin: 18px auto 0;
+      max-width: 540px;
+      font-size: 1.12rem;
+      color: #dfd6e8;
+      line-height: 1.6;
+    }
+
+    /* ---- Mini tabellone LCD: elemento firma ---- */
+    .lcd-board {
+      margin: 44px auto 0;
+      max-width: 480px;
+      background: #0d1321;
+      border-radius: 18px;
+      border: 3px solid #2a2440;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), inset 0 0 30px rgba(255, 107, 71, 0.08);
+      padding: 22px 26px 18px;
+    }
+
+    .lcd-board .lcd-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #8f8aa8;
+      text-align: left;
+      margin-bottom: 6px;
+    }
+
+    .lcd-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .lcd-sport {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--floodlight-gold);
+      text-align: left;
+      min-width: 132px;
+      transition: opacity 0.4s ease;
+    }
+
+    .lcd-score {
+      font-family: 'DSEG7 Classic', monospace;
+      font-size: clamp(2.4rem, 8vw, 3.4rem);
+      color: #ff7a52;
+      text-shadow: 0 0 18px rgba(255, 122, 82, 0.65);
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+
+    /* ============== FEATURES ============== */
+    .features-wrap {
+      max-width: 1080px;
+      margin: -40px auto 0;
+      padding: 0 20px 60px;
+      position: relative;
+    }
+
+    .features-heading {
+      text-align: center;
+      margin: 68px 0 34px;
+    }
+
+    .features-heading .kicker {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--sunset-coral);
+    }
+
+    .features-heading h2 {
+      font-family: 'Original Surfer', cursive;
+      font-size: clamp(1.7rem, 4vw, 2.3rem);
+      margin-top: 8px;
+      color: var(--ink);
+    }
+
+    .dept-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
+    }
+
+    .dept-card {
+      background: #fffdf8;
+      border: 1px solid #e9dcc0;
+      border-radius: 14px;
+      padding: 22px 20px;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .dept-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 30px rgba(61, 38, 69, 0.12);
+      border-color: var(--sunset-coral);
+    }
+
+    .dept-card .dept-icon {
+      font-size: 1.6rem;
       margin-bottom: 10px;
     }
 
-    .hero p {
-      font-size: 1.1rem;
+    .dept-card h3 {
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+      color: var(--ink);
+    }
+
+    .dept-card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dept-card li {
+      font-size: 0.88rem;
       color: #6a5737;
-      line-height: 1.6;
+      line-height: 1.4;
+      padding-left: 14px;
+      position: relative;
+    }
+
+    .dept-card li::before {
+      content: '·';
+      position: absolute;
+      left: 0;
+      color: var(--sunset-coral);
+      font-weight: 900;
+    }
+
+    /* ============== CTA / FORM SECTION ============== */
+    .container {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    .form-anchor-heading {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .form-anchor-heading .kicker {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--sunset-coral);
+    }
+
+    .form-anchor-heading h2 {
+      font-family: 'Original Surfer', cursive;
+      font-size: clamp(1.6rem, 4vw, 2.1rem);
+      margin-top: 8px;
     }
 
     .card {
       background: #fffdf8;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(61, 38, 69, 0.14);
       padding: 40px;
-      border: 3px solid #d9bf8c;
+      border: 3px solid #e9dcc0;
     }
 
     h2 {
       font-family: 'Original Surfer', cursive;
       font-size: 2rem;
-      color: #201c14;
+      color: var(--ink);
       margin-bottom: 30px;
       text-align: center;
     }
@@ -72,8 +268,8 @@
 
     label {
       display: block;
-      font-weight: 600;
-      color: #201c14;
+      font-weight: 700;
+      color: var(--ink);
       margin-bottom: 8px;
     }
 
@@ -85,7 +281,7 @@
       border: 2px solid #d9bf8c;
       border-radius: 6px;
       font-size: 1rem;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'DM Sans', sans-serif;
       transition: all 0.3s ease;
     }
 
@@ -93,8 +289,8 @@
     input[type="password"]:focus,
     input[type="text"]:focus {
       outline: none;
-      border-color: #ea5b0c;
-      box-shadow: 0 0 8px rgba(234, 91, 12, 0.3);
+      border-color: var(--sunset-coral);
+      box-shadow: 0 0 8px rgba(255, 107, 71, 0.35);
     }
 
     .button-group {
@@ -107,23 +303,23 @@
     button {
       padding: 14px 24px;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       transition: all 0.3s ease;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'DM Sans', sans-serif;
     }
 
     .btn-create {
-      background: linear-gradient(135deg, #ea5b0c 0%, #ff7f32 100%);
+      background: linear-gradient(135deg, var(--sunset-coral) 0%, #ff8a63 100%);
       color: white;
       grid-column: 1 / 2;
     }
 
     .btn-create:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(234, 91, 12, 0.4);
+      box-shadow: 0 6px 20px rgba(255, 107, 71, 0.4);
     }
 
     .btn-create:active {
@@ -131,14 +327,14 @@
     }
 
     .btn-login {
-      background: linear-gradient(135deg, #2e5d1f 0%, #3b7428 100%);
+      background: linear-gradient(135deg, var(--dusk-deep) 0%, var(--dusk-violet) 100%);
       color: white;
       grid-column: 2 / 3;
     }
 
     .btn-login:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(46, 93, 31, 0.4);
+      box-shadow: 0 6px 20px rgba(22, 33, 62, 0.4);
     }
 
     .btn-login:active {
@@ -146,12 +342,12 @@
     }
 
     .info-box {
-      background: #d9f1d2;
-      border-left: 4px solid #2e5d1f;
+      background: #fff1e2;
+      border-left: 4px solid var(--sunset-coral);
       padding: 16px;
       border-radius: 6px;
       margin-bottom: 20px;
-      color: #2e5d1f;
+      color: #8a4522;
       font-size: 0.95rem;
       line-height: 1.5;
     }
@@ -181,7 +377,7 @@
       height: 16px;
       border: 3px solid #d9bf8c;
       border-radius: 50%;
-      border-top-color: #ea5b0c;
+      border-top-color: var(--sunset-coral);
       animation: spin 1s linear infinite;
       margin-right: 8px;
     }
@@ -214,7 +410,7 @@
       padding: 12px;
       border-radius: 6px;
       text-decoration: none;
-      color: #201c14;
+      color: var(--ink);
       font-weight: 500;
       transition: all 0.3s ease;
       border: 1px solid #d9bf8c;
@@ -225,11 +421,14 @@
       transform: translateX(4px);
     }
 
-    @media (max-width: 600px) {
-      .hero h1 {
-        font-size: 2.5rem;
-      }
+    .site-footer {
+      text-align: center;
+      padding: 26px 20px 40px;
+      font-size: 0.82rem;
+      color: #8a7a5a;
+    }
 
+    @media (max-width: 600px) {
       .card {
         padding: 24px;
       }
@@ -241,22 +440,141 @@
       .btn-login {
         grid-column: 1;
       }
+
+      .lcd-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lcd-sport { transition: none; }
     }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="hero">
+
+  <!-- ============== HERO ============== -->
+  <section class="hero-wrap">
+    <div class="hero-inner">
+      <span class="hero-eyebrow">Beach Volley · Beach Tennis · Beach Soccer</span>
       <h1>🏖️ BeachMaster</h1>
-      <p>Gestisci il tuo torneo di beach volley in pochi click</p>
+      <p class="lead">La piattaforma tutto-in-uno per organizzare tornei di sport da spiaggia: iscrizioni, tabellone live, gironi, bar e comunicazione con il pubblico — in un unico posto, pronta in pochi minuti.</p>
+
+      <div class="lcd-board" aria-hidden="true">
+        <div class="lcd-label">TABELLONE LIVE</div>
+        <div class="lcd-row">
+          <span class="lcd-sport" id="lcdSportLabel">BEACH VOLLEY</span>
+          <span class="lcd-score" id="lcdScore">21-18</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== FUNZIONALITÀ PER REPARTO ============== -->
+  <div class="features-wrap">
+    <div class="features-heading">
+      <div class="kicker">Cosa trovi dentro</div>
+      <h2>Un reparto per ogni cosa di cui hai bisogno</h2>
+    </div>
+
+    <div class="dept-grid">
+      <div class="dept-card">
+        <div class="dept-icon">📝</div>
+        <h3>Iscrizioni su misura</h3>
+        <ul>
+          <li>Modulo pubblico con foto giocatori e livello</li>
+          <li>Capitano, riserve, scadenza iscrizioni</li>
+          <li>Campi personalizzati: testo, numero o menu a tendina decisi da te</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">📺</div>
+        <h3>Tabellone live</h3>
+        <ul>
+          <li>Punteggio in tempo reale stile LCD da campo</li>
+          <li>Countdown dei tempi per il calcio, cronometro partita</li>
+          <li>Modalità sola visualizzazione per il pubblico</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">🏆</div>
+        <h3>Gironi e tabellone</h3>
+        <ul>
+          <li>Classifiche automatiche, gironi bilanciati per livello</li>
+          <li>Eliminazione diretta con seeding anti-scontri precoci</li>
+          <li>Regole di punteggio dedicate per ogni sport</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">🍹</div>
+        <h3>Bar del torneo</h3>
+        <ul>
+          <li>Menu per categorie con allergeni e prezzi</li>
+          <li>Carrello pubblico, ordini modificabili da admin</li>
+          <li>Pagamento in cassa o online con PayPal</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">📣</div>
+        <h3>Comunicazione</h3>
+        <ul>
+          <li>Notizie e comunicati in homepage</li>
+          <li>Newsletter, contatti diretti ed email/WhatsApp</li>
+          <li>Adesioni spettatori con limite posti configurabile</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">🔐</div>
+        <h3>Controllo e sicurezza</h3>
+        <ul>
+          <li>Pannello multi-torneo con un solo account</li>
+          <li>Cronologia modifiche e backup, dati sensibili cifrabili</li>
+          <li>Sblocco rapido con impronta/Face ID</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">🎨</div>
+        <h3>Look del torneo</h3>
+        <ul>
+          <li>Temi, logo e sfondo con overlay regolabile</li>
+          <li>Sponsor a scorrimento, galleria foto</li>
+          <li>Regolamento e privacy generati automaticamente</li>
+        </ul>
+      </div>
+
+      <div class="dept-card">
+        <div class="dept-icon">📅</div>
+        <h3>Organizzazione evento</h3>
+        <ul>
+          <li>Calendario campi e fasce orarie</li>
+          <li>Checklist di preparazione condivisa</li>
+          <li>Kit torneo e gestione pagamenti squadre</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== FORM: CREA / ACCEDI / PANNELLO ============== -->
+  <div class="container">
+    <div class="form-anchor-heading">
+      <div class="kicker">Inizia ora</div>
+      <h2>Il tuo torneo, pronto in pochi click</h2>
     </div>
 
     <div class="card">
       <h2>Crea il Tuo Torneo</h2>
 
       <div class="info-box">
-        📧 Inserisci l'email di riferimento e una password. Riceverai un codice univoco per accedere al pannello di controllo.
+        📧 Inserisci l'email di riferimento e una password. Riceverai un codice univoco per accedere al pannello di controllo — poi sceglierai lo sport dalle impostazioni.
       </div>
 
       <div class="error-box" id="errorBox"></div>
@@ -264,10 +582,10 @@
       <form id="createTournamentForm" onsubmit="handleCreateTournament(event)">
         <div class="form-group">
           <label for="managerEmail">Email Organizzatore *</label>
-          <input 
-            type="email" 
-            id="managerEmail" 
-            name="email" 
+          <input
+            type="email"
+            id="managerEmail"
+            name="email"
             placeholder="es: admin@torneo.it"
             required
           >
@@ -275,10 +593,10 @@
 
         <div class="form-group">
           <label for="managerPassword">Password *</label>
-          <input 
-            type="password" 
-            id="managerPassword" 
-            name="password" 
+          <input
+            type="password"
+            id="managerPassword"
+            name="password"
             placeholder="Minimo 8 caratteri"
             minlength="8"
             required
@@ -287,10 +605,10 @@
 
         <div class="form-group">
           <label for="tournamentName">Nome Torneo (opzionale)</label>
-          <input 
-            type="text" 
-            id="tournamentName" 
-            name="tournamentName" 
+          <input
+            type="text"
+            id="tournamentName"
+            name="tournamentName"
             placeholder="Es: BeachMaster 2026"
           >
         </div>
@@ -309,14 +627,14 @@
 
       <!-- Sezione Login -->
       <form id="loginForm" style="display: none" onsubmit="handleLogin(event)">
-        <h3 style="font-family: 'Original Surfer', cursive; color: #201c14; margin-bottom: 20px">Accedi al Tuo Torneo</h3>
+        <h3 style="font-family: 'Original Surfer', cursive; color: var(--ink); margin-bottom: 20px">Accedi al Tuo Torneo</h3>
 
         <div class="form-group">
           <label for="tournamentCode">Codice Torneo *</label>
-          <input 
-            type="text" 
-            id="tournamentCode" 
-            name="tournamentCode" 
+          <input
+            type="text"
+            id="tournamentCode"
+            name="tournamentCode"
             placeholder="Es: A1B2C3D4E5F6"
             required
           >
@@ -324,10 +642,10 @@
 
         <div class="form-group">
           <label for="loginEmail">Email *</label>
-          <input 
-            type="email" 
-            id="loginEmail" 
-            name="email" 
+          <input
+            type="email"
+            id="loginEmail"
+            name="email"
             placeholder="es: admin@torneo.it"
             required
           >
@@ -335,10 +653,10 @@
 
         <div class="form-group">
           <label for="loginPassword">Password *</label>
-          <input 
-            type="password" 
-            id="loginPassword" 
-            name="password" 
+          <input
+            type="password"
+            id="loginPassword"
+            name="password"
             placeholder="La tua password"
             required
           >
@@ -357,7 +675,7 @@
 
       <!-- Sezione Pannello di Controllo -->
       <form id="controlPanelForm" style="display: none" novalidate onsubmit="handleRequestControlPanel(event)">
-        <h3 style="font-family: 'Original Surfer', cursive; color: #201c14; margin-bottom: 20px">📊 Pannello di Controllo</h3>
+        <h3 style="font-family: 'Original Surfer', cursive; color: var(--ink); margin-bottom: 20px">📊 Pannello di Controllo</h3>
 
         <div class="info-box">
           Inserisci la tua email per ricevere un codice di accesso. Avrai accesso a tutti i tuoi tornei.
@@ -365,10 +683,10 @@
 
         <div class="form-group">
           <label for="cpEmail">Email *</label>
-          <input 
-            type="email" 
-            id="cpEmail" 
-            name="email" 
+          <input
+            type="email"
+            id="cpEmail"
+            name="email"
             placeholder="es: admin@torneo.it"
             required
           >
@@ -382,10 +700,10 @@
         <div id="cpCodeSection" style="display: none">
           <div class="form-group">
             <label for="secretCode">Codice Ricevuto via Email *</label>
-            <input 
-              type="text" 
-              id="secretCode" 
-              name="secretCode" 
+            <input
+              type="text"
+              id="secretCode"
+              name="secretCode"
               placeholder="Es: 123456"
               pattern="[0-9]{6}"
               maxlength="6"
@@ -412,7 +730,7 @@
 
       <!-- Sezione Tornei Utente -->
       <div id="userTournamentsPanel" style="display: none">
-        <h3 style="font-family: 'Original Surfer', cursive; color: #201c14; margin-bottom: 20px">📊 I Tuoi Tornei</h3>
+        <h3 style="font-family: 'Original Surfer', cursive; color: var(--ink); margin-bottom: 20px">📊 I Tuoi Tornei</h3>
         <div id="userTournamentsList" style="display: flex; flex-direction: column; gap: 12px"></div>
         <button type="button" class="btn-login" onclick="logoutControlPanel()" style="width: 100%; margin-top: 20px">🚪 Logout</button>
       </div>
@@ -423,6 +741,36 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">© 2026 Filippo Morano - by SpikeCode AI</footer>
+
+  <script>
+    // 🆕 Piccola animazione del mini-tabellone LCD nell'hero: cicla tra i tre
+    // sport supportati con un punteggio plausibile per ciascuno — puramente
+    // dimostrativo, non collegato a nessun torneo reale.
+    (function animateLcdBoard() {
+      const demo = [
+        { label: 'BEACH VOLLEY', score: '21-18' },
+        { label: 'BEACH TENNIS', score: '6-4' },
+        { label: 'BEACH SOCCER', score: '3-2' }
+      ];
+      let i = 0;
+      const labelEl = document.getElementById('lcdSportLabel');
+      const scoreEl = document.getElementById('lcdScore');
+      if (!labelEl || !scoreEl) return;
+      setInterval(() => {
+        i = (i + 1) % demo.length;
+        labelEl.style.opacity = 0;
+        scoreEl.style.opacity = 0;
+        setTimeout(() => {
+          labelEl.textContent = demo[i].label;
+          scoreEl.textContent = demo[i].score;
+          labelEl.style.opacity = 1;
+          scoreEl.style.opacity = 1;
+        }, 400);
+      }, 2600);
+    })();
+  </script>
 
   <script>
     const API = 'api.php';

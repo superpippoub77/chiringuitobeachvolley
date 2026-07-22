@@ -2411,7 +2411,10 @@ function publicState(array $state): array {
                 'players' => $t['players'],
                 'category' => 'Misto',
                 'paid' => (bool)($t['paid'] ?? false),
-                'approved' => (bool)($t['approved'] ?? false)
+                'approved' => (bool)($t['approved'] ?? false),
+                // 🆕 Serve al badge "NEW" nella home pubblica (squadre iscritte
+                // nelle ultime 48 ore) - mancava del tutto in questo elenco.
+                'createdAt' => $t['createdAt'] ?? null
             ];
         }, array_filter($state['teams'], fn($t) => !empty($t['approved'])))),
         'pendingCount' => count(array_filter($state['teams'], fn($t) => empty($t['approved']))),

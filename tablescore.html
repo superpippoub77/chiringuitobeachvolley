@@ -479,6 +479,13 @@
       <div class="match-info" id="matchInfo">Partita</div>
       <div class="match-meta" id="matchMeta"></div>
       <div class="current-set" id="currentSet">SET 1</div>
+      <div id="countdownSection" style="display: none; margin-top: 10px; text-align: center">
+        <div id="countdownDisplay" style="font-size: 42px; font-weight: bold; font-variant-numeric: tabular-nums; letter-spacing: 2px">25:00</div>
+        <div style="margin-top: 6px; display: flex; gap: 8px; justify-content: center">
+          <button class="btn-action" id="countdownStartBtn" onclick="toggleCountdown()" style="padding: 8px 16px; font-size: 14px">▶️ Avvia</button>
+          <button class="btn-action" onclick="resetCountdown()" style="padding: 8px 16px; font-size: 14px">🔄 Reset</button>
+        </div>
+      </div>
     </div>
 
     <div class="main-display">
@@ -664,7 +671,10 @@
       winScore: 21,      // punti per vincere un set (con 2 di margine)
       maxScore: 25,      // punteggio massimo di un set (tie-break/cap)
       setsToWin: 2,      // set da vincere per aggiudicarsi l'incontro (numSets)
-      maxTimeoutsPerSet: 1
+      maxTimeoutsPerSet: 1,
+      // 🆕 Minuti per set/tempo (stima per il volley, durata reale del
+      // countdown per il calcio)
+      timePerSetMinutes: 25
     };
 
     // 🆕 Multi-sport: 'beachvolley' (default, comportamento invariato),
@@ -688,6 +698,74 @@
       const resetBtn = document.querySelector('.btn-reset');
       if (nextBtn) nextBtn.textContent = isSoccer ? '⏭️ PROSSIMO TEMPO' : '⏭️ PROSSIMO SET';
       if (resetBtn) resetBtn.textContent = isSoccer ? '🔄 RESET TEMPO' : '🔄 RESET SET';
+
+      // 🆕 Il countdown del tempo (minuti configurati in Impostazioni →
+      // Torneo, campo "Minuti per set") compare solo per il Beach Soccer —
+      // volley/tennis restano invariati, senza countdown.
+      const countdownSection = document.getElementById('countdownSection');
+      if (countdownSection) {
+        countdownSection.style.display = isSoccer ? 'block' : 'none';
+        if (isSoccer && !isViewMode) initCountdownForCurrentSet();
+      }
+    }
+
+    // 🆕 Countdown del tempo di gioco (solo Beach Soccer): conta alla
+    // rovescia dai minuti configurati, con avvio/pausa manuale — non forza
+    // automaticamente la fine del tempo, è solo un riferimento visivo per
+    // chi gestisce il tabellone.
+    let countdownSecondsRemaining = 0;
+    let countdownIntervalHandle = null;
+    let countdownRunning = false;
+
+    function formatCountdown(totalSeconds) {
+      const clamped = Math.max(0, totalSeconds);
+      const m = Math.floor(clamped / 60);
+      const s = clamped % 60;
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function initCountdownForCurrentSet() {
+      pauseCountdown();
+      countdownSecondsRemaining = (matchRules.timePerSetMinutes || 25) * 60;
+      updateCountdownDisplay();
+    }
+
+    function updateCountdownDisplay() {
+      const el = document.getElementById('countdownDisplay');
+      if (!el) return;
+      el.textContent = formatCountdown(countdownSecondsRemaining);
+      el.style.color = countdownSecondsRemaining <= 0 ? '#ff4444' : '';
+    }
+
+    function toggleCountdown() {
+      if (countdownRunning) pauseCountdown();
+      else startCountdown();
+    }
+
+    function startCountdown() {
+      if (countdownRunning || countdownSecondsRemaining <= 0) return;
+      countdownRunning = true;
+      const btn = document.getElementById('countdownStartBtn');
+      if (btn) btn.textContent = '⏸️ Pausa';
+      countdownIntervalHandle = setInterval(() => {
+        countdownSecondsRemaining--;
+        updateCountdownDisplay();
+        if (countdownSecondsRemaining <= 0) {
+          pauseCountdown();
+          playHornSound(); // segnala la fine del tempo (riusa la sirena gia' esistente)
+        }
+      }, 1000);
+    }
+
+    function pauseCountdown() {
+      countdownRunning = false;
+      const btn = document.getElementById('countdownStartBtn');
+      if (btn) btn.textContent = '▶️ Avvia';
+      if (countdownIntervalHandle) clearInterval(countdownIntervalHandle);
+    }
+
+    function resetCountdown() {
+      initCountdownForCurrentSet();
     }
 
     async function initTablescore() {
@@ -744,6 +822,7 @@
             matchRules.maxScore = data.matchRules.maxScore ?? matchRules.maxScore;
             matchRules.setsToWin = data.matchRules.numSets ?? matchRules.setsToWin;
             matchRules.maxTimeoutsPerSet = data.matchRules.maxTimeoutsPerSet ?? matchRules.maxTimeoutsPerSet;
+            matchRules.timePerSetMinutes = data.matchRules.timePerSetMinutes ?? matchRules.timePerSetMinutes;
           }
           sportType = data.sportType || 'beachvolley';
           applySportTerminology();
@@ -1127,6 +1206,7 @@
         scoreboardState.team2.score = scoreboardState.sets[currentSetIndex].team2;
         scoreboardState.team1.timeoutsUsed = 0;
         scoreboardState.team2.timeoutsUsed = 0;
+        resetCountdown(); // 🆕 il countdown riparte da capo per il secondo tempo
         render();
         autoSave();
         return;

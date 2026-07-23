@@ -885,6 +885,7 @@
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="shop" onclick="showPage('shop', this)">🍹 Bar</button>
+        <button class="tab" data-page="translations" onclick="showPage('translations', this)">🌐 Traduzioni</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1115,6 +1116,27 @@
           <h4 style="margin-top: 0">🧾 Ordini Ricevuti</h4>
           <div id="shopOrdersContainer"></div>
         </div>
+      </div>
+
+      <div id="page-translations" class="card page hidden">
+        <h3>🌐 Traduzioni</h3>
+        <p class="muted">Modifica i testi mostrati sulla home pubblica per ogni lingua. I visitatori scelgono la lingua dal menu principale della home.</p>
+
+        <div class="row" style="margin: 12px 0; align-items: center">
+          <label style="margin: 0">Lingua:</label>
+          <select id="translationsLangSelect" onchange="loadTranslationsEditor()">
+            <option value="it">🇮🇹 Italiano</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="fr">🇫🇷 Français</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="zh">🇨🇳 中文</option>
+          </select>
+          <button class="btn" onclick="resetTranslationsLang()" style="margin-left: auto; background: #999; color: white">↩️ Ripristina questa lingua ai valori originali</button>
+        </div>
+
+        <div id="translationsEditorContainer" style="max-height: 600px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px"></div>
+
+        <button class="btn btn-green" onclick="saveTranslationsLang()" style="margin-top: 12px">💾 Salva Traduzioni</button>
       </div>
 
       <div id="page-news" class="card page hidden">
@@ -1723,6 +1745,8 @@
         renderNews();
       } else if (page === 'shop') {
         loadShopData();
+      } else if (page === 'translations') {
+        loadTranslationsEditor();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -10569,6 +10593,71 @@ html += `
       try {
         await callApi('admin_delete_attendee', 'POST', { id }, true);
         await loadAttendees();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // ==================== 🆕 EDITOR TRADUZIONI (i18n) ====================
+    let allDictionariesCache = null; // { it: {...}, en: {...}, ... }, caricato una volta
+
+    async function loadTranslationsEditor() {
+      try {
+        if (!allDictionariesCache) {
+          const result = await callApi('admin_get_dictionaries', 'GET', null, true);
+          allDictionariesCache = result.dictionaries;
+        }
+        renderTranslationsEditor();
+      } catch (e) {
+        console.error('Errore caricamento traduzioni:', e);
+      }
+    }
+
+    function renderTranslationsEditor() {
+      const container = document.getElementById('translationsEditorContainer');
+      if (!container || !allDictionariesCache) return;
+
+      const lang = document.getElementById('translationsLangSelect').value;
+      const dict = allDictionariesCache[lang] || {};
+      const itDict = allDictionariesCache.it || {}; // riferimento italiano, utile per capire cosa si sta traducendo
+
+      container.innerHTML = Object.keys(itDict).map(key => `
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding: 8px 4px; border-bottom: 1px solid #eee; align-items: start">
+          <div>
+            <code style="font-size: 11px; color: #999">${escapeHtml(key)}</code>
+            ${lang !== 'it' ? `<div style="font-size: 12px; color: #888; margin-top: 2px">🇮🇹 ${escapeHtml(itDict[key] || '')}</div>` : ''}
+          </div>
+          <textarea data-dic-key="${escapeHtml(key)}" class="dic-input" rows="1" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit; resize: vertical">${escapeHtml(dict[key] ?? itDict[key] ?? '')}</textarea>
+        </div>
+      `).join('');
+    }
+
+    async function saveTranslationsLang() {
+      try {
+        const lang = document.getElementById('translationsLangSelect').value;
+        const entries = {};
+        document.querySelectorAll('#translationsEditorContainer .dic-input').forEach(el => {
+          entries[el.dataset.dicKey] = el.value;
+        });
+
+        const result = await callApi('admin_update_dictionary', 'POST', { lang, entries }, true);
+        allDictionariesCache[lang] = result.entries;
+        await showInfoDialog('✅ Successo', `Traduzioni salvate per la lingua "${lang}"`);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function resetTranslationsLang() {
+      const lang = document.getElementById('translationsLangSelect').value;
+      const confirmed = await showConfirmDialog('Ripristina traduzioni', `Vuoi davvero ripristinare tutte le traduzioni in "${lang}" ai valori originali? Le modifiche fatte andranno perse.`);
+      if (!confirmed) return;
+
+      try {
+        const result = await callApi('admin_reset_dictionary', 'POST', { lang }, true);
+        allDictionariesCache[lang] = result.entries;
+        renderTranslationsEditor();
+        await showInfoDialog('✅ Fatto', `Traduzioni "${lang}" ripristinate ai valori originali`);
       } catch (e) {
         await showInfoDialog('Errore', 'Errore: ' + e.message);
       }

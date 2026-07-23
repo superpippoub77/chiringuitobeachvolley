@@ -52,6 +52,9 @@ const HISTORY_FILE = __DIR__ . '/data/history.json';
 const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
+// 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
+const DICTIONARY_DIR = __DIR__ . '/data/dic';
+const SUPPORTED_LANGUAGES = ['it', 'en', 'fr', 'de', 'zh'];
 const UPLOADS_DIR = __DIR__ . '/data/uploads';
 const UPDATES_DIR = __DIR__ . '/data/updates';
 const ADMIN_PASSWORD = 'admin123';
@@ -517,6 +520,304 @@ function saveEmailToQueue(string $to, string $subject, string $body, string $fro
     ];
     
     file_put_contents($queueFile, json_encode($queueData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+}
+
+function defaultDictionaries(): array {
+    return [
+        'it' => [
+            'hero_sub' => 'Solo categoria mista | Iscrizione soggetta ad approvazione amministratore',
+            'stat_teams_confirmed' => 'Squadre confermate',
+            'stat_pending' => 'In attesa',
+            'countdown_days' => 'giorni',
+            'countdown_hours' => 'ore',
+            'countdown_minutes' => 'minuti',
+            'countdown_seconds' => 'secondi',
+            'not_configured_title' => '🎯 Crea il tuo torneo',
+            'not_configured_text' => 'Nessun torneo è stato configurato. Accedi al panel di amministrazione per iniziare.',
+            'not_configured_button' => '🚀 Inizia la configurazione',
+            'news_section_title' => '📰 Notizie e Comunicati',
+            'nav_registration' => 'Iscrizione',
+            'nav_teams' => 'Squadre',
+            'nav_groups' => 'Gironi',
+            'nav_bar' => 'Bar',
+            'nav_gallery' => 'Galleria',
+            'nav_scoreboard' => 'Tabellone',
+            'nav_newsletter' => 'Newsletter',
+            'nav_attend' => 'Partecipa',
+            'nav_pay_fee' => 'Paga la quota',
+            'nav_contact' => 'Contatti',
+            'hero_links_admin_panel' => 'Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a href="regolamento.html" target="_blank">🏐 Regolamento</a>',
+            'reg_title' => '📝 Iscrizione e Squadre',
+            'reg_closed_generic' => '🚫 Le iscrizioni al torneo sono chiuse.',
+            'reg_closed_deadline' => '🚫 Le iscrizioni si sono chiuse il',
+            'reg_closed_full' => '🚫 È stato raggiunto il numero massimo di squadre.',
+            'kit_title' => '🎁 Kit del torneo',
+            'reg_section_title' => 'Registrazione squadra',
+            'reg_pending_note' => 'Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.',
+            'placeholder_team_name' => 'Nome squadra',
+            'captain_select_title' => 'Capitano (seleziona uno)',
+            'player_label' => 'Giocatore',
+            'required_mark' => 'obbligatorio',
+            'optional_reserve_mark' => '(riserva, opzionale)',
+            'placeholder_full_name' => 'Nome completo',
+            'placeholder_full_name_optional' => 'Nome completo (opzionale)',
+            'level_optional' => 'Livello (opzionale)',
+            'level_beginner' => 'Principiante',
+            'level_intermediate' => 'Intermedio',
+            'level_advanced' => 'Avanzato',
+            'level_pro' => 'Professionista',
+            'captain_label' => 'Capitano',
+            'contacts_title' => 'Contatti',
+            'placeholder_email' => 'Email (es: nome@esempio.it)',
+            'placeholder_phone' => 'Es: 333 1234567 (o +39 333 1234567 se estero)',
+            'other_info_title' => 'Altre informazioni',
+            'privacy_checkbox_html' => 'Accetto l\'<a href="policy.html" target="_blank">informativa privacy</a>',
+            'cookies_checkbox_html' => 'Accetto l\'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a>',
+            'submit_button' => 'Invia iscrizione',
+            'no_teams_yet' => 'Nessuna squadra ancora iscritta',
+        ],
+        'en' => [
+            'hero_sub' => 'Mixed category only | Registration subject to administrator approval',
+            'stat_teams_confirmed' => 'Confirmed teams',
+            'stat_pending' => 'Pending',
+            'countdown_days' => 'days',
+            'countdown_hours' => 'hours',
+            'countdown_minutes' => 'minutes',
+            'countdown_seconds' => 'seconds',
+            'not_configured_title' => '🎯 Create your tournament',
+            'not_configured_text' => 'No tournament has been configured yet. Log in to the admin panel to get started.',
+            'not_configured_button' => '🚀 Start setup',
+            'news_section_title' => '📰 News & Announcements',
+            'nav_registration' => 'Registration',
+            'nav_teams' => 'Teams',
+            'nav_groups' => 'Groups',
+            'nav_bar' => 'Bar',
+            'nav_gallery' => 'Gallery',
+            'nav_scoreboard' => 'Scoreboard',
+            'nav_newsletter' => 'Newsletter',
+            'nav_attend' => 'Attend',
+            'nav_pay_fee' => 'Pay the fee',
+            'nav_contact' => 'Contact',
+            'hero_links_admin_panel' => 'Admin panel: <a href="admin.html" target="_blank">open admin</a> | <a href="regolamento.html" target="_blank">🏐 Rules</a>',
+            'reg_title' => '📝 Registration & Teams',
+            'reg_closed_generic' => '🚫 Tournament registration is closed.',
+            'reg_closed_deadline' => '🚫 Registration closed on',
+            'reg_closed_full' => '🚫 The maximum number of teams has been reached.',
+            'kit_title' => '🎁 Tournament kit',
+            'reg_section_title' => 'Team registration',
+            'reg_pending_note' => 'After submitting, the team will be pending until the administrator confirms it.',
+            'placeholder_team_name' => 'Team name',
+            'captain_select_title' => 'Captain (select one)',
+            'player_label' => 'Player',
+            'required_mark' => 'required',
+            'optional_reserve_mark' => '(reserve, optional)',
+            'placeholder_full_name' => 'Full name',
+            'placeholder_full_name_optional' => 'Full name (optional)',
+            'level_optional' => 'Level (optional)',
+            'level_beginner' => 'Beginner',
+            'level_intermediate' => 'Intermediate',
+            'level_advanced' => 'Advanced',
+            'level_pro' => 'Professional',
+            'captain_label' => 'Captain',
+            'contacts_title' => 'Contacts',
+            'placeholder_email' => 'Email (e.g. name@example.com)',
+            'placeholder_phone' => 'E.g. +1 555 1234567 (with country code if outside Italy)',
+            'other_info_title' => 'Other information',
+            'privacy_checkbox_html' => 'I accept the <a href="policy.html" target="_blank">privacy policy</a>',
+            'cookies_checkbox_html' => 'I accept the use of <a href="policy.html#cookies" target="_blank">cookies</a>',
+            'submit_button' => 'Submit registration',
+            'no_teams_yet' => 'No teams registered yet',
+        ],
+        'fr' => [
+            'hero_sub' => 'Catégorie mixte uniquement | Inscription soumise à l\'approbation de l\'administrateur',
+            'stat_teams_confirmed' => 'Équipes confirmées',
+            'stat_pending' => 'En attente',
+            'countdown_days' => 'jours',
+            'countdown_hours' => 'heures',
+            'countdown_minutes' => 'minutes',
+            'countdown_seconds' => 'secondes',
+            'not_configured_title' => '🎯 Créez votre tournoi',
+            'not_configured_text' => 'Aucun tournoi n\'a encore été configuré. Connectez-vous au panneau d\'administration pour commencer.',
+            'not_configured_button' => '🚀 Démarrer la configuration',
+            'news_section_title' => '📰 Actualités et annonces',
+            'nav_registration' => 'Inscription',
+            'nav_teams' => 'Équipes',
+            'nav_groups' => 'Groupes',
+            'nav_bar' => 'Bar',
+            'nav_gallery' => 'Galerie',
+            'nav_scoreboard' => 'Tableau',
+            'nav_newsletter' => 'Newsletter',
+            'nav_attend' => 'Participer',
+            'nav_pay_fee' => 'Payer la cotisation',
+            'nav_contact' => 'Contact',
+            'hero_links_admin_panel' => 'Panneau d\'administration : <a href="admin.html" target="_blank">ouvrir admin</a> | <a href="regolamento.html" target="_blank">🏐 Règlement</a>',
+            'reg_title' => '📝 Inscription et équipes',
+            'reg_closed_generic' => '🚫 Les inscriptions au tournoi sont fermées.',
+            'reg_closed_deadline' => '🚫 Les inscriptions se sont fermées le',
+            'reg_closed_full' => '🚫 Le nombre maximum d\'équipes a été atteint.',
+            'kit_title' => '🎁 Kit du tournoi',
+            'reg_section_title' => 'Inscription de l\'équipe',
+            'reg_pending_note' => 'Après l\'envoi, l\'équipe reste en attente jusqu\'à la confirmation de l\'administrateur.',
+            'placeholder_team_name' => 'Nom de l\'équipe',
+            'captain_select_title' => 'Capitaine (choisissez-en un)',
+            'player_label' => 'Joueur',
+            'required_mark' => 'obligatoire',
+            'optional_reserve_mark' => '(remplaçant, facultatif)',
+            'placeholder_full_name' => 'Nom complet',
+            'placeholder_full_name_optional' => 'Nom complet (facultatif)',
+            'level_optional' => 'Niveau (facultatif)',
+            'level_beginner' => 'Débutant',
+            'level_intermediate' => 'Intermédiaire',
+            'level_advanced' => 'Avancé',
+            'level_pro' => 'Professionnel',
+            'captain_label' => 'Capitaine',
+            'contacts_title' => 'Contacts',
+            'placeholder_email' => 'Email (ex : nom@exemple.fr)',
+            'placeholder_phone' => 'Ex : +33 6 12345678 (avec indicatif si hors Italie)',
+            'other_info_title' => 'Autres informations',
+            'privacy_checkbox_html' => 'J\'accepte la <a href="policy.html" target="_blank">politique de confidentialité</a>',
+            'cookies_checkbox_html' => 'J\'accepte l\'utilisation des <a href="policy.html#cookies" target="_blank">cookies</a>',
+            'submit_button' => 'Envoyer l\'inscription',
+            'no_teams_yet' => 'Aucune équipe inscrite pour le moment',
+        ],
+        'de' => [
+            'hero_sub' => 'Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator',
+            'stat_teams_confirmed' => 'Bestätigte Teams',
+            'stat_pending' => 'Ausstehend',
+            'countdown_days' => 'Tage',
+            'countdown_hours' => 'Stunden',
+            'countdown_minutes' => 'Minuten',
+            'countdown_seconds' => 'Sekunden',
+            'not_configured_title' => '🎯 Erstelle dein Turnier',
+            'not_configured_text' => 'Es wurde noch kein Turnier eingerichtet. Melde dich im Admin-Bereich an, um zu beginnen.',
+            'not_configured_button' => '🚀 Einrichtung starten',
+            'news_section_title' => '📰 Neuigkeiten & Ankündigungen',
+            'nav_registration' => 'Anmeldung',
+            'nav_teams' => 'Teams',
+            'nav_groups' => 'Gruppen',
+            'nav_bar' => 'Bar',
+            'nav_gallery' => 'Galerie',
+            'nav_scoreboard' => 'Anzeigetafel',
+            'nav_newsletter' => 'Newsletter',
+            'nav_attend' => 'Teilnehmen',
+            'nav_pay_fee' => 'Gebühr bezahlen',
+            'nav_contact' => 'Kontakt',
+            'hero_links_admin_panel' => 'Verwaltung: <a href="admin.html" target="_blank">Admin öffnen</a> | <a href="regolamento.html" target="_blank">🏐 Regelwerk</a>',
+            'reg_title' => '📝 Anmeldung & Teams',
+            'reg_closed_generic' => '🚫 Die Turnieranmeldung ist geschlossen.',
+            'reg_closed_deadline' => '🚫 Die Anmeldung wurde geschlossen am',
+            'reg_closed_full' => '🚫 Die maximale Anzahl an Teams wurde erreicht.',
+            'kit_title' => '🎁 Turnier-Kit',
+            'reg_section_title' => 'Team-Anmeldung',
+            'reg_pending_note' => 'Nach dem Absenden bleibt das Team ausstehend, bis der Administrator bestätigt.',
+            'placeholder_team_name' => 'Teamname',
+            'captain_select_title' => 'Kapitän (einen auswählen)',
+            'player_label' => 'Spieler',
+            'required_mark' => 'erforderlich',
+            'optional_reserve_mark' => '(Ersatz, optional)',
+            'placeholder_full_name' => 'Vollständiger Name',
+            'placeholder_full_name_optional' => 'Vollständiger Name (optional)',
+            'level_optional' => 'Niveau (optional)',
+            'level_beginner' => 'Anfänger',
+            'level_intermediate' => 'Mittel',
+            'level_advanced' => 'Fortgeschritten',
+            'level_pro' => 'Profi',
+            'captain_label' => 'Kapitän',
+            'contacts_title' => 'Kontakte',
+            'placeholder_email' => 'E-Mail (z. B. name@beispiel.de)',
+            'placeholder_phone' => 'Z. B. +49 151 12345678 (mit Ländervorwahl außerhalb Italiens)',
+            'other_info_title' => 'Weitere Informationen',
+            'privacy_checkbox_html' => 'Ich akzeptiere die <a href="policy.html" target="_blank">Datenschutzerklärung</a>',
+            'cookies_checkbox_html' => 'Ich akzeptiere die Verwendung von <a href="policy.html#cookies" target="_blank">Cookies</a>',
+            'submit_button' => 'Anmeldung senden',
+            'no_teams_yet' => 'Noch keine Teams angemeldet',
+        ],
+        'zh' => [
+            'hero_sub' => '仅限混合组别 | 报名需经管理员批准',
+            'stat_teams_confirmed' => '已确认队伍',
+            'stat_pending' => '待处理',
+            'countdown_days' => '天',
+            'countdown_hours' => '小时',
+            'countdown_minutes' => '分钟',
+            'countdown_seconds' => '秒',
+            'not_configured_title' => '🎯 创建您的赛事',
+            'not_configured_text' => '尚未配置任何赛事。请登录管理面板开始设置。',
+            'not_configured_button' => '🚀 开始设置',
+            'news_section_title' => '📰 新闻与公告',
+            'nav_registration' => '报名',
+            'nav_teams' => '队伍',
+            'nav_groups' => '分组',
+            'nav_bar' => '酒吧',
+            'nav_gallery' => '相册',
+            'nav_scoreboard' => '计分板',
+            'nav_newsletter' => '订阅',
+            'nav_attend' => '参加',
+            'nav_pay_fee' => '支付费用',
+            'nav_contact' => '联系方式',
+            'hero_links_admin_panel' => '管理面板：<a href="admin.html" target="_blank">打开管理</a> | <a href="regolamento.html" target="_blank">🏐 规则</a>',
+            'reg_title' => '📝 报名与队伍',
+            'reg_closed_generic' => '🚫 赛事报名已关闭。',
+            'reg_closed_deadline' => '🚫 报名已于以下日期关闭：',
+            'reg_closed_full' => '🚫 已达到最大队伍数量。',
+            'kit_title' => '🎁 赛事装备包',
+            'reg_section_title' => '队伍报名',
+            'reg_pending_note' => '提交后，队伍将处于待处理状态，直至管理员确认。',
+            'placeholder_team_name' => '队伍名称',
+            'captain_select_title' => '队长（选择一位）',
+            'player_label' => '队员',
+            'required_mark' => '必填',
+            'optional_reserve_mark' => '（替补，可选）',
+            'placeholder_full_name' => '姓名',
+            'placeholder_full_name_optional' => '姓名（可选）',
+            'level_optional' => '水平（可选）',
+            'level_beginner' => '初学者',
+            'level_intermediate' => '中级',
+            'level_advanced' => '高级',
+            'level_pro' => '职业级',
+            'captain_label' => '队长',
+            'contacts_title' => '联系方式',
+            'placeholder_email' => '电子邮件（例如 name@example.com）',
+            'placeholder_phone' => '例如 +86 138 1234 5678（如非意大利请加国家代码）',
+            'other_info_title' => '其他信息',
+            'privacy_checkbox_html' => '我接受<a href="policy.html" target="_blank">隐私政策</a>',
+            'cookies_checkbox_html' => '我接受使用<a href="policy.html#cookies" target="_blank">Cookie</a>',
+            'submit_button' => '提交报名',
+            'no_teams_yet' => '暂无队伍报名',
+        ],
+    ];
+}
+
+/**
+ * 🆕 Legge il dizionario di UNA lingua: se esiste un file personalizzato in
+ * data/dic/<lang>.json usa quello, altrimenti i default incorporati. In
+ * ogni caso fa un merge con i default, così eventuali nuove chiavi aggiunte
+ * in futuro compaiono comunque anche se il file salvato è più vecchio.
+ */
+function getDictionary(string $lang): array {
+    $defaults = defaultDictionaries();
+    $base = $defaults[$lang] ?? $defaults['it'];
+
+    $file = DICTIONARY_DIR . "/$lang.json";
+    if (file_exists($file)) {
+        $raw = @file_get_contents($file);
+        $custom = $raw !== false ? json_decode($raw, true) : null;
+        if (is_array($custom)) {
+            return array_merge($base, $custom);
+        }
+    }
+    return $base;
+}
+
+/**
+ * 🆕 Legge tutti i dizionari supportati in un colpo solo (usato dalla
+ * pagina pubblica per caricarli tutti insieme all'avvio).
+ */
+function getAllDictionaries(): array {
+    $result = [];
+    foreach (SUPPORTED_LANGUAGES as $lang) {
+        $result[$lang] = getDictionary($lang);
+    }
+    return $result;
 }
 
 function defaultConfig(): array {
@@ -10286,6 +10587,67 @@ if ($action === 'admin_update_shop_settings' && $method === 'POST') {
 // ==================== 🆕 BAR / SHOP DEL TORNEO ====================
 
 // Lettura pubblica del menu (solo categorie/prodotti disponibili, niente ordini)
+// ==================== 🆕 DIZIONARI DI TRADUZIONE (i18n) ====================
+
+// Pubblico: tutti i dizionari insieme, usati dalla home per la selezione lingua
+if ($action === 'get_dictionaries' && $method === 'GET') {
+    jsonResponse(200, ['ok' => true, 'dictionaries' => getAllDictionaries(), 'languages' => SUPPORTED_LANGUAGES]);
+}
+
+// Admin: legge tutti i dizionari per la modifica (stessa cosa di sopra, ma
+// autenticata — tenuta separata per coerenza con lo stile degli altri endpoint)
+if ($action === 'admin_get_dictionaries' && $method === 'GET') {
+    requireAdmin();
+    jsonResponse(200, ['ok' => true, 'dictionaries' => getAllDictionaries(), 'languages' => SUPPORTED_LANGUAGES]);
+}
+
+// Admin: salva il dizionario di UNA lingua (sostituisce tutte le chiavi
+// inviate, tenendo comunque come base i default per le chiavi non incluse)
+if ($action === 'admin_update_dictionary' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $lang = (string)($body['lang'] ?? '');
+    if (!in_array($lang, SUPPORTED_LANGUAGES, true)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Lingua non supportata']);
+    }
+    if (!isset($body['entries']) || !is_array($body['entries'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'entries mancante o non valido']);
+    }
+
+    $defaults = defaultDictionaries()[$lang] ?? [];
+    $entries = [];
+    foreach ($defaults as $key => $defaultValue) {
+        // Mantiene solo le chiavi conosciute (evita di salvare chiavi
+        // arbitrarie non usate dall'interfaccia), col valore inviato se
+        // presente, altrimenti il default.
+        $entries[$key] = isset($body['entries'][$key]) ? (string)$body['entries'][$key] : $defaultValue;
+    }
+
+    if (!is_dir(DICTIONARY_DIR)) {
+        mkdir(DICTIONARY_DIR, 0777, true);
+    }
+    file_put_contents(DICTIONARY_DIR . "/$lang.json", json_encode($entries, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+    jsonResponse(200, ['ok' => true, 'lang' => $lang, 'entries' => $entries]);
+}
+
+// Admin: ripristina il dizionario di una lingua ai valori originali di default
+if ($action === 'admin_reset_dictionary' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $lang = (string)($body['lang'] ?? '');
+    if (!in_array($lang, SUPPORTED_LANGUAGES, true)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Lingua non supportata']);
+    }
+
+    $file = DICTIONARY_DIR . "/$lang.json";
+    if (file_exists($file)) {
+        @unlink($file);
+    }
+
+    jsonResponse(200, ['ok' => true, 'lang' => $lang, 'entries' => defaultDictionaries()[$lang] ?? []]);
+}
+
 if ($action === 'get_shop' && $method === 'GET') {
     $config = readConfig();
     $shopSettings = $config['shopSettings'] ?? ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'];

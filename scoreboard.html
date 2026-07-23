@@ -1781,17 +1781,17 @@
     function renderTeams() {
       const c = document.getElementById('page-teams');
       if (!state.teams.length) {
-        c.innerHTML = '<h3>### Gestione squadre</h3><p>Totale: <strong>0</strong> | In attesa: <strong>0</strong></p>';
+        c.innerHTML = `<h3>${i18n('teams_page_title')}</h3><p>${i18n('teams_total')}: <strong>0</strong> | ${i18n('stat_pending')}: <strong>0</strong></p>`;
         return;
       }
 
       const totalTeams = state.teams.length;
       const waitingTeams = state.teams.filter(t => !t.approved).length;
 
-      let html = '<h3>### Gestione squadre</h3>';
-      html += `<p>Totale: <strong>${totalTeams}</strong> | In attesa: <strong>${waitingTeams}</strong></p>`;
+      let html = `<h3>${i18n('teams_page_title')}</h3>`;
+      html += `<p>${i18n('teams_total')}: <strong>${totalTeams}</strong> | ${i18n('stat_pending')}: <strong>${waitingTeams}</strong></p>`;
       html += state.teams.map(t => {
-        const levelLabels = { principiante: 'Principiante', intermedio: 'Intermedio', avanzato: 'Avanzato', professionista: 'Professionista' };
+        const levelLabels = { principiante: i18n('level_beginner'), intermedio: i18n('level_intermediate'), avanzato: i18n('level_advanced'), professionista: i18n('level_pro') };
         const placeholderImg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
 
         // 🆕 Un box per giocatore: foto in alto, nome subito sotto, livello
@@ -1811,8 +1811,8 @@
             const isCap = !!p.isCaptain;
             return `<div style="text-align: center; width: 92px">
               <div style="position: relative; width: 56px; height: 56px; margin: 0 auto">
-                <img src="${imgUrl}" title="${esc(name)}${isCap ? ' (Capitano)' : ''}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
-                ${isCap ? '<span title="Capitano" style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
+                <img src="${imgUrl}" title="${esc(name)}${isCap ? ' (' + i18n('captain_label') + ')' : ''}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
+                ${isCap ? `<span title="${i18n('captain_label')}" style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>` : ''}
               </div>
               <div style="font-size: 12px; font-weight: 600; margin-top: 4px; line-height: 1.25; word-wrap: break-word" title="${esc(name)}">${esc(name)}</div>
               ${levelLabel ? `<div style="font-size: 11px; color: #888">${levelLabel}</div>` : ''}
@@ -1835,15 +1835,15 @@
           <div style="min-width: 160px; flex-shrink: 0">
             <strong style="font-size: 15px">${esc(t.name)}</strong>
             <div style="margin-top: 4px">
-              <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? 'Confermata' : 'In attesa'}</span>
-              ${t.dummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13; margin-left: 4px">Fittizia</span>' : ''}
+              <span class="badge ${t.approved ? 'ok' : 'no'}">${t.approved ? i18n('team_confirmed') : i18n('stat_pending')}</span>
+              ${t.dummy ? `<span class="badge" style="background:#d8c39f;color:#1d1a13; margin-left: 4px">${i18n('team_dummy')}</span>` : ''}
             </div>
             <div style="margin-top: 6px">
-              <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ Media livello: ${weight}</span>
+              <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ ${i18n('team_avg_level')}: ${weight}</span>
             </div>
           </div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
-            ${playerBoxes || '<em style="color:#999">Giocatori non inseriti</em>'}
+            ${playerBoxes || `<em style="color:#999">${i18n('team_no_players')}</em>`}
           </div>
         </div>`;
       }).join('');
@@ -3737,7 +3737,7 @@
       document.body.classList.toggle('shop-fullscreen-active', isFullscreen);
       if (btn) {
         btn.textContent = isFullscreen ? '🗗' : '⛶';
-        btn.title = isFullscreen ? 'Torna alla visualizzazione ridotta' : 'Visualizza a schermo intero';
+        btn.title = isFullscreen ? i18n('fullscreen_shrink') : i18n('fullscreen_expand');
       }
     }
 
@@ -3747,8 +3747,8 @@
 
       const isFullscreen = c.classList.contains('shop-fullscreen');
       let html = `<div style="display: flex; justify-content: space-between; align-items: center">
-        <h3 style="margin: 0">🍹 Bar del Torneo</h3>
-        <button class="shop-view-toggle-btn" id="shopFullscreenToggleBtn" onclick="toggleShopFullscreen()" title="${isFullscreen ? 'Torna alla visualizzazione ridotta' : 'Visualizza a schermo intero'}">${isFullscreen ? '🗗' : '⛶'}</button>
+        <h3 style="margin: 0">${i18n('bar_title')}</h3>
+        <button class="shop-view-toggle-btn" id="shopFullscreenToggleBtn" onclick="toggleShopFullscreen()" title="${isFullscreen ? i18n('fullscreen_shrink') : i18n('fullscreen_expand')}">${isFullscreen ? '🗗' : '⛶'}</button>
       </div>`;
 
       shopCategories.forEach(cat => {
@@ -3762,7 +3762,7 @@
             ${allergensText}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px">
               <strong style="color: #d32f2f">€ ${(p.price || 0).toFixed(2)}</strong>
-              <button class="btn" style="background: #2e5d1f; color: white" onclick="addToShopCart('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${p.price})">➕ Aggiungi</button>
+              <button class="btn" style="background: #2e5d1f; color: white" onclick="addToShopCart('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${p.price})">➕ ${i18n('add_to_cart')}</button>
             </div>
           </div>`;
         });
@@ -3770,7 +3770,7 @@
       });
 
       html += `<div id="shopCartSection" style="margin-top: 24px; padding: 16px; background: #fff8ea; border-radius: 8px; border: 1px solid #e5d5b0">
-        <h4 style="margin-top: 0">🛒 Il tuo carrello</h4>
+        <h4 style="margin-top: 0">${i18n('cart_title')}</h4>
         <div id="shopCartItems"></div>
       </div>`;
 
@@ -3807,14 +3807,14 @@
       if (!container) return;
 
       if (!shopCart.length) {
-        container.innerHTML = '<p class="muted">Il carrello è vuoto. Aggiungi qualcosa dal menu qui sopra!</p>';
+        container.innerHTML = `<p class="muted">${i18n('cart_empty')}</p>`;
         return;
       }
 
       const total = shopCartTotal();
       let html = shopCart.map(item => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #e5d5b0">
-          <span>${esc(item.name)} <small style="color: #888">(€ ${item.price.toFixed(2)} cad.)</small></span>
+          <span>${esc(item.name)} <small style="color: #888">(€ ${item.price.toFixed(2)} ${i18n('cart_each')})</small></span>
           <div style="display: flex; align-items: center; gap: 8px">
             <button class="btn" style="padding: 2px 10px" onclick="changeShopCartQty('${item.productId}', -1)">−</button>
             <span style="min-width: 20px; text-align: center">${item.qty}</span>
@@ -3824,17 +3824,17 @@
         </div>
       `).join('');
 
-      html += `<div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; color: #d32f2f">Totale: € ${total.toFixed(2)}</div>`;
+      html += `<div style="text-align: right; font-size: 18px; font-weight: bold; margin-top: 10px; color: #d32f2f">${i18n('cart_total')}: € ${total.toFixed(2)}</div>`;
 
       html += `<div style="margin-top: 14px">
-        <label style="display: block; margin-bottom: 4px; font-weight: bold">Il tuo nome</label>
-        <input id="shopCustomerName" type="text" placeholder="Nome e cognome" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
-        <label style="display: block; margin: 10px 0 4px 0; font-weight: bold">Note (opzionale)</label>
-        <input id="shopOrderNotes" type="text" placeholder="Es: senza ghiaccio" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+        <label style="display: block; margin-bottom: 4px; font-weight: bold">${i18n('your_name_label')}</label>
+        <input id="shopCustomerName" type="text" placeholder="${i18n('placeholder_name_surname')}" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+        <label style="display: block; margin: 10px 0 4px 0; font-weight: bold">${i18n('notes_optional_label')}</label>
+        <input id="shopOrderNotes" type="text" placeholder="${i18n('placeholder_order_notes')}" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
       </div>`;
 
       html += `<div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px">
-        <button class="btn" style="background: #ff9800; color: white; padding: 12px; font-weight: bold" onclick="submitShopOrderCassa()">💵 Ordina e paga in cassa</button>`;
+        <button class="btn" style="background: #ff9800; color: white; padding: 12px; font-weight: bold" onclick="submitShopOrderCassa()">${i18n('pay_cash_order_button')}</button>`;
 
       if (shopPaypalClientId) {
         html += `<div id="shopPaypalButtonContainer"></div>`;

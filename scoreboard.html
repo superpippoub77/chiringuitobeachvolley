@@ -2517,13 +2517,13 @@
       const allPhases = (state.phases || []).slice().sort((a, b) => (a.phaseNumber || 0) - (b.phaseNumber || 0));
 
       if (!allPhases.length) {
-        c.innerHTML = '<h3>### 📊 Gironi e Fasi</h3><p>Gironi non ancora pubblicati.</p>';
+        c.innerHTML = `<h3>${i18n('groups_page_title')}</h3><p>${i18n('groups_not_published')}</p>`;
         return;
       }
 
       const activePhase = getActivePublicPhase();
 
-      let html = '<h3>### 📊 Gironi e Fasi</h3>';
+      let html = `<h3>${i18n('groups_page_title')}</h3>`;
 
       // 🆕 Selettore fasi: mostra TUTTE le fasi del torneo, non solo la prima
       if (allPhases.length > 1) {
@@ -2531,7 +2531,7 @@
         allPhases.forEach(p => {
           const isActive = p.phaseNumber === activePhase.phaseNumber;
           const icon = p.type === 'knockout' ? '🏆' : (p.type === 'subtournament' ? '🎪' : '📊');
-          html += `<button onclick="selectPublicPhase(${p.phaseNumber})" style="padding: 8px 14px; border-radius: 6px; border: 2px solid ${isActive ? '#2196F3' : '#ddd'}; background: ${isActive ? '#e3f2fd' : 'white'}; color: ${isActive ? '#2196F3' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; cursor: pointer">${icon} ${esc(p.name || ('Fase ' + p.phaseNumber))}</button>`;
+          html += `<button onclick="selectPublicPhase(${p.phaseNumber})" style="padding: 8px 14px; border-radius: 6px; border: 2px solid ${isActive ? '#2196F3' : '#ddd'}; background: ${isActive ? '#e3f2fd' : 'white'}; color: ${isActive ? '#2196F3' : '#666'}; font-weight: ${isActive ? 'bold' : 'normal'}; cursor: pointer">${icon} ${esc(p.name || (i18n('phase_generic_name') + ' ' + p.phaseNumber))}</button>`;
         });
         html += '</div>';
       }
@@ -2549,21 +2549,21 @@
       const groups = isFirstPhase ? (state.groups || []) : resolveGroupsForPublicPhase(activePhase);
 
       if (!groups.length) {
-        html += '<p>Gironi non ancora pubblicati per questa fase.</p>';
+        html += `<p>${i18n('groups_not_published_phase')}</p>`;
         c.innerHTML = html;
         return;
       }
 
       // Tab interni per Gironi/Partite/Classifiche
       html += '<div style="margin: 12px 0; padding: 8px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2196F3; display: flex; gap: 16px; flex-wrap: wrap">';
-      html += '<a href="#" onclick="showGironiTab(\'groups\'); return false;" data-tab="groups" style="color: #2196F3; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e3f2fd" onmouseover="this.style.background=\'#e3f2fd\'" onmouseout="this.style.background=\'#e3f2fd\'">📊 Gironi</a>';
-      html += '<a href="#" onclick="showGironiTab(\'matches\'); return false;" data-tab="matches" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">🏆 Partite</a>';
-      html += '<a href="#" onclick="showGironiTab(\'standings\'); return false;" data-tab="standings" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'transparent\'">📈 Classifiche</a>';
+      html += `<a href="#" onclick="showGironiTab('groups'); return false;" data-tab="groups" style="color: #2196F3; text-decoration: none; font-weight: bold; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; background: #e3f2fd" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='#e3f2fd'">📊 ${i18n('tab_groups')}</a>`;
+      html += `<a href="#" onclick="showGironiTab('matches'); return false;" data-tab="matches" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🏆 ${i18n('tab_matches')}</a>`;
+      html += `<a href="#" onclick="showGironiTab('standings'); return false;" data-tab="standings" style="color: #666; text-decoration: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.2s" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📈 ${i18n('tab_standings')}</a>`;
       html += '</div>';
 
       // CONTENITORE GIRONI
       html += '<div data-view="groups">';
-      html += `<h4 style="margin-top: 20px; margin-bottom: 12px">#### 📌 ${esc(activePhase.name || 'Gironi')}</h4>`;
+      html += `<h4 style="margin-top: 20px; margin-bottom: 12px">📌 ${esc(activePhase.name || i18n('tab_groups'))}</h4>`;
       html += '<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">';
 
       groups.forEach((g, idx) => {
@@ -2575,7 +2575,7 @@
           <h4 style="margin: 0 0 12px 0; color: #6b5d45; display: flex; align-items: center; gap: 8px; justify-content: space-between">
             <span style="display: flex; align-items: center; gap: 8px">
               <span style="display: inline-block; width: 20px; height: 20px; background: #d8c39f; border-radius: 4px; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; color: white">📋</span>
-              Girone ${groupName}
+              ${i18n('group_label')} ${groupName}
             </span>
             <span style="background: #d8c39f; color: white; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: bold">${teamCount}</span>
           </h4>
@@ -2593,13 +2593,13 @@
               return isCap ? `<strong>${esc(name)}${capIcon}${levelIcon}</strong>` : `${esc(name)}${levelIcon}`;
             })
             .filter(Boolean)
-            .join(' | ') || '<em style="color:#999">Giocatori non inseriti</em>';
+            .join(' | ') || `<em style="color:#999">${i18n('team_no_players')}</em>`;
 
           let playersImages = (team.players || [])
             .map((p, pidx) => {
               if (typeof p === 'string') return '';
               const imgUrl = (p && p.imageFile) ? p.imageFile : 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
-              const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ' (Capitano)' : '') + (p.level ? ` [Livello ${p.level}]` : '') : `Giocatore ${pidx + 1}`;
+              const title = (p && p.name) ? esc(p.name) + (p.isCaptain ? ` (${i18n('captain_label')})` : '') + (p.level ? ` [${i18n('level_label_prefix')} ${p.level}]` : '') : `${i18n('player_label')} ${pidx + 1}`;
               return `<img src="${imgUrl}" title="${title}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #8b7355; cursor: pointer">`;
             })
             .filter(Boolean)
@@ -2649,10 +2649,10 @@
       // 🔧 FIX: carica partite dalla fase selezionata e assegna il nome corretto
       const activePhase = getActivePublicPhase();
       const groupMatches = activePhase?.matches || [];
-      const phaseName = activePhase?.name || ('Fase ' + activePhase?.phaseNumber);
+      const phaseName = activePhase?.name || (i18n('phase_generic_name') + ' ' + activePhase?.phaseNumber);
 
       if (!groupMatches.length) {
-        c.innerHTML = '<h3>Calendario</h3><div class="empty">Partite non disponibili.</div>';
+        c.innerHTML = `<h3>${i18n('schedule_title')}</h3><div class="empty">${i18n('matches_not_available')}</div>`;
         return;
       }
 
@@ -2676,9 +2676,9 @@
       }
 
       const filterHtml = `<div style="margin: 8px 0 12px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
-        <label for="gironiMatchTeamFilterSelect" style="font-weight: bold; color: #2e5d1f">🔎 Filtra per squadra:</label>
+        <label for="gironiMatchTeamFilterSelect" style="font-weight: bold; color: #2e5d1f">${i18n('filter_by_team')}</label>
         <select id="gironiMatchTeamFilterSelect" onchange="filterGironiMatchesByTeam(this.value)" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #8b7355">
-          <option value=""${gironiMatchTeamFilter === '' ? ' selected' : ''}>Tutte le squadre</option>
+          <option value=""${gironiMatchTeamFilter === '' ? ' selected' : ''}>${i18n('all_teams_option')}</option>
           ${teamNames.map(t => `<option value="${esc(t)}"${t === gironiMatchTeamFilter ? ' selected' : ''}>${esc(t)}</option>`).join('')}
         </select>
       </div>`;
@@ -2695,17 +2695,17 @@
       }
 
       if (!matches.length) {
-        c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<div class="empty">Nessuna partita trovata per la squadra selezionata.</div>`;
+        c.innerHTML = `<h3>${i18n('matches_title')}</h3>${filterHtml}<div class="empty">${i18n('no_matches_for_team')}</div>`;
         return;
       }
 
-      c.innerHTML = `<h3>🏆 Calendario partite</h3>${filterHtml}<table><thead><tr><th></th><th>Girone</th><th>Data</th><th>Ora</th><th>Fase</th><th>Match</th><th>Risultato</th><th></th></tr></thead><tbody>${matches.map(m => {
+      c.innerHTML = `<h3>${i18n('matches_title')}</h3>${filterHtml}<table><thead><tr><th></th><th>${i18n('table_header_group')}</th><th>${i18n('table_header_date')}</th><th>${i18n('table_header_time')}</th><th>${i18n('table_header_phase')}</th><th>${i18n('table_header_match')}</th><th>${i18n('table_header_result')}</th><th></th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
         const resultHTML = formatMatchResult(m, activePhase);
         // 🆕 Pulsante "Tabellone" (sola visualizzazione, aggiornamento
         // automatico): solo se entrambe le squadre sono assegnate.
         const tabelloneBtn = (m.team1Name && m.team2Name)
-          ? `<button class="btn" style="padding: 4px 10px; font-size: 11px" onclick="window.open('tablescore.html?matchId=${encodeURIComponent(m.id)}&phase=${encodeURIComponent(activePhase?.phaseNumber)}&mode=view', '_blank')">📺 Tabellone</button>`
+          ? `<button class="btn" style="padding: 4px 10px; font-size: 11px" onclick="window.open('tablescore.html?matchId=${encodeURIComponent(m.id)}&phase=${encodeURIComponent(activePhase?.phaseNumber)}&mode=view', '_blank')">${i18n('scoreboard_button')}</button>`
           : '';
         return `<tr>
           <td><span class="match-status ${status.class}" title="${status.label}"><span class="status-dot"></span></span></td>
@@ -2733,17 +2733,17 @@
       // seeding usato per costruire il tabellone (stessa informazione già
       // visibile in admin.html), invece del messaggio "non disponibili".
       if (activePhase?.type === 'knockout') {
-        const criterionNames = { 1: 'Media Punti per Partita', 2: '% Vittorie', 3: 'Media + Quoziente + Diff' };
+        const criterionNames = { 1: i18n('criterion_avg_points'), 2: i18n('criterion_win_pct'), 3: i18n('criterion_avg_quotient_diff') };
         const criterionLabel = criterionNames[activePhase.sortCriterion || 1] || criterionNames[1];
-        c.innerHTML = `<h3>📈 Classifica</h3>
+        c.innerHTML = `<h3>${i18n('standings_title_knockout')}</h3>
           <div style="background: #fff8ea; border: 1px solid #d9bf8c; border-radius: 8px; padding: 14px; margin-top: 8px">
-            <p style="margin: 0 0 10px 0; color: #6a5737">Questa è una fase a eliminazione diretta: non esiste una classifica nel senso classico. Ecco come è stato costruito il tabellone:</p>
+            <p style="margin: 0 0 10px 0; color: #6a5737">${i18n('knockout_no_standings_intro')}</p>
             <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px">
-              <div>📊 Criterio di ordinamento delle squadre: <strong>${esc(criterionLabel)}</strong></div>
-              <div>🚫 Evita rematch dello stesso girone al primo turno: <strong>${activePhase.avoidGroupRematches ? 'Sì' : 'No'}</strong></div>
-              <div>🌟 Teste di serie il più lontano possibile: <strong>${activePhase.maximizeSeedSeparation ? 'Sì' : 'No'}</strong></div>
+              <div>${i18n('knockout_sort_criterion')} <strong>${esc(criterionLabel)}</strong></div>
+              <div>${i18n('knockout_avoid_rematch')} <strong>${activePhase.avoidGroupRematches ? i18n('yes_label') : i18n('no_label')}</strong></div>
+              <div>${i18n('knockout_maximize_seed')} <strong>${activePhase.maximizeSeedSeparation ? i18n('yes_label') : i18n('no_label')}</strong></div>
             </div>
-            <p style="margin: 10px 0 0 0; font-size: 12px; color: #888">Il tabellone e i risultati delle partite si trovano nella scheda "🏆 Partite" / "Fase finale".</p>
+            <p style="margin: 10px 0 0 0; font-size: 12px; color: #888">${i18n('knockout_bracket_note')}</p>
           </div>`;
         return;
       }
@@ -2751,24 +2751,24 @@
       const standings = activePhase?.standings || [];
 
       if (!standings.length) {
-        c.innerHTML = '<h3>📈 Classifiche</h3><p>Classifiche non ancora disponibili.</p>';
+        c.innerHTML = `<h3>${i18n('tab_standings')}</h3><p>${i18n('standings_not_available')}</p>`;
         return;
       }
 
       // ✅ Stessa evidenziazione delle qualificate usata in renderStandings()/admin.html:
       // riga verde per le squadre che passano il turno, bordo più marcato sull'ultima qualificata
-      let html = '<h3>📈 Classifiche Gironi</h3>';
+      let html = `<h3>${i18n('standings_title_groups')}</h3>`;
       const isSoccer = config?.tournament?.sportType === 'beachsoccer';
       standings.forEach((standing, idx) => {
         const teamsAdvance = getTeamsAdvanceForGroup(standing.group);
-        html += `<h4>Girone ${standing.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">Pos</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">Pt</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">G</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">V</th>${isSoccer ? '<th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">N</th>' : ''}<th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">S</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${isSoccer ? 'GF' : 'PF'}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${isSoccer ? 'GS' : 'PS'}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">Diff</th></tr></thead><tbody>`;
+        html += `<h4>${i18n('group_label')} ${standing.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${i18n('standings_col_pos')}</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">${i18n('standings_col_team')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">${i18n('standings_col_pt')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_played')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_won')}</th>${isSoccer ? `<th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_drawn')}</th>` : ''}<th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_lost')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${isSoccer ? i18n('standings_col_scored_soccer') : i18n('standings_col_scored_volley')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${isSoccer ? i18n('standings_col_conceded_soccer') : i18n('standings_col_conceded_volley')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">${i18n('standings_col_diff')}</th></tr></thead><tbody>`;
         (standing.rows || []).forEach((t, pos) => {
           const isQualified = pos < teamsAdvance;
           const isLastQualified = pos === teamsAdvance - 1;
           const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
           html += `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td style="text-align: center; padding: 8px">${pos + 1}</td><td style="text-align: left; padding: 8px">${esc(t.name)}</td><td style="text-align: center; padding: 8px; font-weight: bold; color: #d32f2f">${t.points || 0}</td><td style="text-align: center; padding: 8px">${t.played || 0}</td><td style="text-align: center; padding: 8px">${t.won || 0}</td>${isSoccer ? `<td style="text-align: center; padding: 8px">${t.drawn || 0}</td>` : ''}<td style="text-align: center; padding: 8px">${t.lost || 0}</td><td style="text-align: center; padding: 8px">${t.scored || 0}</td><td style="text-align: center; padding: 8px">${t.conceded || 0}</td><td style="text-align: center; padding: 8px">${t.diff || 0}</td></tr>`;
         });
-        html += `</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
+        html += `</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} ${i18n('teams_advance_per_group')}</div>`;
       });
       c.innerHTML = html;
     }
@@ -2813,23 +2813,23 @@
       });
 
       if (!phasesWithStandings.length) {
-        c.innerHTML = '<h3>Classifiche</h3><div class="empty">Classifiche non disponibili.</div>';
+        c.innerHTML = `<h3>${i18n('tab_standings')}</h3><div class="empty">${i18n('standings_not_available')}</div>`;
         return;
       }
 
-      c.innerHTML = '<h3>Classifiche gironi</h3>' + phasesWithStandings.map(phase => {
+      c.innerHTML = `<h3>${i18n('standings_title_groups')}</h3>` + phasesWithStandings.map(phase => {
         const phaseHeading = phasesWithStandings.length > 1
-          ? `<h4 style="margin-top: 24px; color: #6b5d45">${esc(phase.name || ('Fase ' + phase.phaseNumber))}</h4>`
+          ? `<h4 style="margin-top: 24px; color: #6b5d45">${esc(phase.name || (i18n('phase_generic_name') + ' ' + phase.phaseNumber))}</h4>`
           : '';
         const standings = phase.standings || [];
         return phaseHeading + standings.map(s => {
           const teamsAdvance = getTeamsAdvanceForGroup(s.group, phase.phaseNumber);
-          const tableHtml = `<h4>Girone ${s.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">#</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">Squadra</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">Pt</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">V</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">S</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PF</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">PS</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">Diff</th></tr></thead><tbody>${s.rows.map((r, i) => {
+          const tableHtml = `<h4>${i18n('group_label')} ${s.group}</h4><table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px"><thead><tr style="background: #f5f5f5"><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">#</th><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd">${i18n('standings_col_team')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; width: 40px">${i18n('standings_col_pt')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_won')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 35px">${i18n('standings_col_lost')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${i18n('standings_col_scored_volley')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 40px">${i18n('standings_col_conceded_volley')}</th><th style="text-align: center; padding: 8px; border-bottom: 1px solid #ddd; width: 45px">${i18n('standings_col_diff')}</th></tr></thead><tbody>${s.rows.map((r, i) => {
             const isQualified = i < teamsAdvance;
             const isLastQualified = i === teamsAdvance - 1;
             const borderStyle = isLastQualified ? 'border-bottom: 4px solid #2e5d1f' : (isQualified ? 'border-bottom: 2px solid #4caf50' : 'border-bottom: 1px solid #ddd');
             return `<tr style="${borderStyle}; background: ${isQualified ? '#e8f5e9' : 'transparent'}; font-weight: ${isQualified ? '600' : 'normal'}"><td class="${i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : ''}" style="text-align: center; padding: 8px">${i + 1}</td><td style="text-align: left; padding: 8px; text-decoration: ${isQualified ? 'underline' : 'none'}; text-decoration-color: #4caf50; text-decoration-thickness: 3px; text-underline-offset: 4px">${esc(r.name)}</td><td style="text-align: center; padding: 8px; font-weight: bold; color: #d32f2f">${r.points}</td><td style="text-align: center; padding: 8px">${r.won}</td><td style="text-align: center; padding: 8px">${r.lost}</td><td style="text-align: center; padding: 8px">${r.scored}</td><td style="text-align: center; padding: 8px">${r.conceded}</td><td style="text-align: center; padding: 8px">${r.diff}</td></tr>`
-          }).join('')}</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} squadre passano per girone</div>`;
+          }).join('')}</tbody></table><div style="padding: 8px 0; font-size: 13px; color: #2e5d1f; font-weight: bold; border-bottom: 2px solid #4caf50; margin-bottom: 16px">✓ ${teamsAdvance} ${i18n('teams_advance_per_group')}</div>`;
           return tableHtml;
         }).join('');
       }).join('');
@@ -2838,7 +2838,7 @@
 
     function playoffTable(title, arr, phase) {
       if (!arr || !arr.length) return '';
-      return `<h4>${title}</h4><table><thead><tr><th>Match</th><th>Squadra 1</th><th>Squadra 2</th><th>Risultato</th></tr></thead><tbody>${arr.map(m =>
+      return `<h4>${title}</h4><table><thead><tr><th>${i18n('table_header_match')}</th><th>${i18n('team1_label')}</th><th>${i18n('team2_label')}</th><th>${i18n('table_header_result')}</th></tr></thead><tbody>${arr.map(m =>
         `<tr><td>${m.label}</td><td>${esc(m.team1Name)}</td><td>${esc(m.team2Name)}</td><td>${formatMatchResult(m, phase)}</td></tr>`
       ).join('')}</tbody></table>`;
     }
@@ -2854,22 +2854,22 @@
       const playoffPhases = allPhases.filter(p => p.type === 'knockout');
 
       if (!playoffPhases.length) {
-        c.innerHTML = '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
+        c.innerHTML = `<h3>${i18n('final_phase_title')}</h3><div class="empty">${i18n('final_phase_not_generated')}</div>`;
         return;
       }
 
-      let html = '<h3>Fase finale</h3>';
+      let html = `<h3>${i18n('final_phase_title')}</h3>`;
       playoffPhases.forEach(phase => {
         const matches = phase.matches || [];
         if (!matches.length) return;
 
-        html += `<h4>${phase.name || 'Fase ' + (phase.phaseNumber || '?')}</h4>`;
-        html += '<table><thead><tr><th>Match</th><th>Squadra 1</th><th>Squadra 2</th><th>Risultato</th></tr></thead><tbody>';
+        html += `<h4>${phase.name || i18n('phase_generic_name') + ' ' + (phase.phaseNumber || '?')}</h4>`;
+        html += `<table><thead><tr><th>${i18n('table_header_match')}</th><th>${i18n('team1_label')}</th><th>${i18n('team2_label')}</th><th>${i18n('table_header_result')}</th></tr></thead><tbody>`;
 
         matches.forEach(m => {
           // 🔧 Risultato basato sui set vinti (round-aware: rispetta setsPerRound)
           html += `<tr>
-            <td>${m.label || m.type || 'Match'}</td>
+            <td>${m.label || m.type || i18n('table_header_match')}</td>
             <td>${esc(m.team1Name || '-')}</td>
             <td>${esc(m.team2Name || '-')}</td>
             <td>${formatMatchResult(m, phase)}</td>
@@ -2879,7 +2879,7 @@
         html += '</tbody></table>';
       });
 
-      c.innerHTML = html || '<h3>Fase finale</h3><div class="empty">Fase finale non ancora generata.</div>';
+      c.innerHTML = html || `<h3>${i18n('final_phase_title')}</h3><div class="empty">${i18n('final_phase_not_generated')}</div>`;
     }
 
     function renderRanking() {
@@ -2888,10 +2888,10 @@
       const finalRanking = state.meta?.finalRanking || [];
 
       if (!finalRanking.length) {
-        c.innerHTML = '<h3>Ranking finale</h3><div class="empty">Ranking finale non disponibile.</div>';
+        c.innerHTML = `<h3>${i18n('final_ranking_title')}</h3><div class="empty">${i18n('final_ranking_not_available')}</div>`;
         return;
       }
-      c.innerHTML = `<h3>Classifica finale</h3><table><thead><tr><th>Posizione</th><th>Squadra</th></tr></thead><tbody>${finalRanking.map(r =>
+      c.innerHTML = `<h3>${i18n('final_ranking_title')}</h3><table><thead><tr><th>${i18n('position_label')}</th><th>${i18n('standings_col_team')}</th></tr></thead><tbody>${finalRanking.map(r =>
         `<tr><td class="${r.position === 1 ? 'rank-1' : r.position === 2 ? 'rank-2' : r.position === 3 ? 'rank-3' : ''}">${r.position}</td><td>${esc(r.name)}</td></tr>`
       ).join('')}</tbody></table>`;
     }
@@ -4189,7 +4189,7 @@
       // che si apre la scheda, non ad ogni avvio pagina.
       if (galleryLoaded) return;
 
-      container.innerHTML = '<p class="note">Caricamento foto...</p>';
+      container.innerHTML = `<p class="note">${i18n('gallery_loading')}</p>`;
 
       try {
         const response = await fetch(`${API}?action=public_get_gallery`);
@@ -4199,11 +4199,11 @@
           renderGalleryPage(data.gallery || []);
           galleryLoaded = true;
         } else {
-          container.innerHTML = '<p class="note">Errore caricamento galleria</p>';
+          container.innerHTML = `<p class="note">${i18n('gallery_load_error')}</p>`;
         }
       } catch (e) {
         console.error('Errore caricamento galleria:', e);
-        container.innerHTML = '<p class="note">Errore di connessione</p>';
+        container.innerHTML = `<p class="note">${i18n('gallery_connection_error')}</p>`;
       }
     }
 
@@ -4212,7 +4212,7 @@
       if (!container) return;
 
       if (!gallery || gallery.length === 0) {
-        container.innerHTML = '<h3>📸 Galleria</h3><p class="note">Nessuna foto pubblicata al momento.</p>';
+        container.innerHTML = `<h3>${i18n('gallery_title')}</h3><p class="note">${i18n('gallery_empty')}</p>`;
         return;
       }
 
@@ -4227,7 +4227,7 @@
       `).join('');
 
       container.innerHTML = `
-        <h3>📸 Galleria</h3>
+        <h3>${i18n('gallery_title')}</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 12px">
           ${cards}
         </div>
@@ -4289,7 +4289,7 @@
       const arrowBtnStyle = 'position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center';
 
       overlay.innerHTML = `
-        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(-1)" title="Foto precedente" style="${arrowBtnStyle}; left: 16px">‹</button>` : ''}
+        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(-1)" title="${i18n('gallery_prev_photo')}" style="${arrowBtnStyle}; left: 16px">‹</button>` : ''}
         <div style="max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; gap: 10px">
           <img src="${esc(item.imageFile)}" alt="${esc(item.title)}" style="max-width: 100%; max-height: 75vh; border-radius: 8px; object-fit: contain">
           <div style="color: #fff; text-align: center">
@@ -4297,9 +4297,9 @@
             ${item.description ? `<div style="font-size: 13px; color: #ddd; margin-top: 4px; max-width: 500px">${esc(item.description)}</div>` : ''}
             ${showArrows ? `<div style="font-size: 12px; color: #aaa; margin-top: 4px">${__galleryLightboxIndex + 1} / ${gallery.length}</div>` : ''}
           </div>
-          <button onclick="closeGalleryLightbox()" style="margin-top: 6px; padding: 8px 16px; background: #4caf50; color: #fff; border: none; border-radius: 6px; cursor: pointer">Chiudi</button>
+          <button onclick="closeGalleryLightbox()" style="margin-top: 6px; padding: 8px 16px; background: #4caf50; color: #fff; border: none; border-radius: 6px; cursor: pointer">${i18n('gallery_close_button')}</button>
         </div>
-        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(1)" title="Foto successiva" style="${arrowBtnStyle}; right: 16px">›</button>` : ''}
+        ${showArrows ? `<button onclick="event.stopPropagation(); navigateGalleryLightbox(1)" title="${i18n('gallery_next_photo')}" style="${arrowBtnStyle}; right: 16px">›</button>` : ''}
       `;
     }
   </script>

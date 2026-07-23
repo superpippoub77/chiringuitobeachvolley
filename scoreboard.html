@@ -1000,6 +1000,14 @@
   <div id="backgroundDarkOverlay"></div>
   <div class="container">
     <section class="hero">
+      <!-- 🆕 Selettore lingua: bandierine in alto, sempre visibili -->
+      <div id="languageFlagsBar" style="position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 4px; background: rgba(255,255,255,0.75); padding: 5px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12)">
+        <span class="lang-flag-btn" data-lang="it" onclick="setLanguage('it')" title="Italiano" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇮🇹</span>
+        <span class="lang-flag-btn" data-lang="en" onclick="setLanguage('en')" title="English" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇬🇧</span>
+        <span class="lang-flag-btn" data-lang="fr" onclick="setLanguage('fr')" title="Français" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇫🇷</span>
+        <span class="lang-flag-btn" data-lang="de" onclick="setLanguage('de')" title="Deutsch" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇩🇪</span>
+        <span class="lang-flag-btn" data-lang="zh" onclick="setLanguage('zh')" title="中文" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇨🇳</span>
+      </div>
       <div class="hero-top">
         <div class="badge">CHIRINGUITO BEACH VOLLEY | LUI&Lei 2026</div>
       </div>
@@ -1088,15 +1096,6 @@
         <a href="#" onclick="openContactModal(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 <span data-i18n="nav_contact">Contatti</span></a>
-
-        <!-- 🆕 Selettore lingua -->
-        <select id="languageSelector" onchange="setLanguage(this.value)" style="margin-left: auto; padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-size: 14px">
-          <option value="it">🇮🇹 Italiano</option>
-          <option value="en">🇬🇧 English</option>
-          <option value="fr">🇫🇷 Français</option>
-          <option value="de">🇩🇪 Deutsch</option>
-          <option value="zh">🇨🇳 中文</option>
-        </select>
       </nav>
 
     <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
@@ -1312,8 +1311,13 @@
         el.innerHTML = i18n(el.dataset.i18nHtml);
       });
       document.documentElement.lang = currentLanguage;
-      const selector = document.getElementById('languageSelector');
-      if (selector) selector.value = currentLanguage;
+
+      // 🆕 Evidenzia la bandierina della lingua attualmente selezionata
+      document.querySelectorAll('.lang-flag-btn').forEach(btn => {
+        const isActive = btn.dataset.lang === currentLanguage;
+        btn.style.background = isActive ? '#ffd23f' : 'transparent';
+        btn.style.boxShadow = isActive ? 'inset 0 0 0 2px #e6a800' : 'none';
+      });
     }
 
     // Cambia lingua, salva la scelta e ri-applica le traduzioni.

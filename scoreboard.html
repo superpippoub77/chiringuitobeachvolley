@@ -53,6 +53,38 @@
       z-index: 2;
     }
 
+    /* 🆕 Bar a schermo intero: quando attivo, la scheda #page-shop copre
+       tutta la pagina (sopra a tutto il resto), con lo scroll suo proprio,
+       per vedere menu e carrello senza il resto dell'interfaccia intorno. */
+    #page-shop.shop-fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: var(--sand-cream, #fdf6e3);
+      overflow-y: auto;
+      padding: 20px;
+      margin: 0;
+      max-width: none;
+    }
+
+    body.shop-fullscreen-active {
+      overflow: hidden;
+    }
+
+    .shop-view-toggle-btn {
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .shop-view-toggle-btn:hover {
+      background: #f0f0f0;
+    }
+
     /* 🆕 Overlay scuro sopra lo sfondo (regolabile da Impostazioni →
        Visualizzazione), per far risaltare meglio i testi su sfondi chiari
        o troppo dettagliati. */
@@ -3621,11 +3653,30 @@
       }
     }
 
+    // 🆕 Passa il Bar da visualizzazione normale a schermo intero (per vedere
+    // menu e carrello senza il resto dell'interfaccia intorno) e viceversa.
+    function toggleShopFullscreen() {
+      const page = document.getElementById('page-shop');
+      const btn = document.getElementById('shopFullscreenToggleBtn');
+      if (!page) return;
+
+      const isFullscreen = page.classList.toggle('shop-fullscreen');
+      document.body.classList.toggle('shop-fullscreen-active', isFullscreen);
+      if (btn) {
+        btn.textContent = isFullscreen ? '🗗' : '⛶';
+        btn.title = isFullscreen ? 'Torna alla visualizzazione ridotta' : 'Visualizza a schermo intero';
+      }
+    }
+
     function renderShopPage() {
       const c = document.getElementById('page-shop');
       if (!c) return;
 
-      let html = '<h3>🍹 Bar del Torneo</h3>';
+      const isFullscreen = c.classList.contains('shop-fullscreen');
+      let html = `<div style="display: flex; justify-content: space-between; align-items: center">
+        <h3 style="margin: 0">🍹 Bar del Torneo</h3>
+        <button class="shop-view-toggle-btn" id="shopFullscreenToggleBtn" onclick="toggleShopFullscreen()" title="${isFullscreen ? 'Torna alla visualizzazione ridotta' : 'Visualizza a schermo intero'}">${isFullscreen ? '🗗' : '⛶'}</button>
+      </div>`;
 
       shopCategories.forEach(cat => {
         html += `<h4 style="color: #2e5d1f; margin-top: 18px">${esc(cat.name)}</h4>

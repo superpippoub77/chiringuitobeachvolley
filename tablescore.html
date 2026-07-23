@@ -88,6 +88,32 @@
       letter-spacing: 2px;
       color: #fff;
       min-height: 35px;
+      /* 🔧 Il nome non deve mai andare a capo: se è più lungo dello spazio
+         disponibile, si attiva uno scorrimento automatico (vedi
+         .marquee-active più sotto) invece di spezzarsi su più righe. */
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .team-name .marquee-content,
+    .dot-matrix-display .marquee-content {
+      display: inline-block;
+    }
+    .dot-matrix-display .marquee-content {
+      display: flex;
+    }
+
+    /* 🆕 Scorrimento automatico, attivato solo quando il contenuto è
+       davvero più largo dello spazio disponibile (misurato via JS) —
+       altrimenti il nome resta semplicemente centrato e fermo. */
+    .marquee-active .marquee-content {
+      padding-left: 100%;
+      animation: marqueeScroll linear infinite;
+      animation-duration: var(--marquee-duration, 8s);
+    }
+    @keyframes marqueeScroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
     }
 
     .team-section.team1 .team-name {
@@ -224,7 +250,9 @@
     .dot-matrix-display.small {
       gap: clamp(3px, 0.5vw, 6px);
       margin: 6px 0;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow: hidden;
+      width: 100%;
     }
     .dot-matrix-display.small .dot-matrix-digit {
       grid-template-columns: repeat(5, 1fr);
@@ -1307,18 +1335,43 @@
     // 🆕 Disegna una stringa qualunque (cifre, lettere, simboli) come
     // sequenza di cifre/lettere a matrice di puntini — usata sia per il
     // punteggio che per nome squadra, indicatore set, ecc.
+    // 🆕 Attiva lo scorrimento automatico SOLO se il contenuto e' davvero
+    // più largo dello spazio disponibile (misurato dopo che il layout si e'
+    // assestato) — altrimenti il testo resta semplicemente centrato e
+    // fermo, senza mai andare a capo su più righe.
+    function applyMarqueeIfNeeded(container) {
+      if (!container) return;
+      requestAnimationFrame(() => {
+        const overflowing = container.scrollWidth > container.clientWidth + 1;
+        if (overflowing) {
+          // Velocità costante: piu' il testo e' lungo, piu' l'animazione dura,
+          // cosi' lo scorrimento non risulta ne' troppo lento ne' troppo veloce.
+          const duration = Math.max(4, container.scrollWidth / 60);
+          container.style.setProperty('--marquee-duration', duration + 's');
+          container.classList.add('marquee-active');
+        } else {
+          container.classList.remove('marquee-active');
+          container.style.removeProperty('--marquee-duration');
+        }
+      });
+    }
+
     function renderDotMatrixText(containerId, value, animate) {
       const container = document.getElementById(containerId);
       if (!container) return;
       const chars = String(value).toUpperCase().split('');
 
-      container.innerHTML = chars.map(ch => {
+      const digitsHtml = chars.map(ch => {
         const pattern = DOT_MATRIX_FONT[ch] || DOT_MATRIX_FONT['-'];
         const dotsHtml = pattern.map(row =>
           row.split('').map(bit => `<span class="dot-matrix-dot${bit === '1' ? ' lit' : ''}"></span>`).join('')
         ).join('');
         return `<div class="dot-matrix-digit">${dotsHtml}</div>`;
       }).join('');
+      // 🆕 Le cifre vanno avvolte in un contenitore dedicato per poter
+      // misurare e, se serve, far scorrere il tutto senza mai andare a capo.
+      container.innerHTML = `<div class="marquee-content">${digitsHtml}</div>`;
+      applyMarqueeIfNeeded(container);
 
       if (animate && scoreEffect !== 'none') {
         container.classList.remove('effect-pulse', 'effect-fade', 'score-changed');
@@ -1395,14 +1448,16 @@
       if (matrixEl) renderDotMatrixText(matrixEl.id, textForMatrix, false);
 
       if (index === 0 || roster.length === 0) {
-        el.innerHTML = escText(teamName);
+        el.innerHTML = `<span class="marquee-content">${escText(teamName)}</span>`;
+        applyMarqueeIfNeeded(el);
         return;
       }
       const player = roster[index - 1];
       const photoHtml = player.imageFile
         ? `<img src="${player.imageFile}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; border: 2px solid currentColor">`
         : '';
-      el.innerHTML = `${photoHtml}${escText(player.name)}`;
+      el.innerHTML = `<span class="marquee-content">${photoHtml}${escText(player.name)}</span>`;
+      applyMarqueeIfNeeded(el);
     }
 
     function startNameCycling() {
@@ -1446,8 +1501,12 @@
       // lo tocca più qui, cosi' un render() periodico (auto-refresh) non
       // interrompe il ciclo mentre sta mostrando un giocatore.
       if (!nameCycleInterval) {
-        document.getElementById('team1Name').textContent = scoreboardState.team1.name;
-        document.getElementById('team2Name').textContent = scoreboardState.team2.name;
+        const t1El = document.getElementById('team1Name');
+        const t2El = document.getElementById('team2Name');
+        t1El.innerHTML = `<span class="marquee-content">${escText(scoreboardState.team1.name)}</span>`;
+        t2El.innerHTML = `<span class="marquee-content">${escText(scoreboardState.team2.name)}</span>`;
+        applyMarqueeIfNeeded(t1El);
+        applyMarqueeIfNeeded(t2El);
       }
       loadTeamRostersIfNeeded();
 

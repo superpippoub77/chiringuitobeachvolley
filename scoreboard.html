@@ -3256,6 +3256,17 @@
       updatePaymentTotal();
     }
 
+    // 🆕 Commissione PayPal per pagamenti "beni e servizi" in Europa/Italia:
+    // 3,4% + 0,35€ fissi. Per far arrivare all'organizzatore l'intera quota
+    // netta (non decurtata), il totale addebitato su PayPal viene
+    // "maggiorato" con questa formula (gross-up): chi paga con PayPal copre
+    // anche la commissione, chi paga in contanti no.
+    const PAYPAL_FEE_PERCENT = 0.034;
+    const PAYPAL_FEE_FIXED = 0.35;
+    function computePaypalGrossAmount(netAmount) {
+      return (netAmount + PAYPAL_FEE_FIXED) / (1 - PAYPAL_FEE_PERCENT);
+    }
+
     function updatePaymentTotal() {
       const teamId = document.getElementById('paymentTeamSelect').value;
       const totalBox = document.getElementById('paymentTotalBox');
@@ -3273,14 +3284,20 @@
       // 🆕 L'importo si calcola solo sui giocatori selezionati ORA (permette
       // di pagare una quota parziale, per una parte soltanto dei giocatori
       // ancora da pagare, invece di forzare sempre il totale intero).
-      const total = paymentConfigPublic.costPerPlayer * selectedNames.length;
+      const netTotal = paymentConfigPublic.costPerPlayer * selectedNames.length;
+      const grossTotal = computePaypalGrossAmount(netTotal);
+      const paypalFee = grossTotal - netTotal;
+      const playersLabel = `${selectedNames.length} giocator${selectedNames.length === 1 ? 'e' : 'i'} selezionat${selectedNames.length === 1 ? 'o' : 'i'}`;
 
-      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${selectedNames.length} giocator${selectedNames.length === 1 ? 'e' : 'i'} selezionat${selectedNames.length === 1 ? 'o' : 'i'})`;
+      document.getElementById('paymentTotalValue').innerHTML = paymentConfigPublic.paypalClientId
+        ? `<div>Quota (${playersLabel}): <strong>€ ${netTotal.toFixed(2)}</strong></div>
+           <div style="font-size: 13px; color: #888; margin-top: 4px">In contanti: € ${netTotal.toFixed(2)} — con PayPal: € ${grossTotal.toFixed(2)} <span title="La commissione PayPal (3,4% + 0,35€) viene aggiunta solo se paghi online, così l'organizzatore riceve l'intera quota">(include € ${paypalFee.toFixed(2)} di commissione PayPal)</span></div>`
+        : `€ ${netTotal.toFixed(2)} (${playersLabel})`;
       totalBox.style.display = 'block';
       actions.style.display = 'flex';
 
       if (paymentConfigPublic.paypalClientId) {
-        renderPaymentPaypalButton(teamId, total, selectedNames);
+        renderPaymentPaypalButton(teamId, netTotal, grossTotal, selectedNames);
       } else {
         document.getElementById('paymentPaypalButtonContainer').innerHTML = '';
       }
@@ -3302,7 +3319,7 @@
     // client (l'SDK PayPal gestisce l'addebito reale), ma la conferma
     // "pagato" sul nostro server si fida della risposta del browser dopo
     // l'approvazione — senza verifica server-to-server con le API PayPal.
-    async function renderPaymentPaypalButton(teamId, total, selectedNames) {
+    async function renderPaymentPaypalButton(teamId, netTotal, grossTotal, selectedNames) {
       const container = document.getElementById('paymentPaypalButtonContainer');
       container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
 
@@ -3313,14 +3330,15 @@
         paypal.Buttons({
           createOrder: (data, actions) => {
             return actions.order.create({
-              purchase_units: [{ amount: { value: total.toFixed(2), currency_code: paymentConfigPublic.paypalCurrency } }]
+              purchase_units: [{ amount: { value: grossTotal.toFixed(2), currency_code: paymentConfigPublic.paypalCurrency } }]
             });
           },
           onApprove: async (data, actions) => {
             await actions.order.capture();
             try {
               await fetch(`${API}?action=payment_confirm_team_fee_paid`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId, playerNames: selectedNames })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ teamId, playerNames: selectedNames, netAmount: netTotal, grossAmount: grossTotal })
               });
               document.getElementById('paymentStatus').style.color = '#2e5d1f';
               document.getElementById('paymentStatus').textContent = '✅ Pagamento completato, grazie mille!';

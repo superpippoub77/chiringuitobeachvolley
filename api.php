@@ -10505,12 +10505,20 @@ if ($action === 'payment_confirm_team_fee_paid' && $method === 'POST') {
     if (isset($body['playerNames']) && is_array($body['playerNames'])) {
         $playerNames = array_map(fn($n) => trim((string)$n), $body['playerNames']);
     }
+    // 🆕 Importi per l'email di notifica (quanto ha ricevuto in netto
+    // l'organizzatore e quanto ha effettivamente pagato il cliente, con la
+    // maggiorazione PayPal inclusa) — inviati dal client, puramente
+    // informativi per l'email, non usati per alcuna logica di sicurezza.
+    $netAmount = is_numeric($body['netAmount'] ?? null) ? (float)$body['netAmount'] : null;
+    $grossAmount = is_numeric($body['grossAmount'] ?? null) ? (float)$body['grossAmount'] : null;
 
     $found = false;
-    withStateTransaction(function (&$state) use ($teamId, $playerNames, &$found) {
+    $teamName = '';
+    withStateTransaction(function (&$state) use ($teamId, $playerNames, &$found, &$teamName) {
         foreach ($state['teams'] as &$team) {
             if ($team['id'] !== $teamId) continue;
             $found = true;
+            $teamName = $team['name'] ?? '';
 
             foreach ($team['players'] as &$player) {
                 if (!is_array($player)) continue;
@@ -10540,6 +10548,30 @@ if ($action === 'payment_confirm_team_fee_paid' && $method === 'POST') {
     if (!$found) {
         jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
     }
+
+    // 🆕 Notifica via email all'organizzatore con il dettaglio del pagamento
+    // (chi ha pagato, per chi, quanto). Inviata dopo la transazione, per non
+    // tenere il file bloccato durante la chiamata di rete verso il server email.
+    $managerEmail = $config['contact']['managerEmail'] ?? '';
+    if ($managerEmail !== '') {
+        $paidForText = $playerNames !== null ? implode(', ', $playerNames) : 'tutta la squadra';
+        $whenText = date('d/m/Y H:i');
+        $amountsText = '';
+        if ($netAmount !== null) {
+            $amountsText .= "Quota netta (a te spettante): € " . number_format($netAmount, 2, ',', '.') . "\n";
+        }
+        if ($grossAmount !== null) {
+            $amountsText .= "Importo pagato dal cliente su PayPal (quota + commissione PayPal): € " . number_format($grossAmount, 2, ',', '.') . "\n";
+        }
+        $emailBody = "💰 Nuovo pagamento quota ricevuto\n\n"
+            . "Squadra: $teamName\n"
+            . "Pagato per: $paidForText\n"
+            . "$amountsText"
+            . "Metodo: PayPal\n"
+            . "Data e ora: $whenText\n";
+        sendEmail($managerEmail, "💰 Pagamento quota ricevuto - $teamName", nl2br(htmlspecialchars($emailBody)));
+    }
+
     jsonResponse(200, ['ok' => true]);
 }
 

@@ -1029,13 +1029,13 @@
               <small style="color: #666">Importo fisso per l'intera squadra (funzionalità esistente)</small>
             </div>
             <div class="field" style="margin-top: 10px">
-              <label>🆕 Quota per singolo giocatore ({{currency}})</label>
+              <label>🆕 Quota per singolo giocatore (<span id="costPerPlayerCurrencyLabel">EUR</span>)</label>
               <input id="costPerPlayer" type="number" min="0" step="0.01" value="0" placeholder="Es: 15.00">
               <small style="color: #666">Se impostata, viene tracciata per ogni giocatore singolarmente (mostrata come "offerta" per coprire i servizi del torneo)</small>
             </div>
             <div class="field" style="margin-top: 10px">
               <label>Valuta</label>
-              <select id="paymentCurrency" style="width: 100%; padding: 6px" onchange="document.getElementById('costPerTeamCurrencyLabel').textContent = this.value">
+              <select id="paymentCurrency" style="width: 100%; padding: 6px" onchange="document.getElementById('costPerTeamCurrencyLabel').textContent = this.value; document.getElementById('costPerPlayerCurrencyLabel').textContent = this.value;">
                 <option value="EUR">EUR (€)</option>
                 <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
@@ -10333,6 +10333,7 @@ html += `
         document.getElementById('costPerTeam').value = paymentConfig.costPerTeam;
         document.getElementById('paymentCurrency').value = paymentConfig.currency;
         document.getElementById('costPerTeamCurrencyLabel').textContent = paymentConfig.currency;
+        document.getElementById('costPerPlayerCurrencyLabel').textContent = paymentConfig.currency;
         document.getElementById('costPerPlayer').value = paymentConfig.costPerPlayer || 0;
         document.getElementById('paymentDescription').value = paymentConfig.description || '';
         document.getElementById('paymentPaypalClientId').value = paymentConfig.paypalClientId || '';

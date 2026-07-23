@@ -5316,6 +5316,21 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             $teamPaidExplicitlySet = isset($body['paid']);
             if ($teamPaidExplicitlySet) {
                 $team['paid'] = (bool)$body['paid'];
+                // 🔧 FIX: applica subito la cascata sui giocatori GIÀ
+                // presenti, indipendentemente dal fatto che questa stessa
+                // richiesta includa anche un elenco giocatori aggiornato —
+                // prima, se l'admin cambiava SOLO il flag della squadra
+                // (senza toccare i giocatori nella stessa richiesta), i
+                // singoli flag restavano non allineati (es. la squadra
+                // risultava "da pagare" ma i giocatori ancora "pagati").
+                if (is_array($team['players'] ?? null)) {
+                    foreach ($team['players'] as &$existingPlayer) {
+                        if (is_array($existingPlayer)) {
+                            $existingPlayer['paid'] = (bool)$body['paid'];
+                        }
+                    }
+                    unset($existingPlayer);
+                }
             }
             if (isset($body['approved'])) {
                 $team['approved'] = (bool)$body['approved'];

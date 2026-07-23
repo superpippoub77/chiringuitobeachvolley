@@ -1148,27 +1148,27 @@
   <div id="newsletterOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeNewsletterSignup()">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="newsletterTitle">
       <div class="modal-head">
-        <h4 id="newsletterTitle">📬 Resta aggiornato</h4>
+        <h4 id="newsletterTitle" data-i18n="newsletter_title">📬 Resta aggiornato</h4>
         <button class="modal-close" aria-label="Chiudi" onclick="closeNewsletterSignup()">×</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Iscriviti per essere contattato con aggiornamenti sul torneo, anche se non iscrivi una squadra. Basta uno tra email e telefono (puoi anche inserirli entrambi).</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px" data-i18n="newsletter_intro">Iscriviti per essere contattato con aggiornamenti sul torneo, anche se non iscrivi una squadra. Basta uno tra email e telefono (puoi anche inserirli entrambi).</p>
         <div class="field">
-          <label>Email</label>
+          <label data-i18n="label_email">Email</label>
           <input id="nlEmail" type="email" placeholder="nome@esempio.it" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px">
         </div>
         <div class="field" style="margin-top: 10px">
-          <label>Telefono</label>
+          <label data-i18n="label_phone">Telefono</label>
           <input id="nlPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px">
         </div>
         <div class="form-check" style="margin-top: 12px">
           <input type="checkbox" id="nlPrivacy">
-          <label for="nlPrivacy">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
+          <label for="nlPrivacy" data-i18n-html="privacy_checkbox_html">Accetto l'<a href="policy.html" target="_blank">informativa privacy</a></label>
         </div>
         <div id="newsletterStatus" style="margin-top: 10px; font-size: 13px"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn-modal" onclick="submitNewsletterSignup()">Iscrivimi</button>
+        <button class="btn-modal" onclick="submitNewsletterSignup()" data-i18n="newsletter_submit">Iscrivimi</button>
       </div>
     </div>
   </div>
@@ -1177,35 +1177,35 @@
   <div id="attendanceOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeAttendanceSignup()">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="attendanceTitle">
       <div class="modal-head">
-        <h4 id="attendanceTitle">🎟️ Partecipa all'evento</h4>
+        <h4 id="attendanceTitle" data-i18n="attendance_title">🎟️ Partecipa all'evento</h4>
         <button class="modal-close" aria-label="Chiudi" onclick="closeAttendanceSignup()">×</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Non giochi ma vuoi venire a vedere il torneo? Segnala la tua presenza qui, così sappiamo quante persone aspettarci.</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px" data-i18n="attendance_intro">Non giochi ma vuoi venire a vedere il torneo? Segnala la tua presenza qui, così sappiamo quante persone aspettarci.</p>
         <div class="field">
-          <label>Nome e cognome</label>
-          <input id="attName" type="text" placeholder="Il tuo nome" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          <label data-i18n="label_full_name">Nome e cognome</label>
+          <input id="attName" type="text" placeholder="" data-i18n-placeholder="attendance_name_placeholder" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div class="field" style="margin-top: 10px">
-          <label>Email</label>
+          <label data-i18n="label_email">Email</label>
           <input id="attEmail" type="email" placeholder="nome@esempio.it" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div class="field" style="margin-top: 10px">
-          <label>Telefono</label>
+          <label data-i18n="label_phone">Telefono</label>
           <input id="attPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div class="field" style="margin-top: 10px">
-          <label>Quante persone in totale (te compreso/a)</label>
+          <label data-i18n="attendance_total_people">Quante persone in totale (te compreso/a)</label>
           <input id="attTotalPeople" type="number" min="1" value="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div class="field" style="margin-top: 10px">
-          <label>Di cui quanti bambini</label>
+          <label data-i18n="attendance_children">Di cui quanti bambini</label>
           <input id="attChildren" type="number" min="0" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div id="attendanceStatus" style="margin-top: 10px; font-size: 13px"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn-modal" onclick="submitAttendanceSignup()">Conferma partecipazione</button>
+        <button class="btn-modal" onclick="submitAttendanceSignup()" data-i18n="attendance_submit">Conferma partecipazione</button>
       </div>
     </div>
   </div>
@@ -1214,29 +1214,29 @@
   <div id="paymentOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closePaymentModal()">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="paymentTitle">
       <div class="modal-head">
-        <h4 id="paymentTitle">💰 Paga la quota</h4>
+        <h4 id="paymentTitle" data-i18n="payment_title">💰 Paga la quota</h4>
         <button class="modal-close" aria-label="Chiudi" onclick="closePaymentModal()">×</button>
       </div>
       <div class="modal-body">
         <div id="paymentDescriptionText" style="font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5"></div>
         <div class="field">
-          <label>Seleziona la tua squadra</label>
+          <label data-i18n="payment_select_team">Seleziona la tua squadra</label>
           <select id="paymentTeamSelect" onchange="onPaymentTeamChange()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
-            <option value="">-- Scegli la squadra --</option>
+            <option value="" data-i18n="payment_choose_team_option">-- Scegli la squadra --</option>
           </select>
         </div>
         <div id="paymentPlayersList" style="margin-top: 12px; display: none">
-          <label>Per chi stai pagando ora?</label>
+          <label data-i18n="payment_who_paying">Per chi stai pagando ora?</label>
           <div id="paymentPlayersCheckboxes" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px"></div>
         </div>
         <div id="paymentTotalBox" style="margin-top: 14px; padding: 12px; background: #fff8ea; border-radius: 8px; text-align: center; display: none">
-          <div style="font-size: 13px; color: #6a5737">Quota per i giocatori selezionati</div>
+          <div style="font-size: 13px; color: #6a5737" data-i18n="payment_quota_selected">Quota per i giocatori selezionati</div>
           <div id="paymentTotalValue" style="font-size: 24px; font-weight: bold; color: #d32f2f">€ 0.00</div>
         </div>
         <div id="paymentStatus" style="margin-top: 10px; font-size: 13px"></div>
         <div id="paymentActions" style="margin-top: 14px; display: none; flex-direction: column; gap: 10px">
           <div id="paymentPaypalButtonContainer"></div>
-          <button class="btn" style="background: #666; color: white; padding: 12px; font-weight: bold" onclick="confirmCashPayment()">💵 Pago in contanti all'organizzatore</button>
+          <button class="btn" style="background: #666; color: white; padding: 12px; font-weight: bold" onclick="confirmCashPayment()" data-i18n="payment_pay_cash_button">💵 Pago in contanti all'organizzatore</button>
         </div>
       </div>
     </div>
@@ -1246,11 +1246,11 @@
   <div id="contactOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closeContactModal()">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
       <div class="modal-head">
-        <h4 id="contactTitle">📞 Contatta l'organizzazione</h4>
+        <h4 id="contactTitle" data-i18n="contact_title">📞 Contatta l'organizzazione</h4>
         <button class="modal-close" aria-label="Chiudi" onclick="closeContactModal()">×</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 13px; color: #666; margin-bottom: 12px">Per segnalare un problema, fare una richiesta o avere informazioni sul torneo.</p>
+        <p style="font-size: 13px; color: #666; margin-bottom: 12px" data-i18n="contact_intro">Per segnalare un problema, fare una richiesta o avere informazioni sul torneo.</p>
         <div id="contactButtonsContainer" style="display: flex; flex-direction: column; gap: 10px"></div>
       </div>
     </div>
@@ -1309,6 +1309,9 @@
       });
       document.querySelectorAll('[data-i18n-html]').forEach(el => {
         el.innerHTML = i18n(el.dataset.i18nHtml);
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = i18n(el.dataset.i18nPlaceholder);
       });
       document.documentElement.lang = currentLanguage;
 
@@ -3100,18 +3103,18 @@
       const container = document.getElementById('contactButtonsContainer');
 
       if (!email && !phone) {
-        container.innerHTML = '<p class="muted">Nessun contatto configurato dall\'organizzazione.</p>';
+        container.innerHTML = `<p class="muted">${i18n('contact_no_contact')}</p>`;
       } else {
         let html = '';
         if (email) {
-          const subject = encodeURIComponent('Segnalazione / richiesta - ' + (config?.tournament?.name || 'Torneo'));
-          const body = encodeURIComponent('Ciao,\n\nScrivo in merito a (bug riscontrato / richiesta / altro):\n\n');
-          html += `<a href="mailto:${esc(email)}?subject=${subject}&body=${body}" class="btn" style="background: #1976d2; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">✉️ Scrivi una email</a>`;
+          const subject = encodeURIComponent(i18n('contact_email_subject') + (config?.tournament?.name || 'Torneo'));
+          const body = encodeURIComponent(i18n('contact_email_body'));
+          html += `<a href="mailto:${esc(email)}?subject=${subject}&body=${body}" class="btn" style="background: #1976d2; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">✉️ ${i18n('contact_write_email')}</a>`;
         }
         if (phone) {
-          html += `<a href="tel:${esc(phone)}" class="btn" style="background: #555; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">📞 Chiama ${esc(phone)}</a>`;
+          html += `<a href="tel:${esc(phone)}" class="btn" style="background: #555; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">📞 ${i18n('contact_call')} ${esc(phone)}</a>`;
           const waNumber = phone.replace(/\D/g, '');
-          html += `<a href="https://wa.me/${waNumber}" target="_blank" class="btn" style="background: #25D366; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">💬 Scrivi su WhatsApp</a>`;
+          html += `<a href="https://wa.me/${waNumber}" target="_blank" class="btn" style="background: #25D366; color: white; text-align: center; text-decoration: none; padding: 10px; border-radius: 6px; display: block">💬 ${i18n('contact_write_whatsapp')}</a>`;
         }
         container.innerHTML = html;
       }
@@ -3135,14 +3138,14 @@
 
       if (!email && !phone) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Inserisci almeno un\'email o un numero di telefono.';
+        statusEl.textContent = i18n('validation_email_or_phone_required');
         return;
       }
 
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (email && !emailPattern.test(email)) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Email non valida.';
+        statusEl.textContent = i18n('validation_email_invalid');
         return;
       }
 
@@ -3150,14 +3153,14 @@
         const phoneDigitsCount = phone.replace(/\D/g, '').length;
         if (phoneDigitsCount < 8 || phoneDigitsCount > 15) {
           statusEl.style.color = '#b71c1c';
-          statusEl.textContent = 'Numero di telefono non valido.';
+          statusEl.textContent = i18n('validation_phone_invalid');
           return;
         }
       }
 
       if (!privacyOk) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Devi accettare l\'informativa privacy.';
+        statusEl.textContent = i18n('validation_privacy_required');
         return;
       }
 
@@ -3165,8 +3168,8 @@
         const r = await api('newsletter_signup', 'POST', { email, phone, privacyAccepted: true });
         statusEl.style.color = '#2e5d1f';
         statusEl.textContent = r.alreadyRegistered
-          ? '✅ Sei già iscritto — contatti aggiornati.'
-          : '✅ Iscrizione avvenuta con successo!';
+          ? i18n('newsletter_already_registered')
+          : i18n('newsletter_success');
         document.getElementById('nlEmail').value = '';
         document.getElementById('nlPhone').value = '';
         document.getElementById('nlPrivacy').checked = false;
@@ -3199,10 +3202,10 @@
       const statusEl = document.getElementById('attendanceStatus');
       if (attendanceRemainingSpots !== null && attendanceRemainingSpots <= 0) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = '⚠️ Posti esauriti, non è più possibile confermare nuove presenze.';
+        statusEl.textContent = i18n('attendance_spots_full');
       } else if (attendanceRemainingSpots !== null) {
         statusEl.style.color = '#666';
-        statusEl.textContent = `Posti ancora disponibili: ${attendanceRemainingSpots}`;
+        statusEl.textContent = `${i18n('attendance_spots_remaining')}: ${attendanceRemainingSpots}`;
       } else {
         statusEl.textContent = '';
       }
@@ -3223,40 +3226,40 @@
 
       if (!name) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Inserisci il tuo nome.';
+        statusEl.textContent = i18n('validation_name_required');
         return;
       }
 
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email || !emailPattern.test(email)) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Inserisci un\'email valida.';
+        statusEl.textContent = i18n('validation_email_required_valid');
         return;
       }
 
       const phoneDigitsCount = phone.replace(/\D/g, '').length;
       if (!phone || phoneDigitsCount < 8 || phoneDigitsCount > 15) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Inserisci un numero di telefono valido.';
+        statusEl.textContent = i18n('validation_phone_required_valid');
         return;
       }
 
       if (totalPeople < 1) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Il numero di persone deve essere almeno 1.';
+        statusEl.textContent = i18n('attendance_min_people');
         return;
       }
 
       if (children < 0 || children > totalPeople) {
         statusEl.style.color = '#b71c1c';
-        statusEl.textContent = 'Il numero di bambini non può superare il numero totale di persone.';
+        statusEl.textContent = i18n('attendance_children_exceed');
         return;
       }
 
       try {
         await api('attendance_signup', 'POST', { name, email, phone, totalPeople, children });
         statusEl.style.color = '#2e5d1f';
-        statusEl.textContent = '✅ Presenza confermata, grazie!';
+        statusEl.textContent = i18n('attendance_success');
         document.getElementById('attName').value = '';
         document.getElementById('attEmail').value = '';
         document.getElementById('attPhone').value = '';
@@ -3293,15 +3296,15 @@
 
     function openPaymentModal() {
       document.getElementById('paymentDescriptionText').textContent = paymentConfigPublic.description
-        || `Ogni giocatore è invitato a contribuire con un'offerta di € ${paymentConfigPublic.costPerPlayer.toFixed(2)} per aiutarci a coprire i costi del torneo (campi, arbitri, ristoro). Grazie di cuore!`;
+        || i18n('payment_default_description').replace('{amount}', paymentConfigPublic.costPerPlayer.toFixed(2));
 
       // Popola la selezione squadre con le squadre confermate
       const select = document.getElementById('paymentTeamSelect');
-      select.innerHTML = '<option value="">-- Scegli la squadra --</option>';
+      select.innerHTML = `<option value="">${i18n('payment_choose_team_option')}</option>`;
       (state?.teams || []).forEach(t => {
         const opt = document.createElement('option');
         opt.value = t.id;
-        opt.textContent = t.name + (t.paid ? ' ✅ (già pagato)' : '');
+        opt.textContent = t.name + (t.paid ? ` ✅ ${i18n('payment_already_paid_suffix')}` : '');
         select.appendChild(opt);
       });
 
@@ -3345,7 +3348,7 @@
         document.getElementById('paymentTotalBox').style.display = 'none';
         document.getElementById('paymentActions').style.display = 'none';
         statusEl.style.color = '#2e5d1f';
-        statusEl.textContent = '✅ Questa squadra ha già saldato la quota, grazie!';
+        statusEl.textContent = i18n('payment_already_paid_msg');
         return;
       }
 
@@ -3393,11 +3396,11 @@
       const netTotal = paymentConfigPublic.costPerPlayer * selectedNames.length;
       const grossTotal = computePaypalGrossAmount(netTotal);
       const paypalFee = grossTotal - netTotal;
-      const playersLabel = `${selectedNames.length} giocator${selectedNames.length === 1 ? 'e' : 'i'} selezionat${selectedNames.length === 1 ? 'o' : 'i'}`;
+      const playersLabel = `${selectedNames.length} ${i18n('payment_players_selected_label')}`;
 
       document.getElementById('paymentTotalValue').innerHTML = paymentConfigPublic.paypalClientId
-        ? `<div>Quota (${playersLabel}): <strong>€ ${netTotal.toFixed(2)}</strong></div>
-           <div style="font-size: 13px; color: #888; margin-top: 4px">In contanti: € ${netTotal.toFixed(2)} — con PayPal: € ${grossTotal.toFixed(2)} <span title="La commissione PayPal (3,4% + 0,35€) viene aggiunta solo se paghi online, così l'organizzatore riceve l'intera quota">(include € ${paypalFee.toFixed(2)} di commissione PayPal)</span></div>`
+        ? `<div>${i18n('payment_quota_label')} (${playersLabel}): <strong>€ ${netTotal.toFixed(2)}</strong></div>
+           <div style="font-size: 13px; color: #888; margin-top: 4px">${i18n('payment_cash_label')}: € ${netTotal.toFixed(2)} — ${i18n('payment_with_paypal_label')}: € ${grossTotal.toFixed(2)} <span title="${i18n('payment_paypal_fee_tooltip')}">(${i18n('payment_includes_fee_text').replace('{fee}', paypalFee.toFixed(2))})</span></div>`
         : `€ ${netTotal.toFixed(2)} (${playersLabel})`;
       totalBox.style.display = 'block';
       actions.style.display = 'flex';
@@ -3447,26 +3450,26 @@
                 body: JSON.stringify({ teamId, playerNames: selectedNames, netAmount: netTotal, grossAmount: grossTotal })
               });
               document.getElementById('paymentStatus').style.color = '#2e5d1f';
-              document.getElementById('paymentStatus').textContent = '✅ Pagamento completato, grazie mille!';
+              document.getElementById('paymentStatus').textContent = i18n('payment_success_msg');
               document.getElementById('paymentActions').style.display = 'none';
             } catch (e) {
-              alert('Pagamento riuscito ma errore nel registrarlo: ' + e.message);
+              alert(i18n('payment_success_but_register_error') + ' ' + e.message);
             }
           },
           onError: (err) => {
             console.error('Errore PayPal:', err);
-            alert('Si è verificato un errore con PayPal. Puoi comunque pagare in contanti.');
+            alert(i18n('paypal_generic_error'));
           }
         }).render('#paymentPaypalButtonContainer');
       } catch (e) {
-        container.innerHTML = '<p class="muted">PayPal non disponibile al momento. Puoi pagare in contanti.</p>';
+        container.innerHTML = `<p class="muted">${i18n('paypal_unavailable')}</p>`;
       }
     }
 
     function confirmCashPayment() {
       const statusEl = document.getElementById('paymentStatus');
       statusEl.style.color = '#666';
-      statusEl.textContent = 'Perfetto, consegna la quota direttamente all\'organizzatore in loco — sarà lui a registrare il pagamento per i giocatori selezionati.';
+      statusEl.textContent = i18n('payment_cash_confirmation_msg');
     }
 
     function esc(s) {
@@ -3852,11 +3855,11 @@
     async function submitShopOrderCassa() {
       const customerName = document.getElementById('shopCustomerName')?.value.trim();
       if (!customerName) {
-        alert('Inserisci il tuo nome per procedere con l\'ordine.');
+        alert(i18n('validation_name_for_order'));
         return;
       }
       if (!shopCart.length) {
-        alert('Il carrello è vuoto.');
+        alert(i18n('cart_empty_alert'));
         return;
       }
 
@@ -3872,14 +3875,15 @@
         });
         const data = await r.json();
         if (!data.ok) {
-          alert('Errore: ' + (data.error || 'invio ordine fallito'));
+          alert(i18n('order_error_prefix') + ' ' + (data.error || i18n('order_send_failed')));
           return;
         }
         shopCart = [];
         renderShopCart();
-        await showInfoDialog('✅ Ordine inviato', `Grazie ${esc(customerName)}! Il tuo ordine è stato ricevuto.\n\nPresentati in cassa per pagare e ritirare (totale: € ${data.order.total.toFixed(2)}).`);
+        const msg = i18n('order_sent_message').replace('{name}', esc(customerName)).replace('{total}', data.order.total.toFixed(2));
+        await showInfoDialog(i18n('order_sent_title'), msg);
       } catch (e) {
-        alert('Errore invio ordine: ' + e.message);
+        alert(i18n('order_send_error_prefix') + ' ' + e.message);
       }
     }
 
@@ -3916,7 +3920,7 @@
           createOrder: (data, actions) => {
             const customerName = document.getElementById('shopCustomerName')?.value.trim();
             if (!customerName) {
-              alert('Inserisci il tuo nome prima di pagare con PayPal.');
+              alert(i18n('validation_name_before_paypal'));
               return Promise.reject(new Error('Nome mancante'));
             }
             return actions.order.create({
@@ -3944,18 +3948,19 @@
               }
               shopCart = [];
               renderShopCart();
-              await showInfoDialog('✅ Pagamento completato', `Grazie ${esc(customerName)}! Il pagamento PayPal è andato a buon fine, il tuo ordine è confermato.`);
+              const msg = i18n('bar_paypal_success_message').replace('{name}', esc(customerName));
+              await showInfoDialog(i18n('bar_paypal_success_title'), msg);
             } catch (e) {
-              alert('Pagamento riuscito ma errore nel registrare l\'ordine: ' + e.message + '\nMostra la ricevuta PayPal in cassa.');
+              alert(i18n('bar_paypal_success_but_register_error') + ' ' + e.message + '\n' + i18n('bar_paypal_show_receipt'));
             }
           },
           onError: (err) => {
             console.error('Errore PayPal:', err);
-            alert('Si è verificato un errore con PayPal. Puoi comunque ordinare e pagare in cassa.');
+            alert(i18n('bar_paypal_generic_error'));
           }
         }).render('#shopPaypalButtonContainer');
       } catch (e) {
-        container.innerHTML = '<p class="muted">PayPal non disponibile al momento. Usa "Ordina e paga in cassa".</p>';
+        container.innerHTML = `<p class="muted">${i18n('bar_paypal_unavailable')}</p>`;
       }
     }
 

@@ -3221,7 +3221,10 @@
       const team = (state?.teams || []).find(t => t.id === teamId);
       if (!team) return;
 
-      if (team.paid) {
+      const allPlayers = (team.players || []).filter(p => (typeof p === 'string' ? p : p?.name));
+      const unpaidPlayers = allPlayers.filter(p => typeof p === 'string' || !p?.paid);
+
+      if (team.paid || (allPlayers.length > 0 && unpaidPlayers.length === 0)) {
         totalBox.style.display = 'none';
         actions.style.display = 'none';
         statusEl.style.color = '#2e5d1f';
@@ -3229,10 +3232,17 @@
         return;
       }
 
-      const numPlayers = (team.players || []).filter(p => (typeof p === 'string' ? p : p?.name)).length;
-      const total = paymentConfigPublic.costPerPlayer * numPlayers;
+      // 🔧 FIX: calcola l'importo solo sui giocatori che NON hanno ancora
+      // pagato (es. se uno dei due ha già saldato in contanti), invece di
+      // chiedere sempre l'importo per l'intera squadra — evitava il rischio
+      // di un pagamento doppio.
+      const numUnpaid = unpaidPlayers.length;
+      const total = paymentConfigPublic.costPerPlayer * numUnpaid;
+      const partialNote = numUnpaid < allPlayers.length
+        ? ` — ${allPlayers.length - numUnpaid} giocator${(allPlayers.length - numUnpaid) === 1 ? 'e ha' : 'i hanno'} già pagato`
+        : '';
 
-      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${numPlayers} giocator${numPlayers === 1 ? 'e' : 'i'})`;
+      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${numUnpaid} giocator${numUnpaid === 1 ? 'e' : 'i'} da pagare${partialNote})`;
       totalBox.style.display = 'block';
       actions.style.display = 'flex';
 

@@ -1007,7 +1007,7 @@
         <!-- <h1>Chiringuito Beach Volley<br>LUI&Lei 2026</h1> -->
         <img id="mainLogo" src="logo.png" alt="Logo" style="max-width: 200px; max-height: 200px;">
       </div>
-      <div class="hero-sub">Solo categoria mista | Iscrizione soggetta ad approvazione amministratore</div>
+      <div class="hero-sub" data-i18n="hero_sub">Solo categoria mista | Iscrizione soggetta ad approvazione amministratore</div>
       <div id="pageViewsBadge" style="text-align: center; font-size: 12px; color: #888; margin-top: 4px"></div>
       <div class="hero-strip">
         <div class="hero-cell">Inizio torneo 14 luglio ore 19:30</div>
@@ -1018,75 +1018,85 @@
         <div id="statsOverviewSection" style="display: contents">
         <div class="stat" onclick="showPhase('teams'); document.getElementById('mainContent').scrollIntoView({behavior: 'smooth'});" style="cursor: pointer" title="Vai alla scheda Squadre">
           <div class="n" id="statTeams">0</div>
-          <div class="l">Squadre confermate</div>
+          <div class="l" data-i18n="stat_teams_confirmed">Squadre confermate</div>
         </div>
         <div class="stat" onclick="showPhase('teams'); document.getElementById('mainContent').scrollIntoView({behavior: 'smooth'});" style="cursor: pointer" title="Vai alla scheda Squadre">
           <div class="n" id="statPending">0</div>
-          <div class="l">In attesa</div>
+          <div class="l" data-i18n="stat_pending">In attesa</div>
         </div>
         </div>
-        <div class="countdown-item"><span id="countDays">0</span><span class="countdown-label">giorni</span></div>
-        <div class="countdown-item"><span id="countHours">0</span><span class="countdown-label">ore</span></div>
-        <div class="countdown-item"><span id="countMinutes">0</span><span class="countdown-label">minuti</span></div>
-        <div class="countdown-item"><span id="countSeconds">0</span><span class="countdown-label">secondi</span></div>
+        <div class="countdown-item"><span id="countDays">0</span><span class="countdown-label" data-i18n="countdown_days">giorni</span></div>
+        <div class="countdown-item"><span id="countHours">0</span><span class="countdown-label" data-i18n="countdown_hours">ore</span></div>
+        <div class="countdown-item"><span id="countMinutes">0</span><span class="countdown-label" data-i18n="countdown_minutes">minuti</span></div>
+        <div class="countdown-item"><span id="countSeconds">0</span><span class="countdown-label" data-i18n="countdown_seconds">secondi</span></div>
       </div>
     </section>
 
     <div id="notConfiguredNotice" class="hidden"
       style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 2px solid #ff9800; border-radius: 12px; padding: 24px; text-align: center; margin-top: 16px">
-      <h2 style="color: #e65100; margin: 0 0 12px 0">🎯 Crea il tuo torneo</h2>
-      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px">Nessun torneo è stato configurato. Accedi al panel
+      <h2 style="color: #e65100; margin: 0 0 12px 0" data-i18n="not_configured_title">🎯 Crea il tuo torneo</h2>
+      <p style="color: #bf360c; margin: 0 0 16px 0; font-size: 16px" data-i18n="not_configured_text">Nessun torneo è stato configurato. Accedi al panel
         di amministrazione per iniziare.</p>
       <a href="admin.html?tab=settings" target="_blank"
-        style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s">
+        style="display: inline-block; background: #ff6f00; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: all 0.3s"
+        data-i18n="not_configured_button">
         🚀 Inizia la configurazione
       </a>
     </div>
 
     <div id="mainContent" style="display: none">
 
-      <div class="hero-links">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
+      <div class="hero-links" data-i18n-html="hero_links_admin_panel">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
           href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
       </section>
 
       <section id="newsSection" style="margin-top: 24px; display: none">
-        <h3 style="color: #2e5d1f; margin-top: 0">📰 Notizie e Comunicati</h3>
+        <h3 style="color: #2e5d1f; margin-top: 0" data-i18n="news_section_title">📰 Notizie e Comunicati</h3>
         <div id="newsList" style="display: grid; gap: 12px"></div>
       </section>
 
       <!-- Tab globali per Scoreboard -->
       <nav
-        style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap">
+        style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
         <a href="#" onclick="showPhase('iscrizione'); return false;"
           style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9"
-          onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 Iscrizione</a>
+          onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 <span data-i18n="nav_registration">Iscrizione</span></a>
         <a href="#" onclick="showPhase('teams'); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 Squadre</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 <span data-i18n="nav_teams">Squadre</span></a>
         <a href="#" onclick="showPhase('groups'); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 Gironi</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 <span data-i18n="nav_groups">Gironi</span></a>
         <a href="#" id="navBarLink" onclick="showPhase('shop'); return false;"
           style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🍹 Bar</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🍹 <span data-i18n="nav_bar">Bar</span></a>
         <a href="#" onclick="showPhase('gallery'); loadGalleryPage(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📸 Galleria</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📸 <span data-i18n="nav_gallery">Galleria</span></a>
         <a href="#" onclick="window.open('tablescore.html?current', '_blank'); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📺 Tabellone</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📺 <span data-i18n="nav_scoreboard">Tabellone</span></a>
         <a href="#" onclick="openNewsletterSignup(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 Newsletter</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
         <a href="#" id="navAttendanceLink" onclick="openAttendanceSignup(); return false;"
           style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ Partecipa</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
         <a href="#" id="navPaymentLink" onclick="openPaymentModal(); return false;"
           style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">💰 Paga la quota</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
         <a href="#" onclick="openContactModal(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 Contatti</a>
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 <span data-i18n="nav_contact">Contatti</span></a>
+
+        <!-- 🆕 Selettore lingua -->
+        <select id="languageSelector" onchange="setLanguage(this.value)" style="margin-left: auto; padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-size: 14px">
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="en">🇬🇧 English</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="zh">🇨🇳 中文</option>
+        </select>
       </nav>
 
     <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
@@ -1259,6 +1269,307 @@
 
   <script>
     const API = 'api.php';
+
+    // ==================== 🆕 i18n: LINGUA E DIZIONARI ====================
+    const translations = {
+      it: {
+        hero_sub: "Solo categoria mista | Iscrizione soggetta ad approvazione amministratore",
+        stat_teams_confirmed: "Squadre confermate",
+        stat_pending: "In attesa",
+        countdown_days: "giorni",
+        countdown_hours: "ore",
+        countdown_minutes: "minuti",
+        countdown_seconds: "secondi",
+        not_configured_title: "🎯 Crea il tuo torneo",
+        not_configured_text: "Nessun torneo è stato configurato. Accedi al panel di amministrazione per iniziare.",
+        not_configured_button: "🚀 Inizia la configurazione",
+        news_section_title: "📰 Notizie e Comunicati",
+        nav_registration: "Iscrizione",
+        nav_teams: "Squadre",
+        nav_groups: "Gironi",
+        nav_bar: "Bar",
+        nav_gallery: "Galleria",
+        nav_scoreboard: "Tabellone",
+        nav_newsletter: "Newsletter",
+        nav_attend: "Partecipa",
+        nav_pay_fee: "Paga la quota",
+        nav_contact: "Contatti",
+        hero_links_admin_panel: 'Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a href="regolamento.html" target="_blank">🏐 Regolamento</a>',
+        reg_title: "📝 Iscrizione e Squadre",
+        reg_closed_generic: "🚫 Le iscrizioni al torneo sono chiuse.",
+        reg_closed_deadline: "🚫 Le iscrizioni si sono chiuse il",
+        reg_closed_full: "🚫 È stato raggiunto il numero massimo di squadre.",
+        kit_title: "🎁 Kit del torneo",
+        reg_section_title: "Registrazione squadra",
+        reg_pending_note: "Dopo l'invio, la squadra entra in attesa finchè l'amministratore non conferma.",
+        placeholder_team_name: "Nome squadra",
+        captain_select_title: "Capitano (seleziona uno)",
+        player_label: "Giocatore",
+        required_mark: "obbligatorio",
+        optional_reserve_mark: "(riserva, opzionale)",
+        placeholder_full_name: "Nome completo",
+        placeholder_full_name_optional: "Nome completo (opzionale)",
+        level_optional: "Livello (opzionale)",
+        level_beginner: "Principiante",
+        level_intermediate: "Intermedio",
+        level_advanced: "Avanzato",
+        level_pro: "Professionista",
+        captain_label: "Capitano",
+        contacts_title: "Contatti",
+        placeholder_email: "Email (es: nome@esempio.it)",
+        placeholder_phone: "Es: 333 1234567 (o +39 333 1234567 se estero)",
+        other_info_title: "Altre informazioni",
+        privacy_checkbox_html: 'Accetto l\'<a href="policy.html" target="_blank">informativa privacy</a>',
+        cookies_checkbox_html: 'Accetto l\'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a>',
+        submit_button: "Invia iscrizione",
+        no_teams_yet: "Nessuna squadra ancora iscritta"
+      },
+      en: {
+        hero_sub: "Mixed category only | Registration subject to administrator approval",
+        stat_teams_confirmed: "Confirmed teams",
+        stat_pending: "Pending",
+        countdown_days: "days",
+        countdown_hours: "hours",
+        countdown_minutes: "minutes",
+        countdown_seconds: "seconds",
+        not_configured_title: "🎯 Create your tournament",
+        not_configured_text: "No tournament has been configured yet. Log in to the admin panel to get started.",
+        not_configured_button: "🚀 Start setup",
+        news_section_title: "📰 News & Announcements",
+        nav_registration: "Registration",
+        nav_teams: "Teams",
+        nav_groups: "Groups",
+        nav_bar: "Bar",
+        nav_gallery: "Gallery",
+        nav_scoreboard: "Scoreboard",
+        nav_newsletter: "Newsletter",
+        nav_attend: "Attend",
+        nav_pay_fee: "Pay the fee",
+        nav_contact: "Contact",
+        hero_links_admin_panel: 'Admin panel: <a href="admin.html" target="_blank">open admin</a> | <a href="regolamento.html" target="_blank">🏐 Rules</a>',
+        reg_title: "📝 Registration & Teams",
+        reg_closed_generic: "🚫 Tournament registration is closed.",
+        reg_closed_deadline: "🚫 Registration closed on",
+        reg_closed_full: "🚫 The maximum number of teams has been reached.",
+        kit_title: "🎁 Tournament kit",
+        reg_section_title: "Team registration",
+        reg_pending_note: "After submitting, the team will be pending until the administrator confirms it.",
+        placeholder_team_name: "Team name",
+        captain_select_title: "Captain (select one)",
+        player_label: "Player",
+        required_mark: "required",
+        optional_reserve_mark: "(reserve, optional)",
+        placeholder_full_name: "Full name",
+        placeholder_full_name_optional: "Full name (optional)",
+        level_optional: "Level (optional)",
+        level_beginner: "Beginner",
+        level_intermediate: "Intermediate",
+        level_advanced: "Advanced",
+        level_pro: "Professional",
+        captain_label: "Captain",
+        contacts_title: "Contacts",
+        placeholder_email: "Email (e.g. name@example.com)",
+        placeholder_phone: "E.g. +1 555 1234567 (with country code if outside Italy)",
+        other_info_title: "Other information",
+        privacy_checkbox_html: 'I accept the <a href="policy.html" target="_blank">privacy policy</a>',
+        cookies_checkbox_html: 'I accept the use of <a href="policy.html#cookies" target="_blank">cookies</a>',
+        submit_button: "Submit registration",
+        no_teams_yet: "No teams registered yet"
+      },
+      fr: {
+        hero_sub: "Catégorie mixte uniquement | Inscription soumise à l'approbation de l'administrateur",
+        stat_teams_confirmed: "Équipes confirmées",
+        stat_pending: "En attente",
+        countdown_days: "jours",
+        countdown_hours: "heures",
+        countdown_minutes: "minutes",
+        countdown_seconds: "secondes",
+        not_configured_title: "🎯 Créez votre tournoi",
+        not_configured_text: "Aucun tournoi n'a encore été configuré. Connectez-vous au panneau d'administration pour commencer.",
+        not_configured_button: "🚀 Démarrer la configuration",
+        news_section_title: "📰 Actualités et annonces",
+        nav_registration: "Inscription",
+        nav_teams: "Équipes",
+        nav_groups: "Groupes",
+        nav_bar: "Bar",
+        nav_gallery: "Galerie",
+        nav_scoreboard: "Tableau",
+        nav_newsletter: "Newsletter",
+        nav_attend: "Participer",
+        nav_pay_fee: "Payer la cotisation",
+        nav_contact: "Contact",
+        hero_links_admin_panel: 'Panneau d\'administration : <a href="admin.html" target="_blank">ouvrir admin</a> | <a href="regolamento.html" target="_blank">🏐 Règlement</a>',
+        reg_title: "📝 Inscription et équipes",
+        reg_closed_generic: "🚫 Les inscriptions au tournoi sont fermées.",
+        reg_closed_deadline: "🚫 Les inscriptions se sont fermées le",
+        reg_closed_full: "🚫 Le nombre maximum d'équipes a été atteint.",
+        kit_title: "🎁 Kit du tournoi",
+        reg_section_title: "Inscription de l'équipe",
+        reg_pending_note: "Après l'envoi, l'équipe reste en attente jusqu'à la confirmation de l'administrateur.",
+        placeholder_team_name: "Nom de l'équipe",
+        captain_select_title: "Capitaine (choisissez-en un)",
+        player_label: "Joueur",
+        required_mark: "obligatoire",
+        optional_reserve_mark: "(remplaçant, facultatif)",
+        placeholder_full_name: "Nom complet",
+        placeholder_full_name_optional: "Nom complet (facultatif)",
+        level_optional: "Niveau (facultatif)",
+        level_beginner: "Débutant",
+        level_intermediate: "Intermédiaire",
+        level_advanced: "Avancé",
+        level_pro: "Professionnel",
+        captain_label: "Capitaine",
+        contacts_title: "Contacts",
+        placeholder_email: "Email (ex : nom@exemple.fr)",
+        placeholder_phone: "Ex : +33 6 12345678 (avec indicatif si hors Italie)",
+        other_info_title: "Autres informations",
+        privacy_checkbox_html: 'J\'accepte la <a href="policy.html" target="_blank">politique de confidentialité</a>',
+        cookies_checkbox_html: 'J\'accepte l\'utilisation des <a href="policy.html#cookies" target="_blank">cookies</a>',
+        submit_button: "Envoyer l'inscription",
+        no_teams_yet: "Aucune équipe inscrite pour le moment"
+      },
+      de: {
+        hero_sub: "Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator",
+        stat_teams_confirmed: "Bestätigte Teams",
+        stat_pending: "Ausstehend",
+        countdown_days: "Tage",
+        countdown_hours: "Stunden",
+        countdown_minutes: "Minuten",
+        countdown_seconds: "Sekunden",
+        not_configured_title: "🎯 Erstelle dein Turnier",
+        not_configured_text: "Es wurde noch kein Turnier eingerichtet. Melde dich im Admin-Bereich an, um zu beginnen.",
+        not_configured_button: "🚀 Einrichtung starten",
+        news_section_title: "📰 Neuigkeiten & Ankündigungen",
+        nav_registration: "Anmeldung",
+        nav_teams: "Teams",
+        nav_groups: "Gruppen",
+        nav_bar: "Bar",
+        nav_gallery: "Galerie",
+        nav_scoreboard: "Anzeigetafel",
+        nav_newsletter: "Newsletter",
+        nav_attend: "Teilnehmen",
+        nav_pay_fee: "Gebühr bezahlen",
+        nav_contact: "Kontakt",
+        hero_links_admin_panel: 'Verwaltung: <a href="admin.html" target="_blank">Admin öffnen</a> | <a href="regolamento.html" target="_blank">🏐 Regelwerk</a>',
+        reg_title: "📝 Anmeldung & Teams",
+        reg_closed_generic: "🚫 Die Turnieranmeldung ist geschlossen.",
+        reg_closed_deadline: "🚫 Die Anmeldung wurde geschlossen am",
+        reg_closed_full: "🚫 Die maximale Anzahl an Teams wurde erreicht.",
+        kit_title: "🎁 Turnier-Kit",
+        reg_section_title: "Team-Anmeldung",
+        reg_pending_note: "Nach dem Absenden bleibt das Team ausstehend, bis der Administrator bestätigt.",
+        placeholder_team_name: "Teamname",
+        captain_select_title: "Kapitän (einen auswählen)",
+        player_label: "Spieler",
+        required_mark: "erforderlich",
+        optional_reserve_mark: "(Ersatz, optional)",
+        placeholder_full_name: "Vollständiger Name",
+        placeholder_full_name_optional: "Vollständiger Name (optional)",
+        level_optional: "Niveau (optional)",
+        level_beginner: "Anfänger",
+        level_intermediate: "Mittel",
+        level_advanced: "Fortgeschritten",
+        level_pro: "Profi",
+        captain_label: "Kapitän",
+        contacts_title: "Kontakte",
+        placeholder_email: "E-Mail (z. B. name@beispiel.de)",
+        placeholder_phone: "Z. B. +49 151 12345678 (mit Ländervorwahl außerhalb Italiens)",
+        other_info_title: "Weitere Informationen",
+        privacy_checkbox_html: 'Ich akzeptiere die <a href="policy.html" target="_blank">Datenschutzerklärung</a>',
+        cookies_checkbox_html: 'Ich akzeptiere die Verwendung von <a href="policy.html#cookies" target="_blank">Cookies</a>',
+        submit_button: "Anmeldung senden",
+        no_teams_yet: "Noch keine Teams angemeldet"
+      },
+      zh: {
+        hero_sub: "仅限混合组别 | 报名需经管理员批准",
+        stat_teams_confirmed: "已确认队伍",
+        stat_pending: "待处理",
+        countdown_days: "天",
+        countdown_hours: "小时",
+        countdown_minutes: "分钟",
+        countdown_seconds: "秒",
+        not_configured_title: "🎯 创建您的赛事",
+        not_configured_text: "尚未配置任何赛事。请登录管理面板开始设置。",
+        not_configured_button: "🚀 开始设置",
+        news_section_title: "📰 新闻与公告",
+        nav_registration: "报名",
+        nav_teams: "队伍",
+        nav_groups: "分组",
+        nav_bar: "酒吧",
+        nav_gallery: "相册",
+        nav_scoreboard: "计分板",
+        nav_newsletter: "订阅",
+        nav_attend: "参加",
+        nav_pay_fee: "支付费用",
+        nav_contact: "联系方式",
+        hero_links_admin_panel: '管理面板：<a href="admin.html" target="_blank">打开管理</a> | <a href="regolamento.html" target="_blank">🏐 规则</a>',
+        reg_title: "📝 报名与队伍",
+        reg_closed_generic: "🚫 赛事报名已关闭。",
+        reg_closed_deadline: "🚫 报名已于以下日期关闭：",
+        reg_closed_full: "🚫 已达到最大队伍数量。",
+        kit_title: "🎁 赛事装备包",
+        reg_section_title: "队伍报名",
+        reg_pending_note: "提交后，队伍将处于待处理状态，直至管理员确认。",
+        placeholder_team_name: "队伍名称",
+        captain_select_title: "队长（选择一位）",
+        player_label: "队员",
+        required_mark: "必填",
+        optional_reserve_mark: "（替补，可选）",
+        placeholder_full_name: "姓名",
+        placeholder_full_name_optional: "姓名（可选）",
+        level_optional: "水平（可选）",
+        level_beginner: "初学者",
+        level_intermediate: "中级",
+        level_advanced: "高级",
+        level_pro: "职业级",
+        captain_label: "队长",
+        contacts_title: "联系方式",
+        placeholder_email: "电子邮件（例如 name@example.com）",
+        placeholder_phone: "例如 +86 138 1234 5678（如非意大利请加国家代码）",
+        other_info_title: "其他信息",
+        privacy_checkbox_html: '我接受<a href="policy.html" target="_blank">隐私政策</a>',
+        cookies_checkbox_html: '我接受使用<a href="policy.html#cookies" target="_blank">Cookie</a>',
+        submit_button: "提交报名",
+        no_teams_yet: "暂无队伍报名"
+      }
+    };
+
+    let currentLanguage = localStorage.getItem('scoreboardLanguage') || 'it';
+
+    // Restituisce la traduzione per una chiave nella lingua attuale (con
+    // ripiego sull'italiano se la chiave non esiste in quella lingua).
+    function i18n(key) {
+      return (translations[currentLanguage] && translations[currentLanguage][key]) || translations.it[key] || key;
+    }
+
+    // Applica le traduzioni a tutti gli elementi statici marcati con
+    // data-i18n (testo semplice) o data-i18n-html (contenuto con markup,
+    // es. i link nel pannello gestione).
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = i18n(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = i18n(el.dataset.i18nHtml);
+      });
+      document.documentElement.lang = currentLanguage;
+      const selector = document.getElementById('languageSelector');
+      if (selector) selector.value = currentLanguage;
+    }
+
+    // Cambia lingua, salva la scelta e ri-applica le traduzioni.
+    function setLanguage(lang) {
+      if (!translations[lang]) return;
+      currentLanguage = lang;
+      localStorage.setItem('scoreboardLanguage', lang);
+      applyTranslations();
+      // 🆕 Il modulo di iscrizione è generato dinamicamente in JS (non è
+      // HTML statico), quindi va ridisegnato esplicitamente per riflettere
+      // subito la nuova lingua, invece di aspettare il prossimo refresh.
+      if (typeof state !== 'undefined' && state && document.getElementById('page-iscrizione')) {
+        renderIscrizione();
+      }
+    }
     let state = null;
     let config = null;
     let tournamentStartDate = new Date('2026-07-14T19:30:00'); // Default fallback
@@ -1868,7 +2179,7 @@
 
     function renderIscrizione() {
       const c = document.getElementById('page-iscrizione');
-      let html = '<h3>📝 Iscrizione e Squadre</h3>';
+      let html = `<h3>${i18n('reg_title')}</h3>`;
 
       // 🔧 FIX: usa il flag/data di chiusura dal config (non un maxTeams fisso a 16)
       const registrationsClosed = config?.tournament?.registrationsClosed ?? false;
@@ -1884,11 +2195,11 @@
 
       if (isClosed) {
         // Iscrizioni chiuse: non mostrare più il modulo di iscrizione
-        let reason = '🚫 Le iscrizioni al torneo sono chiuse.';
+        let reason = i18n('reg_closed_generic');
         if (!registrationsClosed && isDeadlineExpired) {
-          reason = `🚫 Le iscrizioni si sono chiuse il ${new Date(registrationDeadline).toLocaleString('it-IT')}.`;
+          reason = `${i18n('reg_closed_deadline')} ${new Date(registrationDeadline).toLocaleString(currentLanguage)}.`;
         } else if (!registrationsClosed && !isDeadlineExpired && isFull) {
-          reason = '🚫 È stato raggiunto il numero massimo di squadre.';
+          reason = i18n('reg_closed_full');
         }
         html += `<div style="background: #ffebee; color: #c62828; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-weight: bold">${reason}</div>`;
       } else {
@@ -1902,7 +2213,7 @@
             html += `<img src="${esc(config.kit.imageFile)}" alt="Kit torneo" style="max-width: 120px; max-height: 120px; border-radius: 8px; object-fit: cover; flex-shrink: 0">`;
           }
           html += '<div style="flex: 1; min-width: 200px">';
-          html += '<h4 style="margin: 0 0 6px 0">🎁 Kit del torneo</h4>';
+          html += `<h4 style="margin: 0 0 6px 0">${i18n('kit_title')}</h4>`;
           if (config.kit.description) {
             html += `<div style="margin: 0; color: #6a5737; line-height: 1.5">${config.kit.description}</div>`;
           }
@@ -1910,11 +2221,11 @@
         }
 
         html += '<div style="background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 24px">';
-        html += '<h4 style="margin-top: 0">Registrazione squadra</h4>';
-        html += '<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">Dopo l\'invio, la squadra entra in attesa finchè l\'amministratore non conferma.</div>';
+        html += `<h4 style="margin-top: 0">${i18n('reg_section_title')}</h4>`;
+        html += `<div class="note" style="background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 4px; margin-bottom: 12px">${i18n('reg_pending_note')}</div>`;
         html += '<div class="form-grid" id="registrationForm2">';
-        html += '<input id="fName" placeholder="Nome squadra" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">';
-        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Capitano (seleziona uno)</h4></div>';
+        html += `<input id="fName" placeholder="${i18n('placeholder_team_name')}" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">`;
+        html += `<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">${i18n('captain_select_title')}</h4></div>`;
 
         // 🆕 Loop dinamico sui giocatori in base alla configurazione del torneo:
         // i primi "maxPlayersOnCourt" sono obbligatori (sono quelli che scendono
@@ -1925,19 +2236,19 @@
         for (let i = 1; i <= playersPerTeam; i++) {
           const isRequired = i <= playersOnCourt;
           const requiredMark = isRequired
-            ? ' <span style="color: #c62828">* obbligatorio</span>'
-            : ' <span style="color: #999; font-weight: normal">(riserva, opzionale)</span>';
+            ? ` <span style="color: #c62828">* ${i18n('required_mark')}</span>`
+            : ` <span style="color: #999; font-weight: normal">${i18n('optional_reserve_mark')}</span>`;
 
           html += `<div style="grid-column: 1/-1; margin-top: 15px; padding: 12px; background: #f0f8ff; border-radius: 4px;">`;
-          html += `<h4 style="margin: 0 0 15px 0;">Giocatore ${i}${requiredMark}</h4>`;
+          html += `<h4 style="margin: 0 0 15px 0;">${i18n('player_label')} ${i}${requiredMark}</h4>`;
           html += `<div style="display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap">`;
           html += renderPlayerPhotoBox(i);
           html += `<div style="flex: 1; min-width: 180px">`;
-          const namePlaceholder = isRequired ? 'Nome completo' : 'Nome completo (opzionale)';
+          const namePlaceholder = isRequired ? i18n('placeholder_full_name') : i18n('placeholder_full_name_optional');
           html += `<input id="fP${i}" placeholder="${namePlaceholder}" style="width: 100%; box-sizing: border-box"${isRequired ? ' required' : ''}>`;
-          html += `<select id="fP${i}Level" style="padding: 8px; margin-top: 8px; width: 100%"><option value="">Livello (opzionale)</option><option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzato">Avanzato</option><option value="professionista">Professionista</option></select>`;
+          html += `<select id="fP${i}Level" style="padding: 8px; margin-top: 8px; width: 100%"><option value="">${i18n('level_optional')}</option><option value="principiante">${i18n('level_beginner')}</option><option value="intermedio">${i18n('level_intermediate')}</option><option value="avanzato">${i18n('level_advanced')}</option><option value="professionista">${i18n('level_pro')}</option></select>`;
           html += `</div></div>`;
-          html += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="${i}" id="fP${i}Captain"${i === 1 ? ' checked' : ''} style="width: auto;"><span>👑 Capitano</span></label>`;
+          html += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="${i}" id="fP${i}Captain"${i === 1 ? ' checked' : ''} style="width: auto;"><span>👑 ${i18n('captain_label')}</span></label>`;
           html += `</div>`;
         }
 
@@ -1946,15 +2257,15 @@
         // (perché questo render sovrascrive il form statico completo ad ogni
         // refresh, incluso l'auto-refresh ogni 30s) l'iscrizione si rompe con
         // un errore JS silenzioso invece di essere inviata.
-        html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Contatti</h4></div>';
-        html += '<input id="fEmail" type="email" placeholder="Email (es: nome@esempio.it)" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">';
-        html += '<input id="fPhone" type="tel" placeholder="Es: 333 1234567 (o +39 333 1234567 se estero)" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">';
+        html += `<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">${i18n('contacts_title')}</h4></div>`;
+        html += `<input id="fEmail" type="email" placeholder="${i18n('placeholder_email')}" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">`;
+        html += `<input id="fPhone" type="tel" placeholder="${i18n('placeholder_phone')}" style="width: 100%; box-sizing: border-box; grid-column: 1/-1">`;
 
         // 🆕 Campi personalizzati definiti dall'organizzatore (oltre a
         // nome/email/telefono/giocatori già previsti sopra)
         const customFields = config?.customFields || [];
         if (customFields.length) {
-          html += '<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">Altre informazioni</h4></div>';
+          html += `<div style="grid-column: 1/-1; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;"><h4 style="margin: 0 0 10px 0;">${i18n('other_info_title')}</h4></div>`;
           customFields.forEach(field => {
             const requiredAttr = field.required ? 'required' : '';
             const requiredMark = field.required ? ' *' : '';
@@ -1977,16 +2288,16 @@
         }
 
         html += '</div>'; // chiude .form-grid
-        html += '<div class="form-check"><input type="checkbox" id="fPrivacy"><label for="fPrivacy">Accetto l\'<a href="policy.html" target="_blank">informativa privacy</a></label></div>';
-        html += '<div class="form-check"><input type="checkbox" id="fCookies"><label for="fCookies">Accetto l\'utilizzo dei <a href="policy.html#cookies" target="_blank">cookie</a></label></div>';
-        html += '<div style="margin-top:10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">Invia iscrizione</button></div>';
+        html += `<div class="form-check"><input type="checkbox" id="fPrivacy"><label for="fPrivacy">${i18n('privacy_checkbox_html')}</label></div>`;
+        html += `<div class="form-check"><input type="checkbox" id="fCookies"><label for="fCookies">${i18n('cookies_checkbox_html')}</label></div>`;
+        html += `<div style="margin-top:10px;"><button class="btn" id="submitBtn" onclick="registerTeam()">${i18n('submit_button')}</button></div>`;
         html += '</div>';
       }
 
       // Lista squadre
       html += '<div style="border-top: 3px solid #ddd; padding-top: 16px; margin-top: 24px">';
       if (state.teams.length === 0) {
-        html += '<p style="color: #999">Nessuna squadra ancora iscritta</p>';
+        html += `<p style="color: #999">${i18n('no_teams_yet')}</p>`;
       }
       html += '</div>';
 
@@ -3441,6 +3752,11 @@
         console.warn('⚠️ Impossibile registrare/leggere il contatore visitatori:', e);
       }
     }
+
+    // 🆕 Applica subito la lingua salvata (o l'italiano di default), prima
+    // ancora di caricare i dati del torneo — evita un lampo di testo in
+    // italiano seguito dal cambio nella lingua scelta.
+    applyTranslations();
 
     // 🆕 Aspetta che stato del torneo E tema/logo/sfondo siano pronti
     // INSIEME prima di rivelare la pagina (rimuove la classe che la tiene

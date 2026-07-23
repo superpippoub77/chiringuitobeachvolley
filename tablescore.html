@@ -218,6 +218,39 @@
       display: flex;
     }
 
+    /* 🆕 Variante piccola per nome squadra e indicatore set/tempo — stessa
+       matrice 5x7, ma con pallini molto più piccoli visto che qui il testo
+       normale è molto più contenuto del punteggio. */
+    .dot-matrix-display.small {
+      gap: clamp(3px, 0.5vw, 6px);
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    .dot-matrix-display.small .dot-matrix-digit {
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      gap: 1px;
+    }
+    .dot-matrix-display.small .dot-matrix-dot {
+      width: clamp(2px, 0.4vw, 5px);
+      height: clamp(2px, 0.4vw, 5px);
+      box-shadow: none;
+    }
+    .dot-matrix-display.small .dot-matrix-dot.lit {
+      box-shadow: 0 0 3px currentColor;
+    }
+    body.matrix-mode .team-name,
+    body.matrix-mode .current-set {
+      display: none;
+    }
+    body.matrix-mode .dot-matrix-display.small {
+      display: flex;
+    }
+    #matrixCurrentSet {
+      color: #ff9800;
+      justify-content: center;
+    }
+
     .control-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -608,6 +641,7 @@
       <div class="match-info" id="matchInfo">Partita</div>
       <div class="match-meta" id="matchMeta"></div>
       <div class="current-set" id="currentSet">SET 1</div>
+      <div class="dot-matrix-display small" id="matrixCurrentSet"></div>
       <div id="countdownSection" style="display: none; margin-top: 10px; text-align: center">
         <div id="countdownDisplay" style="font-size: 42px; font-weight: bold; font-variant-numeric: tabular-nums; letter-spacing: 2px">25:00</div>
         <div style="margin-top: 6px; display: flex; gap: 8px; justify-content: center">
@@ -622,6 +656,7 @@
       <div class="team-section team1">
         <div>
           <div class="team-name" id="team1Name">Team 1</div>
+          <div class="dot-matrix-display small" id="matrixTeam1Name"></div>
           <div class="set-indicator" id="team1Sets"></div>
         </div>
         <div class="score-display" id="score1">0</div>
@@ -640,6 +675,7 @@
       <div class="team-section team2">
         <div>
           <div class="team-name" id="team2Name">Team 2</div>
+          <div class="dot-matrix-display small" id="matrixTeam2Name"></div>
           <div class="set-indicator" id="team2Sets"></div>
         </div>
         <div class="score-display" id="score2">0</div>
@@ -1214,10 +1250,10 @@
       renderDotMatrixNumber(matrixId, newValue, changed);
     }
 
-    // 🆕 Display a matrice di puntini (5x7, stile tabellone sportivo con
-    // lampadine): ogni cifra è definita come griglia di pallini accesi (1)
-    // o spenti (0), riga per riga.
-    const DOT_MATRIX_DIGITS = {
+    // 🆕 Font completo a matrice di puntini (5x7, stile tabellone sportivo
+    // con lampadine): cifre, lettere A-Z e simboli comuni, ognuno definito
+    // come griglia di pallini accesi (1) o spenti (0), riga per riga.
+    const DOT_MATRIX_FONT = {
       '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
       '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
       '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
@@ -1228,17 +1264,56 @@
       '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
       '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
       '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+      'A': ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+      'B': ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+      'C': ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+      'D': ['11100', '10010', '10001', '10001', '10001', '10010', '11100'],
+      'E': ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+      'F': ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+      'G': ['01111', '10000', '10000', '10111', '10001', '10001', '01111'],
+      'H': ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+      'I': ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
+      'J': ['00111', '00010', '00010', '00010', '00010', '10010', '01100'],
+      'K': ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
+      'L': ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+      'M': ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+      'N': ['10001', '11001', '10101', '10101', '10011', '10001', '10001'],
+      'O': ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+      'P': ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+      'Q': ['01110', '10001', '10001', '10001', '10101', '10010', '01101'],
+      'R': ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+      'S': ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+      'T': ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+      'U': ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
+      'V': ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
+      'W': ['10001', '10001', '10001', '10101', '10101', '10101', '01010'],
+      'X': ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
+      'Y': ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
+      'Z': ['11111', '00001', '00010', '00100', '01000', '10000', '11111'],
+      ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
+      ':': ['00000', '00100', '00000', '00000', '00000', '00100', '00000'],
       '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
-      '–': ['00000', '00000', '00000', '11111', '00000', '00000', '00000']
+      '–': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+      '.': ['00000', '00000', '00000', '00000', '00000', '00100', '00000'],
+      "'": ['00100', '00100', '00000', '00000', '00000', '00000', '00000']
     };
+    // Compatibilità con il nome usato in precedenza
+    const DOT_MATRIX_DIGITS = DOT_MATRIX_FONT;
 
     function renderDotMatrixNumber(containerId, value, animate) {
+      renderDotMatrixText(containerId, value, animate);
+    }
+
+    // 🆕 Disegna una stringa qualunque (cifre, lettere, simboli) come
+    // sequenza di cifre/lettere a matrice di puntini — usata sia per il
+    // punteggio che per nome squadra, indicatore set, ecc.
+    function renderDotMatrixText(containerId, value, animate) {
       const container = document.getElementById(containerId);
       if (!container) return;
-      const digits = String(value).split('');
+      const chars = String(value).toUpperCase().split('');
 
-      container.innerHTML = digits.map(ch => {
-        const pattern = DOT_MATRIX_DIGITS[ch] || DOT_MATRIX_DIGITS['-'];
+      container.innerHTML = chars.map(ch => {
+        const pattern = DOT_MATRIX_FONT[ch] || DOT_MATRIX_FONT['-'];
         const dotsHtml = pattern.map(row =>
           row.split('').map(bit => `<span class="dot-matrix-dot${bit === '1' ? ' lit' : ''}"></span>`).join('')
         ).join('');
@@ -1266,6 +1341,9 @@
       if (enabled) {
         renderDotMatrixNumber('matrix1', document.getElementById('score1').textContent, false);
         renderDotMatrixNumber('matrix2', document.getElementById('score2').textContent, false);
+        renderDotMatrixText('matrixCurrentSet', document.getElementById('currentSet').textContent, false);
+        renderDotMatrixText('matrixTeam1Name', document.getElementById('team1Name').textContent, false);
+        renderDotMatrixText('matrixTeam2Name', document.getElementById('team2Name').textContent, false);
       }
     }
 
@@ -1312,6 +1390,10 @@
     function cycleTeamNameDisplay(elementId, teamName, roster, index) {
       const el = document.getElementById(elementId);
       if (!el) return;
+      const matrixEl = document.getElementById(elementId === 'team1Name' ? 'matrixTeam1Name' : 'matrixTeam2Name');
+      const textForMatrix = (index === 0 || roster.length === 0) ? teamName : roster[index - 1].name;
+      if (matrixEl) renderDotMatrixText(matrixEl.id, textForMatrix, false);
+
       if (index === 0 || roster.length === 0) {
         el.innerHTML = escText(teamName);
         return;
@@ -1352,7 +1434,9 @@
       }
       document.getElementById('matchMeta').textContent = metaParts.join(' · ');
 
-      document.getElementById('currentSet').textContent = `${sportType === 'beachsoccer' ? 'TEMPO' : 'SET'} ${currentSetIndex + 1}`;
+      const currentSetLabel = `${sportType === 'beachsoccer' ? 'TEMPO' : 'SET'} ${currentSetIndex + 1}`;
+      document.getElementById('currentSet').textContent = currentSetLabel;
+      renderDotMatrixText('matrixCurrentSet', currentSetLabel, false);
 
       // Team info
       // 🔧 Il nome squadra/giocatori viene gestito dal ciclo di

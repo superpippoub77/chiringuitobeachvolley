@@ -50,6 +50,8 @@ const HISTORY_FILE = __DIR__ . '/data/history.json';
 // da squadre/torneo/config: chi si iscrive qui non fa necessariamente parte
 // di una squadra iscritta al torneo.
 const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
+// 🆕 Archivio delle campagne email inviate (squadre/newsletter/entrambi), con tracciamento aperture
+const CAMPAIGNS_FILE = __DIR__ . '/data/campaigns.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -2122,9 +2124,58 @@ function withNewsletterTransaction(callable $callback): array {
 }
 
 /**
- * 🆕 Transazione sicura (con lock file) sul file delle adesioni spettatori
- * (data/attendance.json), stesso schema di withNewsletterTransaction().
+ * 🆕 Transazione sicura (con lock file) sull'archivio delle campagne email
+ * (data/campaigns.json), stesso schema di withNewsletterTransaction().
  */
+function withCampaignsTransaction(callable $callback): array {
+    $dir = dirname(CAMPAIGNS_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(CAMPAIGNS_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile aprire l'archivio campagne"]);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile bloccare l'archivio campagne"]);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['campaigns']) ? $decoded : ['campaigns' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🔧 Lettura semplice (senza transazione) dell'archivio campagne, per gli
+ * endpoint che leggono soltanto.
+ */
+function readCampaigns(): array {
+    $data = readJsonFile(CAMPAIGNS_FILE, ['campaigns' => []]);
+    return $data['campaigns'] ?? [];
+}
+
+/**
+ * 🆕 1x1 pixel trasparente (GIF), usato per tracciare l'apertura delle
+ * email inviate tramite campagna.
+ */
+function transparentPixelGif(): string {
+    return base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7');
+}
+
 function withAttendanceTransaction(callable $callback): array {
     $dir = dirname(ATTENDANCE_FILE);
     if (!is_dir($dir)) {
@@ -5682,7 +5733,198 @@ if ($action === 'newsletter_signup' && $method === 'POST') {
     jsonResponse(200, $result);
 }
 
-// 🆕 Legge la lista iscritti newsletter (richiede autenticazione admin)
+// ==================== 🆕 CAMPAGNE EMAIL (invio massivo + archivio + tracciamento) ====================
+
+// Admin: invia una campagna email a squadre/newsletter/entrambi, e la archivia
+if ($action === 'admin_send_campaign' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $subject = mb_substr(trim((string)($body['subject'] ?? '')), 0, 200);
+    $messageBody = trim((string)($body['body'] ?? ''));
+    $recipientGroup = in_array($body['recipientGroup'] ?? '', ['teams', 'newsletter', 'both'], true) ? $body['recipientGroup'] : 'both';
+
+    if ($subject === '' || $messageBody === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Oggetto e testo del messaggio sono obbligatori']);
+    }
+
+    // Costruisci l'elenco destinatari (deduplicato per email) dalle fonti richieste
+    $recipientsByEmail = [];
+
+    if ($recipientGroup === 'teams' || $recipientGroup === 'both') {
+        $state = readJsonFile(DATA_FILE, ['teams' => []]);
+        foreach ($state['teams'] ?? [] as $team) {
+            $email = trim((string)($team['email'] ?? ''));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
+            $key = strtolower($email);
+            if (!isset($recipientsByEmail[$key])) {
+                $recipientsByEmail[$key] = ['email' => $email, 'name' => $team['name'] ?? '', 'sources' => []];
+            }
+            $recipientsByEmail[$key]['sources'][] = 'teams';
+        }
+    }
+
+    if ($recipientGroup === 'newsletter' || $recipientGroup === 'both') {
+        $newsletterList = readJsonFile(NEWSLETTER_FILE, ['subscribers' => []]);
+        foreach ($newsletterList['subscribers'] ?? [] as $sub) {
+            $email = trim((string)($sub['email'] ?? ''));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
+            $key = strtolower($email);
+            if (!isset($recipientsByEmail[$key])) {
+                $recipientsByEmail[$key] = ['email' => $email, 'name' => '', 'sources' => []];
+            }
+            $recipientsByEmail[$key]['sources'][] = 'newsletter';
+        }
+    }
+
+    if (count($recipientsByEmail) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nessun destinatario trovato per il gruppo selezionato']);
+    }
+
+    $campaignId = bin2hex(random_bytes(8));
+    $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '') . dirname($_SERVER['SCRIPT_NAME'] ?? '');
+
+    $recipients = [];
+    $sentCount = 0;
+    $failedCount = 0;
+
+    foreach ($recipientsByEmail as $r) {
+        $recipientId = bin2hex(random_bytes(6));
+        $recipients[] = [
+            'id' => $recipientId,
+            'email' => $r['email'],
+            'name' => $r['name'],
+            'sources' => array_values(array_unique($r['sources'])),
+            'openedCount' => 0,
+            'firstOpenedAt' => null,
+            'lastOpenedAt' => null
+        ];
+
+        // 🆕 Pixel di tracciamento invisibile: registra l'apertura quando il
+        // client email carica questa immagine (tecnica standard, non
+        // funziona se il client blocca il caricamento automatico delle
+        // immagini remote — in quel caso l'apertura non risulta tracciata,
+        // ma il messaggio è comunque stato recapitato).
+        $trackingPixelUrl = "$baseUrl/api.php?action=track_open&id=" . urlencode($campaignId) . "&r=" . urlencode($recipientId);
+        $htmlBody = nl2br(htmlspecialchars($messageBody)) . "<img src=\"$trackingPixelUrl\" width=\"1\" height=\"1\" style=\"display:none\" alt=\"\">";
+
+        $sendResult = sendEmail($r['email'], $subject, $htmlBody);
+        if ($sendResult['ok'] ?? false) {
+            $sentCount++;
+        } else {
+            $failedCount++;
+        }
+    }
+
+    $campaign = [
+        'id' => $campaignId,
+        'subject' => $subject,
+        'body' => $messageBody,
+        'recipientGroup' => $recipientGroup,
+        'recipients' => $recipients,
+        'sentAt' => date('c'),
+        'sentCount' => $sentCount,
+        'failedCount' => $failedCount
+    ];
+
+    withCampaignsTransaction(function (&$list) use ($campaign) {
+        $list['campaigns'][] = $campaign;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'campaign' => $campaign]);
+}
+
+// 🆕 Pixel di tracciamento apertura (pubblico, nessuna autenticazione: viene
+// caricato direttamente dal client email del destinatario). Restituisce
+// sempre un'immagine valida, anche se l'id campagna/destinatario non
+// corrisponde, per non mostrare un'icona di immagine rotta nell'email.
+if ($action === 'track_open' && $method === 'GET') {
+    $campaignId = (string)($_GET['id'] ?? '');
+    $recipientId = (string)($_GET['r'] ?? '');
+
+    if ($campaignId !== '' && $recipientId !== '') {
+        withCampaignsTransaction(function (&$list) use ($campaignId, $recipientId) {
+            foreach ($list['campaigns'] as &$campaign) {
+                if (($campaign['id'] ?? '') !== $campaignId) continue;
+                foreach ($campaign['recipients'] as &$recipient) {
+                    if (($recipient['id'] ?? '') !== $recipientId) continue;
+                    $recipient['openedCount'] = (int)($recipient['openedCount'] ?? 0) + 1;
+                    if ($recipient['firstOpenedAt'] === null) {
+                        $recipient['firstOpenedAt'] = date('c');
+                    }
+                    $recipient['lastOpenedAt'] = date('c');
+                    break;
+                }
+                unset($recipient);
+                break;
+            }
+            unset($campaign);
+            return [];
+        });
+    }
+
+    header('Content-Type: image/gif');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    echo transparentPixelGif();
+    exit;
+}
+
+// Admin: elenco campagne inviate, con le statistiche di apertura già calcolate
+if ($action === 'admin_get_campaigns' && $method === 'GET') {
+    requireAdmin();
+    $campaigns = readCampaigns();
+
+    $summaries = array_map(function ($c) {
+        $recipients = $c['recipients'] ?? [];
+        $uniqueOpens = count(array_filter($recipients, fn($r) => ($r['openedCount'] ?? 0) > 0));
+        $totalViews = array_sum(array_map(fn($r) => (int)($r['openedCount'] ?? 0), $recipients));
+        return [
+            'id' => $c['id'],
+            'subject' => $c['subject'],
+            'recipientGroup' => $c['recipientGroup'],
+            'sentAt' => $c['sentAt'],
+            'sentCount' => $c['sentCount'] ?? 0,
+            'failedCount' => $c['failedCount'] ?? 0,
+            'recipientCount' => count($recipients),
+            'uniqueOpens' => $uniqueOpens,
+            'totalViews' => $totalViews
+        ];
+    }, $campaigns);
+
+    // Più recenti in cima
+    usort($summaries, fn($a, $b) => strcmp($b['sentAt'], $a['sentAt']));
+
+    jsonResponse(200, ['ok' => true, 'campaigns' => $summaries]);
+}
+
+// Admin: dettaglio di una campagna, incluso lo stato di apertura per ogni destinatario
+if ($action === 'admin_get_campaign_detail' && $method === 'GET') {
+    requireAdmin();
+    $campaignId = (string)($_GET['id'] ?? '');
+    $campaigns = readCampaigns();
+
+    foreach ($campaigns as $c) {
+        if (($c['id'] ?? '') === $campaignId) {
+            jsonResponse(200, ['ok' => true, 'campaign' => $c]);
+        }
+    }
+
+    jsonResponse(404, ['ok' => false, 'error' => 'Campagna non trovata']);
+}
+
+// Admin: elimina una campagna dall'archivio
+if ($action === 'admin_delete_campaign' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $campaignId = (string)($body['id'] ?? '');
+
+    withCampaignsTransaction(function (&$list) use ($campaignId) {
+        $list['campaigns'] = array_values(array_filter($list['campaigns'] ?? [], fn($c) => ($c['id'] ?? '') !== $campaignId));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
 if ($action === 'admin_get_newsletter_subscribers' && $method === 'GET') {
     requireAdmin();
     $list = readJsonFile(NEWSLETTER_FILE, ['subscribers' => []]);

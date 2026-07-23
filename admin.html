@@ -886,6 +886,7 @@
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="shop" onclick="showPage('shop', this)">🍹 Bar</button>
         <button class="tab" data-page="translations" onclick="showPage('translations', this)">🌐 Traduzioni</button>
+        <button class="tab" data-page="campaigns" onclick="showPage('campaigns', this)">📧 Campagne Email</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1137,6 +1138,37 @@
         <div id="translationsEditorContainer" style="max-height: 600px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px"></div>
 
         <button class="btn btn-green" onclick="saveTranslationsLang()" style="margin-top: 12px">💾 Salva Traduzioni</button>
+      </div>
+
+      <div id="page-campaigns" class="card page hidden">
+        <h3>📧 Campagne Email</h3>
+        <p class="muted">Invia un messaggio a tutti gli iscritti delle squadre, agli iscritti alla newsletter, o a entrambi — con archivio e tracciamento delle aperture.</p>
+
+        <div class="card" style="background: #e8f0fe; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">✏️ Nuovo messaggio</h4>
+          <div class="field">
+            <label>Destinatari</label>
+            <select id="campaignRecipientGroup" style="width: 100%; padding: 8px">
+              <option value="both">Squadre iscritte + Iscritti Newsletter</option>
+              <option value="teams">Solo Squadre iscritte</option>
+              <option value="newsletter">Solo Iscritti Newsletter</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label>Oggetto</label>
+            <input id="campaignSubject" type="text" maxlength="200" placeholder="Es: Aggiornamento importante sul torneo">
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label>Messaggio</label>
+            <textarea id="campaignBody" rows="8" placeholder="Scrivi qui il messaggio da inviare..." style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit"></textarea>
+          </div>
+          <button class="btn btn-green" onclick="sendCampaign()" style="margin-top: 10px" id="sendCampaignBtn">📤 Invia Campagna</button>
+        </div>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 16px">
+          <h4 style="margin-top: 0">🗄️ Archivio Campagne</h4>
+          <div id="campaignsArchiveContainer"></div>
+        </div>
       </div>
 
       <div id="page-news" class="card page hidden">
@@ -1747,6 +1779,8 @@
         loadShopData();
       } else if (page === 'translations') {
         loadTranslationsEditor();
+      } else if (page === 'campaigns') {
+        loadCampaignsArchive();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -10600,6 +10634,125 @@ html += `
 
     // ==================== 🆕 EDITOR TRADUZIONI (i18n) ====================
     let allDictionariesCache = null; // { it: {...}, en: {...}, ... }, caricato una volta
+
+    // ==================== 🆕 CAMPAGNE EMAIL ====================
+    let campaignsArchiveCache = [];
+
+    async function sendCampaign() {
+      const recipientGroup = document.getElementById('campaignRecipientGroup').value;
+      const subject = document.getElementById('campaignSubject').value.trim();
+      const body = document.getElementById('campaignBody').value.trim();
+
+      if (!subject || !body) {
+        await showInfoDialog('Errore', 'Oggetto e messaggio sono obbligatori');
+        return;
+      }
+
+      const groupLabels = { teams: 'le squadre iscritte', newsletter: 'gli iscritti alla newsletter', both: 'squadre iscritte + iscritti newsletter' };
+      const confirmed = await showConfirmDialog('Invia campagna', `Vuoi davvero inviare questo messaggio a ${groupLabels[recipientGroup]}? L'azione non può essere annullata.`);
+      if (!confirmed) return;
+
+      const btn = document.getElementById('sendCampaignBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Invio in corso...';
+
+      try {
+        const result = await callApi('admin_send_campaign', 'POST', { subject, body, recipientGroup }, true);
+        document.getElementById('campaignSubject').value = '';
+        document.getElementById('campaignBody').value = '';
+        await showInfoDialog('✅ Campagna inviata', `Inviata a ${result.campaign.sentCount} destinatari${result.campaign.failedCount > 0 ? ` (${result.campaign.failedCount} falliti)` : ''}.`);
+        await loadCampaignsArchive();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore invio campagna: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📤 Invia Campagna';
+      }
+    }
+
+    async function loadCampaignsArchive() {
+      try {
+        const result = await callApi('admin_get_campaigns', 'GET', null, true);
+        campaignsArchiveCache = result.campaigns || [];
+        renderCampaignsArchive();
+      } catch (e) {
+        console.error('Errore caricamento archivio campagne:', e);
+      }
+    }
+
+    function renderCampaignsArchive() {
+      const container = document.getElementById('campaignsArchiveContainer');
+      if (!container) return;
+
+      if (!campaignsArchiveCache.length) {
+        container.innerHTML = '<p class="muted">Nessuna campagna inviata finora.</p>';
+        return;
+      }
+
+      const groupLabels = { teams: '👥 Squadre', newsletter: '📬 Newsletter', both: '👥📬 Entrambi' };
+
+      container.innerHTML = campaignsArchiveCache.map(c => `
+        <div class="card" style="background: white; padding: 10px 14px; margin-bottom: 8px">
+          <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 8px">
+            <div>
+              <strong>${escapeHtml(c.subject)}</strong>
+              <div style="font-size: 12px; color: #888; margin-top: 2px">${groupLabels[c.recipientGroup] || c.recipientGroup} · ${new Date(c.sentAt).toLocaleString('it-IT')}</div>
+            </div>
+            <div style="text-align: right; font-size: 13px">
+              <div>📤 ${c.sentCount} invii${c.failedCount > 0 ? ` (⚠️ ${c.failedCount} falliti)` : ''}</div>
+              <div>👁️ ${c.uniqueOpens}/${c.recipientCount} aperture uniche · ${c.totalViews} visualizzazioni totali</div>
+            </div>
+          </div>
+          <div class="row" style="margin-top: 8px">
+            <button class="btn" onclick="showCampaignDetail('${c.id}')">🔍 Dettaglio</button>
+            <button class="btn btn-danger" onclick="deleteCampaign('${c.id}')">🗑️ Elimina</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function showCampaignDetail(campaignId) {
+      try {
+        const result = await callApi(`admin_get_campaign_detail&id=${encodeURIComponent(campaignId)}`, 'GET', null, true);
+        const c = result.campaign;
+
+        const rowsHtml = c.recipients.map(r => {
+          const opened = (r.openedCount || 0) > 0;
+          return `<tr>
+            <td>${escapeHtml(r.email)}</td>
+            <td>${escapeHtml(r.name || '-')}</td>
+            <td>${(r.sources || []).join(', ')}</td>
+            <td>${opened ? `✅ ${r.openedCount}× (${new Date(r.firstOpenedAt).toLocaleString('it-IT')})` : '⏳ Non ancora aperta'}</td>
+          </tr>`;
+        }).join('');
+
+        openModal({
+          title: `Dettaglio: ${c.subject}`,
+          bodyHtml: `
+            <div style="max-height: 400px; overflow-y: auto">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px">
+                <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">Email</th><th style="text-align: left; padding: 6px">Nome</th><th style="text-align: left; padding: 6px">Fonte</th><th style="text-align: left; padding: 6px">Apertura</th></tr></thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+          `,
+          buttons: [{ text: 'Chiudi', className: 'btn', closeOnClick: true }]
+        });
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore caricamento dettaglio: ' + e.message);
+      }
+    }
+
+    async function deleteCampaign(campaignId) {
+      const confirmed = await showConfirmDialog('Elimina campagna', "Vuoi davvero rimuovere questa campagna dall'archivio? Non elimina i messaggi già inviati, solo la registrazione.");
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_campaign', 'POST', { id: campaignId }, true);
+        await loadCampaignsArchive();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
 
     async function loadTranslationsEditor() {
       try {

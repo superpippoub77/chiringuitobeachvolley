@@ -1180,12 +1180,16 @@
         <div id="paymentDescriptionText" style="font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5"></div>
         <div class="field">
           <label>Seleziona la tua squadra</label>
-          <select id="paymentTeamSelect" onchange="updatePaymentTotal()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          <select id="paymentTeamSelect" onchange="onPaymentTeamChange()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
             <option value="">-- Scegli la squadra --</option>
           </select>
         </div>
+        <div id="paymentPlayersList" style="margin-top: 12px; display: none">
+          <label>Per chi stai pagando ora?</label>
+          <div id="paymentPlayersCheckboxes" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px"></div>
+        </div>
         <div id="paymentTotalBox" style="margin-top: 14px; padding: 12px; background: #fff8ea; border-radius: 8px; text-align: center; display: none">
-          <div style="font-size: 13px; color: #6a5737">Quota totale per la squadra</div>
+          <div style="font-size: 13px; color: #6a5737">Quota per i giocatori selezionati</div>
           <div id="paymentTotalValue" style="font-size: 24px; font-weight: bold; color: #d32f2f">€ 0.00</div>
         </div>
         <div id="paymentStatus" style="margin-top: 10px; font-size: 13px"></div>
@@ -3195,6 +3199,7 @@
         select.appendChild(opt);
       });
 
+      document.getElementById('paymentPlayersList').style.display = 'none';
       document.getElementById('paymentTotalBox').style.display = 'none';
       document.getElementById('paymentActions').style.display = 'none';
       document.getElementById('paymentStatus').textContent = '';
@@ -3205,16 +3210,21 @@
       document.getElementById('paymentOverlay').classList.add('hidden');
     }
 
-    function updatePaymentTotal() {
+    // 🆕 Quando si sceglie la squadra, mostra un checkbox per ogni giocatore
+    // NON ancora pagato — selezionati tutti di default (paga per tutta la
+    // squadra), ma si può deselezionare chi non si vuole pagare ora (es. se
+    // stai pagando solo per te stesso e non per il compagno di squadra).
+    function onPaymentTeamChange() {
       const teamId = document.getElementById('paymentTeamSelect').value;
-      const totalBox = document.getElementById('paymentTotalBox');
-      const actions = document.getElementById('paymentActions');
+      const playersListBox = document.getElementById('paymentPlayersList');
+      const checkboxesContainer = document.getElementById('paymentPlayersCheckboxes');
       const statusEl = document.getElementById('paymentStatus');
       statusEl.textContent = '';
 
       if (!teamId) {
-        totalBox.style.display = 'none';
-        actions.style.display = 'none';
+        playersListBox.style.display = 'none';
+        document.getElementById('paymentTotalBox').style.display = 'none';
+        document.getElementById('paymentActions').style.display = 'none';
         return;
       }
 
@@ -3225,29 +3235,52 @@
       const unpaidPlayers = allPlayers.filter(p => typeof p === 'string' || !p?.paid);
 
       if (team.paid || (allPlayers.length > 0 && unpaidPlayers.length === 0)) {
-        totalBox.style.display = 'none';
-        actions.style.display = 'none';
+        playersListBox.style.display = 'none';
+        document.getElementById('paymentTotalBox').style.display = 'none';
+        document.getElementById('paymentActions').style.display = 'none';
         statusEl.style.color = '#2e5d1f';
         statusEl.textContent = '✅ Questa squadra ha già saldato la quota, grazie!';
         return;
       }
 
-      // 🔧 FIX: calcola l'importo solo sui giocatori che NON hanno ancora
-      // pagato (es. se uno dei due ha già saldato in contanti), invece di
-      // chiedere sempre l'importo per l'intera squadra — evitava il rischio
-      // di un pagamento doppio.
-      const numUnpaid = unpaidPlayers.length;
-      const total = paymentConfigPublic.costPerPlayer * numUnpaid;
-      const partialNote = numUnpaid < allPlayers.length
-        ? ` — ${allPlayers.length - numUnpaid} giocator${(allPlayers.length - numUnpaid) === 1 ? 'e ha' : 'i hanno'} già pagato`
-        : '';
+      // Un checkbox per ogni giocatore non ancora pagato, selezionato di default
+      checkboxesContainer.innerHTML = unpaidPlayers.map((p, idx) => {
+        const name = typeof p === 'string' ? p : p.name;
+        return `<label style="display: flex; align-items: center; gap: 8px; font-weight: normal">
+          <input type="checkbox" class="payment-player-checkbox" value="${esc(name)}" checked onchange="updatePaymentTotal()">
+          ${esc(name)}
+        </label>`;
+      }).join('');
 
-      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${numUnpaid} giocator${numUnpaid === 1 ? 'e' : 'i'} da pagare${partialNote})`;
+      playersListBox.style.display = 'block';
+      updatePaymentTotal();
+    }
+
+    function updatePaymentTotal() {
+      const teamId = document.getElementById('paymentTeamSelect').value;
+      const totalBox = document.getElementById('paymentTotalBox');
+      const actions = document.getElementById('paymentActions');
+      if (!teamId) return;
+
+      const selectedNames = Array.from(document.querySelectorAll('.payment-player-checkbox:checked')).map(cb => cb.value);
+
+      if (selectedNames.length === 0) {
+        totalBox.style.display = 'none';
+        actions.style.display = 'none';
+        return;
+      }
+
+      // 🆕 L'importo si calcola solo sui giocatori selezionati ORA (permette
+      // di pagare una quota parziale, per una parte soltanto dei giocatori
+      // ancora da pagare, invece di forzare sempre il totale intero).
+      const total = paymentConfigPublic.costPerPlayer * selectedNames.length;
+
+      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${selectedNames.length} giocator${selectedNames.length === 1 ? 'e' : 'i'} selezionat${selectedNames.length === 1 ? 'o' : 'i'})`;
       totalBox.style.display = 'block';
       actions.style.display = 'flex';
 
       if (paymentConfigPublic.paypalClientId) {
-        renderPaymentPaypalButton(teamId, total);
+        renderPaymentPaypalButton(teamId, total, selectedNames);
       } else {
         document.getElementById('paymentPaypalButtonContainer').innerHTML = '';
       }
@@ -3269,7 +3302,7 @@
     // client (l'SDK PayPal gestisce l'addebito reale), ma la conferma
     // "pagato" sul nostro server si fida della risposta del browser dopo
     // l'approvazione — senza verifica server-to-server con le API PayPal.
-    async function renderPaymentPaypalButton(teamId, total) {
+    async function renderPaymentPaypalButton(teamId, total, selectedNames) {
       const container = document.getElementById('paymentPaypalButtonContainer');
       container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
 
@@ -3287,7 +3320,7 @@
             await actions.order.capture();
             try {
               await fetch(`${API}?action=payment_confirm_team_fee_paid`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId, playerNames: selectedNames })
               });
               document.getElementById('paymentStatus').style.color = '#2e5d1f';
               document.getElementById('paymentStatus').textContent = '✅ Pagamento completato, grazie mille!';
@@ -3309,7 +3342,7 @@
     function confirmCashPayment() {
       const statusEl = document.getElementById('paymentStatus');
       statusEl.style.color = '#666';
-      statusEl.textContent = 'Perfetto, consegna la quota direttamente all\'organizzatore in loco — sarà lui a registrare il pagamento.';
+      statusEl.textContent = 'Perfetto, consegna la quota direttamente all\'organizzatore in loco — sarà lui a registrare il pagamento per i giocatori selezionati.';
     }
 
     function esc(s) {

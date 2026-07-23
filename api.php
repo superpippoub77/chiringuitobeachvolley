@@ -10496,19 +10496,41 @@ if ($action === 'payment_confirm_team_fee_paid' && $method === 'POST') {
         jsonResponse(403, ['ok' => false, 'error' => 'Il pagamento della quota non è al momento disponibile']);
     }
 
+    // 🆕 Pagamento parziale: se il body include "playerNames" (elenco dei
+    // nomi per cui si sta pagando ORA), segna pagati solo quei giocatori
+    // specifici — non necessariamente tutta la squadra. Se "playerNames"
+    // non viene inviato, mantiene il comportamento precedente (segna tutti,
+    // per compatibilità con eventuali chiamate già esistenti).
+    $playerNames = null;
+    if (isset($body['playerNames']) && is_array($body['playerNames'])) {
+        $playerNames = array_map(fn($n) => trim((string)$n), $body['playerNames']);
+    }
+
     $found = false;
-    withStateTransaction(function (&$state) use ($teamId, &$found) {
+    withStateTransaction(function (&$state) use ($teamId, $playerNames, &$found) {
         foreach ($state['teams'] as &$team) {
             if ($team['id'] !== $teamId) continue;
             $found = true;
-            $team['paid'] = true;
-            $team['paidVia'] = 'paypal';
+
             foreach ($team['players'] as &$player) {
-                if (is_array($player)) {
+                if (!is_array($player)) continue;
+                if ($playerNames === null || in_array($player['name'] ?? '', $playerNames, true)) {
                     $player['paid'] = true;
                 }
             }
             unset($player);
+
+            // Ricalcola il flag della squadra: pagata solo se TUTTI i
+            // giocatori (con nome) risultano ora pagati.
+            $namedPlayers = array_filter($team['players'], fn($p) => is_array($p) && !empty($p['name']));
+            $allPaid = count($namedPlayers) > 0;
+            foreach ($namedPlayers as $p) {
+                if (empty($p['paid'])) { $allPaid = false; break; }
+            }
+            $team['paid'] = $allPaid;
+            if ($allPaid) {
+                $team['paidVia'] = 'paypal';
+            }
             break;
         }
         unset($team);

@@ -1024,7 +1024,7 @@
           
           <div id="paymentFieldsContainer" style="display: none; margin-top: 10px">
             <div class="field">
-              <label>Quota per squadra ({{currency}})</label>
+              <label>Quota per squadra (<span id="costPerTeamCurrencyLabel">EUR</span>)</label>
               <input id="costPerTeam" type="number" min="0" step="0.01" value="0" placeholder="Es: 50.00">
               <small style="color: #666">Importo fisso per l'intera squadra (funzionalità esistente)</small>
             </div>
@@ -1035,7 +1035,7 @@
             </div>
             <div class="field" style="margin-top: 10px">
               <label>Valuta</label>
-              <select id="paymentCurrency" style="width: 100%; padding: 6px">
+              <select id="paymentCurrency" style="width: 100%; padding: 6px" onchange="document.getElementById('costPerTeamCurrencyLabel').textContent = this.value">
                 <option value="EUR">EUR (€)</option>
                 <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
@@ -10332,6 +10332,7 @@ html += `
         document.getElementById('paymentEnabled').checked = paymentConfig.enabled;
         document.getElementById('costPerTeam').value = paymentConfig.costPerTeam;
         document.getElementById('paymentCurrency').value = paymentConfig.currency;
+        document.getElementById('costPerTeamCurrencyLabel').textContent = paymentConfig.currency;
         document.getElementById('costPerPlayer').value = paymentConfig.costPerPlayer || 0;
         document.getElementById('paymentDescription').value = paymentConfig.description || '';
         document.getElementById('paymentPaypalClientId').value = paymentConfig.paypalClientId || '';

@@ -152,6 +152,29 @@
       letter-spacing: 1px;
     }
 
+    /* 🆕 Link del menu principale: stato attivo gestito da showPhase() via
+       classe CSS, invece di uno stile "attivo" scritto fisso nell'HTML che
+       non veniva mai aggiornato al cambio scheda. */
+    .main-nav-link {
+      color: #666;
+      text-decoration: none;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .main-nav-link:hover {
+      background: #f0f0f0;
+    }
+    .main-nav-link.active {
+      color: #2e5d1f;
+      font-weight: bold;
+      background: #e8f5e9;
+    }
+    .main-nav-link.active:hover {
+      background: #e8f5e9;
+    }
+
     .hero-sub {
       position: relative;
       z-index: 1;
@@ -1066,36 +1089,16 @@
       <!-- Tab globali per Scoreboard -->
       <nav
         style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
-        <a href="#" onclick="showPhase('iscrizione'); return false;"
-          style="color: #2e5d1f; text-decoration: none; font-weight: bold; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s; background: #e8f5e9"
-          onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='#e8f5e9'">📝 <span data-i18n="nav_registration">Iscrizione</span></a>
-        <a href="#" onclick="showPhase('teams'); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">👥 <span data-i18n="nav_teams">Squadre</span></a>
-        <a href="#" onclick="showPhase('groups'); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📊 <span data-i18n="nav_groups">Gironi</span></a>
-        <a href="#" id="navBarLink" onclick="showPhase('shop'); return false;"
-          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🍹 <span data-i18n="nav_bar">Bar</span></a>
-        <a href="#" onclick="showPhase('gallery'); loadGalleryPage(); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📸 <span data-i18n="nav_gallery">Galleria</span></a>
-        <a href="#" onclick="window.open('tablescore.html?current', '_blank'); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📺 <span data-i18n="nav_scoreboard">Tabellone</span></a>
-        <a href="#" onclick="openNewsletterSignup(); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
-        <a href="#" id="navAttendanceLink" onclick="openAttendanceSignup(); return false;"
-          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
-        <a href="#" id="navPaymentLink" onclick="openPaymentModal(); return false;"
-          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
-        <a href="#" onclick="openContactModal(); return false;"
-          style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
-          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 <span data-i18n="nav_contact">Contatti</span></a>
+        <a href="#" class="main-nav-link active" data-phase="iscrizione" onclick="showPhase('iscrizione'); return false;">📝 <span data-i18n="nav_registration">Iscrizione</span></a>
+        <a href="#" class="main-nav-link" data-phase="teams" onclick="showPhase('teams'); return false;">👥 <span data-i18n="nav_teams">Squadre</span></a>
+        <a href="#" class="main-nav-link" data-phase="groups" onclick="showPhase('groups'); return false;">📊 <span data-i18n="nav_groups">Gironi</span></a>
+        <a href="#" id="navBarLink" class="main-nav-link" data-phase="shop" style="display: none" onclick="showPhase('shop'); return false;">🍹 <span data-i18n="nav_bar">Bar</span></a>
+        <a href="#" class="main-nav-link" data-phase="gallery" onclick="showPhase('gallery'); loadGalleryPage(); return false;">📸 <span data-i18n="nav_gallery">Galleria</span></a>
+        <a href="#" class="main-nav-link" onclick="window.open('tablescore.html?current', '_blank'); return false;">📺 <span data-i18n="nav_scoreboard">Tabellone</span></a>
+        <a href="#" class="main-nav-link" onclick="openNewsletterSignup(); return false;">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
+        <a href="#" id="navAttendanceLink" class="main-nav-link" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
+        <a href="#" id="navPaymentLink" class="main-nav-link" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
+        <a href="#" class="main-nav-link" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
       </nav>
 
     <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
@@ -2085,6 +2088,13 @@
       sections.forEach(s => s.style.display = 'none');
       const target = document.getElementById(`page-${phase}`);
       if (target) target.style.display = 'block';
+
+      // 🔧 FIX: il tab evidenziato nel menu restava sempre su "Iscrizione"
+      // perché nessun codice aggiornava lo stato attivo al cambio scheda —
+      // ora lo stile "attivo" segue la scheda realmente mostrata.
+      document.querySelectorAll('.main-nav-link[data-phase]').forEach(link => {
+        link.classList.toggle('active', link.dataset.phase === phase);
+      });
     }
 
     function showGironiTab(tab) {

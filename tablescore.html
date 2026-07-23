@@ -141,6 +141,31 @@
       font-family: 'DSEG7 Classic', 'Courier New', monospace;
       letter-spacing: 4px;
       white-space: nowrap;
+      /* 🔧 FIX: il letter-spacing aggiunge spazio anche DOPO l'ultimo
+         carattere, e text-align: center centra il box includendo quello
+         spazio extra — il risultato è che il numero appare spostato verso
+         destra rispetto al vero centro, tanto più quante più cifre ha (es.
+         "10" o "21" più visibilmente di "5"). Il margine negativo qui sotto
+         compensa esattamente quello spazio in eccesso. */
+      text-align: center;
+      margin-left: -4px;
+    }
+
+    /* 🆕 Effetto sul cambio numero, scelto dall'interruttore in pagina. */
+    .score-display.effect-pulse.score-changed {
+      animation: scorePulse 0.4s ease-out;
+    }
+    .score-display.effect-fade.score-changed {
+      animation: scoreFade 0.4s ease-out;
+    }
+    @keyframes scorePulse {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+    @keyframes scoreFade {
+      0% { opacity: 0.15; }
+      100% { opacity: 1; }
     }
 
     .team-section.team1 .score-display {
@@ -312,18 +337,69 @@
       display: none !important;
     }
 
-    .live-badge {
+    /* 🆕 Sponsor a scorrimento in basso, stesso stile di scoreboard.html */
+    #sponsorTickerContainer {
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      z-index: 500 !important;
+      width: 100% !important;
+      margin: 0 !important;
       display: none;
+    }
+    body.has-sponsors {
+      padding-bottom: 90px;
+    }
+    .sponsor-ticker-wrapper {
+      width: 100%;
+      overflow: hidden;
+      padding: 8px 0;
+      background: rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(4px);
+    }
+    .sponsor-ticker-track {
+      display: flex;
+      gap: 40px;
+      animation: sponsorTicker 20s linear infinite;
+      padding: 0 20px;
+      white-space: nowrap;
+      align-items: center;
+    }
+    .sponsor-ticker-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      flex-shrink: 0;
+      font-weight: bold;
+      color: #222;
+      font-size: 14px;
+    }
+    .sponsor-logo {
+      max-width: 70px;
+      max-height: 40px;
+      object-fit: contain;
+    }
+    @keyframes sponsorTicker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+    .sponsor-ticker-track:hover {
+      animation-play-state: paused;
+    }
+
+    .live-badge {
+      display: block;
       text-align: center;
       margin-bottom: 10px;
       font-size: 13px;
       font-weight: bold;
       color: #e53935;
       letter-spacing: 1px;
-    }
-
-    body.view-mode .live-badge {
-      display: block;
     }
 
     .live-badge .dot {
@@ -473,6 +549,12 @@
 </head>
 <body>
   <button id="colorSchemeToggle" onclick="toggleColorScheme()" title="Inverti colori (sfondo chiaro/scuro)">🌓</button>
+  <select id="scoreEffectSelect" onchange="setScoreEffect(this.value)" title="Effetto sul cambio punteggio"
+    style="position: fixed; top: 16px; left: 16px; z-index: 500; padding: 8px 12px; border-radius: 24px; border: 2px solid #ff9800; background: #1a1a1a; color: #fff; font-size: 13px; cursor: pointer">
+    <option value="pulse">✨ Pulse</option>
+    <option value="fade">🌫️ Fade</option>
+    <option value="none">Nessun effetto</option>
+  </select>
   <div class="scoreboard">
     <div class="live-badge"><span class="dot"></span>LIVE — aggiornamento automatico</div>
     <div class="header">
@@ -538,6 +620,13 @@
 
     <div class="status-info" id="statusInfo">
       Auto-save attivato
+    </div>
+  </div>
+
+  <!-- 🆕 Sponsor a scorrimento in basso -->
+  <div id="sponsorTickerContainer">
+    <div class="sponsor-ticker-wrapper">
+      <div class="sponsor-ticker-track" id="sponsorTickerTrack"></div>
     </div>
   </div>
 
@@ -802,6 +891,9 @@
     }
 
     async function initTablescore() {
+      const effectSelect = document.getElementById('scoreEffectSelect');
+      if (effectSelect) effectSelect.value = scoreEffect;
+
       const params = new URLSearchParams(window.location.search);
       matchId = params.get('matchId');
       phaseNumber = params.get('phase');
@@ -1038,6 +1130,101 @@
       scoreboardState.team2.score = currentSet.team2;
     }
 
+    // 🆕 Effetto visivo quando il punteggio cambia (pulse o fade), scelto
+    // dall'interruttore in pagina e salvato nel browser. Applicato solo se
+    // il valore è realmente diverso da quello mostrato prima.
+    let scoreEffect = localStorage.getItem('tablescoreEffect') || 'pulse';
+    const lastScoreValues = {};
+
+    function setScoreEffect(effect) {
+      scoreEffect = effect;
+      localStorage.setItem('tablescoreEffect', effect);
+    }
+
+    function updateScoreWithEffect(elementId, newValue) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const changed = lastScoreValues[elementId] !== undefined && lastScoreValues[elementId] !== newValue;
+      el.textContent = newValue;
+      lastScoreValues[elementId] = newValue;
+
+      if (changed && scoreEffect !== 'none') {
+        el.classList.remove('effect-pulse', 'effect-fade', 'score-changed');
+        void el.offsetWidth; // forza il reflow, cosi' l'animazione riparte anche se la classe era gia' presente
+        el.classList.add(scoreEffect === 'fade' ? 'effect-fade' : 'effect-pulse');
+        el.classList.add('score-changed');
+      }
+    }
+
+    // 🆕 Alternanza nome squadra / giocatori (con foto se presenti), sopra
+    // al punteggio. Le rose si recuperano da get_public (stesso endpoint
+    // pubblico usato per la modalita' sola visualizzazione), abbinando le
+    // squadre per nome — funziona sia in modalita' admin che spettatore.
+    // Caricate una sola volta, quando i nomi squadra sono ormai noti.
+    function escText(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    let teamRosters = { team1: [], team2: [] }; // ogni elemento: {name, imageFile}
+    let nameCycleIndex1 = 0, nameCycleIndex2 = 0;
+    let nameCycleInterval = null;
+    let rostersLoadedForTeams = ''; // evita di ricaricare le rose ad ogni render()
+
+    async function loadTeamRostersIfNeeded() {
+      const teamsKey = `${scoreboardState.team1.name}|${scoreboardState.team2.name}`;
+      if (!scoreboardState.team1.name || !scoreboardState.team2.name) return;
+      if (rostersLoadedForTeams === teamsKey) return;
+      rostersLoadedForTeams = teamsKey;
+
+      try {
+        const response = await fetch(`${API}?action=get_public`);
+        const data = await response.json();
+        if (!data.ok || !data.data || !data.data.teams) return;
+
+        const normalizeRoster = players => (players || [])
+          .map(p => typeof p === 'string' ? { name: p, imageFile: null } : { name: p?.name || '', imageFile: p?.imageFile || null })
+          .filter(p => p.name);
+
+        const t1 = data.data.teams.find(t => t.name === scoreboardState.team1.name);
+        const t2 = data.data.teams.find(t => t.name === scoreboardState.team2.name);
+        teamRosters.team1 = normalizeRoster(t1?.players);
+        teamRosters.team2 = normalizeRoster(t2?.players);
+
+        startNameCycling();
+      } catch (e) {
+        console.error('Errore caricamento rose squadra:', e);
+      }
+    }
+
+    function cycleTeamNameDisplay(elementId, teamName, roster, index) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      if (index === 0 || roster.length === 0) {
+        el.innerHTML = escText(teamName);
+        return;
+      }
+      const player = roster[index - 1];
+      const photoHtml = player.imageFile
+        ? `<img src="${player.imageFile}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; margin-right: 8px; border: 2px solid currentColor">`
+        : '';
+      el.innerHTML = `${photoHtml}${escText(player.name)}`;
+    }
+
+    function startNameCycling() {
+      if (nameCycleInterval) clearInterval(nameCycleInterval);
+      nameCycleIndex1 = 0;
+      nameCycleIndex2 = 0;
+      // Mostra subito il nome squadra, senza aspettare il primo tick
+      cycleTeamNameDisplay('team1Name', scoreboardState.team1.name, teamRosters.team1, 0);
+      cycleTeamNameDisplay('team2Name', scoreboardState.team2.name, teamRosters.team2, 0);
+      nameCycleInterval = setInterval(() => {
+        nameCycleIndex1 = (nameCycleIndex1 + 1) % (teamRosters.team1.length + 1);
+        nameCycleIndex2 = (nameCycleIndex2 + 1) % (teamRosters.team2.length + 1);
+        cycleTeamNameDisplay('team1Name', scoreboardState.team1.name, teamRosters.team1, nameCycleIndex1);
+        cycleTeamNameDisplay('team2Name', scoreboardState.team2.name, teamRosters.team2, nameCycleIndex2);
+      }, 3500);
+    }
+
     function render() {
       // Header
       document.getElementById('matchInfo').textContent = `${scoreboardState.team1.name} vs ${scoreboardState.team2.name}`;
@@ -1055,12 +1242,23 @@
       document.getElementById('currentSet').textContent = `${sportType === 'beachsoccer' ? 'TEMPO' : 'SET'} ${currentSetIndex + 1}`;
 
       // Team info
-      document.getElementById('team1Name').textContent = scoreboardState.team1.name;
-      document.getElementById('team2Name').textContent = scoreboardState.team2.name;
+      // 🔧 Il nome squadra/giocatori viene gestito dal ciclo di
+      // visualizzazione (cycleTeamNameDisplay). Se il ciclo non è ancora
+      // partito (rose non ancora caricate), mostra subito il nome squadra
+      // come fallback per non lasciare un vuoto — una volta partito, non
+      // lo tocca più qui, cosi' un render() periodico (auto-refresh) non
+      // interrompe il ciclo mentre sta mostrando un giocatore.
+      if (!nameCycleInterval) {
+        document.getElementById('team1Name').textContent = scoreboardState.team1.name;
+        document.getElementById('team2Name').textContent = scoreboardState.team2.name;
+      }
+      loadTeamRostersIfNeeded();
 
       // Scores
-      document.getElementById('score1').textContent = scoreboardState.team1.score;
-      document.getElementById('score2').textContent = scoreboardState.team2.score;
+      // 🆕 Applica l'effetto scelto (pulse/fade) solo quando il numero
+      // cambia davvero, non ad ogni aggiornamento periodico della pagina.
+      updateScoreWithEffect('score1', scoreboardState.team1.score);
+      updateScoreWithEffect('score2', scoreboardState.team2.score);
 
       // Set indicators
       renderSetIndicators();
@@ -1402,6 +1600,48 @@
 
     // Inizializza
     initTablescore();
+
+    // 🆕 Sponsor a scorrimento in basso (stesso meccanismo di scoreboard.html)
+    async function loadSponsorsTicker() {
+      try {
+        const response = await fetch(`${API}?action=get_sponsors`);
+        const data = await response.json();
+        if (data.ok && data.sponsors && data.sponsors.length > 0) {
+          renderSponsorTicker(data.sponsors);
+        }
+      } catch (e) {
+        console.error('Errore caricamento sponsor:', e);
+      }
+    }
+
+    function renderSponsorTicker(sponsors) {
+      const container = document.getElementById('sponsorTickerContainer');
+      const track = document.getElementById('sponsorTickerTrack');
+      if (!container || !track) return;
+
+      if (!sponsors || sponsors.length === 0) {
+        container.style.display = 'none';
+        document.body.classList.remove('has-sponsors');
+        return;
+      }
+
+      const sponsorItems = [];
+      sponsors.forEach(sponsor => {
+        const repetitions = sponsor.repetitions || 1;
+        for (let i = 0; i < repetitions; i++) sponsorItems.push(sponsor);
+      });
+      const allSponsors = [...sponsorItems, ...sponsorItems];
+
+      track.innerHTML = allSponsors.map(sponsor => {
+        const logoHtml = sponsor.logoFile ? `<img src="${sponsor.logoFile}" alt="${sponsor.name}" class="sponsor-logo">` : '';
+        return `<div class="sponsor-ticker-item">${logoHtml}<span>${sponsor.name || ''}</span></div>`;
+      }).join('');
+
+      container.style.display = 'block';
+      document.body.classList.add('has-sponsors');
+    }
+
+    loadSponsorsTicker();
 
     // Auto-save ogni 10 secondi (silenzioso: non mostra alert in caso di errore)
     setInterval(() => saveMatch(true), 10000);

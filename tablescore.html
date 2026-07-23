@@ -176,6 +176,48 @@
       color: #f44336;
     }
 
+    /* 🆕 Display a matrice di puntini (stile tabellone sportivo con
+       lampadine): ogni cifra è una griglia 5x7 di pallini, alcuni accesi
+       (colorati e luminosi) e altri spenti (grigio scuro, appena visibili
+       — come le lampadine non accese di un vero tabellone a matrice). */
+    .dot-matrix-display {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      gap: clamp(6px, 1.2vw, 16px);
+      margin: 20px 0;
+      flex-wrap: nowrap;
+    }
+    .dot-matrix-digit {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(7, 1fr);
+      gap: clamp(2px, 0.4vw, 6px);
+    }
+    .dot-matrix-dot {
+      width: clamp(8px, 1.8vw, 26px);
+      height: clamp(8px, 1.8vw, 26px);
+      border-radius: 50%;
+      background: rgba(120, 120, 120, 0.18);
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .dot-matrix-dot.lit {
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor, 0 0 16px currentColor;
+    }
+    .team-section.team1 .dot-matrix-display {
+      color: #2196F3;
+    }
+    .team-section.team2 .dot-matrix-display {
+      color: #f44336;
+    }
+    body.matrix-mode .score-display {
+      display: none;
+    }
+    body.matrix-mode .dot-matrix-display {
+      display: flex;
+    }
+
     .control-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -555,6 +597,11 @@
     <option value="fade">🌫️ Fade</option>
     <option value="none">Nessun effetto</option>
   </select>
+  <label id="matrixModeToggleLabel" title="Mostra i numeri come un display a matrice di puntini (lampadine)"
+    style="position: fixed; top: 16px; left: 190px; z-index: 500; padding: 8px 14px; border-radius: 24px; border: 2px solid #ff9800; background: #1a1a1a; color: #fff; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px">
+    <input type="checkbox" id="matrixModeToggle" onchange="setMatrixMode(this.checked)" style="cursor: pointer">
+    🔴 Matrice a puntini
+  </label>
   <div class="scoreboard">
     <div class="live-badge"><span class="dot"></span>LIVE — aggiornamento automatico</div>
     <div class="header">
@@ -578,6 +625,7 @@
           <div class="set-indicator" id="team1Sets"></div>
         </div>
         <div class="score-display" id="score1">0</div>
+        <div class="dot-matrix-display" id="matrix1"></div>
         <div>
           <div class="control-buttons">
             <button class="btn-control btn-plus" onclick="addPointTeam1()">➕ +1</button>
@@ -595,6 +643,7 @@
           <div class="set-indicator" id="team2Sets"></div>
         </div>
         <div class="score-display" id="score2">0</div>
+        <div class="dot-matrix-display" id="matrix2"></div>
         <div>
           <div class="control-buttons">
             <button class="btn-control btn-plus" onclick="addPointTeam2()">➕ +1</button>
@@ -894,6 +943,10 @@
       const effectSelect = document.getElementById('scoreEffectSelect');
       if (effectSelect) effectSelect.value = scoreEffect;
 
+      const matrixToggle = document.getElementById('matrixModeToggle');
+      if (matrixToggle) matrixToggle.checked = matrixModeEnabled;
+      if (matrixModeEnabled) document.body.classList.add('matrix-mode');
+
       const params = new URLSearchParams(window.location.search);
       matchId = params.get('matchId');
       phaseNumber = params.get('phase');
@@ -1153,6 +1206,66 @@
         void el.offsetWidth; // forza il reflow, cosi' l'animazione riparte anche se la classe era gia' presente
         el.classList.add(scoreEffect === 'fade' ? 'effect-fade' : 'effect-pulse');
         el.classList.add('score-changed');
+      }
+
+      // 🆕 Aggiorna anche il display a matrice di puntini (se attivo), con
+      // lo stesso effetto pulse/fade del numero normale al cambio valore.
+      const matrixId = elementId === 'score1' ? 'matrix1' : 'matrix2';
+      renderDotMatrixNumber(matrixId, newValue, changed);
+    }
+
+    // 🆕 Display a matrice di puntini (5x7, stile tabellone sportivo con
+    // lampadine): ogni cifra è definita come griglia di pallini accesi (1)
+    // o spenti (0), riga per riga.
+    const DOT_MATRIX_DIGITS = {
+      '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+      '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+      '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+      '3': ['11111', '00010', '00100', '00010', '00001', '10001', '01110'],
+      '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+      '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
+      '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
+      '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+      '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+      '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+      '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+      '–': ['00000', '00000', '00000', '11111', '00000', '00000', '00000']
+    };
+
+    function renderDotMatrixNumber(containerId, value, animate) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const digits = String(value).split('');
+
+      container.innerHTML = digits.map(ch => {
+        const pattern = DOT_MATRIX_DIGITS[ch] || DOT_MATRIX_DIGITS['-'];
+        const dotsHtml = pattern.map(row =>
+          row.split('').map(bit => `<span class="dot-matrix-dot${bit === '1' ? ' lit' : ''}"></span>`).join('')
+        ).join('');
+        return `<div class="dot-matrix-digit">${dotsHtml}</div>`;
+      }).join('');
+
+      if (animate && scoreEffect !== 'none') {
+        container.classList.remove('effect-pulse', 'effect-fade', 'score-changed');
+        void container.offsetWidth;
+        container.classList.add(scoreEffect === 'fade' ? 'effect-fade' : 'effect-pulse');
+        container.classList.add('score-changed');
+      }
+    }
+
+    // 🆕 Attiva/disattiva il display a matrice di puntini al posto dei
+    // numeri normali, con un interruttore sempre visibile sul tabellone —
+    // la scelta resta salvata nel browser.
+    let matrixModeEnabled = localStorage.getItem('tablescoreMatrixMode') === '1';
+
+    function setMatrixMode(enabled) {
+      matrixModeEnabled = enabled;
+      localStorage.setItem('tablescoreMatrixMode', enabled ? '1' : '0');
+      document.body.classList.toggle('matrix-mode', enabled);
+      // Ridisegna subito con i valori attuali, cosi' la matrice non parte vuota
+      if (enabled) {
+        renderDotMatrixNumber('matrix1', document.getElementById('score1').textContent, false);
+        renderDotMatrixNumber('matrix2', document.getElementById('score2').textContent, false);
       }
     }
 

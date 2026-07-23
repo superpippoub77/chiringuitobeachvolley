@@ -1026,14 +1026,37 @@
             <div class="field">
               <label>Quota per squadra ({{currency}})</label>
               <input id="costPerTeam" type="number" min="0" step="0.01" value="0" placeholder="Es: 50.00">
+              <small style="color: #666">Importo fisso per l'intera squadra (funzionalità esistente)</small>
             </div>
-            <div class="field">
+            <div class="field" style="margin-top: 10px">
+              <label>🆕 Quota per singolo giocatore ({{currency}})</label>
+              <input id="costPerPlayer" type="number" min="0" step="0.01" value="0" placeholder="Es: 15.00">
+              <small style="color: #666">Se impostata, viene tracciata per ogni giocatore singolarmente (mostrata come "offerta" per coprire i servizi del torneo)</small>
+            </div>
+            <div class="field" style="margin-top: 10px">
               <label>Valuta</label>
               <select id="paymentCurrency" style="width: 100%; padding: 6px">
                 <option value="EUR">EUR (€)</option>
                 <option value="USD">USD ($)</option>
                 <option value="GBP">GBP (£)</option>
                 <option value="CHF">CHF (CHF)</option>
+              </select>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Spiegazione mostrata pubblicamente</label>
+              <textarea id="paymentDescription" rows="3" placeholder="Es: La quota è un'offerta libera che ci aiuta a coprire i costi di campi, arbitri e ristoro. Grazie per il tuo contributo!" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-family: inherit"></textarea>
+            </div>
+            <div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #bcdcf5">
+              <label>PayPal Client ID (opzionale)</label>
+              <input id="paymentPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in contanti">
+              <small style="color: #666">Se compilato, sulla home compare anche il pulsante per pagare online con PayPal</small>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Valuta PayPal</label>
+              <select id="paymentPaypalCurrency" style="width: 100%; padding: 6px">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
               </select>
             </div>
           </div>
@@ -3636,12 +3659,17 @@
 
       // 🆕 Un box per giocatore, con nome e livello modificabili in linea e
       // radio per il capitano — stessa impostazione visiva di scoreboard.html
-      // (foto in alto, nome sotto, livello sotto ancora).
+      // (foto in alto, nome sotto, livello sotto ancora). Il flag "Pagato"
+      // per singolo giocatore compare solo dopo l'approvazione della squadra
+      // (prima non ha senso tracciare la quota di una squadra non ancora confermata).
+      const showPlayerPaid = !!team.approved && (config.payment?.costPerPlayer > 0);
       let playerBoxes = '';
+      let paidCount = 0;
       for (let i = 0; i < maxPlayers; i++) {
         const p = players[i] || {};
         const imgUrl = p.imageFile || placeholderImg;
         const isCap = !!p.isCaptain;
+        if (p.name && p.paid) paidCount++;
         playerBoxes += `<div style="text-align: center">
           <div style="position: relative; width: 56px; height: 56px; margin: 0 auto; cursor: pointer" onclick="openTeamDialog('${team.id}')" title="Clicca per cambiare la foto">
             <img src="${imgUrl}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
@@ -3655,6 +3683,9 @@
           <label style="display: block; font-size: 11px; margin-top: 3px; font-weight: normal">
             <input type="radio" name="row_${team.id}_captain" value="${i}" ${isCap ? 'checked' : ''} style="cursor: pointer"> Capitano
           </label>
+          ${showPlayerPaid ? `<label style="display: block; font-size: 11px; margin-top: 3px; font-weight: normal; color: #2e5d1f">
+            <input type="checkbox" id="row_${team.id}_p${i}_paid" ${p.paid ? 'checked' : ''} style="cursor: pointer"> 💰 Pagato
+          </label>` : ''}
         </div>`;
       }
 
@@ -3680,9 +3711,10 @@
           <div>
             ${isDummy ? '<span class="badge" style="background:#d8c39f;color:#1d1a13">Fittizia</span>' : ''}
             <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold" title="Peso squadra = Media livelli giocatori">⚖️ ${weight}</span>
+            ${showPlayerPaid ? `<span class="badge" style="background: ${paidCount === players.filter(p => p.name).length ? '#2e5d1f' : '#e67e22'}; color: white; font-weight: bold" title="Quota pagata / giocatori iscritti">💰 ${paidCount}/${players.filter(p => p.name).length}</span>` : ''}
           </div>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_approved" ${team.approved ? 'checked' : ''}> Confermata</label>
-          <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_paid" ${team.paid ? 'checked' : ''}> Pagato</label>
+          <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_paid" data-initial="${team.paid ? '1' : '0'}" ${team.paid ? 'checked' : ''}> Pagato (squadra intera)</label>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_kit" ${team.kitDelivered ? 'checked' : ''}> Kit consegnato</label>
         </div>
         <div class="team-card-players">
@@ -3710,25 +3742,40 @@
       for (let i = 0; i < maxPlayers; i++) {
         const nameInput = document.getElementById(`row_${team.id}_p${i}_name`);
         const levelSelect = document.getElementById(`row_${team.id}_p${i}_level`);
+        const paidCheckbox = document.getElementById(`row_${team.id}_p${i}_paid`);
         if (nameInput && nameInput.value.trim()) {
           players.push({
             name: nameInput.value.trim(),
             isCaptain: captainIdx === i,
-            level: levelSelect ? levelSelect.value : ''
+            level: levelSelect ? levelSelect.value : '',
+            // 🆕 Se il checkbox non è visibile (quota per giocatore non
+            // attiva, o squadra non ancora approvata), mantieni lo stato
+            // attuale del giocatore invece di forzarlo a "non pagato".
+            paid: paidCheckbox ? paidCheckbox.checked : !!(team.players || [])[i]?.paid
           });
         }
       }
 
-      return {
+      // 🆕 Invia il flag "pagato" della squadra SOLO se l'admin lo ha
+      // davvero cambiato in questa modifica — altrimenti lascia che il
+      // server lo ricalcoli dai singoli giocatori (evita di sovrascrivere
+      // per sbaglio le scelte fatte sui singoli giocatori qui sopra).
+      const paidCheckbox = document.getElementById(`row_${team.id}_paid`);
+      const paidChanged = paidCheckbox && paidCheckbox.checked !== (paidCheckbox.dataset.initial === '1');
+
+      const result = {
         id: team.id,
         name: nameEl.value.trim(),
         email: document.getElementById(`row_${team.id}_email`)?.value.trim() || '',
         phone: document.getElementById(`row_${team.id}_phone`)?.value.trim() || '',
         approved: document.getElementById(`row_${team.id}_approved`)?.checked || false,
-        paid: document.getElementById(`row_${team.id}_paid`)?.checked || false,
         kitDelivered: document.getElementById(`row_${team.id}_kit`)?.checked || false,
         players
       };
+      if (paidChanged) {
+        result.paid = paidCheckbox.checked;
+      }
+      return result;
     }
 
     // 🆕 Salvataggio generale: raccoglie le modifiche in linea di TUTTE le
@@ -4175,11 +4222,15 @@
               const nameInput = document.getElementById(`mPlayer${i}Name`);
               const captainCheckbox = document.getElementById(`mPlayer${i}Captain`);
               const levelSelect = document.getElementById(`mPlayer${i}Level`);
+              const paidCheckbox = document.getElementById(`mPlayer${i}Paid`);
               if (nameInput && nameInput.value.trim()) {
                 playersData.push({
                   name: nameInput.value.trim(),
                   isCaptain: captainCheckbox ? captainCheckbox.checked : false,
-                  level: levelSelect ? levelSelect.value : ''
+                  level: levelSelect ? levelSelect.value : '',
+                  // 🆕 Se il checkbox non è visibile (quota per giocatore non
+                  // attiva), mantieni lo stato attuale invece di azzerarlo.
+                  paid: paidCheckbox ? paidCheckbox.checked : !!(players[i]?.paid)
                 });
               }
             }
@@ -4198,10 +4249,18 @@
               email: document.getElementById('mEmail').value.trim(),
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
-              paid: document.getElementById('mPaid').checked,
               kitDelivered: document.getElementById('mKitDelivered').checked,
               customFieldValues
             };
+
+            // 🆕 Invia il flag "pagato" della squadra SOLO se l'admin lo ha
+            // davvero cambiato in questa modifica — altrimenti lascia che il
+            // server lo ricalcoli dai singoli giocatori sopra.
+            const mPaidEl = document.getElementById('mPaid');
+            if (mPaidEl && mPaidEl.checked !== (mPaidEl.dataset.initial === '1')) {
+              payload.paid = mPaidEl.checked;
+            }
+
             await callApi('admin_update_team', 'POST', payload, true);
             closeModal();
             await refresh();
@@ -4268,6 +4327,9 @@
                 <select id="mPlayer${i}Level" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; background: white; font-size: 13px; flex: 1; cursor: pointer; box-sizing: border-box" onchange="updateTeamWeight()">
                   ${levelOptions.map(([val, label]) => `<option value="${val}" ${playerLevel === val ? 'selected' : ''}>${label}</option>`).join('')}
                 </select>
+                ${(config.payment?.costPerPlayer > 0 && team.approved) ? `<label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal; font-size: 14px; color: #2e5d1f">
+                  <input id="mPlayer${i}Paid" type="checkbox" ${player.paid ? 'checked' : ''} style="cursor: pointer"> 💰 Pagato
+                </label>` : ''}
               </div>
             </div>
             <div id="uploadStatus${i}" style="font-size: 12px; color: #666; display: none; margin-top: 6px"></div>
@@ -4331,7 +4393,7 @@
               <label><input id="mApproved" type="checkbox" ${team.approved ? 'checked' : ''}> Iscrizione approvata</label>
             </div>
             <div class="field">
-              <label><input id="mPaid" type="checkbox" ${team.paid ? 'checked' : ''}> Pagamento registrato</label>
+              <label><input id="mPaid" type="checkbox" data-initial="${team.paid ? '1' : '0'}" ${team.paid ? 'checked' : ''}> Pagamento registrato (squadra intera)</label>
             </div>
             <div class="field">
               <label><input id="mKitDelivered" type="checkbox" ${team.kitDelivered ? 'checked' : ''}> ✓ Kit consegnato</label>
@@ -10257,7 +10319,7 @@ html += `
 
     // ==================== PAYMENT E NOTES ====================
     
-    let paymentConfig = { enabled: false, costPerTeam: 0, currency: 'EUR' };
+    let paymentConfig = { enabled: false, costPerTeam: 0, currency: 'EUR', costPerPlayer: 0, description: '', paypalClientId: '', paypalCurrency: 'EUR' };
     let notes = [];
     
     async function renderPaymentAndNotes() {
@@ -10270,6 +10332,10 @@ html += `
         document.getElementById('paymentEnabled').checked = paymentConfig.enabled;
         document.getElementById('costPerTeam').value = paymentConfig.costPerTeam;
         document.getElementById('paymentCurrency').value = paymentConfig.currency;
+        document.getElementById('costPerPlayer').value = paymentConfig.costPerPlayer || 0;
+        document.getElementById('paymentDescription').value = paymentConfig.description || '';
+        document.getElementById('paymentPaypalClientId').value = paymentConfig.paypalClientId || '';
+        document.getElementById('paymentPaypalCurrency').value = paymentConfig.paypalCurrency || 'EUR';
         
         updatePaymentUI();
         renderNotes();
@@ -10329,9 +10395,13 @@ html += `
         const enabled = document.getElementById('paymentEnabled').checked;
         const costPerTeam = parseFloat(document.getElementById('costPerTeam').value) || 0;
         const currency = document.getElementById('paymentCurrency').value;
+        const costPerPlayer = parseFloat(document.getElementById('costPerPlayer').value) || 0;
+        const description = document.getElementById('paymentDescription').value.trim();
+        const paypalClientId = document.getElementById('paymentPaypalClientId').value.trim();
+        const paypalCurrency = document.getElementById('paymentPaypalCurrency').value;
         
         const result = await callApi('admin_update_payment_config', 'POST', {
-          payment: { enabled, costPerTeam, currency }
+          payment: { enabled, costPerTeam, currency, costPerPlayer, description, paypalClientId, paypalCurrency }
         }, true);
         
         paymentConfig = result.payment;

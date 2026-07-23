@@ -1049,6 +1049,9 @@
         <a href="#" id="navAttendanceLink" onclick="openAttendanceSignup(); return false;"
           style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">🎟️ Partecipa</a>
+        <a href="#" id="navPaymentLink" onclick="openPaymentModal(); return false;"
+          style="display: none; color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
+          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">💰 Paga la quota</a>
         <a href="#" onclick="openContactModal(); return false;"
           style="color: #666; text-decoration: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: all 0.2s"
           onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">📞 Contatti</a>
@@ -1162,6 +1165,34 @@
       </div>
       <div class="modal-footer">
         <button class="btn-modal" onclick="submitAttendanceSignup()">Conferma partecipazione</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🆕 Paga la quota di iscrizione (offerta per giocatore) -->
+  <div id="paymentOverlay" class="modal-backdrop hidden" onclick="if (event.target === this) closePaymentModal()">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="paymentTitle">
+      <div class="modal-head">
+        <h4 id="paymentTitle">💰 Paga la quota</h4>
+        <button class="modal-close" aria-label="Chiudi" onclick="closePaymentModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="paymentDescriptionText" style="font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.5"></div>
+        <div class="field">
+          <label>Seleziona la tua squadra</label>
+          <select id="paymentTeamSelect" onchange="updatePaymentTotal()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+            <option value="">-- Scegli la squadra --</option>
+          </select>
+        </div>
+        <div id="paymentTotalBox" style="margin-top: 14px; padding: 12px; background: #fff8ea; border-radius: 8px; text-align: center; display: none">
+          <div style="font-size: 13px; color: #6a5737">Quota totale per la squadra</div>
+          <div id="paymentTotalValue" style="font-size: 24px; font-weight: bold; color: #d32f2f">€ 0.00</div>
+        </div>
+        <div id="paymentStatus" style="margin-top: 10px; font-size: 13px"></div>
+        <div id="paymentActions" style="margin-top: 14px; display: none; flex-direction: column; gap: 10px">
+          <div id="paymentPaypalButtonContainer"></div>
+          <button class="btn" style="background: #666; color: white; padding: 12px; font-weight: bold" onclick="confirmCashPayment()">💵 Pago in contanti all'organizzatore</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3130,6 +3161,147 @@
       }
     }
 
+    // 🆕 Paga la quota di iscrizione (offerta libera per giocatore)
+    let paymentConfigPublic = { enabled: false, costPerPlayer: 0, currency: 'EUR', description: '', paypalClientId: '', paypalCurrency: 'EUR' };
+    let paymentPaypalSdkPromise = null;
+
+    async function loadPaymentStatus() {
+      try {
+        const response = await fetch(`${API}?action=get_config`);
+        const data = await response.json();
+        if (!data.ok || !data.config.payment) return;
+
+        paymentConfigPublic = data.config.payment;
+        const navLink = document.getElementById('navPaymentLink');
+        if (navLink) {
+          navLink.style.display = (paymentConfigPublic.enabled && paymentConfigPublic.costPerPlayer > 0) ? 'inline-block' : 'none';
+        }
+      } catch (e) {
+        console.error('Errore verifica quota:', e);
+      }
+    }
+
+    function openPaymentModal() {
+      document.getElementById('paymentDescriptionText').textContent = paymentConfigPublic.description
+        || `Ogni giocatore è invitato a contribuire con un'offerta di € ${paymentConfigPublic.costPerPlayer.toFixed(2)} per aiutarci a coprire i costi del torneo (campi, arbitri, ristoro). Grazie di cuore!`;
+
+      // Popola la selezione squadre con le squadre confermate
+      const select = document.getElementById('paymentTeamSelect');
+      select.innerHTML = '<option value="">-- Scegli la squadra --</option>';
+      (state?.teams || []).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.name + (t.paid ? ' ✅ (già pagato)' : '');
+        select.appendChild(opt);
+      });
+
+      document.getElementById('paymentTotalBox').style.display = 'none';
+      document.getElementById('paymentActions').style.display = 'none';
+      document.getElementById('paymentStatus').textContent = '';
+      document.getElementById('paymentOverlay').classList.remove('hidden');
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentOverlay').classList.add('hidden');
+    }
+
+    function updatePaymentTotal() {
+      const teamId = document.getElementById('paymentTeamSelect').value;
+      const totalBox = document.getElementById('paymentTotalBox');
+      const actions = document.getElementById('paymentActions');
+      const statusEl = document.getElementById('paymentStatus');
+      statusEl.textContent = '';
+
+      if (!teamId) {
+        totalBox.style.display = 'none';
+        actions.style.display = 'none';
+        return;
+      }
+
+      const team = (state?.teams || []).find(t => t.id === teamId);
+      if (!team) return;
+
+      if (team.paid) {
+        totalBox.style.display = 'none';
+        actions.style.display = 'none';
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = '✅ Questa squadra ha già saldato la quota, grazie!';
+        return;
+      }
+
+      const numPlayers = (team.players || []).filter(p => (typeof p === 'string' ? p : p?.name)).length;
+      const total = paymentConfigPublic.costPerPlayer * numPlayers;
+
+      document.getElementById('paymentTotalValue').textContent = `€ ${total.toFixed(2)} (${numPlayers} giocator${numPlayers === 1 ? 'e' : 'i'})`;
+      totalBox.style.display = 'block';
+      actions.style.display = 'flex';
+
+      if (paymentConfigPublic.paypalClientId) {
+        renderPaymentPaypalButton(teamId, total);
+      } else {
+        document.getElementById('paymentPaypalButtonContainer').innerHTML = '';
+      }
+    }
+
+    function loadPaymentPaypalSdk() {
+      if (paymentPaypalSdkPromise) return paymentPaypalSdkPromise;
+      paymentPaypalSdkPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(paymentConfigPublic.paypalClientId)}&currency=${encodeURIComponent(paymentConfigPublic.paypalCurrency)}`;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error('Impossibile caricare PayPal'));
+        document.head.appendChild(script);
+      });
+      return paymentPaypalSdkPromise;
+    }
+
+    // 🆕 NOTA: come per il bar, questo pagamento è verificato solo lato
+    // client (l'SDK PayPal gestisce l'addebito reale), ma la conferma
+    // "pagato" sul nostro server si fida della risposta del browser dopo
+    // l'approvazione — senza verifica server-to-server con le API PayPal.
+    async function renderPaymentPaypalButton(teamId, total) {
+      const container = document.getElementById('paymentPaypalButtonContainer');
+      container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
+
+      try {
+        const paypal = await loadPaymentPaypalSdk();
+        container.innerHTML = '';
+
+        paypal.Buttons({
+          createOrder: (data, actions) => {
+            return actions.order.create({
+              purchase_units: [{ amount: { value: total.toFixed(2), currency_code: paymentConfigPublic.paypalCurrency } }]
+            });
+          },
+          onApprove: async (data, actions) => {
+            await actions.order.capture();
+            try {
+              await fetch(`${API}?action=payment_confirm_team_fee_paid`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId })
+              });
+              document.getElementById('paymentStatus').style.color = '#2e5d1f';
+              document.getElementById('paymentStatus').textContent = '✅ Pagamento completato, grazie mille!';
+              document.getElementById('paymentActions').style.display = 'none';
+            } catch (e) {
+              alert('Pagamento riuscito ma errore nel registrarlo: ' + e.message);
+            }
+          },
+          onError: (err) => {
+            console.error('Errore PayPal:', err);
+            alert('Si è verificato un errore con PayPal. Puoi comunque pagare in contanti.');
+          }
+        }).render('#paymentPaypalButtonContainer');
+      } catch (e) {
+        container.innerHTML = '<p class="muted">PayPal non disponibile al momento. Puoi pagare in contanti.</p>';
+      }
+    }
+
+    function confirmCashPayment() {
+      const statusEl = document.getElementById('paymentStatus');
+      statusEl.style.color = '#666';
+      statusEl.textContent = 'Perfetto, consegna la quota direttamente all\'organizzatore in loco — sarà lui a registrare il pagamento.';
+    }
+
     function esc(s) {
       return String(s || '')
         .replaceAll('&', '&amp;')
@@ -3649,6 +3821,7 @@
     loadSponsors();
     loadShopMenu();
     loadAttendanceStatus();
+    loadPaymentStatus();
 
     // ==================== NEWS SECTION ====================
 

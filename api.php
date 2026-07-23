@@ -556,7 +556,11 @@ function defaultConfig(): array {
         'payment' => [
             'enabled' => false,
             'costPerTeam' => 0,
-            'currency' => 'EUR'
+            'currency' => 'EUR',
+            'costPerPlayer' => 0,
+            'description' => '',
+            'paypalClientId' => '',
+            'paypalCurrency' => 'EUR'
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
@@ -4844,6 +4848,8 @@ if ($action === 'register_team' && $method === 'POST') {
             $player = [
                 'name' => trim((string)($pd['name'] ?? '')),
                 'isCaptain' => (bool)($pd['isCaptain'] ?? false),
+                // 🆕 Quota di iscrizione pagata dal singolo giocatore (default: no)
+                'paid' => false,
             ];
             
             // Aggiungi livello se presente
@@ -5307,7 +5313,8 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                     $team['name'] = $name;
                 }
             }
-            if (isset($body['paid'])) {
+            $teamPaidExplicitlySet = isset($body['paid']);
+            if ($teamPaidExplicitlySet) {
                 $team['paid'] = (bool)$body['paid'];
             }
             if (isset($body['approved'])) {
@@ -5335,7 +5342,13 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                                 // dava sempre 0 per un valore testuale, cancellando
                                 // il livello scelto in fase di iscrizione ad ogni
                                 // salvataggio da "Modifica squadra".
-                                'level' => is_string($player['level'] ?? null) ? trim((string)$player['level']) : ($player['level'] ?? null)
+                                'level' => is_string($player['level'] ?? null) ? trim((string)$player['level']) : ($player['level'] ?? null),
+                                // 🆕 Quota di iscrizione pagata da questo giocatore.
+                                // Se la squadra è stata appena segnata pagata/non
+                                // pagata esplicitamente in questa stessa richiesta,
+                                // vince quella scelta (cascata); altrimenti mantiene
+                                // il valore inviato per il singolo giocatore.
+                                'paid' => $teamPaidExplicitlySet ? (bool)$body['paid'] : (bool)($player['paid'] ?? false)
                             ];
                         }
                     } elseif (is_string($player)) {
@@ -5345,12 +5358,25 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                             $normalizedPlayers[] = [
                                 'name' => $name,
                                 'isCaptain' => false,
-                                'level' => null // Sconosciuto per vecchio formato (solo nome)
+                                'level' => null, // Sconosciuto per vecchio formato (solo nome)
+                                'paid' => $teamPaidExplicitlySet ? (bool)$body['paid'] : false
                             ];
                         }
                     }
                 }
                 $team['players'] = $normalizedPlayers;
+
+                // 🆕 Se la squadra NON è stata segnata pagata/non pagata
+                // esplicitamente in questa richiesta, ricalcola il flag
+                // "pagato" della squadra dai singoli giocatori: tutti pagati
+                // → squadra pagata, altrimenti no.
+                if (!$teamPaidExplicitlySet && count($normalizedPlayers) > 0) {
+                    $allPlayersPaid = true;
+                    foreach ($normalizedPlayers as $p) {
+                        if (empty($p['paid'])) { $allPlayersPaid = false; break; }
+                    }
+                    $team['paid'] = $allPlayersPaid;
+                }
             }
             if (isset($body['phone'])) {
                 $team['phone'] = mb_substr(normalizePhoneInternational(trim((string)$body['phone'])), 0, 20);
@@ -8082,7 +8108,11 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
             'payment' => [
                 'enabled' => false,
                 'costPerTeam' => 0,
-                'currency' => 'EUR'
+                'currency' => 'EUR',
+                'costPerPlayer' => 0,
+                'description' => '',
+                'paypalClientId' => '',
+                'paypalCurrency' => 'EUR'
             ],
             'notes' => [],
             'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
@@ -8523,6 +8553,16 @@ if ($action === 'get_config' && $method === 'GET') {
         ],
         // 🆕 Campi personalizzati del modulo di iscrizione
         'customFields' => $config['customFields'] ?? [],
+        // 🆕 Quota di iscrizione (per giocatore): solo i campi che servono
+        // a mostrare la pagina "Paga la quota" pubblica, mai importi/dati interni non pertinenti.
+        'payment' => [
+            'enabled' => (bool)($config['payment']['enabled'] ?? false),
+            'costPerPlayer' => (float)($config['payment']['costPerPlayer'] ?? 0),
+            'currency' => $config['payment']['currency'] ?? 'EUR',
+            'description' => $config['payment']['description'] ?? '',
+            'paypalClientId' => $config['payment']['paypalClientId'] ?? '',
+            'paypalCurrency' => $config['payment']['paypalCurrency'] ?? 'EUR'
+        ],
         // 🆕 Contatti del gestore (per il pulsante "Contatti" sulla home):
         // email sempre presente se configurata, telefono solo se inserito
         // (facoltativo) — se presente, la home mostra anche i pulsanti
@@ -10153,6 +10193,11 @@ if ($action === 'admin_update_payment_config' && $method === 'POST') {
         $config['payment']['enabled'] = (bool)($payment['enabled'] ?? false);
         $config['payment']['costPerTeam'] = max(0, (float)($payment['costPerTeam'] ?? 0));
         $config['payment']['currency'] = in_array($payment['currency'] ?? 'EUR', ['EUR', 'USD', 'GBP', 'CHF']) ? $payment['currency'] : 'EUR';
+        // 🆕 Quota per singolo giocatore + spiegazione pubblica + PayPal
+        $config['payment']['costPerPlayer'] = max(0, (float)($payment['costPerPlayer'] ?? 0));
+        $config['payment']['description'] = mb_substr(trim((string)($payment['description'] ?? '')), 0, 500);
+        $config['payment']['paypalClientId'] = mb_substr(trim((string)($payment['paypalClientId'] ?? '')), 0, 200);
+        $config['payment']['paypalCurrency'] = in_array($payment['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $payment['paypalCurrency'] : 'EUR';
     }
     
     writeConfig($config);
@@ -10414,6 +10459,49 @@ if ($action === 'shop_confirm_paypal_payment' && $method === 'POST') {
 
     if (!$found) {
         jsonResponse(404, ['ok' => false, 'error' => 'Ordine non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Il cliente conferma che il pagamento PayPal della QUOTA DI ISCRIZIONE
+// (offerta per giocatore) è stato catturato con successo. NOTA: stesso
+// meccanismo semplificato del bar — si fida della conferma del browser
+// dopo l'approvazione PayPal, non verifica la cattura server-to-server.
+// Segna la squadra E tutti i suoi giocatori come pagati (stessa logica
+// di cascata già usata quando l'admin flagga la squadra da "Modifica squadra").
+if ($action === 'payment_confirm_team_fee_paid' && $method === 'POST') {
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+    if ($teamId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'teamId mancante']);
+    }
+
+    $config = readConfig();
+    if (!($config['payment']['enabled'] ?? false)) {
+        jsonResponse(403, ['ok' => false, 'error' => 'Il pagamento della quota non è al momento disponibile']);
+    }
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($teamId, &$found) {
+        foreach ($state['teams'] as &$team) {
+            if ($team['id'] !== $teamId) continue;
+            $found = true;
+            $team['paid'] = true;
+            $team['paidVia'] = 'paypal';
+            foreach ($team['players'] as &$player) {
+                if (is_array($player)) {
+                    $player['paid'] = true;
+                }
+            }
+            unset($player);
+            break;
+        }
+        unset($team);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
     }
     jsonResponse(200, ['ok' => true]);
 }
@@ -12033,7 +12121,11 @@ if ($action === 'create_tournament' && $method === 'POST') {
         'payment' => [
             'enabled' => false,
             'costPerTeam' => 0,
-            'currency' => 'EUR'
+            'currency' => 'EUR',
+            'costPerPlayer' => 0,
+            'description' => '',
+            'paypalClientId' => '',
+            'paypalCurrency' => 'EUR'
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],

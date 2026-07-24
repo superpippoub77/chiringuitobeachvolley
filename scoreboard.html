@@ -4401,10 +4401,229 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 12px">
           ${cards}
         </div>
+        ${config?.photoFrames?.enabled ? renderPrintStudioHtml(gallery) : ''}
       `;
 
       // Salva i dati per la lightbox
       window.__galleryData = gallery;
+      if (config?.photoFrames?.enabled) initPrintStudio();
+    }
+
+    // ==================== 🆕 SERVIZIO "STAMPA LA TUA FOTO" ====================
+    // Tutto avviene lato client via canvas: nessun upload al server, la foto
+    // scelta (dalla gallery o caricata dall'utente) viene composta con la
+    // cornice direttamente nel browser e scaricata/stampata da lì.
+    const DEFAULT_PHOTO_FRAMES = [
+      { id: 'classica', name: 'Classica', borderColor: '#ffc94d', style: 'solid', showText: true },
+      { id: 'spiaggia', name: 'Spiaggia', borderColor: '#4fc3f7', style: 'double', showText: true },
+      { id: 'elegante', name: 'Elegante', borderColor: '#333333', style: 'dashed', showText: false }
+    ];
+
+    function renderPrintStudioHtml(gallery) {
+      const frames = [...DEFAULT_PHOTO_FRAMES, ...(config?.photoFrames?.customFrames || [])];
+      const frameOptionsHtml = frames.map((f, i) =>
+        `<option value="${i}">${esc(f.name)}</option>`
+      ).join('');
+      const photoOptionsHtml = gallery.map((item, i) =>
+        `<option value="${i}">${esc(item.title)}</option>`
+      ).join('');
+
+      return `
+        <div style="margin-top: 30px; padding: 16px; background: #f3e5f5; border-radius: 10px">
+          <h4 style="margin-top: 0" data-i18n="print_studio_title">🖼️ Stampa la tua foto</h4>
+          <p style="font-size: 13px; color: #666" data-i18n="print_studio_intro">Scegli una foto dalla galleria o caricane una tua, applica una cornice e scaricala o stampala.</p>
+
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px">
+            <div style="flex: 1; min-width: 220px">
+              <label style="font-weight: bold; display: block; margin-bottom: 4px" data-i18n="print_studio_choose_photo">Scegli la foto</label>
+              <select id="printPhotoSource" onchange="onPrintPhotoSourceChange()" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+                <option value="upload" data-i18n="print_studio_upload_own">📤 Carica una tua foto</option>
+                ${photoOptionsHtml ? `<optgroup label="Dalla galleria">${photoOptionsHtml}</optgroup>` : ''}
+              </select>
+              <input type="file" id="printPhotoUpload" accept="image/*" style="margin-top: 8px; width: 100%">
+
+              <label style="font-weight: bold; display: block; margin: 12px 0 4px" data-i18n="print_studio_choose_frame">Scegli la cornice</label>
+              <select id="printFrameSelect" onchange="renderPrintCanvas()" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+                ${frameOptionsHtml}
+              </select>
+
+              <label id="printLogoToggleLabel" style="display: none; align-items: center; gap: 6px; margin-top: 12px; font-weight: normal">
+                <input type="checkbox" id="printIncludeLogo" checked onchange="renderPrintCanvas()">
+                <span data-i18n="print_studio_include_logo">Includi il logo del torneo</span>
+              </label>
+
+              <div class="row" style="margin-top: 14px; gap: 8px">
+                <button class="btn" style="background: #7b1fa2; color: white" onclick="downloadPrintCanvas()">📥 <span data-i18n="print_studio_download">Scarica</span></button>
+                <button class="btn" style="background: #444; color: white" onclick="printPrintCanvas()">🖨️ <span data-i18n="print_studio_print">Stampa</span></button>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 260px; display: flex; align-items: center; justify-content: center">
+              <canvas id="printStudioCanvas" width="800" height="1000" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15)"></canvas>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    let printStudioImage = null; // Image() attualmente caricata
+
+    function initPrintStudio() {
+      const fileInput = document.getElementById('printPhotoUpload');
+      if (fileInput) {
+        fileInput.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (evt) => loadPrintImage(evt.target.result);
+          reader.readAsDataURL(file);
+        };
+      }
+      onPrintPhotoSourceChange();
+    }
+
+    function onPrintPhotoSourceChange() {
+      const source = document.getElementById('printPhotoSource').value;
+      const uploadInput = document.getElementById('printPhotoUpload');
+
+      if (source === 'upload') {
+        uploadInput.style.display = 'block';
+        if (uploadInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (evt) => loadPrintImage(evt.target.result);
+          reader.readAsDataURL(uploadInput.files[0]);
+        } else {
+          printStudioImage = null;
+          renderPrintCanvas();
+        }
+      } else {
+        uploadInput.style.display = 'none';
+        const gallery = window.__galleryData || [];
+        const item = gallery[parseInt(source)];
+        if (item) loadPrintImage(item.imageFile);
+      }
+    }
+
+    function loadPrintImage(src) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        printStudioImage = img;
+        renderPrintCanvas();
+      };
+      img.src = src;
+    }
+
+    // 🆕 Disegna la foto scelta + la cornice selezionata sul canvas: bordo
+    // colorato nello stile scelto (continuo/tratteggiato/punteggiato/doppio),
+    // nome del torneo in basso (se previsto dalla cornice) e logo opzionale.
+    function renderPrintCanvas() {
+      const canvas = document.getElementById('printStudioCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      const frames = [...DEFAULT_PHOTO_FRAMES, ...(config?.photoFrames?.customFrames || [])];
+      const frameIdx = parseInt(document.getElementById('printFrameSelect')?.value || 0);
+      const frame = frames[frameIdx] || frames[0];
+      const borderWidth = Math.round(W * 0.045);
+
+      const logoToggleLabel = document.getElementById('printLogoToggleLabel');
+      const hasLogo = !!config?.display?.logoFile;
+      if (logoToggleLabel) logoToggleLabel.style.display = hasLogo ? 'flex' : 'none';
+      const includeLogo = hasLogo && (document.getElementById('printIncludeLogo')?.checked ?? true);
+
+      // Area foto (dentro il bordo, con spazio extra in basso per testo/logo)
+      const bottomReserve = (frame.showText || includeLogo) ? Math.round(H * 0.1) : 0;
+      const photoX = borderWidth, photoY = borderWidth;
+      const photoW = W - borderWidth * 2;
+      const photoH = H - borderWidth * 2 - bottomReserve;
+
+      if (printStudioImage) {
+        // Ritaglia la foto per riempire l'area disponibile mantenendo le proporzioni (cover)
+        const imgRatio = printStudioImage.width / printStudioImage.height;
+        const boxRatio = photoW / photoH;
+        let sx, sy, sw, sh;
+        if (imgRatio > boxRatio) {
+          sh = printStudioImage.height;
+          sw = sh * boxRatio;
+          sx = (printStudioImage.width - sw) / 2;
+          sy = 0;
+        } else {
+          sw = printStudioImage.width;
+          sh = sw / boxRatio;
+          sx = 0;
+          sy = (printStudioImage.height - sh) / 2;
+        }
+        ctx.drawImage(printStudioImage, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+      } else {
+        ctx.fillStyle = '#eeeeee';
+        ctx.fillRect(photoX, photoY, photoW, photoH);
+        ctx.fillStyle = '#999';
+        ctx.font = `${Math.round(W * 0.04)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Scegli una foto', W / 2, H / 2);
+      }
+
+      // Bordo della cornice
+      ctx.strokeStyle = frame.borderColor;
+      ctx.lineWidth = borderWidth;
+      ctx.setLineDash(
+        frame.style === 'dashed' ? [borderWidth * 1.5, borderWidth] :
+        frame.style === 'dotted' ? [borderWidth * 0.4, borderWidth * 0.8] : []
+      );
+      ctx.strokeRect(borderWidth / 2, borderWidth / 2, W - borderWidth, H - borderWidth);
+      if (frame.style === 'double') {
+        ctx.setLineDash([]);
+        ctx.lineWidth = Math.max(2, Math.round(borderWidth * 0.25));
+        const inset = borderWidth * 1.6;
+        ctx.strokeRect(inset / 2, inset / 2, W - inset, H - inset);
+      }
+      ctx.setLineDash([]);
+
+      // Nome torneo in basso (se la cornice lo prevede)
+      if (frame.showText && config?.tournament?.name) {
+        ctx.fillStyle = frame.borderColor;
+        ctx.font = `bold ${Math.round(W * 0.045)}px 'Original Surfer', cursive, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(config.tournament.name, W / 2, H - borderWidth - Math.round(bottomReserve * 0.35));
+      }
+
+      // Logo opzionale, sotto la foto
+      if (includeLogo) {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.onload = () => {
+          const logoH = Math.round(bottomReserve * 0.7);
+          const logoW = logoH * (logoImg.width / logoImg.height);
+          const logoY = H - borderWidth - bottomReserve + Math.round(bottomReserve * 0.15);
+          ctx.drawImage(logoImg, W / 2 - logoW / 2, logoY, logoW, logoH);
+        };
+        logoImg.src = config.display.logoFile;
+      }
+    }
+
+    function downloadPrintCanvas() {
+      const canvas = document.getElementById('printStudioCanvas');
+      if (!canvas) return;
+      const link = document.createElement('a');
+      link.download = 'foto-torneo.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function printPrintCanvas() {
+      const canvas = document.getElementById('printStudioCanvas');
+      if (!canvas) return;
+      const dataUrl = canvas.toDataURL('image/png');
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`<html><head><title>Stampa foto</title></head><body style="margin:0; display:flex; align-items:center; justify-content:center; min-height:100vh">
+        <img src="${dataUrl}" style="max-width:100%; max-height:100vh" onload="window.print()">
+      </body></html>`);
+      printWindow.document.close();
     }
 
     // 🆕 Lightbox con navigazione prev/next: tiene traccia dell'indice corrente

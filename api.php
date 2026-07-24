@@ -750,6 +750,14 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'nav_rules' => 'Regolamento',
             'attendance_fee_label' => 'Quota d\'ingresso',
             'attendance_pay_at_venue_note' => 'Ricorda di portare la quota in contanti all\'ingresso.',
+            'print_studio_title' => '🖼️ Stampa la tua foto',
+            'print_studio_intro' => 'Scegli una foto dalla galleria o caricane una tua, applica una cornice e scaricala o stampala.',
+            'print_studio_choose_photo' => 'Scegli la foto',
+            'print_studio_upload_own' => '📤 Carica una tua foto',
+            'print_studio_choose_frame' => 'Scegli la cornice',
+            'print_studio_include_logo' => 'Includi il logo del torneo',
+            'print_studio_download' => 'Scarica',
+            'print_studio_print' => 'Stampa',
         ],
         'en' => [
             'hero_sub' => 'Mixed category only | Registration subject to administrator approval',
@@ -975,6 +983,14 @@ Come to the counter to pay and pick up (total: € {total}).',
             'nav_rules' => 'Rules',
             'attendance_fee_label' => 'Entry fee',
             'attendance_pay_at_venue_note' => 'Remember to bring the fee in cash at the entrance.',
+            'print_studio_title' => '🖼️ Print your photo',
+            'print_studio_intro' => 'Choose a photo from the gallery or upload your own, apply a frame and download or print it.',
+            'print_studio_choose_photo' => 'Choose the photo',
+            'print_studio_upload_own' => '📤 Upload your own photo',
+            'print_studio_choose_frame' => 'Choose the frame',
+            'print_studio_include_logo' => 'Include the tournament logo',
+            'print_studio_download' => 'Download',
+            'print_studio_print' => 'Print',
         ],
         'fr' => [
             'hero_sub' => 'Catégorie mixte uniquement | Inscription soumise à l\'approbation de l\'administrateur',
@@ -1200,6 +1216,14 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'nav_rules' => 'Règlement',
             'attendance_fee_label' => 'Frais d\'entrée',
             'attendance_pay_at_venue_note' => 'N\'oubliez pas d\'apporter la cotisation en espèces à l\'entrée.',
+            'print_studio_title' => '🖼️ Imprimez votre photo',
+            'print_studio_intro' => 'Choisissez une photo de la galerie ou téléchargez la vôtre, appliquez un cadre et téléchargez-la ou imprimez-la.',
+            'print_studio_choose_photo' => 'Choisissez la photo',
+            'print_studio_upload_own' => '📤 Téléchargez votre photo',
+            'print_studio_choose_frame' => 'Choisissez le cadre',
+            'print_studio_include_logo' => 'Inclure le logo du tournoi',
+            'print_studio_download' => 'Télécharger',
+            'print_studio_print' => 'Imprimer',
         ],
         'de' => [
             'hero_sub' => 'Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator',
@@ -1425,6 +1449,14 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'nav_rules' => 'Regelwerk',
             'attendance_fee_label' => 'Eintrittsgebühr',
             'attendance_pay_at_venue_note' => 'Denk daran, die Gebühr bar am Eingang mitzubringen.',
+            'print_studio_title' => '🖼️ Drucke dein Foto',
+            'print_studio_intro' => 'Wähle ein Foto aus der Galerie oder lade dein eigenes hoch, füge einen Rahmen hinzu und lade es herunter oder drucke es.',
+            'print_studio_choose_photo' => 'Foto wählen',
+            'print_studio_upload_own' => '📤 Eigenes Foto hochladen',
+            'print_studio_choose_frame' => 'Rahmen wählen',
+            'print_studio_include_logo' => 'Turnier-Logo einfügen',
+            'print_studio_download' => 'Herunterladen',
+            'print_studio_print' => 'Drucken',
         ],
         'zh' => [
             'hero_sub' => '仅限混合组别 | 报名需经管理员批准',
@@ -1650,6 +1682,14 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'nav_rules' => '规则',
             'attendance_fee_label' => '入场费',
             'attendance_pay_at_venue_note' => '请记得在入口处携带现金支付费用。',
+            'print_studio_title' => '🖼️ 打印您的照片',
+            'print_studio_intro' => '从相册中选择一张照片或上传您自己的照片，添加相框后下载或打印。',
+            'print_studio_choose_photo' => '选择照片',
+            'print_studio_upload_own' => '📤 上传您的照片',
+            'print_studio_choose_frame' => '选择相框',
+            'print_studio_include_logo' => '包含赛事徽标',
+            'print_studio_download' => '下载',
+            'print_studio_print' => '打印',
         ],
     ];
 }
@@ -1721,6 +1761,12 @@ function defaultConfig(): array {
         ],
         'sponsors' => [],
         'gallery' => [],
+        // 🆕 Servizio "Stampa la tua foto": cornici personalizzate aggiuntive
+        // oltre a quelle di default (disegnate via canvas lato client)
+        'photoFrames' => [
+            'enabled' => false,
+            'customFrames' => []
+        ],
         'payment' => [
             'enabled' => false,
             'costPerTeam' => 0,
@@ -1856,6 +1902,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva le impostazioni di partecipazione spettatori
     if (isset($existingConfig['attendanceSettings'])) {
         $merged['attendanceSettings'] = $existingConfig['attendanceSettings'];
+    }
+
+    // 🆕 Preserva le cornici foto personalizzate (servizio "Stampa la tua foto")
+    if (isset($existingConfig['photoFrames'])) {
+        $merged['photoFrames'] = $existingConfig['photoFrames'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -10061,6 +10112,8 @@ if ($action === 'get_config' && $method === 'GET') {
         ],
         // 🆕 Campi personalizzati del modulo di iscrizione
         'customFields' => $config['customFields'] ?? [],
+        // 🆕 Servizio "Stampa la tua foto": abilitazione + cornici personalizzate
+        'photoFrames' => $config['photoFrames'] ?? ['enabled' => false, 'customFrames' => []],
         // 🆕 Quota di iscrizione (per giocatore): solo i campi che servono
         // a mostrare la pagina "Paga la quota" pubblica, mai importi/dati interni non pertinenti.
         'payment' => [
@@ -12507,6 +12560,38 @@ if ($action === 'public_get_gallery' && $method === 'GET') {
         return $dateB - $dateA;
     });
     jsonResponse(200, ['ok' => true, 'gallery' => array_values($published)]);
+}
+
+// 🆕 Admin: abilita/disabilita il servizio "Stampa la tua foto" e salva le
+// cornici personalizzate aggiuntive (quelle di default sono disegnate via
+// canvas lato client e non richiedono configurazione).
+if ($action === 'admin_update_photo_frames' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $customFrames = [];
+    foreach ((array)($body['customFrames'] ?? []) as $f) {
+        $name = mb_substr(trim((string)($f['name'] ?? '')), 0, 60);
+        if ($name === '') continue;
+        $customFrames[] = [
+            'id' => trim((string)($f['id'] ?? bin2hex(random_bytes(4)))),
+            'name' => $name,
+            'borderColor' => preg_match('/^#[0-9a-fA-F]{6}$/', $f['borderColor'] ?? '') ? $f['borderColor'] : '#ffc94d',
+            'style' => in_array($f['style'] ?? 'solid', ['solid', 'dashed', 'dotted', 'double'], true) ? $f['style'] : 'solid',
+            'showText' => (bool)($f['showText'] ?? true)
+        ];
+    }
+
+    $config['photoFrames'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'customFrames' => $customFrames
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento cornici "Stampa la tua foto"');
+
+    jsonResponse(200, ['ok' => true, 'photoFrames' => $config['photoFrames']]);
 }
 
 if ($action === 'admin_create_gallery' && $method === 'POST') {

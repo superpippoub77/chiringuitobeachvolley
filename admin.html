@@ -1246,6 +1246,16 @@
           <h4 style="margin-top: 0">📸 Foto Gallery</h4>
           <div id="galleryList" style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px"></div>
         </div>
+
+        <div class="card" style="background: #f3e5f5; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">🖼️ Servizio "Stampa la tua foto"</h4>
+          <p class="muted" style="margin-top: -6px">I visitatori potranno scegliere una foto (dalla gallery o caricandone una propria), applicarci una cornice del torneo e scaricarla o stamparla. Sono già disponibili 3 cornici di base — qui puoi aggiungerne altre personalizzate.</p>
+          <label><input type="checkbox" id="photoFramesEnabled"> Servizio abilitato nella home pubblica</label>
+
+          <div id="customFramesListContainer" style="margin-top: 12px"></div>
+          <button class="btn" onclick="addCustomFrame()" style="margin-top: 8px">➕ Aggiungi Cornice Personalizzata</button>
+          <button class="btn btn-green" onclick="savePhotoFrames()" style="margin-top: 8px; margin-left: 8px">💾 Salva</button>
+        </div>
       </div>
 
       <div id="page-tools" class="card page hidden">
@@ -11379,6 +11389,11 @@ html += `
 
     async function renderGallery() {
       try {
+        // 🆕 Inizializza il servizio "Stampa la tua foto"
+        document.getElementById('photoFramesEnabled').checked = config.photoFrames?.enabled || false;
+        customFramesData = config.photoFrames?.customFrames || [];
+        renderCustomFramesList();
+
         const result = await callApi('admin_get_gallery', 'GET', null, true);
         galleryData = result.gallery || [];
         
@@ -11391,20 +11406,25 @@ html += `
         
         let html = '';
         galleryData.forEach((item) => {
-          const status = item.published ? '📤' : '📝';
+          const isPublished = !!item.published;
+          const status = isPublished ? '📤 Pubblicata' : '📝 Bozza';
           const date = new Date(item.publishedAt || item.createdAt);
           const dateStr = date.toLocaleDateString('it-IT');
           
-          html += `<div style="position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.2s" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          html += `<div style="position: relative; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 3px solid ${isPublished ? '#4caf50' : '#ccc'}">
             <img src="${escapeHtml(item.imageFile)}" style="width: 100%; height: 150px; object-fit: cover; display: block">
             <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 8px; font-size: 11px">
               <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">${escapeHtml(item.title)}</div>
-              <div style="font-size: 10px; opacity: 0.8">${status} ${dateStr}</div>
+              <div style="font-size: 10px; opacity: 0.8">${status} · ${dateStr}</div>
             </div>
             <div style="position: absolute; top: 4px; right: 4px; display: flex; gap: 4px">
               <button onclick="editGalleryPhoto('${item.id}')" style="background: #2196F3; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px">✏️</button>
               <button onclick="deleteGalleryPhoto('${item.id}')" style="background: #d32f2f; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px">🗑️</button>
             </div>
+            <button onclick="toggleGalleryPublished('${item.id}', ${!isPublished})" title="${isPublished ? 'Clicca per rendere non visibile pubblicamente' : 'Clicca per pubblicare sulla home'}"
+              style="position: absolute; top: 4px; left: 4px; background: ${isPublished ? '#4caf50' : '#999'}; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold">
+              ${isPublished ? '👁️ Pubblicata' : '🚫 Bozza'}
+            </button>
           </div>`;
         });
         container.innerHTML = html;
@@ -11608,6 +11628,89 @@ html += `
     function clearGalleryForm() {
       galleryQueue = [];
       renderGalleryQueue();
+    }
+
+    // ==================== 🆕 SERVIZIO "STAMPA LA TUA FOTO" ====================
+    let customFramesData = [];
+
+    function renderCustomFramesList() {
+      const container = document.getElementById('customFramesListContainer');
+      if (!container) return;
+
+      if (!customFramesData.length) {
+        container.innerHTML = '<p class="muted">Nessuna cornice personalizzata. Le 3 cornici di base restano comunque disponibili.</p>';
+        return;
+      }
+
+      container.innerHTML = customFramesData.map((f, idx) => `
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; padding: 6px; background: white; border-radius: 4px; border: 1px solid #eee">
+          <input type="text" value="${escapeHtml(f.name || '')}" data-frame-idx="${idx}" data-frame-field="name" class="frame-input" placeholder="Nome cornice" style="flex: 2; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+          <input type="color" value="${f.borderColor || '#ffc94d'}" data-frame-idx="${idx}" data-frame-field="borderColor" class="frame-input" style="width: 44px; padding: 0; border: 1px solid #ddd; border-radius: 4px">
+          <select data-frame-idx="${idx}" data-frame-field="style" class="frame-input" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+            <option value="solid" ${f.style === 'solid' ? 'selected' : ''}>Continua</option>
+            <option value="dashed" ${f.style === 'dashed' ? 'selected' : ''}>Tratteggiata</option>
+            <option value="dotted" ${f.style === 'dotted' ? 'selected' : ''}>Punteggiata</option>
+            <option value="double" ${f.style === 'double' ? 'selected' : ''}>Doppia</option>
+          </select>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: normal; margin: 0">
+            <input type="checkbox" data-frame-idx="${idx}" data-frame-field="showText" class="frame-input" ${f.showText !== false ? 'checked' : ''}>
+            Nome torneo
+          </label>
+          <button class="btn btn-danger" onclick="removeCustomFrame(${idx})" style="padding: 4px 8px">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    function addCustomFrame() {
+      customFramesData.push({ id: bin2hex(4), name: '', borderColor: '#ffc94d', style: 'solid', showText: true });
+      renderCustomFramesList();
+    }
+
+    function removeCustomFrame(idx) {
+      customFramesData.splice(idx, 1);
+      renderCustomFramesList();
+    }
+
+    async function savePhotoFrames() {
+      try {
+        document.querySelectorAll('.frame-input').forEach(el => {
+          const idx = parseInt(el.dataset.frameIdx);
+          const field = el.dataset.frameField;
+          if (!customFramesData[idx]) return;
+          if (field === 'showText') customFramesData[idx][field] = el.checked;
+          else customFramesData[idx][field] = el.value;
+        });
+
+        const payload = {
+          enabled: document.getElementById('photoFramesEnabled').checked,
+          customFrames: customFramesData.filter(f => f.name.trim())
+        };
+        const result = await callApi('admin_update_photo_frames', 'POST', payload, true);
+        config.photoFrames = result.photoFrames;
+        customFramesData = result.photoFrames.customFrames;
+        renderCustomFramesList();
+        await showInfoDialog('✅ Successo', 'Impostazioni "Stampa la tua foto" salvate');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function toggleGalleryPublished(photoId, newPublished) {
+      const item = galleryData.find(g => g.id === photoId);
+      if (!item) return;
+      try {
+        const result = await callApi('admin_update_gallery', 'POST', {
+          id: photoId,
+          title: item.title,
+          description: item.description,
+          imageFile: item.imageFile,
+          published: newPublished
+        }, true);
+        galleryData = result.gallery;
+        renderGallery();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
     }
 
     function editGalleryPhoto(photoId) {

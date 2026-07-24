@@ -887,6 +887,7 @@
         <button class="tab" data-page="shop" onclick="showPage('shop', this)">🍹 Bar</button>
         <button class="tab" data-page="translations" onclick="showPage('translations', this)">🌐 Traduzioni</button>
         <button class="tab" data-page="campaigns" onclick="showPage('campaigns', this)">📧 Campagne Email</button>
+        <button class="tab" data-page="gazette" onclick="showPage('gazette', this)">📰 Giornalino TODAY</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1169,6 +1170,20 @@
           <h4 style="margin-top: 0">🗄️ Archivio Campagne</h4>
           <div id="campaignsArchiveContainer"></div>
         </div>
+      </div>
+
+      <div id="page-gazette" class="card page hidden">
+        <h3>📰 Giornalino TODAY</h3>
+        <p class="muted">Genera automaticamente un giornalino del torneo (stile quelli delle crociere) con squadre, fasi, bar, servizio foto, meteo e curiosità — poi modificalo a piacere e stampalo o salvalo in PDF.</p>
+
+        <div class="row" style="margin: 12px 0; gap: 8px">
+          <button class="btn btn-primary" onclick="generateGazette()">🔄 Genera / Rigenera dai dati attuali</button>
+          <button class="btn btn-green" onclick="saveGazetteEdits()" id="saveGazetteBtn" style="display: none">💾 Salva Modifiche</button>
+          <button class="btn" style="background: #444; color: white; display: none" onclick="printGazette()" id="printGazetteBtn">🖨️ Stampa / Salva PDF</button>
+        </div>
+        <p class="muted" style="font-size: 12px">⚠️ Rigenerare sovrascrive le modifiche manuali fatte in precedenza con i dati aggiornati.</p>
+
+        <div id="gazetteEditorContainer"></div>
       </div>
 
       <div id="page-news" class="card page hidden">
@@ -1817,6 +1832,8 @@
         loadTranslationsEditor();
       } else if (page === 'campaigns') {
         loadCampaignsArchive();
+      } else if (page === 'gazette') {
+        loadGazette();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -2264,6 +2281,19 @@
                 <label>📅 Data di fine iscrizioni</label>
                 <input id="cfg-registrationDeadline" type="datetime-local" value="${(t.registrationDeadline || '').replace('Z', '').replace(/:00$/, '')}" placeholder="Seleziona data e ora">
                 <small style="color: #666; display: block; margin-top: 4px">Dopo questa data/ora, nessuna squadra può iscriversi. Se vuoto, la data non è considerata.</small>
+              </div>
+              <div class="field" style="grid-column: span 2">
+                <label>📍 Nome del luogo (per il Giornalino TODAY)</label>
+                <input id="cfg-locationName" type="text" value="${escapeHtml(t.locationName || '')}" placeholder="Es: Uccelli Beach, Valsesia">
+              </div>
+              <div class="field">
+                <label>Latitudine</label>
+                <input id="cfg-latitude" type="number" step="0.0001" value="${t.latitude ?? ''}" placeholder="Es: 45.7000">
+              </div>
+              <div class="field">
+                <label>Longitudine</label>
+                <input id="cfg-longitude" type="number" step="0.0001" value="${t.longitude ?? ''}" placeholder="Es: 8.3500">
+                <small style="color: #666; display: block; margin-top: 4px">Coordinate usate per il meteo automatico nel Giornalino TODAY — cercale su Google Maps (click destro sul punto → coordinate).</small>
               </div>
               <div class="field">
                 <label>Max giocatori per squadra</label>
@@ -3313,6 +3343,9 @@
             maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
             registrationsClosed: document.getElementById('cfg-registrationsClosed').checked,
             registrationDeadline: document.getElementById('cfg-registrationDeadline').value.trim(),
+            locationName: document.getElementById('cfg-locationName').value.trim(),
+            latitude: parseFloat(document.getElementById('cfg-latitude').value) || null,
+            longitude: parseFloat(document.getElementById('cfg-longitude').value) || null,
             liveScoreboardRefreshSeconds: Math.max(2, Math.min(60, liveRefreshVal))
           },
           contact: {
@@ -10733,6 +10766,229 @@ html += `
         btn.disabled = false;
         btn.textContent = '📤 Invia Campagna';
       }
+    }
+
+    // ==================== 🆕 GIORNALINO TODAY ====================
+    let currentGazette = null;
+
+    async function loadGazette() {
+      try {
+        const result = await callApi('admin_get_gazette', 'GET', null, true);
+        currentGazette = result.gazette;
+        renderGazetteEditor();
+      } catch (e) {
+        console.error('Errore caricamento giornalino:', e);
+      }
+    }
+
+    async function generateGazette() {
+      try {
+        const result = await callApi('admin_generate_gazette', 'POST', {}, true);
+        currentGazette = result.gazette;
+        renderGazetteEditor();
+        await showInfoDialog('✅ Generato', 'Giornalino generato dai dati attuali del torneo. Puoi modificarlo prima di stamparlo.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function renderGazetteEditor() {
+      const container = document.getElementById('gazetteEditorContainer');
+      const saveBtn = document.getElementById('saveGazetteBtn');
+      const printBtn = document.getElementById('printGazetteBtn');
+
+      if (!currentGazette) {
+        container.innerHTML = '<p class="muted">Nessun giornalino ancora generato. Clicca "Genera / Rigenera" per crearne uno dai dati attuali del torneo.</p>';
+        saveBtn.style.display = 'none';
+        printBtn.style.display = 'none';
+        return;
+      }
+
+      const g = currentGazette;
+      const weatherText = g.weather
+        ? `${g.weather.description} · min ${g.weather.tempMin}° / max ${g.weather.tempMax}°`
+        : 'Non disponibile (configura latitudine/longitudine nelle impostazioni del torneo)';
+
+      container.innerHTML = `
+        <div class="card" style="background: white; padding: 12px; margin-top: 12px">
+          <div class="field">
+            <label>Titolo testata</label>
+            <input id="gzTitle" type="text" value="${escapeHtml(g.title || '')}">
+          </div>
+          <div class="field" style="margin-top: 8px">
+            <label>Sottotitolo (nome torneo)</label>
+            <input id="gzSubtitle" type="text" value="${escapeHtml(g.subtitle || '')}">
+          </div>
+          <div class="field" style="margin-top: 8px">
+            <label>Titolone (headline)</label>
+            <input id="gzHeadline" type="text" value="${escapeHtml(g.headline || '')}">
+          </div>
+          <div class="field" style="margin-top: 8px">
+            <label>Articolo centrale</label>
+            <textarea id="gzMainArticle" rows="4" style="width: 100%">${escapeHtml(g.mainArticle || '')}</textarea>
+          </div>
+
+          <div class="row" style="gap: 16px; margin-top: 12px; flex-wrap: wrap">
+            <div class="field" style="flex: 1; min-width: 250px">
+              <label>Colonna 1 — Titolo</label>
+              <input id="gzCol1Title" type="text" value="${escapeHtml(g.teamsColumn?.title || '')}">
+              <label style="margin-top: 6px">Colonna 1 — Voci (una per riga)</label>
+              <textarea id="gzCol1Items" rows="6" style="width: 100%">${escapeHtml((g.teamsColumn?.items || []).join('\n'))}</textarea>
+            </div>
+            <div class="field" style="flex: 1; min-width: 250px">
+              <label>Colonna 2 — Titolo</label>
+              <input id="gzCol2Title" type="text" value="${escapeHtml(g.phasesColumn?.title || '')}">
+              <label style="margin-top: 6px">Colonna 2 — Voci (una per riga)</label>
+              <textarea id="gzCol2Items" rows="6" style="width: 100%">${escapeHtml((g.phasesColumn?.items || []).join('\n'))}</textarea>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 12px">
+            <label>🍹 Bar — Voci menu (una per riga)</label>
+            <textarea id="gzBarItems" rows="4" style="width: 100%">${escapeHtml((g.barSection?.items || []).join('\n'))}</textarea>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
+            <label>📸 Servizio foto — testo</label>
+            <textarea id="gzPhotoText" rows="2" style="width: 100%">${escapeHtml(g.photoServiceSection?.text || '')}</textarea>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
+            <label>🌤️ Meteo (calcolato automaticamente da posizione GPS)</label>
+            <div style="padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 13px">${escapeHtml(weatherText)}</div>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
+            <label>💡 Curiosità sui dintorni (una per riga)</label>
+            <textarea id="gzCuriosities" rows="4" style="width: 100%" placeholder="Es: A due passi dal campo trovi il famoso belvedere sul lago...">${escapeHtml((g.curiosities || []).join('\n'))}</textarea>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
+            <label>🔧 Servizi in footer (una per riga)</label>
+            <textarea id="gzFooterServices" rows="3" style="width: 100%">${escapeHtml((g.footerServices || []).join('\n'))}</textarea>
+          </div>
+        </div>
+      `;
+
+      saveBtn.style.display = 'inline-block';
+      printBtn.style.display = 'inline-block';
+    }
+
+    async function saveGazetteEdits() {
+      if (!currentGazette) return;
+      try {
+        const g = { ...currentGazette };
+        g.title = document.getElementById('gzTitle').value.trim();
+        g.subtitle = document.getElementById('gzSubtitle').value.trim();
+        g.headline = document.getElementById('gzHeadline').value.trim();
+        g.mainArticle = document.getElementById('gzMainArticle').value.trim();
+        g.teamsColumn = {
+          title: document.getElementById('gzCol1Title').value.trim(),
+          items: document.getElementById('gzCol1Items').value.split('\n').map(s => s.trim()).filter(Boolean)
+        };
+        g.phasesColumn = {
+          title: document.getElementById('gzCol2Title').value.trim(),
+          items: document.getElementById('gzCol2Items').value.split('\n').map(s => s.trim()).filter(Boolean)
+        };
+        g.barSection = {
+          title: currentGazette.barSection?.title || '🍹 Il Bar del Torneo',
+          items: document.getElementById('gzBarItems').value.split('\n').map(s => s.trim()).filter(Boolean)
+        };
+        g.photoServiceSection = {
+          title: currentGazette.photoServiceSection?.title || '📸 Stampa la tua foto',
+          text: document.getElementById('gzPhotoText').value.trim()
+        };
+        g.curiosities = document.getElementById('gzCuriosities').value.split('\n').map(s => s.trim()).filter(Boolean);
+        g.footerServices = document.getElementById('gzFooterServices').value.split('\n').map(s => s.trim()).filter(Boolean);
+
+        const result = await callApi('admin_update_gazette', 'POST', { gazette: g }, true);
+        currentGazette = result.gazette;
+        await showInfoDialog('✅ Salvato', 'Modifiche al giornalino salvate.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // 🆕 Apre una finestra dedicata con il giornalino impaginato come un
+    // vero giornale (titolone, articolo centrale, due colonne, footer) e
+    // avvia la stampa — da lì si può scegliere "Salva come PDF" nella
+    // finestra di stampa del browser, senza bisogno di librerie PDF lato server.
+    function printGazette() {
+      if (!currentGazette) return;
+      const g = currentGazette;
+      const weatherHtml = g.weather
+        ? `${escapeHtml(g.weather.description)} — min ${g.weather.tempMin}° / max ${g.weather.tempMax}°`
+        : '';
+
+      const listHtml = (items) => `<ul style="margin: 6px 0; padding-left: 18px">${(items || []).map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <title>${escapeHtml(g.title)} - ${escapeHtml(g.subtitle)}</title>
+          <style>
+            @page { margin: 1.5cm; }
+            body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; max-width: 900px; margin: 0 auto; padding: 20px; }
+            .gz-header { text-align: center; border-bottom: 4px double #333; padding-bottom: 12px; margin-bottom: 16px }
+            .gz-title { font-size: 56px; font-weight: bold; letter-spacing: 4px; margin: 0 }
+            .gz-subtitle { font-size: 18px; color: #555; margin: 4px 0 }
+            .gz-date { font-size: 13px; color: #888 }
+            .gz-headline { font-size: 28px; font-weight: bold; text-align: center; margin: 16px 0; font-family: Georgia, serif }
+            .gz-main-article { font-size: 15px; line-height: 1.6; text-align: justify; column-count: 1; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 16px }
+            .gz-columns { display: flex; gap: 30px; margin-top: 10px }
+            .gz-col { flex: 1 }
+            .gz-col h3 { border-bottom: 2px solid #333; padding-bottom: 4px; font-size: 17px }
+            .gz-footer { margin-top: 24px; border-top: 3px double #333; padding-top: 12px; font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap }
+            .gz-footer-block { flex: 1; min-width: 180px }
+            .gz-footer-block h4 { margin: 0 0 6px 0; font-size: 14px }
+            @media print { body { padding: 0 } }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <div class="gz-header">
+            <h1 class="gz-title">${escapeHtml(g.title)}</h1>
+            <div class="gz-subtitle">${escapeHtml(g.subtitle)}</div>
+            <div class="gz-date">${escapeHtml(g.date)}${g.locationName ? ' · ' + escapeHtml(g.locationName) : ''}</div>
+          </div>
+
+          <div class="gz-headline">${escapeHtml(g.headline)}</div>
+          <div class="gz-main-article">${escapeHtml(g.mainArticle)}</div>
+
+          <div class="gz-columns">
+            <div class="gz-col">
+              <h3>${escapeHtml(g.teamsColumn?.title || '')}</h3>
+              ${listHtml(g.teamsColumn?.items)}
+            </div>
+            <div class="gz-col">
+              <h3>${escapeHtml(g.phasesColumn?.title || '')}</h3>
+              ${listHtml(g.phasesColumn?.items)}
+            </div>
+          </div>
+
+          <div class="gz-footer">
+            <div class="gz-footer-block">
+              <h4>${escapeHtml(g.barSection?.title || '')}</h4>
+              ${listHtml(g.barSection?.items)}
+            </div>
+            <div class="gz-footer-block">
+              <h4>${escapeHtml(g.photoServiceSection?.title || '')}</h4>
+              <p>${escapeHtml(g.photoServiceSection?.text || '')}</p>
+            </div>
+            <div class="gz-footer-block">
+              <h4>🌤️ Meteo di oggi</h4>
+              <p>${weatherHtml}</p>
+              ${g.curiosities?.length ? `<h4 style="margin-top:10px">💡 Curiosità dai dintorni</h4>${listHtml(g.curiosities)}` : ''}
+            </div>
+            <div class="gz-footer-block">
+              <h4>🔧 Servizi disponibili</h4>
+              ${listHtml(g.footerServices)}
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
     }
 
     async function loadCampaignsArchive() {

@@ -52,6 +52,8 @@ const HISTORY_FILE = __DIR__ . '/data/history.json';
 const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
 // 🆕 Archivio delle campagne email inviate (squadre/newsletter/entrambi), con tracciamento aperture
 const CAMPAIGNS_FILE = __DIR__ . '/data/campaigns.json';
+// 🆕 Giornalino TODAY: contenuto strutturato (JSON), modificabile e ristampabile
+const GAZETTE_FILE = __DIR__ . '/data/gazette.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -1747,7 +1749,11 @@ function defaultConfig(): array {
             'setupTimeMinutes' => 5,
             'maxTimeoutsPerSet' => 1,
             'registrationsClosed' => false,
-            'registrationDeadline' => ''  // Data di fine iscrizioni (formato YYYY-MM-DD)
+            'registrationDeadline' => '',  // Data di fine iscrizioni (formato YYYY-MM-DD)
+            // 🆕 Posizione del torneo, usata per il meteo nel Giornalino TODAY
+            'locationName' => '',
+            'latitude' => null,
+            'longitude' => null
         ],
         'schedule' => [
             'courts' => []
@@ -2240,6 +2246,141 @@ function readCampaigns(): array {
  */
 function transparentPixelGif(): string {
     return base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7');
+}
+
+/**
+ * 🆕 Recupera le previsioni meteo da Open-Meteo (servizio gratuito, senza
+ * chiave API) per le coordinate date. Restituisce null se le coordinate
+ * non sono configurate o se la richiesta fallisce (es. sito senza accesso
+ * a internet in uscita) — il Giornalino viene generato comunque, solo
+ * senza la sezione meteo automatica.
+ */
+function fetchWeatherForecast(?float $lat, ?float $lon): ?array {
+    if ($lat === null || $lon === null) return null;
+
+    try {
+        $url = 'https://api.open-meteo.com/v1/forecast?' . http_build_query([
+            'latitude' => $lat,
+            'longitude' => $lon,
+            'daily' => 'temperature_2m_max,temperature_2m_min,weathercode',
+            'timezone' => 'auto',
+            'forecast_days' => 1
+        ]);
+
+        $raw = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 6, 'ignore_errors' => true]]));
+        if ($raw === false || $raw === null) return null;
+
+        $data = json_decode($raw, true);
+        if (!is_array($data) || !isset($data['daily'])) return null;
+
+        // Traduzione approssimativa dei codici meteo WMO usati da Open-Meteo
+        $weatherCodeMap = [
+            0 => '☀️ Sereno', 1 => '🌤️ Prevalentemente sereno', 2 => '⛅ Parzialmente nuvoloso', 3 => '☁️ Nuvoloso',
+            45 => '🌫️ Nebbia', 48 => '🌫️ Nebbia con brina',
+            51 => '🌦️ Pioviggine leggera', 53 => '🌦️ Pioviggine', 55 => '🌦️ Pioviggine intensa',
+            61 => '🌧️ Pioggia leggera', 63 => '🌧️ Pioggia', 65 => '🌧️ Pioggia intensa',
+            71 => '🌨️ Neve leggera', 73 => '🌨️ Neve', 75 => '🌨️ Neve intensa',
+            80 => '🌦️ Rovesci leggeri', 81 => '🌦️ Rovesci', 82 => '⛈️ Rovesci violenti',
+            95 => '⛈️ Temporale', 96 => '⛈️ Temporale con grandine', 99 => '⛈️ Temporale forte con grandine'
+        ];
+        $code = $data['daily']['weathercode'][0] ?? null;
+
+        return [
+            'tempMax' => $data['daily']['temperature_2m_max'][0] ?? null,
+            'tempMin' => $data['daily']['temperature_2m_min'][0] ?? null,
+            'description' => $weatherCodeMap[$code] ?? '🌡️ Dati non disponibili'
+        ];
+    } catch (\Throwable $e) {
+        // 🔧 FIX: qualunque problema di rete (dominio non raggiungibile,
+        // timeout, hosting che blocca le richieste in uscita) non deve mai
+        // bloccare la generazione dell'intero giornalino — si salta solo
+        // la sezione meteo automatica.
+        error_log('Meteo non disponibile per il giornalino: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * 🆕 Aggrega tutti i dati del torneo (squadre, fasi/gironi, bar, servizio
+ * foto) in una struttura pronta per il Giornalino TODAY. Non salva nulla:
+ * restituisce solo i dati, il salvataggio avviene nell'endpoint chiamante.
+ */
+function buildGazetteContent(array $config, array $state): array {
+    $tournament = $config['tournament'] ?? [];
+
+    // Squadre
+    $teams = $state['teams'] ?? [];
+    $approvedTeams = array_values(array_filter($teams, fn($t) => !empty($t['approved'])));
+    $teamNames = array_map(fn($t) => $t['name'] ?? '', $approvedTeams);
+
+    // Fasi e gironi
+    $phases = $state['phases'] ?? [];
+    $phasesSummary = [];
+    foreach ($phases as $phase) {
+        if (($phase['type'] ?? '') === 'knockout') {
+            $phasesSummary[] = ($phase['name'] ?? 'Fase') . ': eliminazione diretta';
+        } else {
+            $numGroups = count($phase['groups'] ?? []);
+            $phasesSummary[] = ($phase['name'] ?? 'Fase') . ": $numGroups gironi";
+        }
+    }
+
+    // Bar (prodotti)
+    $shop = readShopState();
+    $shopCategories = $shop['categories'] ?? [];
+    $productHighlights = [];
+    foreach ($shopCategories as $cat) {
+        foreach (($cat['products'] ?? []) as $p) {
+            if (($p['available'] ?? true) !== false) {
+                $productHighlights[] = ($p['name'] ?? '') . ' (€' . number_format((float)($p['price'] ?? 0), 2) . ')';
+            }
+        }
+    }
+
+    // Meteo
+    $weather = fetchWeatherForecast(
+        $tournament['latitude'] ?? null,
+        $tournament['longitude'] ?? null
+    );
+
+    $sportLabels = ['beachvolley' => 'Beach Volley', 'beachtennis' => 'Beach Tennis', 'beachsoccer' => 'Beach Soccer'];
+    $sportLabel = $sportLabels[$tournament['sportType'] ?? 'beachvolley'] ?? 'Beach Volley';
+
+    return [
+        'title' => 'TODAY',
+        'subtitle' => $tournament['name'] ?? 'Il Torneo',
+        'date' => date('d/m/Y'),
+        'headline' => count($teamNames) . ' squadre in campo per ' . ($tournament['name'] ?? 'il torneo'),
+        'mainArticle' => "Prende il via oggi " . ($tournament['name'] ?? 'il torneo') . ", torneo di $sportLabel con " . count($teamNames) . " squadre iscritte" . (!empty($phasesSummary) ? '. Il format prevede: ' . implode(', ', $phasesSummary) . '.' : '.') . " Buon divertimento a tutti i partecipanti!",
+        'teamsColumn' => [
+            'title' => 'Le squadre in campo',
+            'items' => $teamNames
+        ],
+        'phasesColumn' => [
+            'title' => 'Fasi e gironi',
+            'items' => $phasesSummary
+        ],
+        'barSection' => [
+            'title' => '🍹 Il Bar del Torneo',
+            'items' => array_slice($productHighlights, 0, 12)
+        ],
+        'photoServiceSection' => [
+            'title' => '📸 Stampa la tua foto',
+            'text' => !empty($config['photoFrames']['enabled'])
+                ? 'Scatta, scegli la tua foto preferita dalla galleria (o caricane una tua), applica una cornice del torneo e portala a casa: stampala o scaricala direttamente dal sito!'
+                : ''
+        ],
+        'weather' => $weather,
+        'locationName' => $tournament['locationName'] ?? '',
+        'curiosities' => [],
+        'footerServices' => array_values(array_filter([
+            !empty($config['payment']['enabled']) ? '💰 Quota iscrizione gestibile online' : null,
+            !empty($shopCategories) ? '🍹 Bar con ordini e pagamento online' : null,
+            !empty($config['photoFrames']['enabled']) ? '📸 Stampa foto ricordo' : null,
+            !empty($config['attendanceSettings']['enabled']) ? '🎟️ Partecipazione spettatori' : null,
+        ])),
+        'generatedAt' => date('c')
+    ];
 }
 
 function withAttendanceTransaction(callable $callback): array {
@@ -5991,6 +6132,46 @@ if ($action === 'admin_delete_campaign' && $method === 'POST') {
 
     jsonResponse(200, ['ok' => true]);
 }
+
+// ==================== 🆕 GIORNALINO TODAY ====================
+
+// Admin: genera (o rigenera) il giornalino aggregando i dati attuali del
+// torneo — sovrascrive il contenuto salvato in precedenza. Le modifiche
+// manuali fatte dopo (tramite admin_update_gazette) andrebbero perse se si
+// rigenera di nuovo: l'admin viene avvisato lato interfaccia.
+if ($action === 'admin_generate_gazette' && $method === 'POST') {
+    requireAdmin();
+    $config = readConfig();
+    $state = readJsonFile(DATA_FILE, ['teams' => [], 'phases' => []]);
+
+    $gazette = buildGazetteContent($config, $state);
+    writeJsonFile(GAZETTE_FILE, $gazette);
+
+    jsonResponse(200, ['ok' => true, 'gazette' => $gazette]);
+}
+
+// Admin: legge il giornalino salvato (per modificarlo o ristamparlo)
+if ($action === 'admin_get_gazette' && $method === 'GET') {
+    requireAdmin();
+    if (!file_exists(GAZETTE_FILE)) {
+        jsonResponse(200, ['ok' => true, 'gazette' => null]);
+    }
+    $gazette = readJsonFile(GAZETTE_FILE, []);
+    jsonResponse(200, ['ok' => true, 'gazette' => $gazette ?: null]);
+}
+
+// Admin: salva le modifiche manuali fatte al giornalino (titolo, articoli,
+// colonne, curiosità, ecc.) senza rigenerarlo da zero.
+if ($action === 'admin_update_gazette' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    if (!isset($body['gazette']) || !is_array($body['gazette'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'gazette mancante o non valido']);
+    }
+    writeJsonFile(GAZETTE_FILE, $body['gazette']);
+    jsonResponse(200, ['ok' => true, 'gazette' => $body['gazette']]);
+}
+
 if ($action === 'admin_get_newsletter_subscribers' && $method === 'GET') {
     requireAdmin();
     $list = readJsonFile(NEWSLETTER_FILE, ['subscribers' => []]);
@@ -10339,6 +10520,10 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['maxTimeoutsPerSet'])) $config['tournament']['maxTimeoutsPerSet'] = max(0, min(5, (int)$t['maxTimeoutsPerSet']));
         if (isset($t['registrationsClosed'])) $config['tournament']['registrationsClosed'] = (bool)$t['registrationsClosed'];
         if (isset($t['registrationDeadline'])) $config['tournament']['registrationDeadline'] = trim((string)$t['registrationDeadline']);
+        // 🆕 Posizione del torneo, usata per il meteo nel Giornalino TODAY
+        if (isset($t['locationName'])) $config['tournament']['locationName'] = mb_substr(trim((string)$t['locationName']), 0, 150);
+        if (isset($t['latitude'])) $config['tournament']['latitude'] = is_numeric($t['latitude']) ? (float)$t['latitude'] : null;
+        if (isset($t['longitude'])) $config['tournament']['longitude'] = is_numeric($t['longitude']) ? (float)$t['longitude'] : null;
         // 🆕 Intervallo (in secondi) di auto-refresh del tabellone pubblico in
         // sola visualizzazione (scoreboard.html -> tablescore.html?mode=view)
         if (isset($t['liveScoreboardRefreshSeconds'])) $config['tournament']['liveScoreboardRefreshSeconds'] = max(2, min(60, (int)$t['liveScoreboardRefreshSeconds']));

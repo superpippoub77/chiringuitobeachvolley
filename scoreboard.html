@@ -1242,11 +1242,16 @@
         </div>
         <div class="field" style="margin-top: 10px">
           <label data-i18n="attendance_total_people">Quante persone in totale (te compreso/a)</label>
-          <input id="attTotalPeople" type="number" min="1" value="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          <input id="attTotalPeople" type="number" min="1" value="1" oninput="updateAttendanceFeeBox()" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
         </div>
         <div class="field" style="margin-top: 10px">
           <label data-i18n="attendance_children">Di cui quanti bambini</label>
           <input id="attChildren" type="number" min="0" value="0" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+        </div>
+        <div id="attendanceFeeBox" style="display: none; margin-top: 12px; padding: 10px; background: #fff8ea; border-radius: 8px; text-align: center">
+          <div style="font-size: 13px; color: #6a5737" data-i18n="attendance_fee_label">Quota d'ingresso</div>
+          <div id="attendanceFeeValue" style="font-size: 20px; font-weight: bold; color: #d32f2f">€ 0.00</div>
+          <div id="attendancePaypalButtonContainer" style="margin-top: 8px"></div>
         </div>
         <div id="attendanceStatus" style="margin-top: 10px; font-size: 13px"></div>
       </div>
@@ -3235,6 +3240,8 @@
     // 🆕 Partecipazione come spettatore (non giocatore): nome, email,
     // telefono, numero di persone e quanti tra loro sono bambini.
     let attendanceRemainingSpots = null; // null = nessun limite
+    let attendanceFeeConfig = { feePerPerson: 0, currency: 'EUR', paypalClientId: '', paypalCurrency: 'EUR' };
+    let attendancePaypalSdkPromise = null;
 
     async function loadAttendanceStatus() {
       try {
@@ -3246,8 +3253,35 @@
         if (navLink) navLink.style.display = data.enabled ? 'inline-block' : 'none';
 
         attendanceRemainingSpots = data.remainingSpots;
+        attendanceFeeConfig = {
+          feePerPerson: data.feePerPerson || 0,
+          currency: data.currency || 'EUR',
+          paypalClientId: data.paypalClientId || '',
+          paypalCurrency: data.paypalCurrency || 'EUR'
+        };
       } catch (e) {
         console.error('Errore verifica partecipazione:', e);
+      }
+    }
+
+    // 🆕 Aggiorna il box della quota d'ingresso in base al numero di persone
+    // dichiarate, e mostra il pulsante PayPal se configurato.
+    function updateAttendanceFeeBox() {
+      const box = document.getElementById('attendanceFeeBox');
+      if (!box) return;
+
+      if (attendanceFeeConfig.feePerPerson <= 0) {
+        box.style.display = 'none';
+        return;
+      }
+
+      const totalPeople = Math.max(1, parseInt(document.getElementById('attTotalPeople').value) || 1);
+      const total = attendanceFeeConfig.feePerPerson * totalPeople;
+      document.getElementById('attendanceFeeValue').textContent = `€ ${total.toFixed(2)} (${totalPeople} person${totalPeople === 1 ? 'a' : 'e'})`;
+      box.style.display = 'block';
+
+      if (attendanceFeeConfig.paypalClientId) {
+        renderAttendancePaypalButton(total);
       }
     }
 
@@ -3262,6 +3296,7 @@
       } else {
         statusEl.textContent = '';
       }
+      updateAttendanceFeeBox();
       document.getElementById('attendanceOverlay').classList.remove('hidden');
     }
 
@@ -3310,20 +3345,102 @@
       }
 
       try {
-        await api('attendance_signup', 'POST', { name, email, phone, totalPeople, children });
+        await api('attendance_signup', 'POST', { name, email, phone, totalPeople, children, paymentMethod: 'cassa' });
         statusEl.style.color = '#2e5d1f';
-        statusEl.textContent = i18n('attendance_success');
+        statusEl.textContent = attendanceFeeConfig.feePerPerson > 0
+          ? `${i18n('attendance_success')} ${i18n('attendance_pay_at_venue_note')}`
+          : i18n('attendance_success');
         document.getElementById('attName').value = '';
         document.getElementById('attEmail').value = '';
         document.getElementById('attPhone').value = '';
         document.getElementById('attTotalPeople').value = '1';
         document.getElementById('attChildren').value = '0';
+        document.getElementById('attendanceFeeBox').style.display = 'none';
         if (attendanceRemainingSpots !== null) {
           attendanceRemainingSpots = Math.max(0, attendanceRemainingSpots - totalPeople);
         }
       } catch (e) {
         statusEl.style.color = '#b71c1c';
         statusEl.textContent = '❌ ' + (e.message || 'Errore sconosciuto');
+      }
+    }
+
+    // 🆕 Carica l'SDK PayPal dinamicamente (una sola volta) per la quota partecipanti
+    function loadAttendancePaypalSdk() {
+      if (attendancePaypalSdkPromise) return attendancePaypalSdkPromise;
+      attendancePaypalSdkPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(attendanceFeeConfig.paypalClientId)}&currency=${encodeURIComponent(attendanceFeeConfig.paypalCurrency)}`;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error('Impossibile caricare PayPal'));
+        document.head.appendChild(script);
+      });
+      return attendancePaypalSdkPromise;
+    }
+
+    // 🆕 NOTA: come per bar e quota squadra, questo pagamento è verificato
+    // solo lato client (l'SDK PayPal gestisce l'addebito reale), la conferma
+    // "pagato" sul server si fida della risposta del browser dopo
+    // l'approvazione, senza verifica server-to-server con le API PayPal.
+    async function renderAttendancePaypalButton(total) {
+      const container = document.getElementById('attendancePaypalButtonContainer');
+      if (!container) return;
+      container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
+
+      try {
+        const paypal = await loadAttendancePaypalSdk();
+        container.innerHTML = '';
+
+        paypal.Buttons({
+          createOrder: (data, actions) => {
+            const name = document.getElementById('attName').value.trim();
+            const email = document.getElementById('attEmail').value.trim();
+            const phone = document.getElementById('attPhone').value.trim();
+            if (!name || !email || !phone) {
+              alert(i18n('validation_name_before_paypal'));
+              return Promise.reject(new Error('Dati mancanti'));
+            }
+            return actions.order.create({
+              purchase_units: [{ amount: { value: total.toFixed(2), currency_code: attendanceFeeConfig.paypalCurrency } }]
+            });
+          },
+          onApprove: async (data, actions) => {
+            await actions.order.capture();
+            const statusEl = document.getElementById('attendanceStatus');
+            try {
+              const name = document.getElementById('attName').value.trim();
+              const email = document.getElementById('attEmail').value.trim();
+              const phone = document.getElementById('attPhone').value.trim();
+              const totalPeople = parseInt(document.getElementById('attTotalPeople').value) || 1;
+              const children = parseInt(document.getElementById('attChildren').value) || 0;
+
+              const result = await api('attendance_signup', 'POST', { name, email, phone, totalPeople, children, paymentMethod: 'paypal' });
+              await fetch(`${API}?action=attendance_confirm_paypal_payment`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attendeeId: result.attendee.id })
+              });
+
+              statusEl.style.color = '#2e5d1f';
+              statusEl.textContent = i18n('payment_success_msg');
+              document.getElementById('attName').value = '';
+              document.getElementById('attEmail').value = '';
+              document.getElementById('attPhone').value = '';
+              document.getElementById('attTotalPeople').value = '1';
+              document.getElementById('attChildren').value = '0';
+              document.getElementById('attendanceFeeBox').style.display = 'none';
+              if (attendanceRemainingSpots !== null) {
+                attendanceRemainingSpots = Math.max(0, attendanceRemainingSpots - totalPeople);
+              }
+            } catch (e) {
+              alert(i18n('payment_success_but_register_error') + ' ' + e.message);
+            }
+          },
+          onError: (err) => {
+            console.error('Errore PayPal:', err);
+            alert(i18n('paypal_generic_error'));
+          }
+        }).render('#attendancePaypalButtonContainer');
+      } catch (e) {
+        container.innerHTML = `<p class="muted">${i18n('paypal_unavailable')}</p>`;
       }
     }
 

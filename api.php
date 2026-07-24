@@ -748,6 +748,8 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'tablescore_connection_error' => 'Errore di connessione',
             'tablescore_tournament_load_error' => 'Errore di caricamento del torneo',
             'nav_rules' => 'Regolamento',
+            'attendance_fee_label' => 'Quota d\'ingresso',
+            'attendance_pay_at_venue_note' => 'Ricorda di portare la quota in contanti all\'ingresso.',
         ],
         'en' => [
             'hero_sub' => 'Mixed category only | Registration subject to administrator approval',
@@ -971,6 +973,8 @@ Come to the counter to pay and pick up (total: € {total}).',
             'tablescore_connection_error' => 'Connection error',
             'tablescore_tournament_load_error' => 'Error loading tournament',
             'nav_rules' => 'Rules',
+            'attendance_fee_label' => 'Entry fee',
+            'attendance_pay_at_venue_note' => 'Remember to bring the fee in cash at the entrance.',
         ],
         'fr' => [
             'hero_sub' => 'Catégorie mixte uniquement | Inscription soumise à l\'approbation de l\'administrateur',
@@ -1194,6 +1198,8 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'tablescore_connection_error' => 'Erreur de connexion',
             'tablescore_tournament_load_error' => 'Erreur de chargement du tournoi',
             'nav_rules' => 'Règlement',
+            'attendance_fee_label' => 'Frais d\'entrée',
+            'attendance_pay_at_venue_note' => 'N\'oubliez pas d\'apporter la cotisation en espèces à l\'entrée.',
         ],
         'de' => [
             'hero_sub' => 'Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator',
@@ -1417,6 +1423,8 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'tablescore_connection_error' => 'Verbindungsfehler',
             'tablescore_tournament_load_error' => 'Fehler beim Laden des Turniers',
             'nav_rules' => 'Regelwerk',
+            'attendance_fee_label' => 'Eintrittsgebühr',
+            'attendance_pay_at_venue_note' => 'Denk daran, die Gebühr bar am Eingang mitzubringen.',
         ],
         'zh' => [
             'hero_sub' => '仅限混合组别 | 报名需经管理员批准',
@@ -1640,6 +1648,8 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'tablescore_connection_error' => '连接错误',
             'tablescore_tournament_load_error' => '加载赛事时出错',
             'nav_rules' => '规则',
+            'attendance_fee_label' => '入场费',
+            'attendance_pay_at_venue_note' => '请记得在入口处携带现金支付费用。',
         ],
     ];
 }
@@ -1722,7 +1732,7 @@ function defaultConfig(): array {
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [
@@ -5977,6 +5987,12 @@ if ($action === 'attendance_signup' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Il numero di bambini non può superare il numero totale di persone']);
     }
 
+    // 🆕 Quota per partecipante (offerta ingresso spettatori), pagabile in
+    // cassa o PayPal — calcolata lato server dal numero di persone dichiarato.
+    $feePerPerson = (float)($attendanceSettings['feePerPerson'] ?? 0);
+    $amountDue = round($feePerPerson * $totalPeople, 2);
+    $paymentMethod = ($body['paymentMethod'] ?? 'cassa') === 'paypal' ? 'paypal' : 'cassa';
+
     $attendee = [
         'id' => bin2hex(random_bytes(8)),
         'name' => $name,
@@ -5984,6 +6000,10 @@ if ($action === 'attendance_signup' && $method === 'POST') {
         'phone' => $phone,
         'totalPeople' => $totalPeople,
         'children' => $children,
+        'amountDue' => $amountDue,
+        'paymentMethod' => $paymentMethod,
+        // Se non è dovuto nulla (quota disattivata o a zero), risulta già saldato
+        'paid' => $amountDue <= 0,
         'createdAt' => date('c')
     ];
 
@@ -6012,6 +6032,36 @@ if ($action === 'attendance_signup' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'attendee' => $attendee]);
 }
 
+// 🆕 Il cliente conferma che il pagamento PayPal della quota partecipante è
+// andato a buon fine (stesso meccanismo semplificato usato per la quota
+// squadra/bar: si fida della risposta del browser dopo l'approvazione).
+if ($action === 'attendance_confirm_paypal_payment' && $method === 'POST') {
+    $body = bodyJson();
+    $attendeeId = (string)($body['attendeeId'] ?? '');
+    if ($attendeeId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'attendeeId mancante']);
+    }
+
+    $found = false;
+    withAttendanceTransaction(function (&$list) use ($attendeeId, &$found) {
+        foreach ($list['attendees'] as &$a) {
+            if (($a['id'] ?? '') === $attendeeId) {
+                $a['paid'] = true;
+                $a['paymentMethod'] = 'paypal';
+                $found = true;
+                break;
+            }
+        }
+        unset($a);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Adesione non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
 // Admin: legge tutte le adesioni spettatori, con i totali già calcolati
 // Admin: salva abilitazione e numero massimo di partecipanti
 if ($action === 'admin_update_attendance_settings' && $method === 'POST') {
@@ -6021,7 +6071,12 @@ if ($action === 'admin_update_attendance_settings' && $method === 'POST') {
 
     $config['attendanceSettings'] = [
         'enabled' => (bool)($body['enabled'] ?? false),
-        'maxParticipants' => max(0, (int)($body['maxParticipants'] ?? 0))
+        'maxParticipants' => max(0, (int)($body['maxParticipants'] ?? 0)),
+        // 🆕 Quota per partecipante (offerta per l'ingresso spettatori), pagabile in cassa o PayPal
+        'feePerPerson' => max(0, (float)($body['feePerPerson'] ?? 0)),
+        'currency' => in_array($body['currency'] ?? 'EUR', ['EUR', 'USD', 'GBP', 'CHF'], true) ? $body['currency'] : 'EUR',
+        'paypalClientId' => mb_substr(trim((string)($body['paypalClientId'] ?? '')), 0, 200),
+        'paypalCurrency' => in_array($body['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $body['paypalCurrency'] : 'EUR'
     ];
 
     writeConfig($config);
@@ -6048,7 +6103,11 @@ if ($action === 'get_attendance_status' && $method === 'GET') {
         'ok' => true,
         'enabled' => (bool)($attendanceSettings['enabled'] ?? false),
         'maxParticipants' => $maxParticipants,
-        'remainingSpots' => $maxParticipants > 0 ? max(0, $maxParticipants - $currentTotal) : null
+        'remainingSpots' => $maxParticipants > 0 ? max(0, $maxParticipants - $currentTotal) : null,
+        'feePerPerson' => (float)($attendanceSettings['feePerPerson'] ?? 0),
+        'currency' => $attendanceSettings['currency'] ?? 'EUR',
+        'paypalClientId' => $attendanceSettings['paypalClientId'] ?? '',
+        'paypalCurrency' => $attendanceSettings['paypalCurrency'] ?? 'EUR'
     ]);
 }
 
@@ -6059,9 +6118,14 @@ if ($action === 'admin_get_attendees' && $method === 'GET') {
 
     $totalPeople = 0;
     $totalChildren = 0;
+    $totalDue = 0;
+    $totalCollected = 0;
     foreach ($attendees as $a) {
         $totalPeople += (int)($a['totalPeople'] ?? 0);
         $totalChildren += (int)($a['children'] ?? 0);
+        $due = (float)($a['amountDue'] ?? 0);
+        $totalDue += $due;
+        if ($a['paid'] ?? false) $totalCollected += $due;
     }
 
     jsonResponse(200, [
@@ -6071,9 +6135,40 @@ if ($action === 'admin_get_attendees' && $method === 'GET') {
             'signups' => count($attendees),
             'people' => $totalPeople,
             'children' => $totalChildren,
-            'adults' => $totalPeople - $totalChildren
+            'adults' => $totalPeople - $totalChildren,
+            'totalDue' => round($totalDue, 2),
+            'totalCollected' => round($totalCollected, 2)
         ]
     ]);
+}
+
+// 🆕 Admin: segna/toglie manualmente il pagamento di un'adesione (tipicamente per un pagamento in cassa)
+if ($action === 'admin_update_attendee_payment' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    $paid = (bool)($body['paid'] ?? false);
+
+    $found = false;
+    withAttendanceTransaction(function (&$list) use ($id, $paid, &$found) {
+        foreach ($list['attendees'] as &$a) {
+            if (($a['id'] ?? '') === $id) {
+                $a['paid'] = $paid;
+                if ($paid && empty($a['paymentMethod'])) {
+                    $a['paymentMethod'] = 'cassa';
+                }
+                $found = true;
+                break;
+            }
+        }
+        unset($a);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Adesione non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 // Admin: elimina una singola adesione
@@ -9529,7 +9624,7 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
             ],
             'notes' => [],
             'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-            'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
+            'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
             'customFields' => [],
             'news' => [],
             'autosave' => [
@@ -13657,7 +13752,7 @@ if ($action === 'create_tournament' && $method === 'POST') {
         ],
         'notes' => [],
         'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [

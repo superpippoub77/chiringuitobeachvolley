@@ -1409,6 +1409,32 @@
               <input id="attendanceMaxParticipants" type="number" min="0" value="0" style="width: 100%; max-width: 200px">
               <small style="color: #666; display: block; margin-top: 4px">Conta la somma delle persone di tutte le adesioni (non il numero di moduli inviati). Oltre il limite, il modulo rifiuta nuove adesioni.</small>
             </div>
+            <div class="field" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee">
+              <label>🆕 Quota d'ingresso per partecipante (0 = gratuito)</label>
+              <input id="attendanceFeePerPerson" type="number" min="0" step="0.01" value="0" style="width: 100%; max-width: 200px" placeholder="Es: 5.00">
+              <small style="color: #666; display: block; margin-top: 4px">Moltiplicata per il numero di persone dichiarate — chi si iscrive potrà pagare in cassa o (se configurato) con PayPal.</small>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Valuta</label>
+              <select id="attendanceCurrency" style="width: 100%; max-width: 200px; padding: 6px">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="CHF">CHF (CHF)</option>
+              </select>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>PayPal Client ID (opzionale)</label>
+              <input id="attendancePaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label>Valuta PayPal</label>
+              <select id="attendancePaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
             <button class="btn btn-green" onclick="saveAttendanceSettings()" style="margin-top: 8px">💾 Salva Impostazioni Partecipazione</button>
           </div>
 
@@ -10571,7 +10597,11 @@ html += `
       try {
         const payload = {
           enabled: document.getElementById('attendanceEnabled').checked,
-          maxParticipants: parseInt(document.getElementById('attendanceMaxParticipants').value) || 0
+          maxParticipants: parseInt(document.getElementById('attendanceMaxParticipants').value) || 0,
+          feePerPerson: parseFloat(document.getElementById('attendanceFeePerPerson').value) || 0,
+          currency: document.getElementById('attendanceCurrency').value,
+          paypalClientId: document.getElementById('attendancePaypalClientId').value.trim(),
+          paypalCurrency: document.getElementById('attendancePaypalCurrency').value
         };
         const result = await callApi('admin_update_attendance_settings', 'POST', payload, true);
         config.attendanceSettings = result.attendanceSettings;
@@ -10585,6 +10615,10 @@ html += `
       try {
         document.getElementById('attendanceEnabled').checked = config.attendanceSettings?.enabled || false;
         document.getElementById('attendanceMaxParticipants').value = config.attendanceSettings?.maxParticipants || 0;
+        document.getElementById('attendanceFeePerPerson').value = config.attendanceSettings?.feePerPerson || 0;
+        document.getElementById('attendanceCurrency').value = config.attendanceSettings?.currency || 'EUR';
+        document.getElementById('attendancePaypalClientId').value = config.attendanceSettings?.paypalClientId || '';
+        document.getElementById('attendancePaypalCurrency').value = config.attendanceSettings?.paypalCurrency || 'EUR';
 
         const result = await callApi('admin_get_attendees', 'GET', null, true);
         const totals = result.totals || {};
@@ -10594,6 +10628,7 @@ html += `
             <span class="badge" style="background: #2e5d1f; color: white">👥 ${totals.people || 0} persone totali</span>
             <span class="badge" style="background: #ff9800; color: white">🧒 ${totals.children || 0} bambini</span>
             <span class="badge" style="background: #666; color: white">🧑 ${totals.adults || 0} adulti</span>
+            ${(config.attendanceSettings?.feePerPerson || 0) > 0 ? `<span class="badge" style="background: #2e7d32; color: white">💰 ${(totals.totalCollected || 0).toFixed(2)} / ${(totals.totalDue || 0).toFixed(2)} incassato</span>` : ''}
           </div>
         `;
 
@@ -10605,19 +10640,39 @@ html += `
         }
 
         const sorted = [...attendees].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        container.innerHTML = sorted.map(a => `
+        const feeActive = (config.attendanceSettings?.feePerPerson || 0) > 0;
+        container.innerHTML = sorted.map(a => {
+          const isPaid = a.paid ?? true;
+          const paymentBadge = feeActive
+            ? `<span class="badge ${isPaid ? 'ok' : 'no'}" style="margin-left: 6px">${isPaid ? `✅ Pagato (${(a.amountDue || 0).toFixed(2)}${a.paymentMethod === 'paypal' ? ' via PayPal' : ' in cassa'})` : `⏳ Da pagare: ${(a.amountDue || 0).toFixed(2)}`}</span>`
+            : '';
+          return `
           <div class="card" style="background: white; padding: 8px 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
             <div>
               <strong>${escapeHtml(a.name)}</strong>
               <span style="font-size: 12px; color: #666; margin-left: 6px">✉️ ${escapeHtml(a.email)} · 📱 ${escapeHtml(a.phone)}</span>
+              ${paymentBadge}
               <div style="font-size: 13px; color: #555; margin-top: 2px">👥 ${a.totalPeople} person${a.totalPeople === 1 ? 'a' : 'e'}${a.children > 0 ? ` (di cui ${a.children} bambin${a.children === 1 ? 'o' : 'i'})` : ''}</div>
               <div style="font-size: 11px; color: #999">${new Date(a.createdAt).toLocaleString('it-IT')}</div>
             </div>
-            <button class="btn btn-danger" onclick="deleteAttendee('${a.id}')">🗑️</button>
+            <div class="row">
+              ${feeActive ? `<button class="btn ${isPaid ? '' : 'btn-green'}" onclick="toggleAttendeePaid('${a.id}', ${!isPaid})">${isPaid ? '↩️ Segna da pagare' : '✅ Segna pagato (cassa)'}</button>` : ''}
+              <button class="btn btn-danger" onclick="deleteAttendee('${a.id}')">🗑️</button>
+            </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       } catch (e) {
         console.error('Errore caricamento adesioni:', e);
+      }
+    }
+
+    async function toggleAttendeePaid(id, paid) {
+      try {
+        await callApi('admin_update_attendee_payment', 'POST', { id, paid }, true);
+        await loadAttendees();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
       }
     }
 

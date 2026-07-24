@@ -246,10 +246,10 @@
     }
 
     /* 🆕 Variante piccola per nome squadra e indicatore set/tempo — stessa
-       matrice 5x7, ma con pallini molto più piccoli visto che qui il testo
+       matrice 5x7, ma con pallini più piccoli visto che qui il testo
        normale è molto più contenuto del punteggio. */
     .dot-matrix-display.small {
-      gap: clamp(3px, 0.5vw, 6px);
+      gap: clamp(8px, 1.4vw, 16px);
       margin: 6px 0;
       flex-wrap: nowrap;
       overflow: hidden;
@@ -258,11 +258,11 @@
     .dot-matrix-display.small .dot-matrix-digit {
       grid-template-columns: repeat(5, 1fr);
       grid-template-rows: repeat(7, 1fr);
-      gap: 1px;
+      gap: clamp(1px, 0.15vw, 2px);
     }
     .dot-matrix-display.small .dot-matrix-dot {
-      width: clamp(2px, 0.4vw, 5px);
-      height: clamp(2px, 0.4vw, 5px);
+      width: clamp(4px, 0.7vw, 8px);
+      height: clamp(4px, 0.7vw, 8px);
       box-shadow: none;
     }
     .dot-matrix-display.small .dot-matrix-dot.lit {
@@ -274,6 +274,13 @@
     }
     body.matrix-mode .dot-matrix-display.small {
       display: flex;
+    }
+    /* 🔧 FIX: quando lo scorrimento è attivo, il centraggio flex del
+       contenitore (justify-content: center) entra in conflitto con la
+       tecnica di scorrimento (padding-left: 100% + traslazione) — durante
+       lo scorrimento serve partire da sinistra, non centrato. */
+    .dot-matrix-display.marquee-active {
+      justify-content: flex-start;
     }
     #matrixCurrentSet {
       color: #ff9800;

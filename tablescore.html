@@ -165,16 +165,17 @@
       margin: 20px 0;
       text-shadow: 0 0 40px currentColor, 0 0 15px rgba(255, 255, 255, 0.4);
       font-family: 'DSEG7 Classic', 'Courier New', monospace;
-      letter-spacing: 4px;
       white-space: nowrap;
-      /* 🔧 FIX: il letter-spacing aggiunge spazio anche DOPO l'ultimo
-         carattere, e text-align: center centra il box includendo quello
-         spazio extra — il risultato è che il numero appare spostato verso
-         destra rispetto al vero centro, tanto più quante più cifre ha (es.
-         "10" o "21" più visibilmente di "5"). Il margine negativo qui sotto
-         compensa esattamente quello spazio in eccesso. */
-      text-align: center;
-      margin-left: -4px;
+      /* 🔧 FIX DEFINITIVO: ogni cifra viene ora disegnata in JS dentro uno
+         spazio di larghezza fissa e identica (vedi updateScoreWithEffect),
+         così il gruppo di cifre è sempre perfettamente simmetrico — niente
+         più letter-spacing qui (diventerebbe un'altra fonte dello stesso
+         problema) e il centraggio del gruppo avviene con flexbox, più
+         affidabile del text-align per contenuti con dimensioni non standard. */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
     }
 
     /* 🆕 Effetto sul cambio numero, scelto dall'interruttore in pagina. */
@@ -1262,7 +1263,17 @@
       const el = document.getElementById(elementId);
       if (!el) return;
       const changed = lastScoreValues[elementId] !== undefined && lastScoreValues[elementId] !== newValue;
-      el.textContent = newValue;
+
+      // 🔧 FIX DEFINITIVO: invece di affidarsi al centraggio naturale del
+      // testo (che con questo font LCD e la sua spaziatura non risultava
+      // simmetrico, tanto più visibile quante più cifre — es. "2" spostata
+      // a sinistra nella sua casella), ogni cifra viene disegnata in uno
+      // spazio di larghezza fissa e identica. Così il gruppo di cifre è
+      // sempre perfettamente simmetrico, indipendentemente dal font.
+      const digits = String(newValue).split('');
+      el.innerHTML = digits.map(ch =>
+        `<span style="display: inline-block; width: 0.62em; text-align: center">${ch}</span>`
+      ).join('');
       lastScoreValues[elementId] = newValue;
 
       if (changed && scoreEffect !== 'none') {

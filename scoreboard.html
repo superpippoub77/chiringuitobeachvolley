@@ -1024,12 +1024,23 @@
   <div class="container">
     <section class="hero">
       <!-- 🆕 Selettore lingua: bandierine in alto, sempre visibili -->
-      <div id="languageFlagsBar" style="position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; gap: 4px; background: rgba(255,255,255,0.75); padding: 5px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12)">
+      <div id="languageFlagsBar" style="position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.75); padding: 5px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12)">
+        <a href="admin.html" target="_blank" title="Accedi al pannello di amministrazione" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: #2e5d1f; font-size: 13px; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: rgba(46,93,31,0.1)">🔐 Admin</a>
+        <span style="width: 1px; height: 20px; background: rgba(0,0,0,0.15)"></span>
         <span class="lang-flag-btn" data-lang="it" onclick="setLanguage('it')" title="Italiano" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇮🇹</span>
         <span class="lang-flag-btn" data-lang="en" onclick="setLanguage('en')" title="English" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇬🇧</span>
         <span class="lang-flag-btn" data-lang="fr" onclick="setLanguage('fr')" title="Français" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇫🇷</span>
         <span class="lang-flag-btn" data-lang="de" onclick="setLanguage('de')" title="Deutsch" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇩🇪</span>
         <span class="lang-flag-btn" data-lang="zh" onclick="setLanguage('zh')" title="中文" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇨🇳</span>
+      </div>
+      <!-- 🆕 Aggiornamento automatico: in alto a sinistra, lato opposto delle lingue -->
+      <div id="autoRefreshBar" style="position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.75); padding: 5px 10px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 12px; color: #444">
+        <label class="switch" style="position: relative; display: inline-block; width: 36px; height: 20px; margin: 0">
+          <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)" style="opacity: 0; width: 0; height: 0">
+          <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 20px"></span>
+          <span id="autoRefreshKnob" style="position: absolute; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3)"></span>
+        </label>
+        <span>🔄 Auto (30s): <strong id="autoRefreshStatusLabel">disattivato</strong></span>
       </div>
       <div class="hero-top">
         <div class="badge">CHIRINGUITO BEACH VOLLEY | LUI&Lei 2026</div>
@@ -1077,8 +1088,6 @@
 
     <div id="mainContent" style="display: none">
 
-      <div class="hero-links" data-i18n-html="hero_links_admin_panel">Pannello gestione: <a href="admin.html" target="_blank">apri admin</a> | <a
-          href="regolamento.html" target="_blank">🏐 Regolamento</a></div>
       </section>
 
       <section id="newsSection" style="margin-top: 24px; display: none">
@@ -1099,16 +1108,8 @@
         <a href="#" id="navAttendanceLink" class="main-nav-link" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
         <a href="#" id="navPaymentLink" class="main-nav-link" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
         <a href="#" class="main-nav-link" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
+        <a href="regolamento.html" target="_blank" class="main-nav-link">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
-
-    <div style="display: flex; align-items: center; gap: 8px; margin: 0 0 16px 0; font-size: 13px; color: #666">
-      <label class="switch" style="position: relative; display: inline-block; width: 40px; height: 22px">
-        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)" style="opacity: 0; width: 0; height: 0">
-        <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 22px"></span>
-        <span id="autoRefreshKnob" style="position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.3)"></span>
-      </label>
-      <span>🔄 Aggiornamento automatico (ogni 30s): <strong id="autoRefreshStatusLabel">disattivato</strong></span>
-    </div>
 
       <section class="page active" id="page-iscrizione">
         <!-- Il contenuto (form + lista squadre) viene generato da renderIscrizione() -->

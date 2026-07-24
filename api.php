@@ -760,6 +760,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_include_logo' => 'Includi il logo del torneo',
             'print_studio_download' => 'Scarica',
             'print_studio_print' => 'Stampa',
+            'location_directions' => 'Come arrivare',
         ],
         'en' => [
             'hero_sub' => 'Mixed category only | Registration subject to administrator approval',
@@ -993,6 +994,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_include_logo' => 'Include the tournament logo',
             'print_studio_download' => 'Download',
             'print_studio_print' => 'Print',
+            'location_directions' => 'Get directions',
         ],
         'fr' => [
             'hero_sub' => 'Catégorie mixte uniquement | Inscription soumise à l\'approbation de l\'administrateur',
@@ -1226,6 +1228,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_include_logo' => 'Inclure le logo du tournoi',
             'print_studio_download' => 'Télécharger',
             'print_studio_print' => 'Imprimer',
+            'location_directions' => "Comment s'y rendre",
         ],
         'de' => [
             'hero_sub' => 'Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator',
@@ -1459,6 +1462,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_include_logo' => 'Turnier-Logo einfügen',
             'print_studio_download' => 'Herunterladen',
             'print_studio_print' => 'Drucken',
+            'location_directions' => 'Anfahrt',
         ],
         'zh' => [
             'hero_sub' => '仅限混合组别 | 报名需经管理员批准',
@@ -1692,6 +1696,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_include_logo' => '包含赛事徽标',
             'print_studio_download' => '下载',
             'print_studio_print' => '打印',
+            'location_directions' => '前往路线',
         ],
     ];
 }
@@ -10279,7 +10284,12 @@ if ($action === 'get_config' && $method === 'GET') {
             'maxPlayersPerTeam' => $tournament['maxPlayersPerTeam'] ?? 3,
             'maxPlayersOnCourt' => $tournament['maxPlayersOnCourt'] ?? 2,
 			'registrationsClosed' => $tournament['registrationsClosed'] ?? false,
-			'registrationDeadline' =>$tournament['registrationDeadline'] ?? ''
+			'registrationDeadline' =>$tournament['registrationDeadline'] ?? '',
+            // 🆕 Posizione del torneo: usata per il pulsante "Come arrivare"
+            // nella home pubblica (link diretto alle indicazioni stradali)
+            'locationName' => $tournament['locationName'] ?? '',
+            'latitude' => $tournament['latitude'] ?? null,
+            'longitude' => $tournament['longitude'] ?? null
         ],
         'schedule' => $config['schedule'] ?? [],
         'phases' => $publicPhases,

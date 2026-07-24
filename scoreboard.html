@@ -1068,6 +1068,7 @@
       <!-- 🆕 Selettore lingua: bandierine in alto, sempre visibili -->
       <div id="languageFlagsBar" class="hero-top-bar lang-admin-bar">
         <a href="admin.html" target="_blank" title="Accedi al pannello di amministrazione" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: #2e5d1f; font-size: 13px; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: rgba(46,93,31,0.1)">🔐 Admin</a>
+        <a href="#" id="navLocationLink" target="_blank" title="Come arrivare" style="display: none; align-items: center; gap: 4px; text-decoration: none; color: #1976d2; font-size: 13px; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: rgba(25,118,210,0.1)">📍 <span data-i18n="location_directions">Come arrivare</span></a>
         <span style="width: 1px; height: 20px; background: rgba(0,0,0,0.15)"></span>
         <span class="lang-flag-btn" data-lang="it" onclick="setLanguage('it')" title="Italiano" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇮🇹</span>
         <span class="lang-flag-btn" data-lang="en" onclick="setLanguage('en')" title="English" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇬🇧</span>
@@ -3805,6 +3806,18 @@
             if (overlayEl) {
               const overlayOpacity = Math.max(0, Math.min(90, data.config.display.backgroundOverlayOpacity || 0));
               overlayEl.style.background = `rgba(0, 0, 0, ${overlayOpacity / 100})`;
+            }
+
+            // 🆕 Pulsante "Come arrivare": compare solo se sono configurate
+            // latitudine/longitudine del torneo. Apre Google Maps con le
+            // indicazioni stradali dalla posizione attuale del visitatore
+            // (la richiede Google Maps stesso) fino al luogo del torneo.
+            const locationLink = document.getElementById('navLocationLink');
+            const lat = data.config.tournament?.latitude;
+            const lon = data.config.tournament?.longitude;
+            if (locationLink && lat != null && lon != null) {
+              locationLink.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+              locationLink.style.display = 'flex';
             }
           }
         }

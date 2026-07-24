@@ -121,6 +121,48 @@
       text-align: center;
     }
 
+    /* 🆕 Barre lingua/admin e aggiornamento automatico, in alto ai due lati
+       dell'hero. Su schermi stretti (mobile) si sovrapponevano al logo/badge
+       sotto — qui diventano elementi normali del flusso, impilati uno sopra
+       l'altro PRIMA del contenuto dell'hero, invece che sovrapposti ad esso. */
+    .hero-top-bar {
+      position: absolute;
+      top: 10px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.75);
+      padding: 5px 8px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+      font-size: 12px;
+      color: #444;
+    }
+    .hero-top-bar.lang-admin-bar {
+      right: 10px;
+    }
+    .hero-top-bar.refresh-bar {
+      left: 10px;
+    }
+
+    @media (max-width: 600px) {
+      .hero-top-bar {
+        position: static;
+        width: calc(100% - 20px);
+        margin: 8px auto 0;
+        justify-content: center;
+        flex-wrap: wrap;
+        box-sizing: border-box;
+        font-size: 11px;
+        padding: 4px 6px;
+        gap: 6px;
+      }
+      .hero-top-bar .lang-flag-btn {
+        font-size: 16px !important;
+      }
+    }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -1024,7 +1066,7 @@
   <div class="container">
     <section class="hero">
       <!-- 🆕 Selettore lingua: bandierine in alto, sempre visibili -->
-      <div id="languageFlagsBar" style="position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.75); padding: 5px 7px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12)">
+      <div id="languageFlagsBar" class="hero-top-bar lang-admin-bar">
         <a href="admin.html" target="_blank" title="Accedi al pannello di amministrazione" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: #2e5d1f; font-size: 13px; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: rgba(46,93,31,0.1)">🔐 Admin</a>
         <span style="width: 1px; height: 20px; background: rgba(0,0,0,0.15)"></span>
         <span class="lang-flag-btn" data-lang="it" onclick="setLanguage('it')" title="Italiano" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇮🇹</span>
@@ -1034,7 +1076,7 @@
         <span class="lang-flag-btn" data-lang="zh" onclick="setLanguage('zh')" title="中文" style="cursor: pointer; font-size: 20px; padding: 2px; border-radius: 6px; line-height: 1">🇨🇳</span>
       </div>
       <!-- 🆕 Aggiornamento automatico: in alto a sinistra, lato opposto delle lingue -->
-      <div id="autoRefreshBar" style="position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.75); padding: 5px 10px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); font-size: 12px; color: #444">
+      <div id="autoRefreshBar" class="hero-top-bar refresh-bar">
         <label class="switch" style="position: relative; display: inline-block; width: 36px; height: 20px; margin: 0">
           <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)" style="opacity: 0; width: 0; height: 0">
           <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 20px"></span>

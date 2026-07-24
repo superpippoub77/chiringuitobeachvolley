@@ -2272,8 +2272,34 @@ function fetchWeatherForecast(?float $lat, ?float $lon): ?array {
             'forecast_days' => 1
         ]);
 
-        $raw = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 6, 'ignore_errors' => true]]));
-        if ($raw === false || $raw === null) return null;
+        // 🔧 FIX DEFINITIVO: molti hosting condivisi disabilitano
+        // allow_url_fopen per sicurezza, il che rende file_get_contents()
+        // su un URL http(s) sempre fallimentare con un avviso che, su
+        // alcune configurazioni, viene convertito in eccezione PRIMA
+        // ancora di poter essere gestito con @ o try/catch. cURL non
+        // dipende da allow_url_fopen ed è disponibile sulla stragrande
+        // maggioranza degli hosting PHP: lo usiamo come metodo principale,
+        // con file_get_contents come ripiego SOLO se risulta esplicitamente
+        // abilitato (mai chiamato altrimenti, per non generare l'avviso).
+        $raw = null;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 6,
+                CURLOPT_SSL_VERIFYPEER => true,
+            ]);
+            $result = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($result !== false && $httpCode === 200) {
+                $raw = $result;
+            }
+        } elseif (filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN)) {
+            $raw = @file_get_contents($url, false, stream_context_create(['http' => ['timeout' => 6, 'ignore_errors' => true]]));
+        }
+
+        if ($raw === null || $raw === false) return null;
 
         $data = json_decode($raw, true);
         if (!is_array($data) || !isset($data['daily'])) return null;

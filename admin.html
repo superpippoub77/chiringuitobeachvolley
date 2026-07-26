@@ -888,6 +888,7 @@
         <button class="tab" data-page="translations" onclick="showPage('translations', this)">🌐 Traduzioni</button>
         <button class="tab" data-page="campaigns" onclick="showPage('campaigns', this)">📧 Campagne Email</button>
         <button class="tab" data-page="gazette" onclick="showPage('gazette', this)">📰 Giornalino TODAY</button>
+        <button class="tab" data-page="events" onclick="showPage('events', this)">🎉 Eventi</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1184,6 +1185,88 @@
         <p class="muted" style="font-size: 12px">⚠️ Rigenerare sovrascrive le modifiche manuali fatte in precedenza con i dati aggiornati.</p>
 
         <div id="gazetteEditorContainer"></div>
+      </div>
+
+      <div id="page-events" class="card page hidden">
+        <h3>🎉 Eventi (indipendenti dal torneo)</h3>
+        <p class="muted">Gestisci cene, serate o qualunque evento separato dal torneo, con mappa posti e prenotazione a pagamento.</p>
+
+        <div id="eventsListView">
+          <button class="btn btn-primary" onclick="createNewEvent()" style="margin-bottom: 12px">➕ Nuovo Evento</button>
+          <div id="eventsListContainer"></div>
+        </div>
+
+        <div id="eventDetailView" style="display: none">
+          <button class="btn" onclick="backToEventsList()" style="margin-bottom: 12px">← Torna all'elenco</button>
+
+          <div class="card" style="background: #fff3e0; padding: 12px">
+            <h4 style="margin-top: 0">⚙️ Dettagli evento</h4>
+            <div class="field">
+              <label>Nome evento</label>
+              <input id="evName" type="text" style="width: 100%">
+            </div>
+            <div class="field" style="margin-top: 8px">
+              <label>Descrizione</label>
+              <textarea id="evDescription" rows="2" style="width: 100%"></textarea>
+            </div>
+            <div class="row" style="gap: 12px; margin-top: 8px">
+              <div class="field" style="flex: 1">
+                <label>Data</label>
+                <input id="evDate" type="date" style="width: 100%">
+              </div>
+              <div class="field" style="flex: 1">
+                <label>Ora</label>
+                <input id="evTime" type="time" style="width: 100%">
+              </div>
+            </div>
+            <label style="display: block; margin-top: 8px"><input type="checkbox" id="evEnabled"> Evento abilitato nella home pubblica</label>
+
+            <div class="row" style="gap: 12px; margin-top: 8px">
+              <div class="field" style="flex: 1">
+                <label>Prezzo per posto</label>
+                <input id="evPrice" type="number" min="0" step="0.01" style="width: 100%">
+              </div>
+              <div class="field" style="flex: 1">
+                <label>Valuta</label>
+                <select id="evCurrency" style="width: 100%; padding: 6px">
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CHF">CHF (CHF)</option>
+                </select>
+              </div>
+            </div>
+            <div class="field" style="margin-top: 8px">
+              <label>PayPal Client ID (opzionale)</label>
+              <input id="evPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+            </div>
+            <div class="field" style="margin-top: 8px">
+              <label>Valuta PayPal</label>
+              <select id="evPaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
+            <button class="btn btn-green" onclick="saveEventDetails()" style="margin-top: 10px">💾 Salva Dettagli</button>
+          </div>
+
+          <div class="card" style="background: #ede7f6; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🗺️ Editor Mappa Posti</h4>
+            <p class="muted">Trascina i posti per posizionarli. Clicca su un posto per rinominarlo o eliminarlo.</p>
+            <div class="row" style="gap: 8px; margin-bottom: 10px">
+              <button class="btn" onclick="addSeatToMap()">➕ Aggiungi Posto</button>
+              <button class="btn" onclick="addLabelToMap()">🏷️ Aggiungi Etichetta (es. "Palco")</button>
+              <button class="btn btn-green" onclick="saveSeatMap()">💾 Salva Mappa</button>
+            </div>
+            <div id="seatMapEditorCanvas" style="position: relative; width: 100%; max-width: 900px; height: 500px; background: white; border: 2px solid #ddd; border-radius: 8px; overflow: auto; cursor: default"></div>
+          </div>
+
+          <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🧾 Prenotazioni</h4>
+            <div id="eventBookingsContainer"></div>
+          </div>
+        </div>
       </div>
 
       <div id="page-news" class="card page hidden">
@@ -1834,6 +1917,8 @@
         loadCampaignsArchive();
       } else if (page === 'gazette') {
         loadGazette();
+      } else if (page === 'events') {
+        loadEventsList();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -10770,6 +10855,279 @@ html += `
 
     // ==================== 🆕 GIORNALINO TODAY ====================
     let currentGazette = null;
+
+    // ==================== 🆕 EVENTI INDIPENDENTI DAL TORNEO ====================
+    let eventsData = [];
+    let currentEvent = null; // evento aperto nella vista dettaglio
+    let seatMapElements = []; // copia di lavoro degli elementi della mappa (non salvata finche' non si preme "Salva Mappa")
+    let seatMapDrag = null; // stato del trascinamento in corso
+
+    async function loadEventsList() {
+      try {
+        const result = await callApi('admin_get_events', 'GET', null, true);
+        eventsData = result.events || [];
+        renderEventsList();
+      } catch (e) {
+        console.error('Errore caricamento eventi:', e);
+      }
+    }
+
+    function renderEventsList() {
+      const container = document.getElementById('eventsListContainer');
+      if (!eventsData.length) {
+        container.innerHTML = '<p class="muted">Nessun evento creato. Clicca "Nuovo Evento" per iniziare.</p>';
+        return;
+      }
+
+      container.innerHTML = eventsData.map(ev => {
+        const bookedSeats = new Set();
+        (ev.bookings || []).forEach(b => (b.seatIds || []).forEach(s => bookedSeats.add(s)));
+        const totalSeats = (ev.seatMap?.elements || []).filter(el => el.type === 'seat').length;
+        return `
+        <div class="card" style="background: white; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+          <div>
+            <strong>${escapeHtml(ev.name)}</strong>
+            <span class="badge ${ev.enabled ? 'ok' : 'no'}" style="margin-left: 6px">${ev.enabled ? 'Abilitato' : 'Disabilitato'}</span>
+            <div style="font-size: 12px; color: #666; margin-top: 2px">${ev.date ? escapeHtml(ev.date) : 'Data non impostata'} ${ev.time ? escapeHtml(ev.time) : ''} · ${bookedSeats.size}/${totalSeats} posti prenotati · € ${(ev.pricePerSeat || 0).toFixed(2)}/posto</div>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" onclick="openEventDetail('${ev.id}')">⚙️ Gestisci</button>
+            <button class="btn btn-danger" onclick="deleteEvent('${ev.id}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function createNewEvent() {
+      const name = prompt('Nome del nuovo evento (es: "Cena di Gala"):');
+      if (!name || !name.trim()) return;
+      try {
+        const result = await callApi('admin_create_event', 'POST', { name: name.trim() }, true);
+        eventsData.push(result.event);
+        openEventDetail(result.event.id);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function deleteEvent(eventId) {
+      const confirmed = await showConfirmDialog('Elimina evento', "Vuoi davvero eliminare questo evento e tutte le sue prenotazioni? L'azione non può essere annullata.");
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_event', 'POST', { id: eventId }, true);
+        await loadEventsList();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function openEventDetail(eventId) {
+      currentEvent = eventsData.find(e => e.id === eventId);
+      if (!currentEvent) return;
+
+      document.getElementById('eventsListView').style.display = 'none';
+      document.getElementById('eventDetailView').style.display = 'block';
+
+      document.getElementById('evName').value = currentEvent.name || '';
+      document.getElementById('evDescription').value = currentEvent.description || '';
+      document.getElementById('evDate').value = currentEvent.date || '';
+      document.getElementById('evTime').value = currentEvent.time || '';
+      document.getElementById('evEnabled').checked = !!currentEvent.enabled;
+      document.getElementById('evPrice').value = currentEvent.pricePerSeat || 0;
+      document.getElementById('evCurrency').value = currentEvent.currency || 'EUR';
+      document.getElementById('evPaypalClientId').value = currentEvent.paypalClientId || '';
+      document.getElementById('evPaypalCurrency').value = currentEvent.paypalCurrency || 'EUR';
+
+      seatMapElements = JSON.parse(JSON.stringify(currentEvent.seatMap?.elements || []));
+      renderSeatMapEditor();
+      renderEventBookings();
+    }
+
+    function backToEventsList() {
+      document.getElementById('eventDetailView').style.display = 'none';
+      document.getElementById('eventsListView').style.display = 'block';
+      currentEvent = null;
+      loadEventsList();
+    }
+
+    async function saveEventDetails() {
+      if (!currentEvent) return;
+      try {
+        const payload = {
+          id: currentEvent.id,
+          name: document.getElementById('evName').value.trim(),
+          description: document.getElementById('evDescription').value.trim(),
+          date: document.getElementById('evDate').value,
+          time: document.getElementById('evTime').value,
+          enabled: document.getElementById('evEnabled').checked,
+          pricePerSeat: parseFloat(document.getElementById('evPrice').value) || 0,
+          currency: document.getElementById('evCurrency').value,
+          paypalClientId: document.getElementById('evPaypalClientId').value.trim(),
+          paypalCurrency: document.getElementById('evPaypalCurrency').value
+        };
+        await callApi('admin_update_event', 'POST', payload, true);
+        Object.assign(currentEvent, payload);
+        await showInfoDialog('✅ Salvato', 'Dettagli evento salvati.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // ---- Editor mappa posti (trascinamento con il mouse, senza librerie esterne) ----
+
+    function renderSeatMapEditor() {
+      const canvas = document.getElementById('seatMapEditorCanvas');
+      canvas.innerHTML = '';
+
+      seatMapElements.forEach((el, idx) => {
+        const box = document.createElement('div');
+        box.dataset.idx = idx;
+        const isSeat = el.type === 'seat';
+        box.style.cssText = `position: absolute; left: ${el.x}px; top: ${el.y}px; width: ${el.width || 40}px; height: ${el.height || 40}px; display: flex; align-items: center; justify-content: center; font-size: 10px; text-align: center; cursor: grab; user-select: none; border-radius: ${isSeat ? '50%' : '4px'}; background: ${isSeat ? '#81c784' : '#fff3cd'}; border: 2px solid ${isSeat ? '#388e3c' : '#e0a800'}; padding: 2px; box-sizing: border-box; overflow: hidden`;
+        box.textContent = el.label || (isSeat ? '?' : 'Etichetta');
+        box.title = 'Trascina per spostare, clicca per rinominare/eliminare';
+
+        box.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const canvasRect = canvas.getBoundingClientRect();
+          seatMapDrag = {
+            idx, moved: false,
+            startX: e.clientX, startY: e.clientY,
+            origX: el.x, origY: el.y
+          };
+          box.style.cursor = 'grabbing';
+        });
+
+        canvas.appendChild(box);
+      });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+      if (!seatMapDrag) return;
+      const dx = e.clientX - seatMapDrag.startX;
+      const dy = e.clientY - seatMapDrag.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) seatMapDrag.moved = true;
+      const el = seatMapElements[seatMapDrag.idx];
+      if (!el) return;
+      el.x = Math.max(0, seatMapDrag.origX + dx);
+      el.y = Math.max(0, seatMapDrag.origY + dy);
+      renderSeatMapEditor();
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!seatMapDrag) return;
+      const idx = seatMapDrag.idx;
+      const moved = seatMapDrag.moved;
+      seatMapDrag = null;
+      if (!moved) {
+        // Click senza trascinamento: apri il piccolo editor rinomina/elimina
+        editSeatMapElement(idx);
+      }
+    });
+
+    function editSeatMapElement(idx) {
+      const el = seatMapElements[idx];
+      if (!el) return;
+      const newLabel = prompt('Etichetta (lascia vuoto per eliminare questo elemento):', el.label || '');
+      if (newLabel === null) return; // annullato
+      if (newLabel.trim() === '') {
+        seatMapElements.splice(idx, 1);
+      } else {
+        el.label = newLabel.trim();
+      }
+      renderSeatMapEditor();
+    }
+
+    function addSeatToMap() {
+      seatMapElements.push({
+        id: bin2hex(4),
+        type: 'seat',
+        x: 20, y: 20, width: 40, height: 40, rotation: 0,
+        label: `${seatMapElements.filter(e => e.type === 'seat').length + 1}`
+      });
+      renderSeatMapEditor();
+    }
+
+    function addLabelToMap() {
+      const text = prompt('Testo dell\'etichetta (es: "Palco", "Ingresso"):');
+      if (!text || !text.trim()) return;
+      seatMapElements.push({
+        id: bin2hex(4),
+        type: 'label',
+        x: 20, y: 20, width: 90, height: 30, rotation: 0,
+        label: text.trim()
+      });
+      renderSeatMapEditor();
+    }
+
+    async function saveSeatMap() {
+      if (!currentEvent) return;
+      try {
+        await callApi('admin_save_seat_map', 'POST', {
+          eventId: currentEvent.id,
+          elements: seatMapElements
+        }, true);
+        currentEvent.seatMap = currentEvent.seatMap || {};
+        currentEvent.seatMap.elements = JSON.parse(JSON.stringify(seatMapElements));
+        await showInfoDialog('✅ Salvata', 'Mappa posti salvata.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // ---- Prenotazioni evento ----
+
+    function renderEventBookings() {
+      const container = document.getElementById('eventBookingsContainer');
+      const bookings = currentEvent?.bookings || [];
+      if (!bookings.length) {
+        container.innerHTML = '<p class="muted">Nessuna prenotazione ricevuta finora.</p>';
+        return;
+      }
+
+      container.innerHTML = bookings.map(b => {
+        const isPaid = !!b.paid;
+        return `
+        <div class="card" style="background: white; padding: 8px 10px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+          <div>
+            <strong>${escapeHtml(b.customerName)}</strong>
+            <span class="badge ${isPaid ? 'ok' : 'no'}" style="margin-left: 6px">${isPaid ? `✅ Pagato (${b.paymentMethod === 'paypal' ? 'PayPal' : 'cassa'})` : '⏳ Da pagare'}</span>
+            <div style="font-size: 12px; color: #666; margin-top: 2px">✉️ ${escapeHtml(b.email)} · 📱 ${escapeHtml(b.phone || '-')}</div>
+            <div style="font-size: 13px; color: #555; margin-top: 2px">🪑 Posti: ${(b.seatIds || []).join(', ')} · Totale: € ${(b.totalAmount || 0).toFixed(2)}</div>
+            <div style="font-size: 11px; color: #999">${new Date(b.createdAt).toLocaleString('it-IT')}</div>
+          </div>
+          <div class="row">
+            <button class="btn ${isPaid ? '' : 'btn-green'}" onclick="toggleEventBookingPaid('${b.id}', ${!isPaid})">${isPaid ? '↩️ Segna da pagare' : '✅ Segna pagato (cassa)'}</button>
+            <button class="btn btn-danger" onclick="deleteEventBooking('${b.id}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function toggleEventBookingPaid(bookingId, paid) {
+      if (!currentEvent) return;
+      try {
+        await callApi('admin_update_event_booking_payment', 'POST', { eventId: currentEvent.id, bookingId, paid }, true);
+        const booking = currentEvent.bookings.find(b => b.id === bookingId);
+        if (booking) booking.paid = paid;
+        renderEventBookings();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function deleteEventBooking(bookingId) {
+      if (!currentEvent) return;
+      const confirmed = await showConfirmDialog('Elimina prenotazione', 'Vuoi davvero eliminare questa prenotazione? I posti torneranno liberi.');
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_event_booking', 'POST', { eventId: currentEvent.id, bookingId }, true);
+        currentEvent.bookings = currentEvent.bookings.filter(b => b.id !== bookingId);
+        renderEventBookings();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
 
     async function loadGazette() {
       try {

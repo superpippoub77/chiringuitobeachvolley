@@ -54,6 +54,8 @@ const NEWSLETTER_FILE = __DIR__ . '/data/newsletter.json';
 const CAMPAIGNS_FILE = __DIR__ . '/data/campaigns.json';
 // 🆕 Giornalino TODAY: contenuto strutturato (JSON), modificabile e ristampabile
 const GAZETTE_FILE = __DIR__ . '/data/gazette.json';
+// 🆕 Eventi indipendenti dal torneo (cene, serate, ecc.) con mappa posti e prenotazioni
+const EVENTS_FILE = __DIR__ . '/data/events.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -761,6 +763,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_download' => 'Scarica',
             'print_studio_print' => 'Stampa',
             'location_directions' => 'Come arrivare',
+            'nav_events' => 'Eventi',
         ],
         'en' => [
             'hero_sub' => 'Mixed category only | Registration subject to administrator approval',
@@ -995,6 +998,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_download' => 'Download',
             'print_studio_print' => 'Print',
             'location_directions' => 'Get directions',
+            'nav_events' => 'Events',
         ],
         'fr' => [
             'hero_sub' => 'Catégorie mixte uniquement | Inscription soumise à l\'approbation de l\'administrateur',
@@ -1229,6 +1233,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_download' => 'Télécharger',
             'print_studio_print' => 'Imprimer',
             'location_directions' => "Comment s'y rendre",
+            'nav_events' => 'Événements',
         ],
         'de' => [
             'hero_sub' => 'Nur gemischte Kategorie | Anmeldung vorbehaltlich der Genehmigung durch den Administrator',
@@ -1463,6 +1468,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_download' => 'Herunterladen',
             'print_studio_print' => 'Drucken',
             'location_directions' => 'Anfahrt',
+            'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
             'hero_sub' => '仅限混合组别 | 报名需经管理员批准',
@@ -1697,6 +1703,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_download' => '下载',
             'print_studio_print' => '打印',
             'location_directions' => '前往路线',
+            'nav_events' => '活动',
         ],
     ];
 }
@@ -2234,6 +2241,51 @@ function withCampaignsTransaction(callable $callback): array {
     fclose($fp);
 
     return is_array($result) ? $result : [];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock file) sull'archivio eventi
+ * (data/events.json), stesso schema di withCampaignsTransaction().
+ */
+function withEventsTransaction(callable $callback): array {
+    $dir = dirname(EVENTS_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(EVENTS_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile aprire l'archivio eventi"]);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile bloccare l'archivio eventi"]);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['events']) ? $decoded : ['events' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🔧 Lettura semplice (senza transazione) dell'archivio eventi, per gli
+ * endpoint che leggono soltanto.
+ */
+function readEvents(): array {
+    $data = readJsonFile(EVENTS_FILE, ['events' => []]);
+    return $data['events'] ?? [];
 }
 
 /**
@@ -6161,6 +6213,381 @@ if ($action === 'admin_delete_campaign' && $method === 'POST') {
         return [];
     });
 
+    jsonResponse(200, ['ok' => true]);
+}
+
+// ==================== 🆕 EVENTI INDIPENDENTI DAL TORNEO ====================
+// Cene, serate o qualunque evento gestito separatamente dal torneo, con
+// mappa posti disegnata da un editor dedicato e prenotazione a pagamento.
+
+/**
+ * 🆕 Struttura di default per un nuovo evento.
+ */
+function defaultEventStructure(): array {
+    return [
+        'id' => bin2hex(random_bytes(8)),
+        'name' => '',
+        'description' => '',
+        'date' => '',
+        'time' => '',
+        'enabled' => false,
+        'pricePerSeat' => 0,
+        'currency' => 'EUR',
+        'paypalClientId' => '',
+        'paypalCurrency' => 'EUR',
+        'seatMap' => [
+            'canvasWidth' => 900,
+            'canvasHeight' => 600,
+            'elements' => [] // {id, type: 'seat'|'label'|'shape', x, y, width, height, rotation, label}
+        ],
+        'bookings' => [],
+        'createdAt' => date('c')
+    ];
+}
+
+// Admin: crea un nuovo evento
+if ($action === 'admin_create_event' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 150);
+    if ($name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => "Il nome dell'evento è obbligatorio"]);
+    }
+
+    $event = defaultEventStructure();
+    $event['name'] = $name;
+
+    withEventsTransaction(function (&$list) use ($event) {
+        $list['events'][] = $event;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'event' => $event]);
+}
+
+// Admin: aggiorna i dettagli di un evento (non la mappa posti, vedi endpoint dedicato)
+if ($action === 'admin_update_event' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['id'] ?? '');
+    if ($eventId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'id evento mancante']);
+    }
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $body, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            $found = true;
+            if (isset($body['name'])) $event['name'] = mb_substr(trim((string)$body['name']), 0, 150);
+            if (isset($body['description'])) $event['description'] = mb_substr(trim((string)$body['description']), 0, 1000);
+            if (isset($body['date'])) $event['date'] = trim((string)$body['date']);
+            if (isset($body['time'])) $event['time'] = trim((string)$body['time']);
+            if (isset($body['enabled'])) $event['enabled'] = (bool)$body['enabled'];
+            if (isset($body['pricePerSeat'])) $event['pricePerSeat'] = max(0, (float)$body['pricePerSeat']);
+            if (isset($body['currency']) && in_array($body['currency'], ['EUR', 'USD', 'GBP', 'CHF'], true)) $event['currency'] = $body['currency'];
+            if (isset($body['paypalClientId'])) $event['paypalClientId'] = mb_substr(trim((string)$body['paypalClientId']), 0, 200);
+            if (isset($body['paypalCurrency']) && in_array($body['paypalCurrency'], ['EUR', 'USD', 'GBP'], true)) $event['paypalCurrency'] = $body['paypalCurrency'];
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elimina un evento
+if ($action === 'admin_delete_event' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['id'] ?? '');
+
+    withEventsTransaction(function (&$list) use ($eventId) {
+        $list['events'] = array_values(array_filter($list['events'] ?? [], fn($e) => ($e['id'] ?? '') !== $eventId));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elenco completo degli eventi (con mappa posti e prenotazioni)
+if ($action === 'admin_get_events' && $method === 'GET') {
+    requireAdmin();
+    jsonResponse(200, ['ok' => true, 'events' => readEvents()]);
+}
+
+// Admin: salva la mappa posti di un evento (disegnata con l'editor dedicato)
+if ($action === 'admin_save_seat_map' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    if ($eventId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'eventId mancante']);
+    }
+
+    $elements = [];
+    foreach ((array)($body['elements'] ?? []) as $el) {
+        $type = in_array($el['type'] ?? '', ['seat', 'label', 'shape'], true) ? $el['type'] : 'seat';
+        $elements[] = [
+            'id' => trim((string)($el['id'] ?? bin2hex(random_bytes(4)))),
+            'type' => $type,
+            'x' => (float)($el['x'] ?? 0),
+            'y' => (float)($el['y'] ?? 0),
+            'width' => max(10, (float)($el['width'] ?? 40)),
+            'height' => max(10, (float)($el['height'] ?? 40)),
+            'rotation' => (float)($el['rotation'] ?? 0),
+            'label' => mb_substr(trim((string)($el['label'] ?? '')), 0, 40)
+        ];
+    }
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $elements, $body, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            $found = true;
+            $event['seatMap']['elements'] = $elements;
+            if (isset($body['canvasWidth'])) $event['seatMap']['canvasWidth'] = max(200, (int)$body['canvasWidth']);
+            if (isset($body['canvasHeight'])) $event['seatMap']['canvasHeight'] = max(200, (int)$body['canvasHeight']);
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: cambia manualmente lo stato di pagamento di una prenotazione (tipicamente per un pagamento in cassa)
+if ($action === 'admin_update_event_booking_payment' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    $bookingId = (string)($body['bookingId'] ?? '');
+    $paid = (bool)($body['paid'] ?? false);
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $bookingId, $paid, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            foreach ($event['bookings'] as &$booking) {
+                if (($booking['id'] ?? '') !== $bookingId) continue;
+                $booking['paid'] = $paid;
+                if ($paid && empty($booking['paymentMethod'])) {
+                    $booking['paymentMethod'] = 'cassa';
+                }
+                $found = true;
+                break;
+            }
+            unset($booking);
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Prenotazione non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elimina una prenotazione (libera i posti)
+if ($action === 'admin_delete_event_booking' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    $bookingId = (string)($body['bookingId'] ?? '');
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $bookingId, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            $found = true;
+            $event['bookings'] = array_values(array_filter($event['bookings'] ?? [], fn($b) => ($b['id'] ?? '') !== $bookingId));
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Pubblico: elenco eventi abilitati (solo info essenziali, niente prenotazioni)
+if ($action === 'get_public_events' && $method === 'GET') {
+    $events = readEvents();
+    $publicEvents = array_values(array_map(function ($e) {
+        return [
+            'id' => $e['id'],
+            'name' => $e['name'],
+            'description' => $e['description'] ?? '',
+            'date' => $e['date'] ?? '',
+            'time' => $e['time'] ?? '',
+            'pricePerSeat' => $e['pricePerSeat'] ?? 0,
+            'currency' => $e['currency'] ?? 'EUR'
+        ];
+    }, array_filter($events, fn($e) => !empty($e['enabled']))));
+
+    jsonResponse(200, ['ok' => true, 'events' => $publicEvents]);
+}
+
+// Pubblico: dettaglio di un evento con mappa posti e disponibilità (senza
+// esporre i dati personali di chi ha prenotato altri posti)
+if ($action === 'get_event_detail' && $method === 'GET') {
+    $eventId = (string)($_GET['id'] ?? '');
+    $events = readEvents();
+    foreach ($events as $e) {
+        if (($e['id'] ?? '') !== $eventId || empty($e['enabled'])) continue;
+
+        $bookedSeatIds = [];
+        foreach (($e['bookings'] ?? []) as $b) {
+            foreach (($b['seatIds'] ?? []) as $sid) {
+                $bookedSeatIds[] = $sid;
+            }
+        }
+
+        jsonResponse(200, [
+            'ok' => true,
+            'event' => [
+                'id' => $e['id'],
+                'name' => $e['name'],
+                'description' => $e['description'] ?? '',
+                'date' => $e['date'] ?? '',
+                'time' => $e['time'] ?? '',
+                'pricePerSeat' => $e['pricePerSeat'] ?? 0,
+                'currency' => $e['currency'] ?? 'EUR',
+                'paypalClientId' => $e['paypalClientId'] ?? '',
+                'paypalCurrency' => $e['paypalCurrency'] ?? 'EUR',
+                'seatMap' => $e['seatMap'] ?? ['canvasWidth' => 900, 'canvasHeight' => 600, 'elements' => []],
+                'bookedSeatIds' => array_values(array_unique($bookedSeatIds))
+            ]
+        ]);
+    }
+    jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato o non disponibile']);
+}
+
+// Pubblico: prenota uno o più posti per un evento
+if ($action === 'book_event_seats' && $method === 'POST') {
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    $seatIds = array_values(array_unique(array_map('strval', (array)($body['seatIds'] ?? []))));
+    $customerName = mb_substr(trim((string)($body['customerName'] ?? '')), 0, 100);
+    $email = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
+    $phone = trim((string)($body['phone'] ?? ''));
+    $paymentMethod = ($body['paymentMethod'] ?? 'cassa') === 'paypal' ? 'paypal' : 'cassa';
+
+    if ($eventId === '' || count($seatIds) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Selezionare almeno un posto']);
+    }
+    if ($customerName === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il nome è obbligatorio']);
+    }
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => "Inserisci un'email valida"]);
+    }
+
+    $booking = null;
+    $errorMsg = null;
+    withEventsTransaction(function (&$list) use ($eventId, $seatIds, $customerName, $email, $phone, $paymentMethod, &$booking, &$errorMsg) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            if (empty($event['enabled'])) {
+                $errorMsg = 'Evento non disponibile';
+                return [];
+            }
+
+            // Verifica esistenza dei posti nella mappa
+            $validSeatIds = array_column(array_filter($event['seatMap']['elements'] ?? [], fn($el) => ($el['type'] ?? '') === 'seat'), 'id');
+            foreach ($seatIds as $sid) {
+                if (!in_array($sid, $validSeatIds, true)) {
+                    $errorMsg = 'Uno o più posti selezionati non esistono';
+                    return [];
+                }
+            }
+
+            // 🔒 Verifica che nessuno dei posti sia già prenotato (controllato
+            // DENTRO la transazione per evitare che due persone prenotino lo
+            // stesso posto contemporaneamente)
+            $alreadyBooked = [];
+            foreach (($event['bookings'] ?? []) as $b) {
+                foreach (($b['seatIds'] ?? []) as $sid) {
+                    if (in_array($sid, $seatIds, true)) $alreadyBooked[] = $sid;
+                }
+            }
+            if (count($alreadyBooked) > 0) {
+                $errorMsg = 'Uno o più posti selezionati sono già stati prenotati da qualcun altro. Ricarica la mappa e riprova.';
+                return [];
+            }
+
+            // 🔧 Prezzo ricalcolato lato server dal numero di posti, non ci si fida del client
+            $totalAmount = round((float)($event['pricePerSeat'] ?? 0) * count($seatIds), 2);
+
+            $booking = [
+                'id' => bin2hex(random_bytes(8)),
+                'seatIds' => $seatIds,
+                'customerName' => $customerName,
+                'email' => $email,
+                'phone' => $phone,
+                'totalAmount' => $totalAmount,
+                'paymentMethod' => $paymentMethod,
+                'paid' => $totalAmount <= 0,
+                'createdAt' => date('c')
+            ];
+            $event['bookings'][] = $booking;
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(409, ['ok' => false, 'error' => $errorMsg]);
+    }
+    if ($booking === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
+    }
+    jsonResponse(200, ['ok' => true, 'booking' => $booking]);
+}
+
+// Pubblico: conferma il pagamento PayPal di una prenotazione (stesso
+// meccanismo semplificato usato per bar/quota squadra/partecipazione: si
+// fida della risposta del browser dopo l'approvazione PayPal).
+if ($action === 'event_confirm_paypal_payment' && $method === 'POST') {
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    $bookingId = (string)($body['bookingId'] ?? '');
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $bookingId, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            foreach ($event['bookings'] as &$booking) {
+                if (($booking['id'] ?? '') !== $bookingId) continue;
+                $booking['paid'] = true;
+                $booking['paymentMethod'] = 'paypal';
+                $found = true;
+                break;
+            }
+            unset($booking);
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Prenotazione non trovata']);
+    }
     jsonResponse(200, ['ok' => true]);
 }
 

@@ -1150,6 +1150,7 @@
         <a href="#" class="main-nav-link" onclick="openNewsletterSignup(); return false;">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
         <a href="#" id="navAttendanceLink" class="main-nav-link" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
         <a href="#" id="navPaymentLink" class="main-nav-link" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
+        <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
         <a href="#" class="main-nav-link" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
         <a href="regolamento.html" target="_blank" class="main-nav-link">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
@@ -1166,6 +1167,7 @@
       <section class="page" id="page-ranking"></section>
       <section class="page" id="page-gallery"></section>
       <section class="page" id="page-shop"></section>
+      <section class="page" id="page-events"></section>
 
       <footer>
         <a href="policy.html" target="_blank">Privacy Policy</a>
@@ -3449,6 +3451,254 @@
     let paymentConfigPublic = { enabled: false, costPerPlayer: 0, currency: 'EUR', description: '', paypalClientId: '', paypalCurrency: 'EUR' };
     let paymentPaypalSdkPromise = null;
 
+    // ==================== 🆕 EVENTI PUBBLICI (indipendenti dal torneo) ====================
+    let publicEventsCache = [];
+    let currentPublicEvent = null; // dettaglio evento attualmente aperto
+    let selectedSeatIds = [];
+    let eventPaypalSdkPromise = null;
+
+    async function checkEventsAvailability() {
+      try {
+        const response = await fetch(`${API}?action=get_public_events`);
+        const data = await response.json();
+        if (!data.ok) return;
+        publicEventsCache = data.events || [];
+        const navLink = document.getElementById('navEventsLink');
+        if (navLink) navLink.style.display = publicEventsCache.length > 0 ? 'inline-block' : 'none';
+      } catch (e) {
+        console.error('Errore verifica eventi:', e);
+      }
+    }
+
+    async function loadEventsForPublic() {
+      try {
+        const response = await fetch(`${API}?action=get_public_events`);
+        const data = await response.json();
+        if (data.ok) publicEventsCache = data.events || [];
+      } catch (e) {
+        console.error('Errore caricamento eventi:', e);
+      }
+      renderPublicEventsList();
+    }
+
+    function renderPublicEventsList() {
+      const container = document.getElementById('page-events');
+      if (!publicEventsCache.length) {
+        container.innerHTML = `<h3>🎉 Eventi</h3><p class="muted">Nessun evento disponibile al momento.</p>`;
+        return;
+      }
+
+      container.innerHTML = `<h3>🎉 Eventi</h3>` + publicEventsCache.map(ev => `
+        <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 12px">
+          <strong style="font-size: 16px">${esc(ev.name)}</strong>
+          ${ev.description ? `<p style="font-size: 13px; color: #666; margin: 6px 0">${esc(ev.description)}</p>` : ''}
+          <div style="font-size: 13px; color: #555">${ev.date ? esc(ev.date) : ''} ${ev.time ? esc(ev.time) : ''} ${ev.pricePerSeat > 0 ? `· € ${ev.pricePerSeat.toFixed(2)} a posto` : '· Gratuito'}</div>
+          <button class="btn" style="background: #7b1fa2; color: white; margin-top: 10px" onclick="openPublicEventDetail('${ev.id}')">🪑 Vedi mappa e prenota</button>
+        </div>
+      `).join('');
+    }
+
+    async function openPublicEventDetail(eventId) {
+      try {
+        const response = await fetch(`${API}?action=get_event_detail&id=${encodeURIComponent(eventId)}`);
+        const data = await response.json();
+        if (!data.ok) {
+          alert(data.error || 'Evento non disponibile');
+          return;
+        }
+        currentPublicEvent = data.event;
+        selectedSeatIds = [];
+        renderPublicEventDetail();
+      } catch (e) {
+        alert('Errore di connessione: ' + e.message);
+      }
+    }
+
+    function renderPublicEventDetail() {
+      const container = document.getElementById('page-events');
+      const ev = currentPublicEvent;
+      if (!ev) return;
+
+      const seats = (ev.seatMap?.elements || []).filter(el => el.type === 'seat');
+      const labels = (ev.seatMap?.elements || []).filter(el => el.type === 'label');
+      const canvasW = ev.seatMap?.canvasWidth || 900;
+      const canvasH = ev.seatMap?.canvasHeight || 600;
+
+      const seatsHtml = seats.map(seat => {
+        const isBooked = (ev.bookedSeatIds || []).includes(seat.id);
+        const isSelected = selectedSeatIds.includes(seat.id);
+        const bg = isBooked ? '#e57373' : (isSelected ? '#4fc3f7' : '#81c784');
+        const cursor = isBooked ? 'not-allowed' : 'pointer';
+        return `<div onclick="${isBooked ? '' : `togglePublicSeatSelection('${seat.id}')`}" title="${esc(seat.label || seat.id)}${isBooked ? ' (occupato)' : ''}"
+          style="position: absolute; left: ${seat.x}px; top: ${seat.y}px; width: ${seat.width || 40}px; height: ${seat.height || 40}px; border-radius: 50%; background: ${bg}; border: 2px solid rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: ${cursor}; color: #fff; font-weight: bold; user-select: none">${esc(seat.label || '')}</div>`;
+      }).join('');
+
+      const labelsHtml = labels.map(l =>
+        `<div style="position: absolute; left: ${l.x}px; top: ${l.y}px; width: ${l.width || 90}px; height: ${l.height || 30}px; background: #fff3cd; border: 2px solid #e0a800; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold">${esc(l.label || '')}</div>`
+      ).join('');
+
+      const total = selectedSeatIds.length * (ev.pricePerSeat || 0);
+
+      container.innerHTML = `
+        <button class="btn" onclick="loadEventsForPublic()" style="margin-bottom: 12px">← Torna agli eventi</button>
+        <h3>${esc(ev.name)}</h3>
+        ${ev.description ? `<p style="color: #666">${esc(ev.description)}</p>` : ''}
+        <div style="font-size: 13px; color: #555; margin-bottom: 12px">${ev.date ? esc(ev.date) : ''} ${ev.time ? esc(ev.time) : ''}</div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px; font-size: 12px; align-items: center; flex-wrap: wrap">
+          <span><span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#81c784; vertical-align:middle"></span> Libero</span>
+          <span><span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#4fc3f7; vertical-align:middle"></span> Selezionato</span>
+          <span><span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:#e57373; vertical-align:middle"></span> Occupato</span>
+        </div>
+
+        <div style="position: relative; width: 100%; max-width: ${canvasW}px; height: ${canvasH}px; background: white; border: 2px solid #ddd; border-radius: 8px; overflow: auto; margin: 0 auto">
+          ${labelsHtml}
+          ${seatsHtml}
+        </div>
+
+        <div id="eventBookingFormBox" style="margin-top: 16px; padding: 14px; background: #f3e5f5; border-radius: 10px; display: ${selectedSeatIds.length ? 'block' : 'none'}">
+          <div style="font-weight: bold; margin-bottom: 8px">Posti selezionati: ${selectedSeatIds.join(', ') || '-'} — Totale: € ${total.toFixed(2)}</div>
+          <div class="field">
+            <label>Nome e cognome</label>
+            <input id="evBookName" type="text" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          </div>
+          <div class="field" style="margin-top: 8px">
+            <label>Email</label>
+            <input id="evBookEmail" type="email" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          </div>
+          <div class="field" style="margin-top: 8px">
+            <label>Telefono</label>
+            <input id="evBookPhone" type="tel" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">
+          </div>
+          <div id="eventBookStatus" style="margin-top: 8px; font-size: 13px"></div>
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px">
+            <button class="btn" style="background: #ff9800; color: white; padding: 12px; font-weight: bold" onclick="submitEventBookingCash()">💵 Prenota e paga in cassa</button>
+            ${ev.paypalClientId ? '<div id="eventPaypalButtonContainer"></div>' : ''}
+          </div>
+        </div>
+      `;
+
+      if (selectedSeatIds.length && ev.paypalClientId) {
+        renderEventPaypalButton(total);
+      }
+    }
+
+    function togglePublicSeatSelection(seatId) {
+      const idx = selectedSeatIds.indexOf(seatId);
+      if (idx === -1) selectedSeatIds.push(seatId);
+      else selectedSeatIds.splice(idx, 1);
+      renderPublicEventDetail();
+    }
+
+    async function submitEventBookingCash() {
+      const statusEl = document.getElementById('eventBookStatus');
+      const name = document.getElementById('evBookName').value.trim();
+      const email = document.getElementById('evBookEmail').value.trim();
+      const phone = document.getElementById('evBookPhone').value.trim();
+
+      if (!name || !email) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Nome ed email sono obbligatori.';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API}?action=book_event_seats`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eventId: currentPublicEvent.id, seatIds: selectedSeatIds, customerName: name, email, phone, paymentMethod: 'cassa' })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Errore durante la prenotazione';
+          return;
+        }
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = `✅ Prenotazione confermata! Presentati in cassa per pagare (totale: € ${data.booking.totalAmount.toFixed(2)}).`;
+        // Ricarica il dettaglio evento per aggiornare la disponibilità posti
+        await openPublicEventDetail(currentPublicEvent.id);
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
+    function loadEventPaypalSdk(clientId, currency) {
+      if (eventPaypalSdkPromise) return eventPaypalSdkPromise;
+      eventPaypalSdkPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=${encodeURIComponent(currency)}`;
+        script.onload = () => resolve(window.paypal);
+        script.onerror = () => reject(new Error('Impossibile caricare PayPal'));
+        document.head.appendChild(script);
+      });
+      return eventPaypalSdkPromise;
+    }
+
+    // 🆕 NOTA: come per bar/quota/partecipazione, questo pagamento è
+    // verificato solo lato client — la conferma "pagato" si fida della
+    // risposta del browser dopo l'approvazione PayPal.
+    async function renderEventPaypalButton(total) {
+      const container = document.getElementById('eventPaypalButtonContainer');
+      if (!container) return;
+      const ev = currentPublicEvent;
+      container.innerHTML = '<p class="muted">Caricamento PayPal...</p>';
+
+      try {
+        const paypal = await loadEventPaypalSdk(ev.paypalClientId, ev.paypalCurrency);
+        container.innerHTML = '';
+
+        paypal.Buttons({
+          createOrder: (data, actions) => {
+            const name = document.getElementById('evBookName').value.trim();
+            const email = document.getElementById('evBookEmail').value.trim();
+            if (!name || !email) {
+              alert('Inserisci nome ed email prima di pagare con PayPal.');
+              return Promise.reject(new Error('Dati mancanti'));
+            }
+            return actions.order.create({
+              purchase_units: [{ amount: { value: total.toFixed(2), currency_code: ev.paypalCurrency } }]
+            });
+          },
+          onApprove: async (data, actions) => {
+            await actions.order.capture();
+            const statusEl = document.getElementById('eventBookStatus');
+            try {
+              const name = document.getElementById('evBookName').value.trim();
+              const email = document.getElementById('evBookEmail').value.trim();
+              const phone = document.getElementById('evBookPhone').value.trim();
+
+              const response = await fetch(`${API}?action=book_event_seats`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventId: ev.id, seatIds: selectedSeatIds, customerName: name, email, phone, paymentMethod: 'paypal' })
+              });
+              const bookingData = await response.json();
+              if (bookingData.ok) {
+                await fetch(`${API}?action=event_confirm_paypal_payment`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ eventId: ev.id, bookingId: bookingData.booking.id })
+                });
+                statusEl.style.color = '#2e5d1f';
+                statusEl.textContent = '✅ Pagamento completato, prenotazione confermata!';
+                await openPublicEventDetail(ev.id);
+              } else {
+                statusEl.style.color = '#b71c1c';
+                statusEl.textContent = 'Pagamento riuscito ma i posti scelti non sono più disponibili: ' + (bookingData.error || '');
+              }
+            } catch (e) {
+              alert('Pagamento riuscito ma errore nel registrarlo: ' + e.message);
+            }
+          },
+          onError: (err) => {
+            console.error('Errore PayPal:', err);
+            alert('Si è verificato un errore con PayPal. Puoi comunque prenotare pagando in cassa.');
+          }
+        }).render('#eventPaypalButtonContainer');
+      } catch (e) {
+        container.innerHTML = '<p class="muted">PayPal non disponibile al momento. Prenota pagando in cassa.</p>';
+      }
+    }
+
     async function loadPaymentStatus() {
       try {
         const response = await fetch(`${API}?action=get_config`);
@@ -4195,6 +4445,7 @@
     loadShopMenu();
     loadAttendanceStatus();
     loadPaymentStatus();
+    checkEventsAvailability();
 
     // ==================== NEWS SECTION ====================
 

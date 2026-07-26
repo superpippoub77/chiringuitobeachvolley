@@ -6235,10 +6235,14 @@ function defaultEventStructure(): array {
         'currency' => 'EUR',
         'paypalClientId' => '',
         'paypalCurrency' => 'EUR',
+        // 🆕 Fasce di prezzo: ogni posto può appartenere a una fascia (es.
+        // "Rossa" a 30€) invece del prezzo base — un posto senza fascia usa
+        // sempre pricePerSeat.
+        'priceTiers' => [], // {id, name, color, price}
         'seatMap' => [
             'canvasWidth' => 900,
             'canvasHeight' => 600,
-            'elements' => [] // {id, type: 'seat'|'label'|'shape', x, y, width, height, rotation, label}
+            'elements' => [] // {id, type: 'seat'|'label'|'shape', x, y, width, height, rotation, label, tierId, reserved}
         ],
         'bookings' => [],
         'createdAt' => date('c')
@@ -6340,7 +6344,11 @@ if ($action === 'admin_save_seat_map' && $method === 'POST') {
             'width' => max(10, (float)($el['width'] ?? 40)),
             'height' => max(10, (float)($el['height'] ?? 40)),
             'rotation' => (float)($el['rotation'] ?? 0),
-            'label' => mb_substr(trim((string)($el['label'] ?? '')), 0, 40)
+            'label' => mb_substr(trim((string)($el['label'] ?? '')), 0, 40),
+            // 🆕 Fascia di prezzo (null = usa il prezzo base dell'evento) e
+            // flag "riservato" (non prenotabile pubblicamente)
+            'tierId' => $el['tierId'] ?? null,
+            'reserved' => (bool)($el['reserved'] ?? false)
         ];
     }
 
@@ -6365,6 +6373,45 @@ if ($action === 'admin_save_seat_map' && $method === 'POST') {
 }
 
 // Admin: cambia manualmente lo stato di pagamento di una prenotazione (tipicamente per un pagamento in cassa)
+// Admin: salva l'elenco delle fasce di prezzo dell'evento (es. "Rossa" a 30€)
+if ($action === 'admin_update_price_tiers' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    if ($eventId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'eventId mancante']);
+    }
+
+    $tiers = [];
+    foreach ((array)($body['tiers'] ?? []) as $t) {
+        $name = mb_substr(trim((string)($t['name'] ?? '')), 0, 40);
+        if ($name === '') continue;
+        $tiers[] = [
+            'id' => trim((string)($t['id'] ?? bin2hex(random_bytes(4)))),
+            'name' => $name,
+            'color' => preg_match('/^#[0-9a-fA-F]{6}$/', $t['color'] ?? '') ? $t['color'] : '#e57373',
+            'price' => max(0, (float)($t['price'] ?? 0))
+        ];
+    }
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $tiers, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            $found = true;
+            $event['priceTiers'] = $tiers;
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
+    }
+    jsonResponse(200, ['ok' => true, 'priceTiers' => $tiers]);
+}
+
 if ($action === 'admin_update_event_booking_payment' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();
@@ -6468,6 +6515,9 @@ if ($action === 'get_event_detail' && $method === 'GET') {
                 'currency' => $e['currency'] ?? 'EUR',
                 'paypalClientId' => $e['paypalClientId'] ?? '',
                 'paypalCurrency' => $e['paypalCurrency'] ?? 'EUR',
+                // 🆕 Fasce di prezzo, usate dalla mappa pubblica per mostrare
+                // colore/prezzo di ogni posto in base alla sua fascia
+                'priceTiers' => $e['priceTiers'] ?? [],
                 'seatMap' => $e['seatMap'] ?? ['canvasWidth' => 900, 'canvasHeight' => 600, 'elements' => []],
                 'bookedSeatIds' => array_values(array_unique($bookedSeatIds))
             ]
@@ -6506,11 +6556,19 @@ if ($action === 'book_event_seats' && $method === 'POST') {
                 return [];
             }
 
-            // Verifica esistenza dei posti nella mappa
-            $validSeatIds = array_column(array_filter($event['seatMap']['elements'] ?? [], fn($el) => ($el['type'] ?? '') === 'seat'), 'id');
+            // Verifica esistenza dei posti nella mappa (esclude quelli riservati:
+            // non prenotabili pubblicamente, li gestisce solo l'admin a mano)
+            $seatElements = array_filter($event['seatMap']['elements'] ?? [], fn($el) => ($el['type'] ?? '') === 'seat');
+            $seatsById = [];
+            foreach ($seatElements as $el) { $seatsById[$el['id']] = $el; }
+
             foreach ($seatIds as $sid) {
-                if (!in_array($sid, $validSeatIds, true)) {
+                if (!isset($seatsById[$sid])) {
                     $errorMsg = 'Uno o più posti selezionati non esistono';
+                    return [];
+                }
+                if (!empty($seatsById[$sid]['reserved'])) {
+                    $errorMsg = 'Uno o più posti selezionati sono riservati e non prenotabili online';
                     return [];
                 }
             }
@@ -6529,8 +6587,21 @@ if ($action === 'book_event_seats' && $method === 'POST') {
                 return [];
             }
 
-            // 🔧 Prezzo ricalcolato lato server dal numero di posti, non ci si fida del client
-            $totalAmount = round((float)($event['pricePerSeat'] ?? 0) * count($seatIds), 2);
+            // 🔧 Prezzo ricalcolato lato server posto per posto: un posto con
+            // una fascia assegnata usa il prezzo di quella fascia, altrimenti
+            // il prezzo base dell'evento — non ci si fida del client.
+            $tiersById = [];
+            foreach (($event['priceTiers'] ?? []) as $t) { $tiersById[$t['id']] = $t; }
+
+            $totalAmount = 0;
+            foreach ($seatIds as $sid) {
+                $tierId = $seatsById[$sid]['tierId'] ?? null;
+                $seatPrice = ($tierId !== null && isset($tiersById[$tierId]))
+                    ? (float)$tiersById[$tierId]['price']
+                    : (float)($event['pricePerSeat'] ?? 0);
+                $totalAmount += $seatPrice;
+            }
+            $totalAmount = round($totalAmount, 2);
 
             $booking = [
                 'id' => bin2hex(random_bytes(8)),

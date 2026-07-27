@@ -5527,11 +5527,23 @@ function assignRefereesToMatches(array &$matches, array $approvedTeams): void {
         $slotKey = (!empty($match['date']) && !empty($match['startTime'])) ? ($match['date'] . '|' . $match['startTime']) : null;
         $busyInSlot = $slotKey !== null ? ($teamsBusyBySlot[$slotKey] ?? []) : [];
 
+        // 1° tentativo: squadre libere nello stesso identico slot (nessun conflitto possibile)
         $candidates = array_filter(array_keys($teamsById), function ($teamId) use ($playingIds, $busyInSlot) {
             if (in_array($teamId, $playingIds, true)) return false;
             if (in_array($teamId, $busyInSlot, true)) return false;
             return true;
         });
+
+        // 🆕 2° tentativo (se nessuno è libero in quello slot esatto, tipico
+        // con molti campi in parallelo e poche squadre): prova comunque ad
+        // assegnare una squadra tra quelle NON impegnate in QUESTA partita,
+        // accettando che possa giocare un'altra partita subito prima/dopo
+        // — meglio di lasciare la partita senza arbitro.
+        if (empty($candidates)) {
+            $candidates = array_filter(array_keys($teamsById), function ($teamId) use ($playingIds) {
+                return !in_array($teamId, $playingIds, true);
+            });
+        }
 
         if (empty($candidates)) {
             $match['refereeTeamId'] = null;
@@ -5539,7 +5551,7 @@ function assignRefereesToMatches(array &$matches, array $approvedTeams): void {
             continue;
         }
 
-        // Tra le squadre libere, scegli quella che ha arbitrato meno finora
+        // Tra le squadre disponibili, scegli quella che ha arbitrato meno finora
         // (a parità, l'ordine è quello di iscrizione — comunque casuale)
         usort($candidates, fn($a, $b) => $refereeCount[$a] <=> $refereeCount[$b]);
         $chosenId = $candidates[0];

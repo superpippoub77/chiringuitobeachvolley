@@ -1753,7 +1753,18 @@
       // Al primo caricamento, reindirizza automaticamente alla sezione appropriata
       if (firstLoad) {
         firstLoad = false;
-        if (registrationsClosed || isDeadlineExpired) {
+        // 🔧 FIX: la scheda predefinita impostata in Impostazioni →
+        // Visualizzazione ha sempre la priorità — prima veniva letta anche
+        // da loadTheme() (eseguita in parallelo a questa funzione), ma se
+        // loadState() terminava dopo, il suo redirect automatico qui sotto
+        // sovrascriveva sempre la scelta con "iscrizione" o "groups".
+        // Ora questa è l'unica funzione che decide la scheda iniziale.
+        const defaultTab = config?.display?.defaultHomeTab;
+        if (defaultTab) {
+          showPhase(defaultTab);
+          if (defaultTab === 'gallery') loadGalleryPage();
+          if (defaultTab === 'events') loadEventsForPublic();
+        } else if (registrationsClosed || isDeadlineExpired) {
           // Iscrizioni chiuse (o scadute): vai direttamente ai Gironi, vista Partite
           showPhase('groups');
           showGironiTab('matches');
@@ -4068,18 +4079,6 @@
             if (locationLink && lat != null && lon != null) {
               locationLink.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
               locationLink.style.display = 'flex';
-            }
-
-            // 🆕 Scheda predefinita in home, se impostata da Impostazioni →
-            // Visualizzazione — altrimenti resta il comportamento attuale
-            // (la pagina "Iscrizione" già attiva di default nell'HTML).
-            const defaultTab = data.config.display?.defaultHomeTab;
-            if (defaultTab) {
-              showPhase(defaultTab);
-              // Alcune schede richiedono anche il caricamento dei propri dati,
-              // esattamente come fa il rispettivo link del menu quando cliccato
-              if (defaultTab === 'gallery') loadGalleryPage();
-              if (defaultTab === 'events') loadEventsForPublic();
             }
           }
         }

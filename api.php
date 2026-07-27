@@ -768,6 +768,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'minor_guardian_name_placeholder' => 'Nome e cognome del responsabile',
             'minor_guardian_contact_placeholder' => 'Telefono o email del responsabile',
             'minor_waiver_text' => 'Dichiaro di essere il genitore/tutore legale del minore sopra indicato e mi assumo la piena responsabilità della sua partecipazione al torneo, sollevando gli organizzatori da ogni responsabilità per eventuali infortuni o danni, salvo dolo o colpa grave.',
+            'table_header_referee' => 'Arbitro',
             'nav_events' => 'Eventi',
         ],
         'en' => [
@@ -1008,6 +1009,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'minor_guardian_name_placeholder' => "Guardian's full name",
             'minor_guardian_contact_placeholder' => "Guardian's phone or email",
             'minor_waiver_text' => "I declare that I am the parent/legal guardian of the minor listed above and I take full responsibility for their participation in the tournament, releasing the organizers from liability for any injury or damage, except in cases of willful misconduct or gross negligence.",
+            'table_header_referee' => 'Referee',
             'nav_events' => 'Events',
         ],
         'fr' => [
@@ -1248,6 +1250,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'minor_guardian_name_placeholder' => 'Nom et prénom du responsable',
             'minor_guardian_contact_placeholder' => 'Téléphone ou email du responsable',
             'minor_waiver_text' => "Je déclare être le parent/tuteur légal du mineur mentionné ci-dessus et j'assume l'entière responsabilité de sa participation au tournoi, dégageant les organisateurs de toute responsabilité en cas de blessure ou de dommage, sauf faute intentionnelle ou grave négligence.",
+            'table_header_referee' => 'Arbitre',
             'nav_events' => 'Événements',
         ],
         'de' => [
@@ -1488,6 +1491,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'minor_guardian_name_placeholder' => 'Vor- und Nachname des Erziehungsberechtigten',
             'minor_guardian_contact_placeholder' => 'Telefon oder E-Mail des Erziehungsberechtigten',
             'minor_waiver_text' => 'Ich erkläre, Elternteil/gesetzlicher Vormund des oben genannten Minderjährigen zu sein, und übernehme die volle Verantwortung für seine Teilnahme am Turnier. Ich entbinde die Veranstalter von jeglicher Haftung für Verletzungen oder Schäden, außer bei Vorsatz oder grober Fahrlässigkeit.',
+            'table_header_referee' => 'Schiedsrichter',
             'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
@@ -1728,6 +1732,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'minor_guardian_name_placeholder' => '监护人姓名',
             'minor_guardian_contact_placeholder' => '监护人电话或邮箱',
             'minor_waiver_text' => '本人声明是上述未成年人的家长/法定监护人，愿对其参加本次赛事承担全部责任，并免除主办方因任何伤害或损失而产生的责任，但故意或重大过失除外。',
+            'table_header_referee' => '裁判',
             'nav_events' => '活动',
         ],
     ];
@@ -1790,7 +1795,10 @@ function defaultConfig(): array {
             // 🆕 Posizione del torneo, usata per il meteo nel Giornalino TODAY
             'locationName' => '',
             'latitude' => null,
-            'longitude' => null
+            'longitude' => null,
+            // 🆕 Assegna automaticamente una squadra non impegnata come
+            // arbitro per ogni partita, distribuendo il carico — disattivabile
+            'autoAssignReferees' => true
         ],
         'schedule' => [
             'courts' => []
@@ -4033,7 +4041,11 @@ function publicState(array $state): array {
                 'duration' => $m['duration'] ?? null,
                 'phaseId' => $phaseInfo['phaseId'],
                 'phaseIdx' => $phaseInfo['phaseIdx'],
-                'phaseName' => $phaseInfo['phaseName']
+                'phaseName' => $phaseInfo['phaseName'],
+                // 🆕 Squadra assegnata come arbitro (se l'assegnazione
+                // automatica è attiva), utile a farla sapere ai giocatori
+                'refereeTeamId' => $m['refereeTeamId'] ?? null,
+                'refereeTeamName' => $m['refereeTeamName'] ?? null
             ];
         }, $allMatches)),
         'standings' => computeStandings($state),
@@ -5166,6 +5178,8 @@ function buildGroupMatches(array &$state): void {
     if (!isset($state['phases'][0])) {
         $state['phases'][0] = [];
     }
+    // 🆕 Assegna una squadra arbitro (non impegnata) ad ogni partita, se attivo
+    assignRefereesToMatches($matches, approvedTeams($state));
     $state['phases'][0]['matches'] = $matches;
 }
 
@@ -5463,6 +5477,78 @@ function addMinutes(string $timeStr, int $minutes): string {
     $h = intdiv($totalMin, 60);
     $m = $totalMin % 60;
     return str_pad((string)$h, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)$m, 2, '0', STR_PAD_LEFT);
+}
+
+/**
+ * 🆕 Assegna automaticamente una squadra arbitro ad ogni partita (tra quelle
+ * che NON giocano in quel turno), distribuendo il carico in modo che nessuna
+ * squadra arbitri molte più volte delle altre. Disattivabile tramite il flag
+ * config.tournament.autoAssignReferees.
+ *
+ * Esclude sia le due squadre che giocano quella partita, sia (quando la data
+ * e l'orario sono noti) qualunque altra squadra impegnata in un'altra
+ * partita nello stesso esatto slot — non si può arbitrare e giocare insieme.
+ */
+function assignRefereesToMatches(array &$matches, array $approvedTeams): void {
+    $config = readConfig();
+    if (!($config['tournament']['autoAssignReferees'] ?? true)) {
+        // Disattivato: rimuove eventuali assegnazioni precedenti invece di lasciarle stantie
+        foreach ($matches as &$match) {
+            $match['refereeTeamId'] = null;
+            $match['refereeTeamName'] = null;
+        }
+        unset($match);
+        return;
+    }
+
+    if (count($approvedTeams) < 3) {
+        return; // servono almeno 3 squadre per avere qualcuno libero da assegnare
+    }
+
+    $teamsById = [];
+    foreach ($approvedTeams as $t) {
+        $teamsById[$t['id']] = $t;
+    }
+
+    // Squadre impegnate per ogni slot data+ora (per escluderle come arbitro
+    // in quello stesso slot, se l'informazione è disponibile)
+    $teamsBusyBySlot = [];
+    foreach ($matches as $m) {
+        if (empty($m['date']) || empty($m['startTime'])) continue;
+        $slotKey = $m['date'] . '|' . $m['startTime'];
+        $teamsBusyBySlot[$slotKey][] = $m['team1Id'] ?? null;
+        $teamsBusyBySlot[$slotKey][] = $m['team2Id'] ?? null;
+    }
+
+    $refereeCount = array_fill_keys(array_keys($teamsById), 0);
+
+    foreach ($matches as &$match) {
+        $playingIds = [$match['team1Id'] ?? null, $match['team2Id'] ?? null];
+        $slotKey = (!empty($match['date']) && !empty($match['startTime'])) ? ($match['date'] . '|' . $match['startTime']) : null;
+        $busyInSlot = $slotKey !== null ? ($teamsBusyBySlot[$slotKey] ?? []) : [];
+
+        $candidates = array_filter(array_keys($teamsById), function ($teamId) use ($playingIds, $busyInSlot) {
+            if (in_array($teamId, $playingIds, true)) return false;
+            if (in_array($teamId, $busyInSlot, true)) return false;
+            return true;
+        });
+
+        if (empty($candidates)) {
+            $match['refereeTeamId'] = null;
+            $match['refereeTeamName'] = null;
+            continue;
+        }
+
+        // Tra le squadre libere, scegli quella che ha arbitrato meno finora
+        // (a parità, l'ordine è quello di iscrizione — comunque casuale)
+        usort($candidates, fn($a, $b) => $refereeCount[$a] <=> $refereeCount[$b]);
+        $chosenId = $candidates[0];
+
+        $match['refereeTeamId'] = $chosenId;
+        $match['refereeTeamName'] = $teamsById[$chosenId]['name'] ?? null;
+        $refereeCount[$chosenId]++;
+    }
+    unset($match);
 }
 
 function buildGroupMatchesWithSchedule(array &$state): void {
@@ -5783,7 +5869,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $teamLoadIndex[$team2]++;
                 $assignedMatchIndices[] = $bestMatchIdx;
                 
-                error_log("    ✅ [{count($assignedMatchIndices)}/{count($groupMatches)}] {$team1}[L:{$teamLoadIndex[$team1]}] vs {$team2}[L:{$teamLoadIndex[$team2]}] → {$slot['startTime']}");
+                error_log("    ✅ [" . count($assignedMatchIndices) . "/" . count($groupMatches) . "] {$team1}[L:{$teamLoadIndex[$team1]}] vs {$team2}[L:{$teamLoadIndex[$team2]}] → {$slot['startTime']}");
             } else {
                 error_log("    ❌ Could not find slot for group $group!");
                 buildGroupMatches($state);
@@ -5811,6 +5897,8 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     if (!isset($state['phases'][0])) {
         $state['phases'][0] = [];
     }
+    // 🆕 Assegna una squadra arbitro (non impegnata nello stesso slot) ad ogni partita, se attivo
+    assignRefereesToMatches($finalMatches, approvedTeams($state));
     $state['phases'][0]['matches'] = $finalMatches;
 }
 
@@ -11162,6 +11250,8 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['locationName'])) $config['tournament']['locationName'] = mb_substr(trim((string)$t['locationName']), 0, 150);
         if (isset($t['latitude'])) $config['tournament']['latitude'] = is_numeric($t['latitude']) ? (float)$t['latitude'] : null;
         if (isset($t['longitude'])) $config['tournament']['longitude'] = is_numeric($t['longitude']) ? (float)$t['longitude'] : null;
+        // 🆕 Assegnazione automatica arbitri (attiva/disattiva)
+        if (isset($t['autoAssignReferees'])) $config['tournament']['autoAssignReferees'] = (bool)$t['autoAssignReferees'];
         // 🆕 Intervallo (in secondi) di auto-refresh del tabellone pubblico in
         // sola visualizzazione (scoreboard.html -> tablescore.html?mode=view)
         if (isset($t['liveScoreboardRefreshSeconds'])) $config['tournament']['liveScoreboardRefreshSeconds'] = max(2, min(60, (int)$t['liveScoreboardRefreshSeconds']));

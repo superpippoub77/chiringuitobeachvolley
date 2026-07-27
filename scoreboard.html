@@ -2794,7 +2794,7 @@
         return;
       }
 
-      c.innerHTML = `<h3>${i18n('matches_title')}</h3>${filterHtml}<table><thead><tr><th></th><th>${i18n('table_header_group')}</th><th>${i18n('table_header_date')}</th><th>${i18n('table_header_time')}</th><th>${i18n('table_header_phase')}</th><th>${i18n('table_header_match')}</th><th>${i18n('table_header_result')}</th><th></th></tr></thead><tbody>${matches.map(m => {
+      c.innerHTML = `<h3>${i18n('matches_title')}</h3>${filterHtml}<table><thead><tr><th></th><th>${i18n('table_header_group')}</th><th>${i18n('table_header_date')}</th><th>${i18n('table_header_time')}</th><th>${i18n('table_header_phase')}</th><th>${i18n('table_header_match')}</th><th>${i18n('table_header_result')}</th><th>${i18n('table_header_referee')}</th><th></th></tr></thead><tbody>${matches.map(m => {
         const status = getMatchStatus(m);
         const resultHTML = formatMatchResult(m, activePhase);
         // 🆕 Pulsante "Tabellone" (sola visualizzazione, aggiornamento
@@ -2810,6 +2810,7 @@
           <td>${esc(phaseName)}</td>
           <td>${esc(m.team1Name)} - ${esc(m.team2Name)}</td>
           <td>${resultHTML}</td>
+          <td style="font-size: 12px; color: #666">${m.refereeTeamName ? '🏐 ' + esc(m.refereeTeamName) : '-'}</td>
           <td>${tabelloneBtn}</td>
         </tr>`;
       }).join('')}</tbody></table>`;

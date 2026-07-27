@@ -1795,8 +1795,8 @@ function defaultConfig(): array {
             'paypalCurrency' => 'EUR'
         ],
         'notes' => [],
-        'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'shopSettings' => ['enabled' => false, 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [
@@ -2312,6 +2312,29 @@ function transparentPixelGif(): string {
  * a internet in uscita) — il Giornalino viene generato comunque, solo
  * senza la sezione meteo automatica.
  */
+/**
+ * 🆕 Risolve quale configurazione PayPal usare per un servizio (bar,
+ * partecipazione, eventi, ecc.): se il servizio ha "usePaymentPaypal"
+ * abilitato (o non impostato, di default), riusa il PayPal già configurato
+ * in Impostazioni → Pagamenti (config.payment) — altrimenti usa quello
+ * specifico del servizio stesso. Evita di dover configurare lo stesso
+ * Client ID separatamente in ogni sezione.
+ */
+function resolveEffectivePaypal(array $config, array $serviceSettings): array {
+    $useShared = $serviceSettings['usePaymentPaypal'] ?? true;
+    if ($useShared) {
+        $payment = $config['payment'] ?? [];
+        return [
+            'clientId' => $payment['paypalClientId'] ?? '',
+            'currency' => $payment['paypalCurrency'] ?? 'EUR'
+        ];
+    }
+    return [
+        'clientId' => $serviceSettings['paypalClientId'] ?? '',
+        'currency' => $serviceSettings['paypalCurrency'] ?? 'EUR'
+    ];
+}
+
 function fetchWeatherForecast(?float $lat, ?float $lon): ?array {
     if ($lat === null || $lon === null) return null;
 
@@ -6233,6 +6256,8 @@ function defaultEventStructure(): array {
         'enabled' => false,
         'pricePerSeat' => 0,
         'currency' => 'EUR',
+        // 🆕 Se true (default), riusa il PayPal condiviso di Pagamenti invece di richiederne uno proprio
+        'usePaymentPaypal' => true,
         'paypalClientId' => '',
         'paypalCurrency' => 'EUR',
         // 🆕 Fasce di prezzo: ogni posto può appartenere a una fascia (es.
@@ -6290,6 +6315,8 @@ if ($action === 'admin_update_event' && $method === 'POST') {
             if (isset($body['enabled'])) $event['enabled'] = (bool)$body['enabled'];
             if (isset($body['pricePerSeat'])) $event['pricePerSeat'] = max(0, (float)$body['pricePerSeat']);
             if (isset($body['currency']) && in_array($body['currency'], ['EUR', 'USD', 'GBP', 'CHF'], true)) $event['currency'] = $body['currency'];
+            // 🆕 Se true (default), riusa il PayPal condiviso di Pagamenti invece di richiederne uno proprio
+            if (isset($body['usePaymentPaypal'])) $event['usePaymentPaypal'] = (bool)$body['usePaymentPaypal'];
             if (isset($body['paypalClientId'])) $event['paypalClientId'] = mb_substr(trim((string)$body['paypalClientId']), 0, 200);
             if (isset($body['paypalCurrency']) && in_array($body['paypalCurrency'], ['EUR', 'USD', 'GBP'], true)) $event['paypalCurrency'] = $body['paypalCurrency'];
             break;
@@ -6493,6 +6520,7 @@ if ($action === 'get_public_events' && $method === 'GET') {
 if ($action === 'get_event_detail' && $method === 'GET') {
     $eventId = (string)($_GET['id'] ?? '');
     $events = readEvents();
+    $config = readConfig();
     foreach ($events as $e) {
         if (($e['id'] ?? '') !== $eventId || empty($e['enabled'])) continue;
 
@@ -6502,6 +6530,9 @@ if ($action === 'get_event_detail' && $method === 'GET') {
                 $bookedSeatIds[] = $sid;
             }
         }
+
+        // 🆕 Riusa il PayPal condiviso di Pagamenti, a meno che l'evento non ne usi uno proprio
+        $effectivePaypal = resolveEffectivePaypal($config, $e);
 
         jsonResponse(200, [
             'ok' => true,
@@ -6513,8 +6544,8 @@ if ($action === 'get_event_detail' && $method === 'GET') {
                 'time' => $e['time'] ?? '',
                 'pricePerSeat' => $e['pricePerSeat'] ?? 0,
                 'currency' => $e['currency'] ?? 'EUR',
-                'paypalClientId' => $e['paypalClientId'] ?? '',
-                'paypalCurrency' => $e['paypalCurrency'] ?? 'EUR',
+                'paypalClientId' => $effectivePaypal['clientId'],
+                'paypalCurrency' => $effectivePaypal['currency'],
                 // 🆕 Fasce di prezzo, usate dalla mappa pubblica per mostrare
                 // colore/prezzo di ogni posto in base alla sua fascia
                 'priceTiers' => $e['priceTiers'] ?? [],
@@ -6835,9 +6866,11 @@ if ($action === 'admin_update_attendance_settings' && $method === 'POST') {
         'maxParticipants' => max(0, (int)($body['maxParticipants'] ?? 0)),
         // 🆕 Quota per partecipante (offerta per l'ingresso spettatori), pagabile in cassa o PayPal
         'feePerPerson' => max(0, (float)($body['feePerPerson'] ?? 0)),
-        'currency' => in_array($body['currency'] ?? 'EUR', ['EUR', 'USD', 'GBP', 'CHF'], true) ? $body['currency'] : 'EUR',
+        'currency' => (function() use ($body) { $v = $body['currency'] ?? 'EUR'; return in_array($v, ['EUR', 'USD', 'GBP', 'CHF'], true) ? $v : 'EUR'; })(),
+        // 🆕 Se true (default), riusa il PayPal condiviso di Pagamenti invece di richiederne uno proprio
+        'usePaymentPaypal' => (bool)($body['usePaymentPaypal'] ?? true),
         'paypalClientId' => mb_substr(trim((string)($body['paypalClientId'] ?? '')), 0, 200),
-        'paypalCurrency' => in_array($body['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $body['paypalCurrency'] : 'EUR'
+        'paypalCurrency' => (function() use ($body) { $v = $body['paypalCurrency'] ?? 'EUR'; return in_array($v, ['EUR', 'USD', 'GBP'], true) ? $v : 'EUR'; })()
     ];
 
     writeConfig($config);
@@ -6860,6 +6893,9 @@ if ($action === 'get_attendance_status' && $method === 'GET') {
         }
     }
 
+    // 🆕 Riusa il PayPal condiviso di Pagamenti, a meno che la partecipazione non ne usi uno proprio
+    $effectivePaypal = resolveEffectivePaypal($config, $attendanceSettings);
+
     jsonResponse(200, [
         'ok' => true,
         'enabled' => (bool)($attendanceSettings['enabled'] ?? false),
@@ -6867,8 +6903,8 @@ if ($action === 'get_attendance_status' && $method === 'GET') {
         'remainingSpots' => $maxParticipants > 0 ? max(0, $maxParticipants - $currentTotal) : null,
         'feePerPerson' => (float)($attendanceSettings['feePerPerson'] ?? 0),
         'currency' => $attendanceSettings['currency'] ?? 'EUR',
-        'paypalClientId' => $attendanceSettings['paypalClientId'] ?? '',
-        'paypalCurrency' => $attendanceSettings['paypalCurrency'] ?? 'EUR'
+        'paypalClientId' => $effectivePaypal['clientId'],
+        'paypalCurrency' => $effectivePaypal['currency']
     ]);
 }
 
@@ -10384,8 +10420,8 @@ if ($action === 'admin_reset_tournament' && $method === 'POST') {
                 'paypalCurrency' => 'EUR'
             ],
             'notes' => [],
-            'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-            'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+            'shopSettings' => ['enabled' => false, 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+            'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
             'customFields' => [],
             'news' => [],
             'autosave' => [
@@ -11151,7 +11187,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
                 'phaseNumber' => $idx + 1,
                 'name' => trim((string)($phase['name'] ?? "Fase $idx")),
                 'type' => in_array($phase['type'] ?? '', ['groups', 'knockout']) ? $phase['type'] : 'groups',
-                'branch' => in_array($phase['branch'] ?? 'root', ['root', 'qualified', 'eliminated']) ? $phase['branch'] : 'root',
+                'branch' => (function() use ($phase) { $v = $phase['branch'] ?? 'root'; return in_array($v, ['root', 'qualified', 'eliminated']) ? $v : 'root'; })(),
                 'qualifiedGoTo' => trim((string)($phase['qualifiedGoTo'] ?? '')),
                 'eliminatedGoTo' => trim((string)($phase['eliminatedGoTo'] ?? ''))
             ];
@@ -11246,7 +11282,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         $config['email']['service'] = trim((string)($emailCfg['service'] ?? 'gmail'));
         $config['email']['host'] = mb_substr(trim((string)($emailCfg['host'] ?? '')), 0, 255);
         $config['email']['port'] = (int)($emailCfg['port'] ?? 587);
-        $config['email']['secure'] = in_array($emailCfg['secure'] ?? 'tls', ['tls', 'ssl']) ? $emailCfg['secure'] : 'tls';
+        $config['email']['secure'] = (function() use ($emailCfg) { $v = $emailCfg['secure'] ?? 'tls'; return in_array($v, ['tls', 'ssl']) ? $v : 'tls'; })();
         $config['email']['auth'] = (bool)($emailCfg['auth'] ?? true);
         $config['email']['username'] = mb_substr(trim((string)($emailCfg['username'] ?? '')), 0, 255);
         $config['email']['password'] = mb_substr(trim((string)($emailCfg['password'] ?? '')), 0, 100);
@@ -12472,12 +12508,12 @@ if ($action === 'admin_update_payment_config' && $method === 'POST') {
         $payment = $body['payment'];
         $config['payment']['enabled'] = (bool)($payment['enabled'] ?? false);
         $config['payment']['costPerTeam'] = max(0, (float)($payment['costPerTeam'] ?? 0));
-        $config['payment']['currency'] = in_array($payment['currency'] ?? 'EUR', ['EUR', 'USD', 'GBP', 'CHF']) ? $payment['currency'] : 'EUR';
+        $config['payment']['currency'] = (function() use ($payment) { $v = $payment['currency'] ?? 'EUR'; return in_array($v, ['EUR', 'USD', 'GBP', 'CHF']) ? $v : 'EUR'; })();
         // 🆕 Quota per singolo giocatore + spiegazione pubblica + PayPal
         $config['payment']['costPerPlayer'] = max(0, (float)($payment['costPerPlayer'] ?? 0));
         $config['payment']['description'] = mb_substr(trim((string)($payment['description'] ?? '')), 0, 500);
         $config['payment']['paypalClientId'] = mb_substr(trim((string)($payment['paypalClientId'] ?? '')), 0, 200);
-        $config['payment']['paypalCurrency'] = in_array($payment['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $payment['paypalCurrency'] : 'EUR';
+        $config['payment']['paypalCurrency'] = (function() use ($payment) { $v = $payment['paypalCurrency'] ?? 'EUR'; return in_array($v, ['EUR', 'USD', 'GBP'], true) ? $v : 'EUR'; })();
     }
     
     writeConfig($config);
@@ -12538,8 +12574,10 @@ if ($action === 'admin_update_shop_settings' && $method === 'POST') {
 
     $config['shopSettings'] = [
         'enabled' => (bool)($body['enabled'] ?? false),
+        // 🆕 Se true (default), riusa il PayPal condiviso di Pagamenti invece di richiederne uno proprio
+        'usePaymentPaypal' => (bool)($body['usePaymentPaypal'] ?? true),
         'paypalClientId' => mb_substr(trim((string)($body['paypalClientId'] ?? '')), 0, 200),
-        'paypalCurrency' => in_array($body['paypalCurrency'] ?? 'EUR', ['EUR', 'USD', 'GBP'], true) ? $body['paypalCurrency'] : 'EUR'
+        'paypalCurrency' => (function() use ($body) { $v = $body['paypalCurrency'] ?? 'EUR'; return in_array($v, ['EUR', 'USD', 'GBP'], true) ? $v : 'EUR'; })()
     ];
 
     writeConfig($config);
@@ -12628,12 +12666,15 @@ if ($action === 'get_shop' && $method === 'GET') {
     // Rimuovi le categorie rimaste senza prodotti disponibili
     $publicCategories = array_values(array_filter($publicCategories, fn($c) => count($c['products']) > 0));
 
+    // 🆕 Riusa il PayPal condiviso di Pagamenti, a meno che il bar non ne usi uno proprio
+    $effectivePaypal = resolveEffectivePaypal($config, $shopSettings);
+
     jsonResponse(200, [
         'ok' => true,
         'enabled' => (bool)($shopSettings['enabled'] ?? false),
         'categories' => $publicCategories,
-        'paypalClientId' => $shopSettings['paypalClientId'] ?? '',
-        'paypalCurrency' => $shopSettings['paypalCurrency'] ?? 'EUR'
+        'paypalClientId' => $effectivePaypal['clientId'],
+        'paypalCurrency' => $effectivePaypal['currency']
     ]);
 }
 
@@ -13297,7 +13338,7 @@ if ($action === 'admin_update_photo_frames' && $method === 'POST') {
             'id' => trim((string)($f['id'] ?? bin2hex(random_bytes(4)))),
             'name' => $name,
             'borderColor' => preg_match('/^#[0-9a-fA-F]{6}$/', $f['borderColor'] ?? '') ? $f['borderColor'] : '#ffc94d',
-            'style' => in_array($f['style'] ?? 'solid', ['solid', 'dashed', 'dotted', 'double'], true) ? $f['style'] : 'solid',
+            'style' => (function() use ($f) { $v = $f['style'] ?? 'solid'; return in_array($v, ['solid', 'dashed', 'dotted', 'double'], true) ? $v : 'solid'; })(),
             'showText' => (bool)($f['showText'] ?? true)
         ];
     }
@@ -14555,8 +14596,8 @@ if ($action === 'create_tournament' && $method === 'POST') {
             'paypalCurrency' => 'EUR'
         ],
         'notes' => [],
-        'shopSettings' => ['enabled' => false, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
-        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'shopSettings' => ['enabled' => false, 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
+        'attendanceSettings' => ['enabled' => false, 'maxParticipants' => 0, 'feePerPerson' => 0, 'currency' => 'EUR', 'usePaymentPaypal' => true, 'paypalClientId' => '', 'paypalCurrency' => 'EUR'],
         'customFields' => [],
         'news' => [],
         'autosave' => [

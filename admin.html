@@ -1091,17 +1091,25 @@
           <h4 style="margin-top: 0">⚙️ Impostazioni Bar</h4>
           <label><input type="checkbox" id="shopEnabled"> Bar abilitato (visibile nella home)</label>
           <div class="field" style="margin-top: 10px">
-            <label>PayPal Client ID (opzionale)</label>
-            <input id="shopPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa">
-            <small style="color: #666; display: block; margin-top: 4px">Se compilato, i clienti potranno scegliere di pagare online con PayPal oltre che in cassa. Si ottiene creando un'app su developer.paypal.com.</small>
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+              <input type="checkbox" id="shopUsePaymentPaypal" onchange="toggleShopPaypalFields()" checked>
+              Usa lo stesso PayPal già configurato in "Pagamenti" (quota iscrizione)
+            </label>
           </div>
-          <div class="field">
-            <label>Valuta PayPal</label>
-            <select id="shopPaypalCurrency">
-              <option value="EUR">EUR (€)</option>
-              <option value="USD">USD ($)</option>
-              <option value="GBP">GBP (£)</option>
-            </select>
+          <div id="shopCustomPaypalFields" style="display: none">
+            <div class="field" style="margin-top: 10px">
+              <label>PayPal Client ID (opzionale)</label>
+              <input id="shopPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa">
+              <small style="color: #666; display: block; margin-top: 4px">Se compilato, i clienti potranno scegliere di pagare online con PayPal oltre che in cassa. Si ottiene creando un'app su developer.paypal.com.</small>
+            </div>
+            <div class="field">
+              <label>Valuta PayPal</label>
+              <select id="shopPaypalCurrency">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </div>
           </div>
           <button class="btn btn-green" onclick="saveShopSettings()" style="margin-top: 10px">💾 Salva Impostazioni Bar</button>
         </div>
@@ -1237,16 +1245,24 @@
               </div>
             </div>
             <div class="field" style="margin-top: 8px">
-              <label>PayPal Client ID (opzionale)</label>
-              <input id="evPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+                <input type="checkbox" id="evUsePaymentPaypal" onchange="toggleEventPaypalFields()" checked>
+                Usa lo stesso PayPal già configurato in "Pagamenti" (quota iscrizione)
+              </label>
             </div>
-            <div class="field" style="margin-top: 8px">
-              <label>Valuta PayPal</label>
-              <select id="evPaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
-                <option value="EUR">EUR (€)</option>
-                <option value="USD">USD ($)</option>
-                <option value="GBP">GBP (£)</option>
-              </select>
+            <div id="eventCustomPaypalFields" style="display: none">
+              <div class="field" style="margin-top: 8px">
+                <label>PayPal Client ID (opzionale)</label>
+                <input id="evPaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+              </div>
+              <div class="field" style="margin-top: 8px">
+                <label>Valuta PayPal</label>
+                <select id="evPaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
             </div>
             <button class="btn btn-green" onclick="saveEventDetails()" style="margin-top: 10px">💾 Salva Dettagli</button>
           </div>
@@ -1570,16 +1586,24 @@
               </select>
             </div>
             <div class="field" style="margin-top: 10px">
-              <label>PayPal Client ID (opzionale)</label>
-              <input id="attendancePaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+                <input type="checkbox" id="attendanceUsePaymentPaypal" onchange="toggleAttendancePaypalFields()" checked>
+                Usa lo stesso PayPal già configurato in "Pagamenti" (quota iscrizione)
+              </label>
             </div>
-            <div class="field" style="margin-top: 10px">
-              <label>Valuta PayPal</label>
-              <select id="attendancePaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
-                <option value="EUR">EUR (€)</option>
-                <option value="USD">USD ($)</option>
-                <option value="GBP">GBP (£)</option>
-              </select>
+            <div id="attendanceCustomPaypalFields" style="display: none">
+              <div class="field" style="margin-top: 10px">
+                <label>PayPal Client ID (opzionale)</label>
+                <input id="attendancePaypalClientId" type="text" placeholder="Lascia vuoto per accettare solo pagamenti in cassa" style="width: 100%">
+              </div>
+              <div class="field" style="margin-top: 10px">
+                <label>Valuta PayPal</label>
+                <select id="attendancePaypalCurrency" style="width: 100%; max-width: 200px; padding: 6px">
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="GBP">GBP (£)</option>
+                </select>
+              </div>
             </div>
             <button class="btn btn-green" onclick="saveAttendanceSettings()" style="margin-top: 8px">💾 Salva Impostazioni Partecipazione</button>
           </div>
@@ -10766,6 +10790,7 @@ html += `
           maxParticipants: parseInt(document.getElementById('attendanceMaxParticipants').value) || 0,
           feePerPerson: parseFloat(document.getElementById('attendanceFeePerPerson').value) || 0,
           currency: document.getElementById('attendanceCurrency').value,
+          usePaymentPaypal: document.getElementById('attendanceUsePaymentPaypal').checked,
           paypalClientId: document.getElementById('attendancePaypalClientId').value.trim(),
           paypalCurrency: document.getElementById('attendancePaypalCurrency').value
         };
@@ -10777,14 +10802,21 @@ html += `
       }
     }
 
+    function toggleAttendancePaypalFields() {
+      const useShared = document.getElementById('attendanceUsePaymentPaypal').checked;
+      document.getElementById('attendanceCustomPaypalFields').style.display = useShared ? 'none' : 'block';
+    }
+
     async function loadAttendees() {
       try {
         document.getElementById('attendanceEnabled').checked = config.attendanceSettings?.enabled || false;
         document.getElementById('attendanceMaxParticipants').value = config.attendanceSettings?.maxParticipants || 0;
         document.getElementById('attendanceFeePerPerson').value = config.attendanceSettings?.feePerPerson || 0;
         document.getElementById('attendanceCurrency').value = config.attendanceSettings?.currency || 'EUR';
+        document.getElementById('attendanceUsePaymentPaypal').checked = config.attendanceSettings?.usePaymentPaypal !== false;
         document.getElementById('attendancePaypalClientId').value = config.attendanceSettings?.paypalClientId || '';
         document.getElementById('attendancePaypalCurrency').value = config.attendanceSettings?.paypalCurrency || 'EUR';
+        toggleAttendancePaypalFields();
 
         const result = await callApi('admin_get_attendees', 'GET', null, true);
         const totals = result.totals || {};
@@ -10973,8 +11005,10 @@ html += `
       document.getElementById('evEnabled').checked = !!currentEvent.enabled;
       document.getElementById('evPrice').value = currentEvent.pricePerSeat || 0;
       document.getElementById('evCurrency').value = currentEvent.currency || 'EUR';
+      document.getElementById('evUsePaymentPaypal').checked = currentEvent.usePaymentPaypal !== false;
       document.getElementById('evPaypalClientId').value = currentEvent.paypalClientId || '';
       document.getElementById('evPaypalCurrency').value = currentEvent.paypalCurrency || 'EUR';
+      toggleEventPaypalFields();
 
       seatMapElements = JSON.parse(JSON.stringify(currentEvent.seatMap?.elements || []));
       currentPriceTiers = JSON.parse(JSON.stringify(currentEvent.priceTiers || []));
@@ -10983,6 +11017,11 @@ html += `
       updateSeatSelectionToolbar();
       renderSeatMapEditor();
       renderEventBookings();
+    }
+
+    function toggleEventPaypalFields() {
+      const useShared = document.getElementById('evUsePaymentPaypal').checked;
+      document.getElementById('eventCustomPaypalFields').style.display = useShared ? 'none' : 'block';
     }
 
     function backToEventsList() {
@@ -11004,6 +11043,7 @@ html += `
           enabled: document.getElementById('evEnabled').checked,
           pricePerSeat: parseFloat(document.getElementById('evPrice').value) || 0,
           currency: document.getElementById('evCurrency').value,
+          usePaymentPaypal: document.getElementById('evUsePaymentPaypal').checked,
           paypalClientId: document.getElementById('evPaypalClientId').value.trim(),
           paypalCurrency: document.getElementById('evPaypalCurrency').value
         };
@@ -11795,8 +11835,10 @@ html += `
         shopOrdersData = result.orders || [];
 
         document.getElementById('shopEnabled').checked = config.shopSettings?.enabled || false;
+        document.getElementById('shopUsePaymentPaypal').checked = config.shopSettings?.usePaymentPaypal !== false;
         document.getElementById('shopPaypalClientId').value = config.shopSettings?.paypalClientId || '';
         document.getElementById('shopPaypalCurrency').value = config.shopSettings?.paypalCurrency || 'EUR';
+        toggleShopPaypalFields();
 
         renderShopCategories();
         renderShopOrders();
@@ -11805,10 +11847,16 @@ html += `
       }
     }
 
+    function toggleShopPaypalFields() {
+      const useShared = document.getElementById('shopUsePaymentPaypal').checked;
+      document.getElementById('shopCustomPaypalFields').style.display = useShared ? 'none' : 'block';
+    }
+
     async function saveShopSettings() {
       try {
         const payload = {
           enabled: document.getElementById('shopEnabled').checked,
+          usePaymentPaypal: document.getElementById('shopUsePaymentPaypal').checked,
           paypalClientId: document.getElementById('shopPaypalClientId').value.trim(),
           paypalCurrency: document.getElementById('shopPaypalCurrency').value
         };

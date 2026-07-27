@@ -7712,7 +7712,16 @@ if ($action === 'admin_update_team' && $method === 'POST') {
                                 // pagata esplicitamente in questa stessa richiesta,
                                 // vince quella scelta (cascata); altrimenti mantiene
                                 // il valore inviato per il singolo giocatore.
-                                'paid' => $teamPaidExplicitlySet ? (bool)$body['paid'] : (bool)($player['paid'] ?? false)
+                                'paid' => $teamPaidExplicitlySet ? (bool)$body['paid'] : (bool)($player['paid'] ?? false),
+                                // 🆕 Dati minorenne/responsabile — mancavano in questa
+                                // lista esplicita, quindi venivano cancellati ad ogni
+                                // salvataggio da "Modifica squadra" (anche solo per
+                                // correggere un altro campo, come il livello).
+                                'isMinor' => (bool)($player['isMinor'] ?? false),
+                                'guardianName' => mb_substr(trim((string)($player['guardianName'] ?? '')), 0, 100),
+                                'guardianContact' => mb_substr(trim((string)($player['guardianContact'] ?? '')), 0, 100),
+                                'waiverAccepted' => (bool)($player['waiverAccepted'] ?? false),
+                                'waiverAcceptedAt' => $player['waiverAcceptedAt'] ?? null
                             ];
                         }
                     } elseif (is_string($player)) {

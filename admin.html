@@ -4469,6 +4469,13 @@
       return allMatches;
     }
 
+    // 🆕 Mostra/nasconde il box del responsabile nella finestra di modifica squadra
+    function toggleAdminMinorBox(i) {
+      const checkbox = document.getElementById(`mPlayer${i}Minor`);
+      const box = document.getElementById(`mPlayer${i}MinorBox`);
+      if (checkbox && box) box.style.display = checkbox.checked ? 'flex' : 'none';
+    }
+
     async function openTeamDialog(teamId) {
       const team = (state.teams || []).find(t => t.id === teamId);
       if (!team) return;
@@ -4526,14 +4533,26 @@
               const captainCheckbox = document.getElementById(`mPlayer${i}Captain`);
               const levelSelect = document.getElementById(`mPlayer${i}Level`);
               const paidCheckbox = document.getElementById(`mPlayer${i}Paid`);
+              const minorCheckbox = document.getElementById(`mPlayer${i}Minor`);
+              const guardianNameInput = document.getElementById(`mPlayer${i}GuardianName`);
+              const guardianContactInput = document.getElementById(`mPlayer${i}GuardianContact`);
               if (nameInput && nameInput.value.trim()) {
+                const isMinor = minorCheckbox ? minorCheckbox.checked : false;
                 playersData.push({
                   name: nameInput.value.trim(),
                   isCaptain: captainCheckbox ? captainCheckbox.checked : false,
                   level: levelSelect ? levelSelect.value : '',
                   // 🆕 Se il checkbox non è visibile (quota per giocatore non
                   // attiva), mantieni lo stato attuale invece di azzerarlo.
-                  paid: paidCheckbox ? paidCheckbox.checked : !!(players[i]?.paid)
+                  paid: paidCheckbox ? paidCheckbox.checked : !!(players[i]?.paid),
+                  isMinor,
+                  guardianName: isMinor ? (guardianNameInput?.value.trim() || '') : '',
+                  guardianContact: isMinor ? (guardianContactInput?.value.trim() || '') : '',
+                  // 🆕 L'accettazione dello scarico di responsabilità resta
+                  // quella data in fase di iscrizione — l'admin qui corregge
+                  // solo i dati del responsabile, non la fa riaccettare.
+                  waiverAccepted: isMinor ? !!(players[i]?.waiverAccepted) : false,
+                  waiverAcceptedAt: isMinor ? (players[i]?.waiverAcceptedAt || null) : null
                 });
               }
             }
@@ -4633,6 +4652,15 @@
                 ${(config.payment?.costPerPlayer > 0 && team.approved) ? `<label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal; font-size: 14px; color: #2e5d1f">
                   <input id="mPlayer${i}Paid" type="checkbox" ${player.paid ? 'checked' : ''} style="cursor: pointer"> 💰 Pagato
                 </label>` : ''}
+              </div>
+              <label style="display: flex; gap: 6px; align-items: center; margin: 0; font-weight: normal; font-size: 14px">
+                <input id="mPlayer${i}Minor" type="checkbox" ${player.isMinor ? 'checked' : ''} onchange="toggleAdminMinorBox(${i})" style="cursor: pointer">
+                🔞 È minorenne
+              </label>
+              <div id="mPlayer${i}MinorBox" style="display: ${player.isMinor ? 'flex' : 'none'}; flex-direction: column; gap: 6px; padding: 8px; background: #fff3e0; border-radius: 4px; border: 1px solid #ffcc80">
+                <input id="mPlayer${i}GuardianName" type="text" maxlength="100" placeholder="Nome e cognome del responsabile" value="${escapeHtml(player.guardianName || '')}" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+                <input id="mPlayer${i}GuardianContact" type="text" maxlength="100" placeholder="Telefono o email del responsabile" value="${escapeHtml(player.guardianContact || '')}" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+                <small style="color: #6a5737">${player.waiverAccepted ? `✅ Scarico di responsabilità accettato${player.waiverAcceptedAt ? ' il ' + new Date(player.waiverAcceptedAt).toLocaleDateString('it-IT') : ''}` : '⚠️ Scarico di responsabilità non ancora accettato (raccolto in fase di iscrizione)'}</small>
               </div>
             </div>
             <div id="uploadStatus${i}" style="font-size: 12px; color: #666; display: none; margin-top: 6px"></div>

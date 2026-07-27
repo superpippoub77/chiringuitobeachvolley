@@ -1858,7 +1858,10 @@
 
       let html = `<h3>${i18n('teams_page_title')}</h3>`;
       html += `<p>${i18n('teams_total')}: <strong>${totalTeams}</strong> | ${i18n('stat_pending')}: <strong>${waitingTeams}</strong></p>`;
-      html += state.teams.map(t => {
+      // 🆕 Ordina dall'ultima squadra inserita (più recente) alla prima,
+      // invece dell'ordine di inserimento (che le mostrava dalla più vecchia)
+      const sortedTeams = [...state.teams].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      html += sortedTeams.map(t => {
         const levelLabels = { principiante: i18n('level_beginner'), intermedio: i18n('level_intermediate'), avanzato: i18n('level_advanced'), professionista: i18n('level_pro') };
         const placeholderImg = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23ddd%22/%3E%3Ctext x=%2250%25%22 y=%2255%25%22 text-anchor=%22middle%22 font-size=%2230%22 fill=%22%23999%22%3E📸%3C/text%3E%3C/svg%3E';
 

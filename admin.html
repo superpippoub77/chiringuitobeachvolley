@@ -2624,6 +2624,19 @@
                      onchange="saveBackgroundOverlay(this.value)">
               <small style="color: #666; display: block; margin-top: 4px">Aggiunge un velo scuro sopra lo sfondo, utile per far risaltare meglio i testi. 0% = nessun effetto.</small>
             </div>
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #e0c7c7">
+              <label style="font-weight: bold">🏠 Scheda mostrata per prima in home</label>
+              <select id="cfg-defaultHomeTab" onchange="saveDefaultHomeTab(this.value)" style="width: 100%; padding: 6px; margin-top: 6px">
+                <option value="" ${!config.display?.defaultHomeTab ? 'selected' : ''}>Predefinito (segue la logica attuale)</option>
+                <option value="iscrizione" ${config.display?.defaultHomeTab === 'iscrizione' ? 'selected' : ''}>📝 Iscrizione</option>
+                <option value="teams" ${config.display?.defaultHomeTab === 'teams' ? 'selected' : ''}>👥 Squadre</option>
+                <option value="groups" ${config.display?.defaultHomeTab === 'groups' ? 'selected' : ''}>📊 Gironi e Fasi</option>
+                <option value="shop" ${config.display?.defaultHomeTab === 'shop' ? 'selected' : ''}>🍹 Bar</option>
+                <option value="gallery" ${config.display?.defaultHomeTab === 'gallery' ? 'selected' : ''}>📸 Galleria</option>
+                <option value="events" ${config.display?.defaultHomeTab === 'events' ? 'selected' : ''}>🎉 Eventi</option>
+              </select>
+              <small style="color: #666; display: block; margin-top: 4px">Se non impostata, la home si apre come sempre (attualmente sulla scheda Iscrizione).</small>
+            </div>
           </div>
 
           <div class="card" style="background: #e8f5f0; padding: 12px; margin-top: 12px">
@@ -3302,6 +3315,16 @@
       try {
         if (!config.display) config.display = {};
         config.display.backgroundOverlayOpacity = parseInt(value) || 0;
+        await callApi('admin_update_config', 'POST', { display: config.display }, true);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore salvataggio: ' + e.message);
+      }
+    }
+
+    async function saveDefaultHomeTab(value) {
+      try {
+        if (!config.display) config.display = {};
+        config.display.defaultHomeTab = value;
         await callApi('admin_update_config', 'POST', { display: config.display }, true);
       } catch (e) {
         await showInfoDialog('Errore', 'Errore salvataggio: ' + e.message);

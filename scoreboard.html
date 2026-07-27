@@ -4069,6 +4069,18 @@
               locationLink.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
               locationLink.style.display = 'flex';
             }
+
+            // 🆕 Scheda predefinita in home, se impostata da Impostazioni →
+            // Visualizzazione — altrimenti resta il comportamento attuale
+            // (la pagina "Iscrizione" già attiva di default nell'HTML).
+            const defaultTab = data.config.display?.defaultHomeTab;
+            if (defaultTab) {
+              showPhase(defaultTab);
+              // Alcune schede richiedono anche il caricamento dei propri dati,
+              // esattamente come fa il rispettivo link del menu quando cliccato
+              if (defaultTab === 'gallery') loadGalleryPage();
+              if (defaultTab === 'events') loadEventsForPublic();
+            }
           }
         }
       } catch (err) {

@@ -1871,6 +1871,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['display']['backgroundOverlayOpacity'])) {
         $merged['display']['backgroundOverlayOpacity'] = $existingConfig['display']['backgroundOverlayOpacity'];
     }
+    // 🆕 Preserva la scheda predefinita mostrata per prima in home (se non
+    // impostata, resta null e la home segue la logica attuale)
+    if (isset($existingConfig['display']['defaultHomeTab'])) {
+        $merged['display']['defaultHomeTab'] = $existingConfig['display']['defaultHomeTab'];
+    }
     
     // Preserva la sezione contact (email del gestore, etc.)
     if (isset($existingConfig['contact'])) {
@@ -11272,6 +11277,15 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($body['display']['backgroundOverlayOpacity'])) {
             $overlayOpacity = (int)$body['display']['backgroundOverlayOpacity'];
             $config['display']['backgroundOverlayOpacity'] = max(0, min(90, $overlayOpacity));
+        }
+
+        // 🆕 Scheda predefinita mostrata per prima in home. Stringa vuota o
+        // valore non riconosciuto = segue la logica attuale (nessuna scheda
+        // forzata esplicitamente).
+        if (isset($body['display']['defaultHomeTab'])) {
+            $allowedTabs = ['iscrizione', 'teams', 'groups', 'shop', 'gallery', 'events'];
+            $tab = trim((string)$body['display']['defaultHomeTab']);
+            $config['display']['defaultHomeTab'] = in_array($tab, $allowedTabs, true) ? $tab : '';
         }
     }
     

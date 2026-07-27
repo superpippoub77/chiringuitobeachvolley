@@ -2641,6 +2641,11 @@
               </select>
               <small style="color: #666; display: block; margin-top: 4px">Se non impostata, la home si apre come sempre (attualmente sulla scheda Iscrizione).</small>
             </div>
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #e0c7c7">
+              <label style="font-weight: bold">✨ Voci del menu lampeggianti (per farle risaltare)</label>
+              <div id="blinkingTabsContainer" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px"></div>
+              <small style="color: #666; display: block; margin-top: 4px">Utile per richiamare l'attenzione, es. su "Iscrizione" in scadenza o su un nuovo "Evento".</small>
+            </div>
           </div>
 
           <div class="card" style="background: #e8f5f0; padding: 12px; margin-top: 12px">
@@ -2914,6 +2919,9 @@
           </div>
         `;
         
+        // 🆕 Popola i checkbox delle voci del menu lampeggianti
+        renderBlinkingTabsCheckboxes();
+
         // Carica i temi disponibili e crea UI
         try {
           renderThemeButtons();
@@ -3329,6 +3337,45 @@
       try {
         if (!config.display) config.display = {};
         config.display.defaultHomeTab = value;
+        await callApi('admin_update_config', 'POST', { display: config.display }, true);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore salvataggio: ' + e.message);
+      }
+    }
+
+    // 🆕 Voci del menu principale da far lampeggiare
+    const BLINKABLE_TABS = [
+      { key: 'iscrizione', label: '📝 Iscrizione' },
+      { key: 'teams', label: '👥 Squadre' },
+      { key: 'groups', label: '📊 Gironi' },
+      { key: 'shop', label: '🍹 Bar' },
+      { key: 'gallery', label: '📸 Galleria' },
+      { key: 'tablescore', label: '📺 Tabellone' },
+      { key: 'newsletter', label: '📬 Newsletter' },
+      { key: 'attendance', label: '🎟️ Partecipa' },
+      { key: 'payment', label: '💰 Paga la quota' },
+      { key: 'events', label: '🎉 Eventi' },
+      { key: 'contact', label: '📞 Contatti' },
+      { key: 'rules', label: '🏐 Regolamento' }
+    ];
+
+    function renderBlinkingTabsCheckboxes() {
+      const container = document.getElementById('blinkingTabsContainer');
+      if (!container) return;
+      const current = config.display?.blinkingTabs || [];
+      container.innerHTML = BLINKABLE_TABS.map(t => `
+        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; background: white; padding: 5px 10px; border-radius: 6px; border: 1px solid #ddd">
+          <input type="checkbox" class="blinking-tab-checkbox" value="${t.key}" ${current.includes(t.key) ? 'checked' : ''} onchange="saveBlinkingTabs()">
+          ${t.label}
+        </label>
+      `).join('');
+    }
+
+    async function saveBlinkingTabs() {
+      try {
+        const selected = Array.from(document.querySelectorAll('.blinking-tab-checkbox:checked')).map(cb => cb.value);
+        if (!config.display) config.display = {};
+        config.display.blinkingTabs = selected;
         await callApi('admin_update_config', 'POST', { display: config.display }, true);
       } catch (e) {
         await showInfoDialog('Errore', 'Errore salvataggio: ' + e.message);

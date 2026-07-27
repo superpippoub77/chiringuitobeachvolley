@@ -217,6 +217,16 @@
       background: #e8f5e9;
     }
 
+    /* 🆕 Voce del menu lampeggiante, per farla risaltare (es. iscrizioni in
+       scadenza, un nuovo evento) — attivabile dall'admin per singolo tab. */
+    .main-nav-link.blinking {
+      animation: navLinkBlink 1.1s ease-in-out infinite;
+    }
+    @keyframes navLinkBlink {
+      0%, 100% { background: transparent; color: inherit; }
+      50% { background: #ffe082; color: #7a4f01; font-weight: bold; }
+    }
+
     .hero-sub {
       position: relative;
       z-index: 1;
@@ -1141,18 +1151,18 @@
       <!-- Tab globali per Scoreboard -->
       <nav
         style="margin: 16px 0; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #2e5d1f; display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
-        <a href="#" class="main-nav-link active" data-phase="iscrizione" onclick="showPhase('iscrizione'); return false;">📝 <span data-i18n="nav_registration">Iscrizione</span></a>
-        <a href="#" class="main-nav-link" data-phase="teams" onclick="showPhase('teams'); return false;">👥 <span data-i18n="nav_teams">Squadre</span></a>
-        <a href="#" class="main-nav-link" data-phase="groups" onclick="showPhase('groups'); return false;">📊 <span data-i18n="nav_groups">Gironi</span></a>
-        <a href="#" id="navBarLink" class="main-nav-link" data-phase="shop" style="display: none" onclick="showPhase('shop'); return false;">🍹 <span data-i18n="nav_bar">Bar</span></a>
-        <a href="#" class="main-nav-link" data-phase="gallery" onclick="showPhase('gallery'); loadGalleryPage(); return false;">📸 <span data-i18n="nav_gallery">Galleria</span></a>
-        <a href="#" class="main-nav-link" onclick="window.open('tablescore.html?current', '_blank'); return false;">📺 <span data-i18n="nav_scoreboard">Tabellone</span></a>
-        <a href="#" class="main-nav-link" onclick="openNewsletterSignup(); return false;">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
-        <a href="#" id="navAttendanceLink" class="main-nav-link" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
-        <a href="#" id="navPaymentLink" class="main-nav-link" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
-        <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
-        <a href="#" class="main-nav-link" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
-        <a href="regolamento.html" target="_blank" class="main-nav-link">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
+        <a href="#" class="main-nav-link active" data-phase="iscrizione" data-tab-key="iscrizione" onclick="showPhase('iscrizione'); return false;">📝 <span data-i18n="nav_registration">Iscrizione</span></a>
+        <a href="#" class="main-nav-link" data-phase="teams" data-tab-key="teams" onclick="showPhase('teams'); return false;">👥 <span data-i18n="nav_teams">Squadre</span></a>
+        <a href="#" class="main-nav-link" data-phase="groups" data-tab-key="groups" onclick="showPhase('groups'); return false;">📊 <span data-i18n="nav_groups">Gironi</span></a>
+        <a href="#" id="navBarLink" class="main-nav-link" data-phase="shop" data-tab-key="shop" style="display: none" onclick="showPhase('shop'); return false;">🍹 <span data-i18n="nav_bar">Bar</span></a>
+        <a href="#" class="main-nav-link" data-phase="gallery" data-tab-key="gallery" onclick="showPhase('gallery'); loadGalleryPage(); return false;">📸 <span data-i18n="nav_gallery">Galleria</span></a>
+        <a href="#" class="main-nav-link" data-tab-key="tablescore" onclick="window.open('tablescore.html?current', '_blank'); return false;">📺 <span data-i18n="nav_scoreboard">Tabellone</span></a>
+        <a href="#" class="main-nav-link" data-tab-key="newsletter" onclick="openNewsletterSignup(); return false;">📬 <span data-i18n="nav_newsletter">Newsletter</span></a>
+        <a href="#" id="navAttendanceLink" class="main-nav-link" data-tab-key="attendance" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
+        <a href="#" id="navPaymentLink" class="main-nav-link" data-tab-key="payment" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
+        <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" data-tab-key="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
+        <a href="#" class="main-nav-link" data-tab-key="contact" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
+        <a href="regolamento.html" target="_blank" class="main-nav-link" data-tab-key="rules">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
 
       <section class="page active" id="page-iscrizione">
@@ -1749,6 +1759,14 @@
       updateHeroSection();
 
       renderAll();
+
+      // 🆕 Applica il lampeggio alle voci del menu segnalate dall'admin, per
+      // farle risaltare — ripetuto ad ogni aggiornamento (non solo al primo
+      // caricamento), cosi' una modifica dell'admin si riflette subito.
+      const blinkingTabs = config?.display?.blinkingTabs || [];
+      document.querySelectorAll('.main-nav-link[data-tab-key]').forEach(link => {
+        link.classList.toggle('blinking', blinkingTabs.includes(link.dataset.tabKey));
+      });
 
       // Al primo caricamento, reindirizza automaticamente alla sezione appropriata
       if (firstLoad) {

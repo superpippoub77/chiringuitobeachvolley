@@ -1924,6 +1924,10 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['display']['defaultHomeTab'])) {
         $merged['display']['defaultHomeTab'] = $existingConfig['display']['defaultHomeTab'];
     }
+    // 🆕 Preserva le voci del menu segnalate come lampeggianti
+    if (isset($existingConfig['display']['blinkingTabs'])) {
+        $merged['display']['blinkingTabs'] = $existingConfig['display']['blinkingTabs'];
+    }
     
     // Preserva la sezione contact (email del gestore, etc.)
     if (isset($existingConfig['contact'])) {
@@ -11466,6 +11470,12 @@ if ($action === 'admin_update_config' && $method === 'POST') {
             $allowedTabs = ['iscrizione', 'teams', 'groups', 'shop', 'gallery', 'events'];
             $tab = trim((string)$body['display']['defaultHomeTab']);
             $config['display']['defaultHomeTab'] = in_array($tab, $allowedTabs, true) ? $tab : '';
+        }
+
+        // 🆕 Voci del menu principale da far lampeggiare, per farle risaltare
+        if (isset($body['display']['blinkingTabs']) && is_array($body['display']['blinkingTabs'])) {
+            $allowedTabKeys = ['iscrizione', 'teams', 'groups', 'shop', 'gallery', 'tablescore', 'newsletter', 'attendance', 'payment', 'events', 'contact', 'rules'];
+            $config['display']['blinkingTabs'] = array_values(array_intersect($body['display']['blinkingTabs'], $allowedTabKeys));
         }
     }
     

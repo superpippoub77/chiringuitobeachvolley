@@ -763,6 +763,11 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_download' => 'Scarica',
             'print_studio_print' => 'Stampa',
             'location_directions' => 'Come arrivare',
+            'minor_flag_label' => 'È minorenne',
+            'minor_guardian_intro' => 'Inserisci i dati del genitore/tutore responsabile:',
+            'minor_guardian_name_placeholder' => 'Nome e cognome del responsabile',
+            'minor_guardian_contact_placeholder' => 'Telefono o email del responsabile',
+            'minor_waiver_text' => 'Dichiaro di essere il genitore/tutore legale del minore sopra indicato e mi assumo la piena responsabilità della sua partecipazione al torneo, sollevando gli organizzatori da ogni responsabilità per eventuali infortuni o danni, salvo dolo o colpa grave.',
             'nav_events' => 'Eventi',
         ],
         'en' => [
@@ -998,6 +1003,11 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_download' => 'Download',
             'print_studio_print' => 'Print',
             'location_directions' => 'Get directions',
+            'minor_flag_label' => 'Is a minor',
+            'minor_guardian_intro' => 'Enter the details of the responsible parent/guardian:',
+            'minor_guardian_name_placeholder' => "Guardian's full name",
+            'minor_guardian_contact_placeholder' => "Guardian's phone or email",
+            'minor_waiver_text' => "I declare that I am the parent/legal guardian of the minor listed above and I take full responsibility for their participation in the tournament, releasing the organizers from liability for any injury or damage, except in cases of willful misconduct or gross negligence.",
             'nav_events' => 'Events',
         ],
         'fr' => [
@@ -1233,6 +1243,11 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_download' => 'Télécharger',
             'print_studio_print' => 'Imprimer',
             'location_directions' => "Comment s'y rendre",
+            'minor_flag_label' => 'Est mineur',
+            'minor_guardian_intro' => 'Indiquez les coordonnées du parent/tuteur responsable :',
+            'minor_guardian_name_placeholder' => 'Nom et prénom du responsable',
+            'minor_guardian_contact_placeholder' => 'Téléphone ou email du responsable',
+            'minor_waiver_text' => "Je déclare être le parent/tuteur légal du mineur mentionné ci-dessus et j'assume l'entière responsabilité de sa participation au tournoi, dégageant les organisateurs de toute responsabilité en cas de blessure ou de dommage, sauf faute intentionnelle ou grave négligence.",
             'nav_events' => 'Événements',
         ],
         'de' => [
@@ -1468,6 +1483,11 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_download' => 'Herunterladen',
             'print_studio_print' => 'Drucken',
             'location_directions' => 'Anfahrt',
+            'minor_flag_label' => 'Ist minderjährig',
+            'minor_guardian_intro' => 'Gib die Daten des verantwortlichen Elternteils/Erziehungsberechtigten ein:',
+            'minor_guardian_name_placeholder' => 'Vor- und Nachname des Erziehungsberechtigten',
+            'minor_guardian_contact_placeholder' => 'Telefon oder E-Mail des Erziehungsberechtigten',
+            'minor_waiver_text' => 'Ich erkläre, Elternteil/gesetzlicher Vormund des oben genannten Minderjährigen zu sein, und übernehme die volle Verantwortung für seine Teilnahme am Turnier. Ich entbinde die Veranstalter von jeglicher Haftung für Verletzungen oder Schäden, außer bei Vorsatz oder grober Fahrlässigkeit.',
             'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
@@ -1703,6 +1723,11 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_download' => '下载',
             'print_studio_print' => '打印',
             'location_directions' => '前往路线',
+            'minor_flag_label' => '是未成年人',
+            'minor_guardian_intro' => '请填写负责的家长/监护人信息：',
+            'minor_guardian_name_placeholder' => '监护人姓名',
+            'minor_guardian_contact_placeholder' => '监护人电话或邮箱',
+            'minor_waiver_text' => '本人声明是上述未成年人的家长/法定监护人，愿对其参加本次赛事承担全部责任，并免除主办方因任何伤害或损失而产生的责任，但故意或重大过失除外。',
             'nav_events' => '活动',
         ],
     ];
@@ -7067,6 +7092,26 @@ if ($action === 'register_team' && $method === 'POST') {
         }
     }
 
+    // 🆕 Validazione dati responsabile per i giocatori segnati come
+    // minorenni: nome/cognome, un contatto (telefono o email) e
+    // l'accettazione dello scarico di responsabilità sono tutti
+    // obbligatori — replicata qui lato server per sicurezza, non ci si
+    // fida solo della validazione JS lato client.
+    foreach ($playersData as $pd) {
+        if (empty($pd['isMinor'])) continue;
+        $guardianName = trim((string)($pd['guardianName'] ?? ''));
+        $guardianContact = trim((string)($pd['guardianContact'] ?? ''));
+        $waiverAccepted = (bool)($pd['waiverAccepted'] ?? false);
+        $playerLabel = trim((string)($pd['name'] ?? ''));
+
+        if ($guardianName === '' || $guardianContact === '') {
+            jsonResponse(422, ['ok' => false, 'error' => "Per il giocatore minorenne \"$playerLabel\" servono nome/cognome e un contatto del responsabile"]);
+        }
+        if (!$waiverAccepted) {
+            jsonResponse(422, ['ok' => false, 'error' => "Per il giocatore minorenne \"$playerLabel\" è necessario accettare lo scarico di responsabilità"]);
+        }
+    }
+
     // 🆕 Valida i valori dei campi personalizzati definiti dall'organizzatore
     // (se il torneo ne ha configurati): obbligatorietà e tipo (numero/testo).
     $customFieldValues = [];
@@ -7155,6 +7200,15 @@ if ($action === 'register_team' && $method === 'POST') {
             // Aggiungi immagine se presente (base64 o URL)
             if (!empty($pd['image']) && is_string($pd['image'])) {
                 $player['image'] = $pd['image'];
+            }
+
+            // 🆕 Dati minorenne/responsabile (già validati sopra se isMinor è true)
+            $player['isMinor'] = (bool)($pd['isMinor'] ?? false);
+            if ($player['isMinor']) {
+                $player['guardianName'] = mb_substr(trim((string)($pd['guardianName'] ?? '')), 0, 100);
+                $player['guardianContact'] = mb_substr(trim((string)($pd['guardianContact'] ?? '')), 0, 100);
+                $player['waiverAccepted'] = true;
+                $player['waiverAcceptedAt'] = date('c');
             }
             
             $players[] = $player;

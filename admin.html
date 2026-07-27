@@ -3967,10 +3967,16 @@
         const imgUrl = p.imageFile || placeholderImg;
         const isCap = !!p.isCaptain;
         if (p.name && p.paid) paidCount++;
+        // 🆕 Badge per i giocatori minorenni, con i dati del responsabile
+        // (nome/contatto) visibili al passaggio del mouse
+        const minorTooltip = p.isMinor
+          ? `Minorenne — Responsabile: ${escapeHtml(p.guardianName || '-')} · ${escapeHtml(p.guardianContact || '-')} (scarico responsabilità accettato${p.waiverAcceptedAt ? ' il ' + new Date(p.waiverAcceptedAt).toLocaleDateString('it-IT') : ''})`
+          : '';
         playerBoxes += `<div style="text-align: center">
           <div style="position: relative; width: 56px; height: 56px; margin: 0 auto; cursor: pointer" onclick="openTeamDialog('${team.id}')" title="Clicca per cambiare la foto">
             <img src="${imgUrl}" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid ${isCap ? '#ff9800' : '#ccc'}">
             ${isCap ? '<span style="position: absolute; top: -8px; right: -6px; font-size: 16px">👑</span>' : ''}
+            ${p.isMinor ? `<span title="${minorTooltip}" style="position: absolute; bottom: -4px; left: -6px; font-size: 15px; cursor: help">🔞</span>` : ''}
           </div>
           <input type="text" id="row_${team.id}_p${i}_name" value="${escapeHtml(p.name || '')}" placeholder="Giocatore ${i + 1}"
                  style="width: 100%; margin-top: 4px; padding: 3px; font-size: 12px; font-weight: 600; text-align: center; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box">

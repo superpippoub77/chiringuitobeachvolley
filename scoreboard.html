@@ -1940,6 +1940,14 @@
     // 🆕 Box rotondo drag&drop per la foto del giocatore: cliccandoci sopra si
     // apre il selettore file del dispositivo (che su mobile propone anche
     // fotocamera/galleria), oppure si può trascinare un'immagine sopra.
+    // 🆕 Mostra/nasconde il box con i dati del responsabile quando il
+    // giocatore viene segnato come minorenne
+    function toggleMinorGuardianBox(i) {
+      const checkbox = document.getElementById(`fP${i}Minor`);
+      const box = document.getElementById(`fP${i}MinorBox`);
+      if (checkbox && box) box.style.display = checkbox.checked ? 'block' : 'none';
+    }
+
     function renderPlayerPhotoBox(i) {
       return `<div style="display: flex; flex-direction: column; align-items: center">
         <div id="fP${i}PhotoBox" class="player-photo-box"
@@ -2080,6 +2088,18 @@
           html += `<select id="fP${i}Level" style="padding: 8px; margin-top: 8px; width: 100%"><option value="">${i18n('level_optional')}</option><option value="principiante">${i18n('level_beginner')}</option><option value="intermedio">${i18n('level_intermediate')}</option><option value="avanzato">${i18n('level_advanced')}</option><option value="professionista">${i18n('level_pro')}</option></select>`;
           html += `</div></div>`;
           html += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;"><input type="radio" name="captain" value="${i}" id="fP${i}Captain"${i === 1 ? ' checked' : ''} style="width: auto;"><span>👑 ${i18n('captain_label')}</span></label>`;
+
+          // 🆕 Flag minorenne: se spuntato, si apre il box con i dati del
+          // responsabile (nome/cognome, contatto) e l'accettazione dello
+          // scarico di responsabilità — entrambi obbligatori per inviare
+          // l'iscrizione se il giocatore è segnato come minorenne.
+          html += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;"><input type="checkbox" id="fP${i}Minor" onchange="toggleMinorGuardianBox(${i})" style="width: auto;"><span>🔞 ${i18n('minor_flag_label')}</span></label>`;
+          html += `<div id="fP${i}MinorBox" style="display: none; margin-top: 10px; padding: 10px; background: #fff3e0; border-radius: 4px; border: 1px solid #ffcc80">`;
+          html += `<div style="font-size: 13px; color: #6a5737; margin-bottom: 8px">${i18n('minor_guardian_intro')}</div>`;
+          html += `<input id="fP${i}GuardianName" placeholder="${i18n('minor_guardian_name_placeholder')}" style="width: 100%; box-sizing: border-box; margin-bottom: 8px">`;
+          html += `<input id="fP${i}GuardianContact" placeholder="${i18n('minor_guardian_contact_placeholder')}" style="width: 100%; box-sizing: border-box; margin-bottom: 8px">`;
+          html += `<label style="display: flex; align-items: flex-start; gap: 8px"><input type="checkbox" id="fP${i}Waiver" style="width: auto; margin-top: 3px"><span style="font-size: 13px">${i18n('minor_waiver_text')}</span></label>`;
+          html += `</div>`;
           html += `</div>`;
         }
 
@@ -3057,6 +3077,25 @@
         }
       }
 
+      // 🆕 Validazione dei dati del responsabile per i giocatori segnati come
+      // minorenni: nome/cognome, un contatto (telefono o email) e
+      // l'accettazione dello scarico di responsabilità sono obbligatori.
+      for (let i = 1; i <= playersPerTeam; i++) {
+        const isMinorChecked = document.getElementById('fP' + i + 'Minor')?.checked;
+        if (!isMinorChecked) continue;
+        const guardianName = document.getElementById('fP' + i + 'GuardianName')?.value.trim() || '';
+        const guardianContact = document.getElementById('fP' + i + 'GuardianContact')?.value.trim() || '';
+        const waiverAccepted = document.getElementById('fP' + i + 'Waiver')?.checked;
+        if (!guardianName || !guardianContact) {
+          await showInfoDialog('Dati responsabile mancanti', `Per il Giocatore ${i} (minorenne) inserisci nome/cognome e un contatto (telefono o email) del responsabile.`);
+          return;
+        }
+        if (!waiverAccepted) {
+          await showInfoDialog('Accettazione mancante', `Per il Giocatore ${i} (minorenne) è necessario accettare lo scarico di responsabilità.`);
+          return;
+        }
+      }
+
       try {
         // Determina quale giocatore è capitano (radio button selezionato)
         const captainValue = document.querySelector('input[name="captain"]:checked')?.value || '1';
@@ -3067,11 +3106,16 @@
         for (let i = 1; i <= playersPerTeam; i++) {
           const playerName = playerNames[i - 1];
           if (!playerName) continue; // riserva non compilata: la saltiamo
+          const isMinor = document.getElementById('fP' + i + 'Minor')?.checked || false;
           playersData.push({
             name: playerName,
             level: document.getElementById('fP' + i + 'Level')?.value || null,
             isCaptain: captainValue === String(i),
-            image: await getFileAsBase64('fP' + i + 'Image') || null
+            image: await getFileAsBase64('fP' + i + 'Image') || null,
+            isMinor,
+            guardianName: isMinor ? (document.getElementById('fP' + i + 'GuardianName')?.value.trim() || '') : '',
+            guardianContact: isMinor ? (document.getElementById('fP' + i + 'GuardianContact')?.value.trim() || '') : '',
+            waiverAccepted: isMinor ? !!document.getElementById('fP' + i + 'Waiver')?.checked : false
           });
         }
 

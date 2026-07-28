@@ -8,7 +8,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Original+Surfer&display=swap" rel="stylesheet">
   <link rel="icon" href="api.php?action=get_favicon" type="image/png">
-  <title>BeachMaster Beach Volley LUI&Lei 2026</title>
+  <title id="pageTitle">Torneo di Beach Volley</title>
+  <meta id="metaDescription" name="description" content="Segui in tempo reale il torneo: iscrizioni, squadre, gironi, calendario partite e risultati live.">
+  <link id="canonicalLink" rel="canonical" href="">
+  <!-- 🆕 Open Graph / Twitter Card: popolati dinamicamente via JS con i
+       dati reali del torneo (nome, descrizione, logo), cosi' le anteprime
+       di condivisione (WhatsApp, Facebook, Twitter) mostrano il torneo
+       giusto invece di un valore fisso uguale per tutti i tornei. -->
+  <meta id="ogTitle" property="og:title" content="Torneo di Beach Volley">
+  <meta id="ogDescription" property="og:description" content="Segui in tempo reale il torneo: iscrizioni, squadre, gironi, calendario partite e risultati live.">
+  <meta id="ogImage" property="og:image" content="">
+  <meta id="ogUrl" property="og:url" content="">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta id="twitterTitle" name="twitter:title" content="Torneo di Beach Volley">
+  <meta id="twitterDescription" name="twitter:description" content="Segui in tempo reale il torneo: iscrizioni, squadre, gironi, calendario partite e risultati live.">
+  <meta id="twitterImage" name="twitter:image" content="">
   <link id="themeLink" rel="stylesheet" href="theme-beachmaster.css">
   <style>
     :root {
@@ -4285,6 +4300,30 @@
         if (response.ok) {
           const data = await response.json();
           if (data.config && data.config.display) {
+            // 🆕 SEO: titolo, descrizione e Open Graph con i dati reali di
+            // QUESTO torneo (il file HTML è condiviso da tutti i tornei,
+            // quindi non può avere questi valori scritti fissi in partenza).
+            const tName = data.config.tournament?.name || 'Torneo di Beach Volley';
+            const tDescription = data.config.kit?.description
+              ? data.config.kit.description.replace(/<[^>]*>/g, '').slice(0, 160)
+              : `Segui in tempo reale ${tName}: iscrizioni, squadre, gironi, calendario partite e risultati live.`;
+            const tLogo = data.config.display?.logoFile || '';
+            const pageUrl = location.href.split(/[?#]/)[0];
+
+            document.title = tName;
+            document.getElementById('metaDescription')?.setAttribute('content', tDescription);
+            document.getElementById('canonicalLink')?.setAttribute('href', pageUrl);
+            document.getElementById('ogTitle')?.setAttribute('content', tName);
+            document.getElementById('ogDescription')?.setAttribute('content', tDescription);
+            document.getElementById('ogUrl')?.setAttribute('content', pageUrl);
+            document.getElementById('twitterTitle')?.setAttribute('content', tName);
+            document.getElementById('twitterDescription')?.setAttribute('content', tDescription);
+            if (tLogo) {
+              const absoluteLogo = new URL(tLogo, location.href).href;
+              document.getElementById('ogImage')?.setAttribute('content', absoluteLogo);
+              document.getElementById('twitterImage')?.setAttribute('content', absoluteLogo);
+            }
+
             // Carica tema
             if (data.config.display.theme) {
               const themeName = data.config.display.theme;

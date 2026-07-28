@@ -117,5 +117,9 @@ if (!empty($_SERVER['QUERY_STRING'])) {
     }
 }
 
-header('Location: ' . $destination, true, 302);
+// 🆕 SEO: redirect 301 (permanente) invece di 302 — dice ai motori di
+// ricerca che questo è il collegamento stabile tra slug e codice interno,
+// cosi' consolidano l'indicizzazione sulla destinazione invece di trattarlo
+// come temporaneo e continuare a ricontrollare la URL slug ad ogni scansione.
+header('Location: ' . $destination, true, 301);
 exit;

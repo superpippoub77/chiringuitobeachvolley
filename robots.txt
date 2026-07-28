@@ -1,0 +1,10 @@
+# Permette ai motori di ricerca di scansionare la pagina di creazione tornei
+# e tutti i tornei creati (raggiungibili tramite il loro slug).
+User-agent: *
+Allow: /
+
+# Non serve indicizzare i pannelli di amministrazione dei singoli tornei
+Disallow: /*/admin.html
+Disallow: /*/api.php
+
+Sitemap: https://www.filippomorano.com/projects/bm/sitemap.php

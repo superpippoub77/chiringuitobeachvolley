@@ -1830,7 +1830,16 @@ function defaultConfig(): array {
             'longitude' => null,
             // 🆕 Assegna automaticamente una squadra non impegnata come
             // arbitro per ogni partita, distribuendo il carico — disattivabile
-            'autoAssignReferees' => true
+            'autoAssignReferees' => true,
+            // 🆕 Se vuoto, usa tutti i campi configurati (comportamento di
+            // prima); altrimenti solo i campi con questi ID vengono usati
+            // per schedulare le partite dei gironi.
+            'groupsSelectedCourtIds' => [],
+            // 🆕 'sequential' (default, comportamento di prima): tutte le
+            // partite di un girone, poi tutte del successivo. 'interleaved':
+            // una partita per girone a rotazione, per distribuire meglio sui
+            // campi/orari quando ce ne sono pochi disponibili.
+            'groupsScheduleMode' => 'sequential'
         ],
         'schedule' => [
             'courts' => []
@@ -6011,9 +6020,54 @@ function assignRefereesToMatches(array &$matches, array $approvedTeams): void {
     unset($match);
 }
 
+/**
+ * 🆕 Genera i turni round-robin di un girone col "metodo del cerchio":
+ * ogni turno contiene coppie di squadre che giocano contemporaneamente,
+ * senza che nessuna squadra giochi due volte nello stesso turno. Usata
+ * dalla modalità di distribuzione "interleaved" (una partita per girone a
+ * rotazione), per poter alternare i turni di più gironi nel tempo.
+ */
+function generateRoundRobinRounds(array $teamIds): array {
+    $teams = array_values($teamIds);
+    if (count($teams) < 2) return [];
+    if (count($teams) % 2 !== 0) {
+        $teams[] = null; // "riposo" per completare il numero pari
+    }
+    $n = count($teams);
+    $rounds = [];
+
+    for ($r = 0; $r < $n - 1; $r++) {
+        $round = [];
+        for ($i = 0; $i < $n / 2; $i++) {
+            $t1 = $teams[$i];
+            $t2 = $teams[$n - 1 - $i];
+            if ($t1 !== null && $t2 !== null) {
+                $round[] = [$t1, $t2];
+            }
+        }
+        if (!empty($round)) $rounds[] = $round;
+
+        // Ruota tutte le squadre tranne la prima (fissa), metodo del cerchio
+        $fixed = $teams[0];
+        $rest = array_slice($teams, 1);
+        array_unshift($rest, array_pop($rest));
+        $teams = array_merge([$fixed], $rest);
+    }
+
+    return $rounds;
+}
+
 function buildGroupMatchesWithSchedule(array &$state): void {
     $config = readConfig();
     $courts = $config['schedule']['courts'] ?? [];
+
+    // 🆕 Se l'admin ha selezionato campi specifici per i gironi, usa solo
+    // quelli — altrimenti (comportamento di prima) usa tutti i campi configurati.
+    $selectedCourtIds = $config['tournament']['groupsSelectedCourtIds'] ?? [];
+    if (!empty($selectedCourtIds)) {
+        $courts = array_values(array_filter($courts, fn($c) => in_array((string)($c['courtId'] ?? ''), $selectedCourtIds, true)));
+        error_log('DEBUG buildGroupMatchesWithSchedule: Filtrati ' . count($courts) . ' campi in base alla selezione admin');
+    }
     
     // DEBUG: Log config structure
     error_log('DEBUG buildGroupMatchesWithSchedule: Reading config');
@@ -6141,7 +6195,77 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     }
     
     error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
-    
+
+    // 🆕 Modalità di distribuzione: 'sequential' (comportamento di prima,
+    // invariato) oppure 'interleaved' (una partita per girone a rotazione)
+    $scheduleMode = $config['tournament']['groupsScheduleMode'] ?? 'sequential';
+    $matchesWithSlots = [];
+
+    if ($scheduleMode === 'interleaved') {
+        // 🆕 INTERLEAVED SCHEDULER: genera i turni round-robin di ogni
+        // girone, poi li alterna (turno 1 di tutti i gironi, poi turno 2 di
+        // tutti i gironi, ecc.), assegnando gli slot in ordine cronologico.
+        error_log('🎯 INTERLEAVED SCHEDULER: una partita per girone a rotazione');
+
+        $matchesByGroup = [];
+        foreach ($matches as $idx => $match) {
+            $matchesByGroup[$match['group']][] = ['idx' => $idx, 'match' => $match];
+        }
+
+        $roundsByGroup = [];
+        foreach ($groups as $group) {
+            $roundsByGroup[$group['name']] = generateRoundRobinRounds($group['teamIds']);
+        }
+
+        // Mappa ogni coppia di squadre (in entrambi gli ordini) all'idx della
+        // partita originale, per ritrovarla a partire dai round generati
+        $pairToIdx = [];
+        foreach ($matchesByGroup as $groupMatches) {
+            foreach ($groupMatches as $gm) {
+                $t1 = $gm['match']['team1Id']; $t2 = $gm['match']['team2Id'];
+                $pairToIdx["$t1|$t2"] = $gm['idx'];
+                $pairToIdx["$t2|$t1"] = $gm['idx'];
+            }
+        }
+
+        $maxRounds = 0;
+        foreach ($roundsByGroup as $rounds) $maxRounds = max($maxRounds, count($rounds));
+
+        $orderedIdx = [];
+        for ($r = 0; $r < $maxRounds; $r++) {
+            foreach ($roundsByGroup as $rounds) {
+                if (!isset($rounds[$r])) continue;
+                foreach ($rounds[$r] as $pair) {
+                    $key = $pair[0] . '|' . $pair[1];
+                    if (isset($pairToIdx[$key])) $orderedIdx[] = $pairToIdx[$key];
+                }
+            }
+        }
+
+        // Ordina gli slot cronologicamente (prima per data, poi per ora)
+        $sortedSlots = $availableSlots;
+        usort($sortedSlots, function ($a, $b) {
+            $cmp = strcmp($a['date'], $b['date']);
+            return $cmp !== 0 ? $cmp : strcmp($a['startTime'], $b['startTime']);
+        });
+
+        foreach ($orderedIdx as $i => $idx) {
+            if (!isset($sortedSlots[$i])) break; // non ci sono abbastanza slot per tutte
+            $slot = $sortedSlots[$i];
+            $match = $matches[$idx];
+            $match['date'] = $slot['date'];
+            $match['courtId'] = $slot['courtId'];
+            $match['courtName'] = $slot['courtName'];
+            $match['startTime'] = $slot['startTime'];
+            $match['endTime'] = $slot['endTime'];
+            $match['courtIdx'] = $slot['courtIdx'];
+            $match['dateIdx'] = $slot['dateIdx'];
+            $match['slotIdx'] = $slot['slotIdx'];
+            $matchesWithSlots[$idx] = $match;
+        }
+
+        error_log('DEBUG INTERLEAVED: assegnate ' . count($matchesWithSlots) . '/' . count($matches) . ' partite');
+    } else {
     // ✅ GROUP-DAY PRIORITY SCHEDULER con ROUND-BASED DISTRIBUTION
     error_log('🎯 GROUP-DAY PRIORITY SCHEDULER with ROUND-BASED DISTRIBUTION: Starting...');
     
@@ -6178,7 +6302,6 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     // 3. ASSEGNA un giorno per ogni girone
     $slotUsed = array_fill(0, count($availableSlots), false);
-    $matchesWithSlots = [];
     $groupDateAssignment = [];
     
     $datesList = array_keys($slotsByDate);
@@ -6337,6 +6460,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             }
         }
     }
+    } // 🆕 chiude il ramo 'else' (modalità sequenziale) aperto sopra
     
     if (count($matchesWithSlots) < count($matches)) {
         error_log('DEBUG buildGroupMatchesWithSchedule: Could not assign all matches! Assigned: ' . count($matchesWithSlots) . '/' . count($matches));
@@ -9417,7 +9541,7 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         // DEBUG: Log all teams status
         error_log('DEBUG admin_generate_groups: Total teams=' . $total . ', Approved=' . count($approved) . ', MaxTeams=' . $maxTeams);
         foreach (array_slice($state['teams'] ?? [], 0, 5) as $t) {
-            error_log('  Team: ' . $t['name'] . ' | approved=' . ($t['approved'] ? 'true' : 'false') . ' | dummy=' . ($t['dummy'] ? 'true' : 'false'));
+            error_log('  Team: ' . $t['name'] . ' | approved=' . ($t['approved'] ? 'true' : 'false') . ' | dummy=' . (($t['dummy'] ?? false) ? 'true' : 'false'));
         }
         
         // Aggiungi squadre fittive SE NON RAGGIUNGE IL MINIMO DI 4
@@ -12543,6 +12667,14 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['longitude'])) $config['tournament']['longitude'] = is_numeric($t['longitude']) ? (float)$t['longitude'] : null;
         // 🆕 Assegnazione automatica arbitri (attiva/disattiva)
         if (isset($t['autoAssignReferees'])) $config['tournament']['autoAssignReferees'] = (bool)$t['autoAssignReferees'];
+        // 🆕 Campi selezionati per la schedulazione gironi (vuoto = tutti)
+        if (isset($t['groupsSelectedCourtIds']) && is_array($t['groupsSelectedCourtIds'])) {
+            $config['tournament']['groupsSelectedCourtIds'] = array_values(array_map('strval', $t['groupsSelectedCourtIds']));
+        }
+        // 🆕 Modalità di distribuzione partite gironi
+        if (isset($t['groupsScheduleMode']) && in_array($t['groupsScheduleMode'], ['sequential', 'interleaved'], true)) {
+            $config['tournament']['groupsScheduleMode'] = $t['groupsScheduleMode'];
+        }
         // 🆕 Intervallo (in secondi) di auto-refresh del tabellone pubblico in
         // sola visualizzazione (scoreboard.html -> tablescore.html?mode=view)
         if (isset($t['liveScoreboardRefreshSeconds'])) $config['tournament']['liveScoreboardRefreshSeconds'] = max(2, min(60, (int)$t['liveScoreboardRefreshSeconds']));

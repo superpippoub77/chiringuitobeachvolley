@@ -2617,6 +2617,18 @@
                 <label><input type="checkbox" id="cfg-autoAssignReferees" ${t.autoAssignReferees !== false ? 'checked' : ''}> 🏐 Assegna automaticamente l'arbitro alle partite</label>
                 <small style="color: #666; display: block; margin-top: 4px">Ad ogni generazione delle partite dei gironi, assegna come arbitro una squadra non impegnata in quel turno, distribuendo il carico tra tutte le squadre. Disattivalo se preferisci assegnare gli arbitri manualmente.</small>
               </div>
+              <div class="field" style="grid-column: span 2">
+                <label>🗓️ Distribuzione partite dei gironi</label>
+                <select id="cfg-groupsScheduleMode" style="width: 100%; padding: 6px">
+                  <option value="sequential" ${(t.groupsScheduleMode || 'sequential') === 'sequential' ? 'selected' : ''}>Tutte le partite di un girone, poi tutte del successivo</option>
+                  <option value="interleaved" ${t.groupsScheduleMode === 'interleaved' ? 'selected' : ''}>Una partita per girone a rotazione (per distribuire meglio con pochi campi/orari)</option>
+                </select>
+              </div>
+              <div class="field" style="grid-column: span 2">
+                <label>🏐 Campi da usare per i gironi</label>
+                <div id="groupsCourtSelectionContainer" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; padding: 8px; background: #fafafa; border-radius: 6px"></div>
+                <small style="color: #666; display: block; margin-top: 4px">Nessuno selezionato = usa tutti i campi configurati in Orari/Campi (comportamento predefinito).</small>
+              </div>
               <div class="field">
                 <label>Max giocatori per squadra</label>
                 <input id="cfg-maxPlayersPerTeam" type="number" min="1" max="12" value="${t.maxPlayersPerTeam || 3}" placeholder="Es: 3">
@@ -3092,6 +3104,7 @@
         
         // 🆕 Popola i checkbox delle voci del menu lampeggianti
         renderBlinkingTabsCheckboxes();
+        renderGroupsCourtSelection();
 
         // Carica i temi disponibili e crea UI
         try {
@@ -3542,6 +3555,25 @@
       `).join('');
     }
 
+    // 🆕 Checkbox per scegliere quali campi (tra quelli configurati in
+    // Orari/Campi) usare specificamente per la fase gironi
+    function renderGroupsCourtSelection() {
+      const container = document.getElementById('groupsCourtSelectionContainer');
+      if (!container) return;
+      const courts = config.schedule?.courts || [];
+      if (!courts.length) {
+        container.innerHTML = '<span class="muted" style="font-size: 13px">Nessun campo ancora configurato in Orari/Campi.</span>';
+        return;
+      }
+      const selected = config.tournament?.groupsSelectedCourtIds || [];
+      container.innerHTML = courts.map(c => `
+        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; background: white; padding: 5px 10px; border-radius: 6px; border: 1px solid #ddd">
+          <input type="checkbox" class="groups-court-checkbox" value="${c.courtId}" ${selected.includes(c.courtId) ? 'checked' : ''}>
+          ${escapeHtml(c.courtName || c.courtId)}
+        </label>
+      `).join('');
+    }
+
     async function saveBlinkingTabs() {
       try {
         const selected = Array.from(document.querySelectorAll('.blinking-tab-checkbox:checked')).map(cb => cb.value);
@@ -3739,6 +3771,8 @@
             latitude: parseFloat(document.getElementById('cfg-latitude').value) || null,
             longitude: parseFloat(document.getElementById('cfg-longitude').value) || null,
             autoAssignReferees: document.getElementById('cfg-autoAssignReferees').checked,
+            groupsScheduleMode: document.getElementById('cfg-groupsScheduleMode').value,
+            groupsSelectedCourtIds: Array.from(document.querySelectorAll('.groups-court-checkbox:checked')).map(cb => cb.value),
             liveScoreboardRefreshSeconds: Math.max(2, Math.min(60, liveRefreshVal))
           },
           contact: {

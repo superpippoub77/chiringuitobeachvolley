@@ -7684,6 +7684,9 @@ if ($action === 'admin_add_todo' && $method === 'POST') {
             'id' => bin2hex(random_bytes(8)),
             'text' => $text,
             'done' => false,
+            // 🆕 Percentuale di completamento (stile rating a stelline: 0/20/40/60/80/100)
+            'completionPercent' => 0,
+            'archived' => false,
             'createdAt' => date('c')
         ];
         $state['todoList'][] = $newItem;
@@ -7741,6 +7744,88 @@ if ($action === 'admin_delete_todo' && $method === 'POST') {
         return [];
     });
 
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Imposta la percentuale di completamento di un punto (stile rating a
+// stelline: 0/20/40/60/80/100) — al 100% viene anche marcato "done".
+if ($action === 'admin_set_todo_percent' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    $percent = (int)($body['percent'] ?? 0);
+    // Solo multipli di 20 (5 "stelle"), tra 0 e 100
+    $percent = max(0, min(100, (int)(round($percent / 20) * 20)));
+
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID punto obbligatorio']);
+    }
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($id, $percent, &$found) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        foreach ($state['todoList'] as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                // 🔧 Una volta archiviato, la percentuale resta fissa: non ha
+                // senso poterla ritoccare per un punto già chiuso.
+                if (!empty($item['archived'])) break;
+                $item['completionPercent'] = $percent;
+                $item['done'] = $percent === 100;
+                $item['completedAt'] = $percent === 100 ? date('c') : null;
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Punto non trovato (o già archiviato)']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Archivia un punto arrivato al 100% (resta nello storico ma sparisce
+// dall'elenco attivo) — consentito solo se effettivamente al 100%.
+if ($action === 'admin_archive_todo' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID punto obbligatorio']);
+    }
+
+    $found = false;
+    $notComplete = false;
+    withStateTransaction(function (&$state) use ($id, &$found, &$notComplete) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        foreach ($state['todoList'] as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                if ((int)($item['completionPercent'] ?? 0) !== 100) {
+                    $notComplete = true;
+                    break;
+                }
+                $item['archived'] = true;
+                $item['archivedAt'] = date('c');
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+        return [];
+    });
+
+    if ($notComplete) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il punto deve essere al 100% prima di poter essere archiviato']);
+    }
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Punto non trovato']);
+    }
     jsonResponse(200, ['ok' => true]);
 }
 

@@ -889,6 +889,7 @@
         <button class="tab" data-page="campaigns" onclick="showPage('campaigns', this)">📧 Campagne Email</button>
         <button class="tab" data-page="gazette" onclick="showPage('gazette', this)">📰 Giornalino TODAY</button>
         <button class="tab" data-page="events" onclick="showPage('events', this)">🎉 Eventi</button>
+        <button class="tab" data-page="predictions" onclick="showPage('predictions', this)">🌭 Pronostici</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1320,6 +1321,24 @@
             <h4 style="margin-top: 0">🧾 Prenotazioni</h4>
             <div id="eventBookingsContainer"></div>
           </div>
+        </div>
+      </div>
+
+      <div id="page-predictions" class="card page hidden">
+        <h3>🌭 Pronostici Scherzosi</h3>
+        <p class="muted">Un modo divertente per giocatori e non-giocatori di dire la propria su chi vince le partite in programma — niente soldi veri, solo bragging rights (e magari una salamella da riscuotere).</p>
+
+        <div class="card" style="background: #fff3e0; padding: 12px; margin-top: 12px">
+          <label><input type="checkbox" id="predictionsEnabled" onchange="savePredictionsSettings()"> Pronostici abilitati nella home pubblica</label>
+          <div class="field" style="margin-top: 10px">
+            <label>Nome del "premio" (solo per divertimento)</label>
+            <input id="predictionsPrizeLabel" type="text" maxlength="40" placeholder="Es: salamella" onchange="savePredictionsSettings()">
+          </div>
+        </div>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">🏆 Classifica</h4>
+          <div id="predictionsLeaderboardContainer"></div>
         </div>
       </div>
 
@@ -1981,6 +2000,8 @@
         loadGazette();
       } else if (page === 'events') {
         loadEventsList();
+      } else if (page === 'predictions') {
+        loadPredictionsPage();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -11041,6 +11062,43 @@ html += `
     let currentEvent = null; // evento aperto nella vista dettaglio
     let seatMapElements = []; // copia di lavoro degli elementi della mappa (non salvata finche' non si preme "Salva Mappa")
     let seatMapDrag = null; // stato del trascinamento in corso
+
+    // ==================== 🆕 PRONOSTICI SCHERZOSI ====================
+    async function loadPredictionsPage() {
+      document.getElementById('predictionsEnabled').checked = config.predictions?.enabled || false;
+      document.getElementById('predictionsPrizeLabel').value = config.predictions?.prizeLabel || 'salamella';
+
+      try {
+        const result = await callApi('get_predictions_leaderboard', 'GET', null, true);
+        const container = document.getElementById('predictionsLeaderboardContainer');
+        const board = result.leaderboard || [];
+        if (!board.length) {
+          container.innerHTML = '<p class="muted">Nessun pronostico ancora concluso.</p>';
+          return;
+        }
+        container.innerHTML = `
+          <table style="width: 100%; border-collapse: collapse">
+            <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">#</th><th style="text-align: left; padding: 6px">Nome</th><th style="text-align: center; padding: 6px">Indovinati</th><th style="text-align: center; padding: 6px">Totali</th></tr></thead>
+            <tbody>${board.map((b, i) => `<tr><td style="padding: 6px">${i + 1}</td><td style="padding: 6px">${escapeHtml(b.name)}</td><td style="text-align: center; padding: 6px; font-weight: bold; color: #2e7d32">${b.correct} 🌭</td><td style="text-align: center; padding: 6px; color: #888">${b.total}</td></tr>`).join('')}</tbody>
+          </table>
+        `;
+      } catch (e) {
+        console.error('Errore caricamento classifica pronostici:', e);
+      }
+    }
+
+    async function savePredictionsSettings() {
+      try {
+        const payload = {
+          enabled: document.getElementById('predictionsEnabled').checked,
+          prizeLabel: document.getElementById('predictionsPrizeLabel').value.trim() || 'salamella'
+        };
+        const result = await callApi('admin_update_predictions_settings', 'POST', payload, true);
+        config.predictions = result.predictions;
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
 
     async function loadEventsList() {
       try {

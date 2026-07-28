@@ -56,6 +56,8 @@ const CAMPAIGNS_FILE = __DIR__ . '/data/campaigns.json';
 const GAZETTE_FILE = __DIR__ . '/data/gazette.json';
 // 🆕 Eventi indipendenti dal torneo (cene, serate, ecc.) con mappa posti e prenotazioni
 const EVENTS_FILE = __DIR__ . '/data/events.json';
+// 🆕 Pronostici scherzosi sulle partite (a "salamelle"), aperti a tutti
+const PREDICTIONS_FILE = __DIR__ . '/data/predictions.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -772,6 +774,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_orientation' => 'Orientamento',
             'print_studio_portrait' => '📱 Verticale',
             'print_studio_landscape' => '🖥️ Orizzontale',
+            'nav_predictions' => 'Pronostici',
             'nav_events' => 'Eventi',
         ],
         'en' => [
@@ -1016,6 +1019,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_orientation' => 'Orientation',
             'print_studio_portrait' => '📱 Portrait',
             'print_studio_landscape' => '🖥️ Landscape',
+            'nav_predictions' => 'Predictions',
             'nav_events' => 'Events',
         ],
         'fr' => [
@@ -1260,6 +1264,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_orientation' => 'Orientation',
             'print_studio_portrait' => '📱 Portrait',
             'print_studio_landscape' => '🖥️ Paysage',
+            'nav_predictions' => 'Pronostics',
             'nav_events' => 'Événements',
         ],
         'de' => [
@@ -1504,6 +1509,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_orientation' => 'Ausrichtung',
             'print_studio_portrait' => '📱 Hochformat',
             'print_studio_landscape' => '🖥️ Querformat',
+            'nav_predictions' => 'Tipps',
             'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
@@ -1748,6 +1754,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_orientation' => '方向',
             'print_studio_portrait' => '📱 竖版',
             'print_studio_landscape' => '🖥️ 横版',
+            'nav_predictions' => '竞猜',
             'nav_events' => '活动',
         ],
     ];
@@ -1832,6 +1839,12 @@ function defaultConfig(): array {
         'photoFrames' => [
             'enabled' => false,
             'customFrames' => []
+        ],
+        // 🆕 Pronostici scherzosi sulle partite (a "salamelle"), aperti a
+        // tutti — giocatori e non, senza bisogno di account
+        'predictions' => [
+            'enabled' => false,
+            'prizeLabel' => 'salamella'
         ],
         'payment' => [
             'enabled' => false,
@@ -1982,6 +1995,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva le cornici foto personalizzate (servizio "Stampa la tua foto")
     if (isset($existingConfig['photoFrames'])) {
         $merged['photoFrames'] = $existingConfig['photoFrames'];
+    }
+
+    // 🆕 Preserva la configurazione dei pronostici scherzosi
+    if (isset($existingConfig['predictions'])) {
+        $merged['predictions'] = $existingConfig['predictions'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -2343,6 +2361,50 @@ function withEventsTransaction(callable $callback): array {
 function readEvents(): array {
     $data = readJsonFile(EVENTS_FILE, ['events' => []]);
     return $data['events'] ?? [];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock file) sull'archivio pronostici
+ * (data/predictions.json), stesso schema di withEventsTransaction().
+ */
+function withPredictionsTransaction(callable $callback): array {
+    $dir = dirname(PREDICTIONS_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(PREDICTIONS_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile aprire l'archivio pronostici"]);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile bloccare l'archivio pronostici"]);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['predictions']) ? $decoded : ['predictions' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🔧 Lettura semplice (senza transazione) dell'archivio pronostici.
+ */
+function readPredictions(): array {
+    $data = readJsonFile(PREDICTIONS_FILE, ['predictions' => []]);
+    return $data['predictions'] ?? [];
 }
 
 /**
@@ -6644,6 +6706,170 @@ if ($action === 'admin_delete_event_booking' && $method === 'POST') {
         jsonResponse(404, ['ok' => false, 'error' => 'Evento non trovato']);
     }
     jsonResponse(200, ['ok' => true]);
+}
+
+// ==================== 🆕 PRONOSTICI SCHERZOSI ("a salamelle") ====================
+// Un modo scherzoso e leggero per giocatori e non-giocatori di dire la
+// propria su chi vince le partite in programma — niente soldi veri, solo
+// una classifica per bragging rights (e magari una salamella da riscuotere).
+
+// Admin: abilita/disabilita il gioco e personalizza il nome del "premio"
+if ($action === 'admin_update_predictions_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['predictions'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'prizeLabel' => mb_substr(trim((string)($body['prizeLabel'] ?? 'salamella')), 0, 40) ?: 'salamella'
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento impostazioni pronostici');
+
+    jsonResponse(200, ['ok' => true, 'predictions' => $config['predictions']]);
+}
+
+/**
+ * 🆕 Raccoglie tutte le partite di tutte le fasi (gironi + eventuali fasi
+ * successive), con un flag "hasResult" e chi ha vinto (se già disponibile).
+ * Usata sia per l'elenco pronosticabile che per calcolare la classifica.
+ */
+function collectAllMatchesWithOutcome(array $state, string $sportType): array {
+    $all = [];
+    $teamMap = getTeamMap($state);
+    foreach ($state['phases'] ?? [] as $phase) {
+        foreach ($phase['matches'] ?? [] as $m) {
+            if (empty($m['team1Id']) || empty($m['team2Id'])) continue; // slot non ancora assegnato
+            [$won1, $won2, $hasScore] = getMatchSetsWon($m, $sportType);
+            $winnerTeamId = null;
+            if ($hasScore) {
+                if ($won1 > $won2) $winnerTeamId = $m['team1Id'];
+                elseif ($won2 > $won1) $winnerTeamId = $m['team2Id'];
+            }
+            $all[] = [
+                'matchId' => $m['id'],
+                'team1Id' => $m['team1Id'],
+                'team2Id' => $m['team2Id'],
+                // 🔧 FIX: le partite non salvano team1Name/team2Name
+                // direttamente (formato efficiente, senza duplicare i dati
+                // squadra) — vanno risolti qui tramite la mappa squadre.
+                'team1Name' => $m['team1Name'] ?? ($teamMap[$m['team1Id']]['name'] ?? ''),
+                'team2Name' => $m['team2Name'] ?? ($teamMap[$m['team2Id']]['name'] ?? ''),
+                'date' => $m['date'] ?? null,
+                'startTime' => $m['startTime'] ?? null,
+                'hasResult' => $hasScore,
+                'winnerTeamId' => $winnerTeamId
+            ];
+        }
+    }
+    return $all;
+}
+
+// Pubblico: elenco delle partite ancora pronosticabili (senza risultato definitivo)
+if ($action === 'get_predictable_matches' && $method === 'GET') {
+    $config = readConfig();
+    if (empty($config['predictions']['enabled'])) {
+        jsonResponse(200, ['ok' => true, 'enabled' => false, 'matches' => []]);
+    }
+
+    $state = readJsonFile(DATA_FILE, ['phases' => []]);
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
+    $allMatches = collectAllMatchesWithOutcome($state, $sportType);
+    $predictable = array_values(array_filter($allMatches, fn($m) => !$m['hasResult']));
+
+    jsonResponse(200, ['ok' => true, 'enabled' => true, 'prizeLabel' => $config['predictions']['prizeLabel'] ?? 'salamella', 'matches' => $predictable]);
+}
+
+// Pubblico: invia un pronostico (aperto a tutti, nessun account richiesto)
+if ($action === 'submit_prediction' && $method === 'POST') {
+    $config = readConfig();
+    if (empty($config['predictions']['enabled'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'I pronostici non sono attivi al momento']);
+    }
+
+    $body = bodyJson();
+    $matchId = (string)($body['matchId'] ?? '');
+    $predictedTeamId = (string)($body['predictedTeamId'] ?? '');
+    $playerName = mb_substr(trim((string)($body['playerName'] ?? '')), 0, 60);
+
+    if ($matchId === '' || $predictedTeamId === '' || $playerName === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nome e pronostico sono obbligatori']);
+    }
+
+    $state = readJsonFile(DATA_FILE, ['phases' => []]);
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
+    $allMatches = collectAllMatchesWithOutcome($state, $sportType);
+    $match = null;
+    foreach ($allMatches as $m) {
+        if ($m['matchId'] === $matchId) { $match = $m; break; }
+    }
+
+    if ($match === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+    }
+    if ($match['hasResult']) {
+        jsonResponse(409, ['ok' => false, 'error' => 'Questa partita ha già un risultato, non si può più pronosticare']);
+    }
+    if (!in_array($predictedTeamId, [$match['team1Id'], $match['team2Id']], true)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Squadra pronosticata non valida per questa partita']);
+    }
+
+    $prediction = [
+        'id' => bin2hex(random_bytes(8)),
+        'matchId' => $matchId,
+        'predictedTeamId' => $predictedTeamId,
+        'playerName' => $playerName,
+        'createdAt' => date('c')
+    ];
+
+    withPredictionsTransaction(function (&$list) use ($matchId, $playerName, $prediction) {
+        // Un solo pronostico per persona (per nome) e partita: se già presente, lo aggiorna invece di duplicarlo
+        $list['predictions'] = array_values(array_filter($list['predictions'] ?? [], function ($p) use ($matchId, $playerName) {
+            return !(($p['matchId'] ?? '') === $matchId && strcasecmp(trim((string)($p['playerName'] ?? '')), $playerName) === 0);
+        }));
+        $list['predictions'][] = $prediction;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'prediction' => $prediction]);
+}
+
+// Pubblico: classifica dei pronostici (quanti indovinati, per nome)
+if ($action === 'get_predictions_leaderboard' && $method === 'GET') {
+    $config = readConfig();
+    $state = readJsonFile(DATA_FILE, ['phases' => []]);
+    $sportType = $config['tournament']['sportType'] ?? 'beachvolley';
+    $allMatches = collectAllMatchesWithOutcome($state, $sportType);
+    $matchesById = [];
+    foreach ($allMatches as $m) { $matchesById[$m['matchId']] = $m; }
+
+    $predictions = readPredictions();
+    $tally = []; // playerName (lowercase per confronto) => ['name' => ..., 'correct' => N, 'total' => N]
+
+    foreach ($predictions as $p) {
+        $match = $matchesById[$p['matchId'] ?? ''] ?? null;
+        if ($match === null || !$match['hasResult']) continue; // non ancora concluso, non conta
+
+        $key = strtolower(trim((string)($p['playerName'] ?? '')));
+        if ($key === '') continue;
+        if (!isset($tally[$key])) {
+            $tally[$key] = ['name' => $p['playerName'], 'correct' => 0, 'total' => 0];
+        }
+        $tally[$key]['total']++;
+        if (($p['predictedTeamId'] ?? null) === $match['winnerTeamId']) {
+            $tally[$key]['correct']++;
+        }
+    }
+
+    $leaderboard = array_values($tally);
+    usort($leaderboard, fn($a, $b) => $b['correct'] <=> $a['correct']);
+
+    jsonResponse(200, [
+        'ok' => true,
+        'prizeLabel' => $config['predictions']['prizeLabel'] ?? 'salamella',
+        'leaderboard' => $leaderboard
+    ]);
 }
 
 // Pubblico: elenco eventi abilitati (solo info essenziali, niente prenotazioni)

@@ -1161,6 +1161,7 @@
         <a href="#" id="navAttendanceLink" class="main-nav-link" data-tab-key="attendance" style="display: none" onclick="openAttendanceSignup(); return false;">🎟️ <span data-i18n="nav_attend">Partecipa</span></a>
         <a href="#" id="navPaymentLink" class="main-nav-link" data-tab-key="payment" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
         <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" data-tab-key="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
+        <a href="#" id="navPredictionsLink" class="main-nav-link" data-phase="predictions" data-tab-key="predictions" style="display: none" onclick="showPhase('predictions'); loadPredictionsForPublic(); return false;">🌭 <span data-i18n="nav_predictions">Pronostici</span></a>
         <a href="#" class="main-nav-link" data-tab-key="contact" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
         <a href="regolamento.html" target="_blank" class="main-nav-link" data-tab-key="rules">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
@@ -1178,6 +1179,7 @@
       <section class="page" id="page-gallery"></section>
       <section class="page" id="page-shop"></section>
       <section class="page" id="page-events"></section>
+      <section class="page" id="page-predictions"></section>
 
       <footer>
         <a href="policy.html" target="_blank">Privacy Policy</a>
@@ -3534,6 +3536,96 @@
     let selectedSeatIds = [];
     let eventPaypalSdkPromise = null;
 
+    // ==================== 🆕 PRONOSTICI SCHERZOSI (public) ====================
+    let predictionsPrizeLabel = 'salamella';
+
+    async function checkPredictionsAvailability() {
+      try {
+        const response = await fetch(`${API}?action=get_predictable_matches`);
+        const data = await response.json();
+        const navLink = document.getElementById('navPredictionsLink');
+        if (navLink) navLink.style.display = data.enabled ? 'inline-block' : 'none';
+      } catch (e) {
+        console.error('Errore verifica pronostici:', e);
+      }
+    }
+
+    async function loadPredictionsForPublic() {
+      const container = document.getElementById('page-predictions');
+      container.innerHTML = `<h3>🌭 Pronostici</h3><p class="muted">Caricamento...</p>`;
+
+      try {
+        const [matchesResp, boardResp] = await Promise.all([
+          fetch(`${API}?action=get_predictable_matches`).then(r => r.json()),
+          fetch(`${API}?action=get_predictions_leaderboard`).then(r => r.json())
+        ]);
+
+        predictionsPrizeLabel = matchesResp.prizeLabel || 'salamella';
+        const matches = matchesResp.matches || [];
+        const board = boardResp.leaderboard || [];
+
+        const matchesHtml = matches.length
+          ? matches.map(m => `
+            <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px">
+              <div style="font-weight: bold; margin-bottom: 8px">${esc(m.team1Name)} vs ${esc(m.team2Name)}</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+                <input type="text" id="predName_${m.matchId}" placeholder="Il tuo nome" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 140px">
+                <button class="btn" style="background: #2196F3; color: white" onclick="submitPrediction('${m.matchId}', '${m.team1Id}')">🏆 ${esc(m.team1Name)}</button>
+                <button class="btn" style="background: #f44336; color: white" onclick="submitPrediction('${m.matchId}', '${m.team2Id}')">🏆 ${esc(m.team2Name)}</button>
+              </div>
+              <div id="predStatus_${m.matchId}" style="font-size: 13px; margin-top: 6px"></div>
+            </div>
+          `).join('')
+          : `<p class="muted">Nessuna partita da pronosticare al momento.</p>`;
+
+        const boardHtml = board.length
+          ? `<table style="width: 100%; border-collapse: collapse; margin-top: 10px">
+              <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">#</th><th style="text-align: left; padding: 6px">Nome</th><th style="text-align: center; padding: 6px">${esc(predictionsPrizeLabel)} 🌭</th></tr></thead>
+              <tbody>${board.map((b, i) => `<tr><td style="padding: 6px">${i + 1}</td><td style="padding: 6px">${esc(b.name)}</td><td style="text-align: center; padding: 6px; font-weight: bold">${b.correct}</td></tr>`).join('')}</tbody>
+            </table>`
+          : `<p class="muted">Nessun pronostico ancora concluso — gioca e scala la classifica!</p>`;
+
+        container.innerHTML = `
+          <h3>🌭 Pronostici</h3>
+          <p style="color: #666; font-size: 14px">Dì la tua su chi vince le prossime partite. Niente soldi veri: si gioca per gloria e ${esc(predictionsPrizeLabel)}!</p>
+          ${matchesHtml}
+          <div style="margin-top: 20px; border-top: 3px solid #ddd; padding-top: 14px">
+            <h4>🏆 Classifica</h4>
+            ${boardHtml}
+          </div>
+        `;
+      } catch (e) {
+        container.innerHTML = `<h3>🌭 Pronostici</h3><p class="muted">Errore di caricamento.</p>`;
+      }
+    }
+
+    async function submitPrediction(matchId, teamId) {
+      const statusEl = document.getElementById(`predStatus_${matchId}`);
+      const name = document.getElementById(`predName_${matchId}`)?.value.trim();
+      if (!name) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci il tuo nome prima di pronosticare.';
+        return;
+      }
+      try {
+        const response = await fetch(`${API}?action=submit_prediction`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matchId, predictedTeamId: teamId, playerName: name })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Errore invio pronostico';
+          return;
+        }
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = `✅ Pronostico registrato, ${name}! In bocca al lupo.`;
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
     async function checkEventsAvailability() {
       try {
         const response = await fetch(`${API}?action=get_public_events`);
@@ -4523,6 +4615,7 @@
     loadAttendanceStatus();
     loadPaymentStatus();
     checkEventsAvailability();
+    checkPredictionsAvailability();
 
     // ==================== NEWS SECTION ====================
 

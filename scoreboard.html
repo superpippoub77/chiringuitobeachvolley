@@ -252,6 +252,30 @@
       60% { transform: rotate(12deg) scale(1); }
     }
 
+    /* 🆕 Scheda squadra su mobile: il nome sta sempre su una riga sola (non
+       va a capo), e i giocatori si dispongono subito sotto a tutta
+       larghezza, invece di stare fianco a fianco al nome come su desktop —
+       dove lo spazio stretto li avrebbe fatti sembrare accavallati. */
+    @media (max-width: 600px) {
+      .team {
+        flex-direction: column !important;
+      }
+      .team-name-box {
+        width: 100%;
+        min-width: 0 !important;
+        box-sizing: border-box;
+      }
+      .team-name-text {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .team-players-box {
+        width: 100%;
+      }
+    }
+
     .hero-sub {
       position: relative;
       z-index: 1;
@@ -1965,13 +1989,13 @@
           ${newBadgeHtml}
           ${levelStarHtml}
           ${statusCheckHtml}
-          <div style="min-width: 160px; flex-shrink: 0">
-            <strong style="font-size: 15px">${esc(t.name)}</strong>
+          <div class="team-name-box" style="min-width: 160px; flex-shrink: 0">
+            <strong class="team-name-text" style="font-size: 15px">${esc(t.name)}</strong>
             <div style="margin-top: 4px">
               ${t.dummy ? `<span class="badge" style="background:#d8c39f;color:#1d1a13">${i18n('team_dummy')}</span>` : ''}
             </div>
           </div>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
+          <div class="team-players-box" style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">
             ${playerBoxes || `<em style="color:#999">${i18n('team_no_players')}</em>`}
           </div>
         </div>`;

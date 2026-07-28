@@ -6696,10 +6696,14 @@ if ($action === 'admin_send_campaign' && $method === 'POST') {
         // immagini remote — in quel caso l'apertura non risulta tracciata,
         // ma il messaggio è comunque stato recapitato).
         $trackingPixelUrl = "$baseUrl/api.php?action=track_open&id=" . urlencode($campaignId) . "&r=" . urlencode($recipientId);
-        $htmlBody = nl2br(htmlspecialchars($messageBody)) . "<img src=\"$trackingPixelUrl\" width=\"1\" height=\"1\" style=\"display:none\" alt=\"\">";
+        // 🆕 Il corpo arriva già come HTML dall'editor di testo ricco (stesso
+        // usato per notizie e kit torneo), quindi non va più scappato come
+        // testo semplice — altrimenti grassetto/corsivo/liste comparirebbero
+        // come tag letterali invece che formattati.
+        $htmlBody = $messageBody . "<img src=\"$trackingPixelUrl\" width=\"1\" height=\"1\" style=\"display:none\" alt=\"\">";
 
         $sendResult = sendEmail($r['email'], $subject, $htmlBody);
-        if ($sendResult['ok'] ?? false) {
+        if ($sendResult['success'] ?? false) {
             $sentCount++;
         } else {
             $failedCount++;
@@ -6723,6 +6727,36 @@ if ($action === 'admin_send_campaign' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true, 'campaign' => $campaign]);
+}
+
+// 🆕 Invia una mail di prova con l'oggetto/testo attualmente scritti,
+// all'indirizzo email del gestore impostato in Impostazioni → Contatti —
+// utile per verificare formattazione e funzionamento prima di inviarla a tutti.
+if ($action === 'admin_send_test_campaign_email' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $subject = mb_substr(trim((string)($body['subject'] ?? '')), 0, 200);
+    $messageBody = trim((string)($body['body'] ?? ''));
+
+    if ($subject === '' || $messageBody === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Oggetto e testo del messaggio sono obbligatori']);
+    }
+
+    $config = readConfig();
+    $testEmail = trim((string)($config['contact']['managerEmail'] ?? ''));
+    if ($testEmail === '' || !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => "Imposta prima un'email del gestore in Impostazioni → Contatti"]);
+    }
+
+    $testSubject = '[PROVA] ' . $subject;
+    $testBody = '<p style="background:#fff3cd; padding:8px; border-radius:4px; font-size:13px">🧪 Questa è una mail di prova — non è stata inviata a nessun iscritto.</p>' . $messageBody;
+
+    $sendResult = sendEmail($testEmail, $testSubject, $testBody);
+    if (!($sendResult['success'] ?? false)) {
+        jsonResponse(500, ['ok' => false, 'error' => $sendResult['error'] ?? "Invio non riuscito"]);
+    }
+
+    jsonResponse(200, ['ok' => true, 'sentTo' => $testEmail]);
 }
 
 // 🆕 Pixel di tracciamento apertura (pubblico, nessuna autenticazione: viene

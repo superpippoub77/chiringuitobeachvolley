@@ -1340,6 +1340,17 @@
           <h4 style="margin-top: 0">🏆 Classifica</h4>
           <div id="predictionsLeaderboardContainer"></div>
         </div>
+
+        <div class="card" style="background: #e8f0fe; padding: 12px; margin-top: 20px">
+          <h4 style="margin-top: 0">⭐ Vota la tua squadra preferita</h4>
+          <p class="muted">Classifica generale di gradimento, aperta a tutti — massimo 2 preferenze per persona (limitate per indirizzo IP).</p>
+          <label><input type="checkbox" id="teamVotingEnabled" onchange="saveTeamVotingSettings()"> Voto abilitato nella home pubblica</label>
+        </div>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">🏆 Classifica gradimento squadre</h4>
+          <div id="teamVotingLeaderboardContainer"></div>
+        </div>
       </div>
 
       <div id="page-news" class="card page hidden">
@@ -11132,16 +11143,46 @@ html += `
         const board = result.leaderboard || [];
         if (!board.length) {
           container.innerHTML = '<p class="muted">Nessun pronostico ancora concluso.</p>';
-          return;
+        } else {
+          container.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse">
+              <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">#</th><th style="text-align: left; padding: 6px">Nome</th><th style="text-align: center; padding: 6px">Indovinati</th><th style="text-align: center; padding: 6px">Totali</th></tr></thead>
+              <tbody>${board.map((b, i) => `<tr><td style="padding: 6px">${i + 1}</td><td style="padding: 6px">${escapeHtml(b.name)}</td><td style="text-align: center; padding: 6px; font-weight: bold; color: #2e7d32">${b.correct} 🌭</td><td style="text-align: center; padding: 6px; color: #888">${b.total}</td></tr>`).join('')}</tbody>
+            </table>
+          `;
         }
-        container.innerHTML = `
-          <table style="width: 100%; border-collapse: collapse">
-            <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">#</th><th style="text-align: left; padding: 6px">Nome</th><th style="text-align: center; padding: 6px">Indovinati</th><th style="text-align: center; padding: 6px">Totali</th></tr></thead>
-            <tbody>${board.map((b, i) => `<tr><td style="padding: 6px">${i + 1}</td><td style="padding: 6px">${escapeHtml(b.name)}</td><td style="text-align: center; padding: 6px; font-weight: bold; color: #2e7d32">${b.correct} 🌭</td><td style="text-align: center; padding: 6px; color: #888">${b.total}</td></tr>`).join('')}</tbody>
-          </table>
-        `;
       } catch (e) {
         console.error('Errore caricamento classifica pronostici:', e);
+      }
+
+      // 🆕 Voto squadra preferita (sezione separata sulla stessa pagina)
+      document.getElementById('teamVotingEnabled').checked = config.teamVoting?.enabled || false;
+      try {
+        const result = await callApi('get_team_voting_status', 'GET', null, true);
+        const container = document.getElementById('teamVotingLeaderboardContainer');
+        const board = result.leaderboard || [];
+        if (!board.length) {
+          container.innerHTML = '<p class="muted">Nessun voto ancora ricevuto (o nessuna squadra approvata).</p>';
+        } else {
+          container.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse">
+              <thead><tr style="background: #f0f0f0"><th style="text-align: left; padding: 6px">#</th><th style="text-align: left; padding: 6px">Squadra</th><th style="text-align: center; padding: 6px">Voti</th></tr></thead>
+              <tbody>${board.map((b, i) => `<tr><td style="padding: 6px">${i + 1}</td><td style="padding: 6px">${escapeHtml(b.teamName)}</td><td style="text-align: center; padding: 6px; font-weight: bold; color: #1565c0">${b.votes} ⭐</td></tr>`).join('')}</tbody>
+            </table>
+          `;
+        }
+      } catch (e) {
+        console.error('Errore caricamento classifica voto squadre:', e);
+      }
+    }
+
+    async function saveTeamVotingSettings() {
+      try {
+        const payload = { enabled: document.getElementById('teamVotingEnabled').checked };
+        const result = await callApi('admin_update_team_voting_settings', 'POST', payload, true);
+        config.teamVoting = result.teamVoting;
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
       }
     }
 

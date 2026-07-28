@@ -58,6 +58,8 @@ const GAZETTE_FILE = __DIR__ . '/data/gazette.json';
 const EVENTS_FILE = __DIR__ . '/data/events.json';
 // 🆕 Pronostici scherzosi sulle partite (a "salamelle"), aperti a tutti
 const PREDICTIONS_FILE = __DIR__ . '/data/predictions.json';
+// 🆕 Voti "squadra preferita" per la classifica generale (max 2 per IP)
+const TEAM_VOTES_FILE = __DIR__ . '/data/team_votes.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -1846,6 +1848,11 @@ function defaultConfig(): array {
             'enabled' => false,
             'prizeLabel' => 'salamella'
         ],
+        // 🆕 Vota la tua squadra preferita, per una classifica generale di
+        // gradimento — massimo 2 preferenze per indirizzo IP
+        'teamVoting' => [
+            'enabled' => false
+        ],
         'payment' => [
             'enabled' => false,
             'costPerTeam' => 0,
@@ -2000,6 +2007,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva la configurazione dei pronostici scherzosi
     if (isset($existingConfig['predictions'])) {
         $merged['predictions'] = $existingConfig['predictions'];
+    }
+
+    // 🆕 Preserva la configurazione del voto squadra preferita
+    if (isset($existingConfig['teamVoting'])) {
+        $merged['teamVoting'] = $existingConfig['teamVoting'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -2405,6 +2417,65 @@ function withPredictionsTransaction(callable $callback): array {
 function readPredictions(): array {
     $data = readJsonFile(PREDICTIONS_FILE, ['predictions' => []]);
     return $data['predictions'] ?? [];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock file) sull'archivio voti "squadra
+ * preferita" (data/team_votes.json), stesso schema di withPredictionsTransaction().
+ */
+function withTeamVotesTransaction(callable $callback): array {
+    $dir = dirname(TEAM_VOTES_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(TEAM_VOTES_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile aprire l'archivio voti"]);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile bloccare l'archivio voti"]);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['votes']) ? $decoded : ['votes' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+/**
+ * 🔧 Lettura semplice (senza transazione) dell'archivio voti.
+ */
+function readTeamVotes(): array {
+    $data = readJsonFile(TEAM_VOTES_FILE, ['votes' => []]);
+    return $data['votes'] ?? [];
+}
+
+/**
+ * 🆕 Ricava l'indirizzo IP del richiedente, usato per limitare i voti
+ * (max 2 per IP). Prova prima gli header di un eventuale proxy/CDN davanti
+ * al sito, poi ripiega su REMOTE_ADDR.
+ */
+function getClientIpForVoting(): string {
+    foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP'] as $header) {
+        if (!empty($_SERVER[$header])) {
+            $ip = trim(explode(',', $_SERVER[$header])[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) return $ip;
+        }
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 }
 
 /**
@@ -6870,6 +6941,121 @@ if ($action === 'get_predictions_leaderboard' && $method === 'GET') {
         'prizeLabel' => $config['predictions']['prizeLabel'] ?? 'salamella',
         'leaderboard' => $leaderboard
     ]);
+}
+
+// ==================== 🆕 VOTA LA TUA SQUADRA PREFERITA ====================
+// Classifica generale di gradimento, aperta a tutti — massimo 2 preferenze
+// per indirizzo IP (per limitare i voti multipli senza richiedere account).
+
+const MAX_TEAM_VOTES_PER_IP = 2;
+
+// Admin: abilita/disabilita il voto
+if ($action === 'admin_update_team_voting_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['teamVoting'] = [
+        'enabled' => (bool)($body['enabled'] ?? false)
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento impostazioni voto squadra preferita');
+
+    jsonResponse(200, ['ok' => true, 'teamVoting' => $config['teamVoting']]);
+}
+
+// Pubblico: stato del voto — classifica attuale + quante preferenze ha già usato questo IP
+if ($action === 'get_team_voting_status' && $method === 'GET') {
+    $config = readConfig();
+    if (empty($config['teamVoting']['enabled'])) {
+        jsonResponse(200, ['ok' => true, 'enabled' => false]);
+    }
+
+    $state = readJsonFile(DATA_FILE, ['teams' => []]);
+    $teamsById = [];
+    foreach ($state['teams'] ?? [] as $t) {
+        if (!empty($t['approved'])) $teamsById[$t['id']] = $t['name'];
+    }
+
+    $allVotes = readTeamVotes();
+    $tally = []; // teamId => count
+    foreach ($allVotes as $v) {
+        $tid = $v['teamId'] ?? '';
+        if (!isset($teamsById[$tid])) continue; // squadra rimossa/non più approvata: non conta
+        $tally[$tid] = ($tally[$tid] ?? 0) + 1;
+    }
+
+    $leaderboard = [];
+    foreach ($teamsById as $tid => $tname) {
+        $leaderboard[] = ['teamId' => $tid, 'teamName' => $tname, 'votes' => $tally[$tid] ?? 0];
+    }
+    usort($leaderboard, fn($a, $b) => $b['votes'] <=> $a['votes']);
+
+    $myIp = getClientIpForVoting();
+    $myVotedTeamIds = array_values(array_unique(array_map(fn($v) => $v['teamId'], array_filter($allVotes, fn($v) => ($v['ip'] ?? '') === $myIp))));
+
+    jsonResponse(200, [
+        'ok' => true,
+        'enabled' => true,
+        'leaderboard' => $leaderboard,
+        'myVotesUsed' => count($myVotedTeamIds),
+        'myVotesMax' => MAX_TEAM_VOTES_PER_IP,
+        'myVotedTeamIds' => $myVotedTeamIds
+    ]);
+}
+
+// Pubblico: vota una squadra (max 2 preferenze diverse per IP, niente doppio voto sulla stessa squadra)
+if ($action === 'vote_for_team' && $method === 'POST') {
+    $config = readConfig();
+    if (empty($config['teamVoting']['enabled'])) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il voto non è attivo al momento']);
+    }
+
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+    if ($teamId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Squadra mancante']);
+    }
+
+    $state = readJsonFile(DATA_FILE, ['teams' => []]);
+    $teamExists = false;
+    foreach ($state['teams'] ?? [] as $t) {
+        if (($t['id'] ?? '') === $teamId && !empty($t['approved'])) { $teamExists = true; break; }
+    }
+    if (!$teamExists) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+    }
+
+    $myIp = getClientIpForVoting();
+    $errorMsg = null;
+
+    withTeamVotesTransaction(function (&$list) use ($teamId, $myIp, &$errorMsg) {
+        $myVotes = array_filter($list['votes'] ?? [], fn($v) => ($v['ip'] ?? '') === $myIp);
+        $myVotedTeamIds = array_map(fn($v) => $v['teamId'], $myVotes);
+
+        if (in_array($teamId, $myVotedTeamIds, true)) {
+            $errorMsg = 'Hai già votato questa squadra';
+            return [];
+        }
+        if (count($myVotes) >= MAX_TEAM_VOTES_PER_IP) {
+            $errorMsg = 'Hai già usato entrambe le tue preferenze';
+            return [];
+        }
+
+        $list['votes'][] = [
+            'id' => bin2hex(random_bytes(8)),
+            'teamId' => $teamId,
+            'ip' => $myIp,
+            'createdAt' => date('c')
+        ];
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(409, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 // Pubblico: elenco eventi abilitati (solo info essenziali, niente prenotazioni)

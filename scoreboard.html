@@ -1962,7 +1962,86 @@
         </div>`;
       }).join('');
 
+      html += '<div id="teamVotingSection"></div>';
+
       c.innerHTML = html;
+      loadTeamVotingSection();
+    }
+
+    // 🆕 Vota la tua squadra preferita: classifica generale di gradimento,
+    // massimo 2 preferenze per persona (limitate per indirizzo IP).
+    let teamVotingCache = null;
+
+    async function loadTeamVotingSection() {
+      const container = document.getElementById('teamVotingSection');
+      if (!container) return;
+
+      try {
+        const response = await fetch(`${API}?action=get_team_voting_status`);
+        const data = await response.json();
+        if (!data.ok || !data.enabled) {
+          container.innerHTML = '';
+          return;
+        }
+        teamVotingCache = data;
+        renderTeamVotingSection();
+      } catch (e) {
+        console.error('Errore caricamento voto squadre:', e);
+      }
+    }
+
+    function renderTeamVotingSection() {
+      const container = document.getElementById('teamVotingSection');
+      const data = teamVotingCache;
+      if (!container || !data) return;
+
+      const votedIds = data.myVotedTeamIds || [];
+      const votesLeft = data.myVotesMax - data.myVotesUsed;
+
+      const teamOptionsHtml = (data.leaderboard || [])
+        .filter(t => !votedIds.includes(t.teamId))
+        .map(t => `<button class="btn" style="background: #1565c0; color: white; margin: 3px" onclick="voteForTeam('${t.teamId}')">⭐ ${esc(t.teamName)}</button>`)
+        .join('');
+
+      const rankingHtml = (data.leaderboard || [])
+        .map((t, i) => `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee">
+          <span>${i + 1}. ${esc(t.teamName)}${votedIds.includes(t.teamId) ? ' ✅' : ''}</span>
+          <strong>${t.votes} ⭐</strong>
+        </div>`)
+        .join('');
+
+      container.innerHTML = `
+        <div style="margin-top: 24px; border-top: 3px solid #ddd; padding-top: 16px">
+          <h4>⭐ Vota la tua squadra preferita</h4>
+          <p style="font-size: 13px; color: #666">Hai ancora ${votesLeft} preferenza${votesLeft === 1 ? '' : 'e'} disponibile${votesLeft === 1 ? '' : 'i'} su ${data.myVotesMax}.</p>
+          ${votesLeft > 0 ? `<div style="margin-bottom: 12px">${teamOptionsHtml}</div>` : '<p style="font-size: 13px; color: #2e7d32">✅ Hai già usato entrambe le tue preferenze, grazie per aver votato!</p>'}
+          <div id="teamVotingStatus" style="font-size: 13px; margin-bottom: 10px"></div>
+          <div style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 12px; max-width: 400px">
+            <strong style="display: block; margin-bottom: 6px">🏆 Classifica gradimento</strong>
+            ${rankingHtml || '<p class="muted">Ancora nessun voto.</p>'}
+          </div>
+        </div>
+      `;
+    }
+
+    async function voteForTeam(teamId) {
+      const statusEl = document.getElementById('teamVotingStatus');
+      try {
+        const response = await fetch(`${API}?action=vote_for_team`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          if (statusEl) { statusEl.style.color = '#b71c1c'; statusEl.textContent = data.error || 'Errore invio voto'; }
+          return;
+        }
+        await loadTeamVotingSection();
+        const newStatusEl = document.getElementById('teamVotingStatus');
+        if (newStatusEl) { newStatusEl.style.color = '#2e5d1f'; newStatusEl.textContent = '✅ Voto registrato, grazie!'; }
+      } catch (e) {
+        if (statusEl) { statusEl.style.color = '#b71c1c'; statusEl.textContent = 'Errore di connessione: ' + e.message; }
+      }
     }
 
     // 🔧 FIX: cercava ancora il vecchio campo numerico "skillLevel", ma i

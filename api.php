@@ -60,6 +60,9 @@ const EVENTS_FILE = __DIR__ . '/data/events.json';
 const PREDICTIONS_FILE = __DIR__ . '/data/predictions.json';
 // 🆕 Voti "squadra preferita" per la classifica generale (max 2 per IP)
 const TEAM_VOTES_FILE = __DIR__ . '/data/team_votes.json';
+// 🆕 Tornei paralleli (ping-pong, bocce, arcade, biglie, ecc.), indipendenti
+// dal torneo principale ma con lo stesso motore gironi/tabellone/classifiche
+const SIDE_TOURNAMENTS_FILE = __DIR__ . '/data/side_tournaments.json';
 // 🆕 Adesioni come spettatori (non giocatori) per chi vuole partecipare all'evento
 const ATTENDANCE_FILE = __DIR__ . '/data/attendance.json';
 // 🆕 Dizionari di traduzione (i18n), un file JSON per lingua, modificabili da admin
@@ -777,6 +780,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_portrait' => '📱 Verticale',
             'print_studio_landscape' => '🖥️ Orizzontale',
             'nav_predictions' => 'Pronostici',
+            'nav_side_tournaments' => 'Tornei Paralleli',
             'nav_events' => 'Eventi',
         ],
         'en' => [
@@ -1022,6 +1026,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_portrait' => '📱 Portrait',
             'print_studio_landscape' => '🖥️ Landscape',
             'nav_predictions' => 'Predictions',
+            'nav_side_tournaments' => 'Side Tournaments',
             'nav_events' => 'Events',
         ],
         'fr' => [
@@ -1267,6 +1272,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_portrait' => '📱 Portrait',
             'print_studio_landscape' => '🖥️ Paysage',
             'nav_predictions' => 'Pronostics',
+            'nav_side_tournaments' => 'Tournois Parallèles',
             'nav_events' => 'Événements',
         ],
         'de' => [
@@ -1512,6 +1518,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_portrait' => '📱 Hochformat',
             'print_studio_landscape' => '🖥️ Querformat',
             'nav_predictions' => 'Tipps',
+            'nav_side_tournaments' => 'Nebenturniere',
             'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
@@ -1757,6 +1764,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_portrait' => '📱 竖版',
             'print_studio_landscape' => '🖥️ 横版',
             'nav_predictions' => '竞猜',
+            'nav_side_tournaments' => '附加赛事',
             'nav_events' => '活动',
         ],
     ];
@@ -2461,6 +2469,268 @@ function withTeamVotesTransaction(callable $callback): array {
 function readTeamVotes(): array {
     $data = readJsonFile(TEAM_VOTES_FILE, ['votes' => []]);
     return $data['votes'] ?? [];
+}
+
+// ==================== 🆕 MOTORE GENERICO TORNEI PARALLELI ====================
+// Stesso concetto di gironi/tabellone/classifiche del torneo principale, ma
+// generalizzato per qualunque gioco (ping-pong, bocce, arcade, biglie...),
+// con un formato di punteggio configurabile invece delle regole fisse del
+// beach volley. Vive completamente separato dal torneo principale (proprio
+// file, proprie funzioni) per non rischiare di destabilizzare il motore
+// beach volley già in uso.
+
+function withSideTournamentsTransaction(callable $callback): array {
+    $dir = dirname(SIDE_TOURNAMENTS_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(SIDE_TOURNAMENTS_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile aprire l'archivio tornei paralleli"]);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => "Impossibile bloccare l'archivio tornei paralleli"]);
+    }
+
+    $raw = stream_get_contents($fp);
+    $decoded = json_decode($raw ?: '', true);
+    $list = is_array($decoded) && isset($decoded['sideTournaments']) ? $decoded : ['sideTournaments' => []];
+
+    $result = $callback($list);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($list, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+function readSideTournaments(): array {
+    $data = readJsonFile(SIDE_TOURNAMENTS_FILE, ['sideTournaments' => []]);
+    return $data['sideTournaments'] ?? [];
+}
+
+function defaultSideTournamentStructure(): array {
+    return [
+        'id' => bin2hex(random_bytes(8)),
+        'name' => '',
+        'enabled' => false,
+        // 'registered' = solo dai già iscritti al torneo principale,
+        // 'standalone' = solo iscrizioni proprie, 'both' = entrambe
+        'participantSource' => 'both',
+        'signupOpen' => false,
+        // Formato punteggio configurabile: 'sets' (es. ping-pong al meglio
+        // di 3/5 set) oppure 'single_score' (un solo punteggio finale, es.
+        // bocce o un punteggio arcade dove vince il più alto)
+        'matchFormat' => [
+            'mode' => 'sets',
+            'bestOf' => 3,
+            'targetScore' => 11
+        ],
+        'participants' => [], // {id, name, sourceType: 'registered'|'standalone', linkedTeamId}
+        'phases' => [],
+        'createdAt' => date('c')
+    ];
+}
+
+/**
+ * 🆕 Determina chi ha vinto una partita di un torneo parallelo, in base al
+ * formato di punteggio configurato — analogo a getMatchSetsWon() del
+ * torneo principale, ma generico per qualunque gioco.
+ */
+function getSideMatchOutcome(array $match, array $matchFormat): array {
+    $sets = $match['sets'] ?? [];
+    if (empty($sets)) return [0, 0, false];
+
+    if (($matchFormat['mode'] ?? 'sets') === 'single_score') {
+        $s = $sets[0] ?? null;
+        if ($s === null || ($s['p1'] ?? null) === null || ($s['p2'] ?? null) === null) return [0, 0, false];
+        $p1 = (float)$s['p1']; $p2 = (float)$s['p2'];
+        return [$p1 > $p2 ? 1 : 0, $p2 > $p1 ? 1 : 0, true];
+    }
+
+    // Modalità 'sets': conta quanti set ha vinto ciascuno
+    $won1 = 0; $won2 = 0; $any = false;
+    foreach ($sets as $s) {
+        if (($s['p1'] ?? null) === null || ($s['p2'] ?? null) === null) continue;
+        $any = true;
+        $p1 = (float)$s['p1']; $p2 = (float)$s['p2'];
+        if ($p1 > $p2) $won1++;
+        elseif ($p2 > $p1) $won2++;
+    }
+    return [$won1, $won2, $any];
+}
+
+/**
+ * 🆕 Genera i gironi (round-robin) per un torneo parallelo: distribuisce i
+ * partecipanti nei gironi (a serpentina, per bilanciare) e crea tutte le
+ * partite del girone all-play-all — nessuno scheduling di campi/orari,
+ * pensato per giochi informali giocati "a mano libera" durante l'evento.
+ */
+function buildSideTournamentGroups(array $participants, int $numGroups): array {
+    $numGroups = max(1, $numGroups);
+    $groupLetters = range('A', 'Z');
+    $groups = [];
+    for ($i = 0; $i < $numGroups; $i++) {
+        $groups[] = ['group' => $groupLetters[$i] ?? ('G' . ($i + 1)), 'participantIds' => []];
+    }
+
+    // Distribuzione a serpentina (0,1,2...N,N,...2,1,0) per bilanciare meglio
+    // rispetto a un semplice modulo, quando il numero di iscritti non è
+    // multiplo esatto del numero di gironi.
+    $shuffled = $participants;
+    shuffle($shuffled);
+    $groupIdx = 0;
+    $direction = 1;
+    foreach ($shuffled as $p) {
+        $groups[$groupIdx]['participantIds'][] = $p['id'];
+        $groupIdx += $direction;
+        if ($groupIdx >= $numGroups) { $groupIdx = $numGroups - 1; $direction = -1; }
+        elseif ($groupIdx < 0) { $groupIdx = 0; $direction = 1; }
+    }
+
+    $matches = [];
+    foreach ($groups as $g) {
+        $ids = $g['participantIds'];
+        for ($i = 0; $i < count($ids); $i++) {
+            for ($j = $i + 1; $j < count($ids); $j++) {
+                $matches[] = [
+                    'id' => bin2hex(random_bytes(8)),
+                    'group' => $g['group'],
+                    'p1Id' => $ids[$i],
+                    'p2Id' => $ids[$j],
+                    'sets' => []
+                ];
+            }
+        }
+    }
+
+    return ['groups' => $groups, 'matches' => $matches];
+}
+
+/**
+ * 🆕 Calcola le classifiche di un girone (torneo parallelo): punti (2 per
+ * vittoria, 0 per sconfitta), poi differenza set/punti come spareggio —
+ * stessa logica del torneo principale, adattata al formato generico.
+ */
+function computeSideTournamentStandings(array $sideT, int $phaseIdx): array {
+    $phase = $sideT['phases'][$phaseIdx] ?? null;
+    if ($phase === null || ($phase['type'] ?? '') !== 'groups') return [];
+
+    $participantsById = [];
+    foreach ($sideT['participants'] as $p) { $participantsById[$p['id']] = $p; }
+    $matchFormat = $sideT['matchFormat'] ?? ['mode' => 'sets'];
+
+    $standings = [];
+    foreach ($phase['groups'] ?? [] as $g) {
+        $rows = [];
+        foreach ($g['participantIds'] as $pid) {
+            $rows[$pid] = [
+                'participantId' => $pid,
+                'name' => $participantsById[$pid]['name'] ?? '?',
+                'points' => 0, 'played' => 0, 'won' => 0, 'lost' => 0,
+                'scored' => 0, 'conceded' => 0, 'diff' => 0
+            ];
+        }
+
+        foreach ($phase['matches'] ?? [] as $m) {
+            if (($m['group'] ?? '') !== $g['group']) continue;
+            [$won1, $won2, $hasResult] = getSideMatchOutcome($m, $matchFormat);
+            if (!$hasResult) continue;
+            $p1 = $m['p1Id']; $p2 = $m['p2Id'];
+            if (!isset($rows[$p1]) || !isset($rows[$p2])) continue;
+
+            $rows[$p1]['played']++; $rows[$p2]['played']++;
+            $rows[$p1]['scored'] += $won1; $rows[$p1]['conceded'] += $won2;
+            $rows[$p2]['scored'] += $won2; $rows[$p2]['conceded'] += $won1;
+
+            if ($won1 > $won2) { $rows[$p1]['won']++; $rows[$p1]['points'] += 2; $rows[$p2]['lost']++; }
+            elseif ($won2 > $won1) { $rows[$p2]['won']++; $rows[$p2]['points'] += 2; $rows[$p1]['lost']++; }
+        }
+
+        foreach ($rows as &$r) { $r['diff'] = $r['scored'] - $r['conceded']; }
+        unset($r);
+
+        $rowsArr = array_values($rows);
+        usort($rowsArr, fn($a, $b) => $b['points'] <=> $a['points'] ?: $b['diff'] <=> $a['diff'] ?: $b['scored'] <=> $a['scored']);
+
+        $standings[] = ['group' => $g['group'], 'rows' => $rowsArr];
+    }
+
+    return $standings;
+}
+
+/**
+ * 🆕 Estrae le squadre/giocatori qualificati (e non) da una fase a gironi di
+ * un torneo parallelo — versione generica di getTeamsFromPhaseBranch().
+ */
+function getSideTournamentBranch(array $sideT, int $sourcePhaseNumber, int $advancePerGroup): array {
+    $phaseIdx = null;
+    foreach ($sideT['phases'] as $idx => $ph) {
+        if (($ph['phaseNumber'] ?? null) === $sourcePhaseNumber) { $phaseIdx = $idx; break; }
+    }
+    if ($phaseIdx === null) return ['qualified' => [], 'eliminated' => [], 'complete' => false];
+
+    $standings = computeSideTournamentStandings($sideT, $phaseIdx);
+    $qualified = []; $eliminated = []; $complete = !empty($standings);
+
+    foreach ($standings as $g) {
+        $expected = count($g['rows']) > 1 ? intdiv(count($g['rows']) * (count($g['rows']) - 1), 2) : 0;
+        $played = array_sum(array_column($g['rows'], 'played')) / 2;
+        if ($played < $expected) $complete = false;
+
+        foreach ($g['rows'] as $idx => $row) {
+            if ($idx < $advancePerGroup) $qualified[] = $row['participantId'];
+            else $eliminated[] = $row['participantId'];
+        }
+    }
+
+    return ['qualified' => $qualified, 'eliminated' => $eliminated, 'complete' => $complete];
+}
+
+/**
+ * 🆕 Genera un tabellone a eliminazione diretta (torneo parallelo) dai
+ * partecipanti indicati — semplice singola eliminazione con "bye" per chi
+ * non ha avversario quando il numero non è una potenza di 2.
+ */
+function buildSideTournamentKnockout(array $participantIds): array {
+    $ids = $participantIds;
+    shuffle($ids);
+    $n = count($ids);
+    if ($n === 0) return ['matches' => []];
+
+    // Prossima potenza di 2 >= n, il resto sono "bye" (passaggio diretto)
+    $bracketSize = 1;
+    while ($bracketSize < $n) $bracketSize *= 2;
+    $byes = $bracketSize - $n;
+
+    $slots = $ids;
+    for ($i = 0; $i < $byes; $i++) $slots[] = null; // bye
+
+    $matches = [];
+    $round = 1;
+    for ($i = 0; $i < count($slots); $i += 2) {
+        $p1 = $slots[$i];
+        $p2 = $slots[$i + 1] ?? null;
+        $matches[] = [
+            'id' => bin2hex(random_bytes(8)),
+            'round' => $round,
+            'label' => $bracketSize === 2 ? 'Finale' : "Turno $round",
+            'p1Id' => $p1,
+            'p2Id' => $p2,
+            'sets' => [],
+            // Un "bye" risulta già deciso: chi ha l'avversario nullo passa subito
+            'byeWinnerId' => ($p1 !== null && $p2 === null) ? $p1 : (($p2 !== null && $p1 === null) ? $p2 : null)
+        ];
+    }
+
+    return ['matches' => $matches, 'bracketSize' => $bracketSize];
 }
 
 /**
@@ -7056,6 +7326,439 @@ if ($action === 'vote_for_team' && $method === 'POST') {
         jsonResponse(409, ['ok' => false, 'error' => $errorMsg]);
     }
     jsonResponse(200, ['ok' => true]);
+}
+
+// ==================== 🆕 TORNEI PARALLELI (ping-pong, bocce, arcade, biglie...) ====================
+
+// Admin: crea un nuovo torneo parallelo
+if ($action === 'admin_create_side_tournament' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 100);
+    if ($name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il nome del torneo è obbligatorio']);
+    }
+
+    $newSide = defaultSideTournamentStructure();
+    $newSide['name'] = $name;
+
+    withSideTournamentsTransaction(function (&$list) use ($newSide) {
+        $list['sideTournaments'][] = $newSide;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'sideTournament' => $newSide]);
+}
+
+// Admin: elenco completo dei tornei paralleli (con partecipanti/fasi/partite)
+if ($action === 'admin_get_side_tournaments' && $method === 'GET') {
+    requireAdmin();
+    jsonResponse(200, ['ok' => true, 'sideTournaments' => readSideTournaments()]);
+}
+
+// Admin: aggiorna le impostazioni di un torneo parallelo
+if ($action === 'admin_update_side_tournament_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'id mancante']);
+    }
+
+    $found = false;
+    withSideTournamentsTransaction(function (&$list) use ($id, $body, &$found) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $id) continue;
+            $found = true;
+            if (isset($body['name'])) $s['name'] = mb_substr(trim((string)$body['name']), 0, 100);
+            if (isset($body['enabled'])) $s['enabled'] = (bool)$body['enabled'];
+            if (isset($body['signupOpen'])) $s['signupOpen'] = (bool)$body['signupOpen'];
+            if (isset($body['participantSource']) && in_array($body['participantSource'], ['registered', 'standalone', 'both'], true)) {
+                $s['participantSource'] = $body['participantSource'];
+            }
+            if (isset($body['matchFormat']) && is_array($body['matchFormat'])) {
+                $mf = $body['matchFormat'];
+                $s['matchFormat'] = [
+                    'mode' => in_array($mf['mode'] ?? 'sets', ['sets', 'single_score'], true) ? $mf['mode'] : 'sets',
+                    'bestOf' => max(1, (int)($mf['bestOf'] ?? 3)),
+                    'targetScore' => max(1, (int)($mf['targetScore'] ?? 11))
+                ];
+            }
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Torneo parallelo non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elimina un torneo parallelo
+if ($action === 'admin_delete_side_tournament' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+
+    withSideTournamentsTransaction(function (&$list) use ($id) {
+        $list['sideTournaments'] = array_values(array_filter($list['sideTournaments'] ?? [], fn($s) => ($s['id'] ?? '') !== $id));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: elenco dei giocatori già iscritti al torneo principale (per poterli
+// aggiungere come partecipanti a un torneo parallelo senza reinserirli a mano)
+if ($action === 'admin_get_registered_players_for_side_tournament' && $method === 'GET') {
+    requireAdmin();
+    $state = readJsonFile(DATA_FILE, ['teams' => []]);
+    $players = [];
+    foreach ($state['teams'] ?? [] as $t) {
+        if (empty($t['approved'])) continue;
+        foreach (($t['players'] ?? []) as $p) {
+            $pname = is_string($p) ? $p : ($p['name'] ?? '');
+            if ($pname === '') continue;
+            $players[] = ['name' => $pname, 'teamId' => $t['id'], 'teamName' => $t['name'] ?? ''];
+        }
+    }
+    jsonResponse(200, ['ok' => true, 'players' => $players]);
+}
+
+// Admin: aggiunge un partecipante (registrato o iscrizione libera) a un torneo parallelo
+if ($action === 'admin_add_side_tournament_participant' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 80);
+    $sourceType = in_array($body['sourceType'] ?? 'standalone', ['registered', 'standalone'], true) ? $body['sourceType'] : 'standalone';
+    $linkedTeamId = (string)($body['linkedTeamId'] ?? '');
+
+    if ($sideId === '' || $name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nome del partecipante obbligatorio']);
+    }
+
+    $found = false;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $name, $sourceType, $linkedTeamId, &$found) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            $found = true;
+            $s['participants'][] = [
+                'id' => bin2hex(random_bytes(8)),
+                'name' => $name,
+                'sourceType' => $sourceType,
+                'linkedTeamId' => $linkedTeamId !== '' ? $linkedTeamId : null
+            ];
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Torneo parallelo non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: rimuove un partecipante (solo se il torneo non ha ancora fasi generate)
+if ($action === 'admin_remove_side_tournament_participant' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $participantId = (string)($body['participantId'] ?? '');
+
+    $errorMsg = null;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $participantId, &$errorMsg) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            if (!empty($s['phases'])) {
+                $errorMsg = 'Non si possono rimuovere partecipanti dopo aver generato le fasi';
+                return [];
+            }
+            $s['participants'] = array_values(array_filter($s['participants'] ?? [], fn($p) => ($p['id'] ?? '') !== $participantId));
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Pubblico: iscrizione libera (standalone) a un torneo parallelo, se aperta
+if ($action === 'side_tournament_signup' && $method === 'POST') {
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 80);
+
+    if ($sideId === '' || $name === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nome obbligatorio']);
+    }
+
+    $errorMsg = null;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $name, &$errorMsg) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            if (empty($s['enabled']) || empty($s['signupOpen'])) {
+                $errorMsg = 'Le iscrizioni non sono aperte per questo torneo';
+                return [];
+            }
+            if (!in_array($s['participantSource'] ?? 'both', ['standalone', 'both'], true)) {
+                $errorMsg = 'Questo torneo non accetta iscrizioni libere';
+                return [];
+            }
+            $s['participants'][] = [
+                'id' => bin2hex(random_bytes(8)),
+                'name' => $name,
+                'sourceType' => 'standalone',
+                'linkedTeamId' => null
+            ];
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Admin: genera i gironi (fase 1) di un torneo parallelo dai partecipanti iscritti
+if ($action === 'admin_generate_side_tournament_groups' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $numGroups = max(1, (int)($body['numGroups'] ?? 1));
+
+    $errorMsg = null;
+    $updatedPhase = null;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $numGroups, &$errorMsg, &$updatedPhase) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            if (count($s['participants'] ?? []) < 2) {
+                $errorMsg = 'Servono almeno 2 partecipanti per generare i gironi';
+                return [];
+            }
+            $built = buildSideTournamentGroups($s['participants'], $numGroups);
+            $newPhase = [
+                'phaseNumber' => count($s['phases'] ?? []) + 1,
+                'name' => 'Gironi',
+                'type' => 'groups',
+                'groups' => $built['groups'],
+                'matches' => $built['matches']
+            ];
+            $s['phases'][] = $newPhase;
+            $updatedPhase = $newPhase;
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true, 'phase' => $updatedPhase]);
+}
+
+// Admin: crea una fase successiva (gironi o eliminazione diretta) da una
+// fase precedente, prendendo qualificati o eliminati — stesso concetto del
+// torneo principale, generalizzato.
+if ($action === 'admin_create_side_tournament_phase' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $sourcePhaseNumber = (int)($body['sourcePhaseNumber'] ?? 0);
+    $sourceBranch = in_array($body['sourceBranch'] ?? 'qualified', ['qualified', 'eliminated'], true) ? $body['sourceBranch'] : 'qualified';
+    $advancePerGroup = max(1, (int)($body['advancePerGroup'] ?? 2));
+    $type = in_array($body['type'] ?? 'knockout', ['groups', 'knockout'], true) ? $body['type'] : 'knockout';
+    $numGroups = max(1, (int)($body['numGroups'] ?? 1));
+    $phaseName = mb_substr(trim((string)($body['name'] ?? '')), 0, 60) ?: ($type === 'knockout' ? 'Tabellone' : 'Gironi');
+
+    $errorMsg = null;
+    $updatedPhase = null;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $sourcePhaseNumber, $sourceBranch, $advancePerGroup, $type, $numGroups, $phaseName, &$errorMsg, &$updatedPhase) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+
+            $branch = getSideTournamentBranch($s, $sourcePhaseNumber, $advancePerGroup);
+            if (!$branch['complete']) {
+                $errorMsg = 'La fase precedente non è ancora completa (mancano risultati)';
+                return [];
+            }
+            $participantIds = $branch[$sourceBranch] ?? [];
+            if (count($participantIds) < 2) {
+                $errorMsg = 'Servono almeno 2 partecipanti per generare questa fase';
+                return [];
+            }
+
+            $participantsById = [];
+            foreach ($s['participants'] as $p) { $participantsById[$p['id']] = $p; }
+            $participantsForBuild = array_map(fn($pid) => $participantsById[$pid], $participantIds);
+
+            $newPhaseNumber = count($s['phases'] ?? []) + 1;
+            if ($type === 'groups') {
+                $built = buildSideTournamentGroups($participantsForBuild, $numGroups);
+                $newPhase = [
+                    'phaseNumber' => $newPhaseNumber,
+                    'name' => $phaseName,
+                    'type' => 'groups',
+                    'groups' => $built['groups'],
+                    'matches' => $built['matches']
+                ];
+            } else {
+                $built = buildSideTournamentKnockout($participantIds);
+                $newPhase = [
+                    'phaseNumber' => $newPhaseNumber,
+                    'name' => $phaseName,
+                    'type' => 'knockout',
+                    'matches' => $built['matches']
+                ];
+            }
+
+            $s['phases'][] = $newPhase;
+            $updatedPhase = $newPhase;
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true, 'phase' => $updatedPhase]);
+}
+
+// Admin: inserisce/aggiorna il punteggio di una partita di un torneo parallelo
+if ($action === 'admin_update_side_match_score' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+    $matchId = (string)($body['matchId'] ?? '');
+    $sets = (array)($body['sets'] ?? []);
+
+    $sanitizedSets = [];
+    foreach ($sets as $set) {
+        $sanitizedSets[] = [
+            'p1' => isset($set['p1']) && $set['p1'] !== '' ? (float)$set['p1'] : null,
+            'p2' => isset($set['p2']) && $set['p2'] !== '' ? (float)$set['p2'] : null
+        ];
+    }
+
+    $found = false;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $phaseNumber, $matchId, $sanitizedSets, &$found) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            foreach ($s['phases'] as &$ph) {
+                if (($ph['phaseNumber'] ?? null) !== $phaseNumber) continue;
+                foreach ($ph['matches'] as &$m) {
+                    if (($m['id'] ?? '') !== $matchId) continue;
+                    $m['sets'] = $sanitizedSets;
+                    $found = true;
+                    break;
+                }
+                unset($m);
+                break;
+            }
+            unset($ph);
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Partita non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// Pubblico: elenco tornei paralleli abilitati (solo info essenziali)
+if ($action === 'get_public_side_tournaments' && $method === 'GET') {
+    $sideTournaments = readSideTournaments();
+    $public = array_values(array_map(function ($s) {
+        return [
+            'id' => $s['id'],
+            'name' => $s['name'],
+            'participantSource' => $s['participantSource'],
+            'signupOpen' => $s['signupOpen'],
+            'participantsCount' => count($s['participants'] ?? [])
+        ];
+    }, array_filter($sideTournaments, fn($s) => !empty($s['enabled']))));
+
+    jsonResponse(200, ['ok' => true, 'sideTournaments' => $public]);
+}
+
+// Pubblico: dettaglio completo di un torneo parallelo (partecipanti, fasi,
+// partite, classifiche già calcolate) — così la pagina pubblica non deve
+// rifare i calcoli.
+if ($action === 'get_side_tournament_detail' && $method === 'GET') {
+    $sideId = (string)($_GET['id'] ?? '');
+    $sideTournaments = readSideTournaments();
+
+    foreach ($sideTournaments as $s) {
+        if (($s['id'] ?? '') !== $sideId || empty($s['enabled'])) continue;
+
+        $participantsById = [];
+        foreach ($s['participants'] as $p) { $participantsById[$p['id']] = $p['name']; }
+
+        $phasesOut = [];
+        foreach ($s['phases'] as $idx => $ph) {
+            $phaseOut = [
+                'phaseNumber' => $ph['phaseNumber'],
+                'name' => $ph['name'],
+                'type' => $ph['type']
+            ];
+            if ($ph['type'] === 'groups') {
+                $phaseOut['standings'] = computeSideTournamentStandings($s, $idx);
+                $phaseOut['matches'] = array_map(function ($m) use ($participantsById, $s) {
+                    [$won1, $won2, $hasResult] = getSideMatchOutcome($m, $s['matchFormat']);
+                    return [
+                        'id' => $m['id'], 'group' => $m['group'],
+                        'p1Name' => $participantsById[$m['p1Id']] ?? '?', 'p2Name' => $participantsById[$m['p2Id']] ?? '?',
+                        'sets' => $m['sets'], 'hasResult' => $hasResult, 'won1' => $won1, 'won2' => $won2
+                    ];
+                }, $ph['matches']);
+            } else {
+                $phaseOut['matches'] = array_map(function ($m) use ($participantsById, $s) {
+                    [$won1, $won2, $hasResult] = getSideMatchOutcome($m, $s['matchFormat']);
+                    return [
+                        'id' => $m['id'], 'round' => $m['round'], 'label' => $m['label'],
+                        'p1Name' => $m['p1Id'] ? ($participantsById[$m['p1Id']] ?? '?') : null,
+                        'p2Name' => $m['p2Id'] ? ($participantsById[$m['p2Id']] ?? '?') : null,
+                        'byeWinnerName' => $m['byeWinnerId'] ? ($participantsById[$m['byeWinnerId']] ?? '?') : null,
+                        'sets' => $m['sets'], 'hasResult' => $hasResult, 'won1' => $won1, 'won2' => $won2
+                    ];
+                }, $ph['matches']);
+            }
+            $phasesOut[] = $phaseOut;
+        }
+
+        jsonResponse(200, [
+            'ok' => true,
+            'sideTournament' => [
+                'id' => $s['id'],
+                'name' => $s['name'],
+                'matchFormat' => $s['matchFormat'],
+                'participantSource' => $s['participantSource'],
+                'signupOpen' => $s['signupOpen'],
+                'participants' => array_map(fn($p) => ['id' => $p['id'], 'name' => $p['name']], $s['participants']),
+                'phases' => $phasesOut
+            ]
+        ]);
+    }
+
+    jsonResponse(404, ['ok' => false, 'error' => 'Torneo parallelo non trovato o non disponibile']);
 }
 
 // Pubblico: elenco eventi abilitati (solo info essenziali, niente prenotazioni)

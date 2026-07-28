@@ -890,6 +890,7 @@
         <button class="tab" data-page="gazette" onclick="showPage('gazette', this)">📰 Giornalino TODAY</button>
         <button class="tab" data-page="events" onclick="showPage('events', this)">🎉 Eventi</button>
         <button class="tab" data-page="predictions" onclick="showPage('predictions', this)">🌭 Pronostici</button>
+        <button class="tab" data-page="sideTournaments" onclick="showPage('sideTournaments', this)">🏓 Tornei Paralleli</button>
         <button class="tab" data-page="gallery" onclick="showPage('gallery', this)">🖼️ Gallery</button>
         <button class="tab" data-page="tools" onclick="showPage('tools', this)">Strumenti</button>
         <button class="tab" data-page="todo" onclick="showPage('todo', this)">✅ Preparazione</button>
@@ -1350,6 +1351,79 @@
         <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">🏆 Classifica gradimento squadre</h4>
           <div id="teamVotingLeaderboardContainer"></div>
+        </div>
+      </div>
+
+      <div id="page-sideTournaments" class="card page hidden">
+        <h3>🏓 Tornei Paralleli</h3>
+        <p class="muted">Tornei di qualunque gioco (ping-pong, bocce, arcade, biglie...) paralleli al torneo principale, con lo stesso motore di gironi/tabellone/classifiche.</p>
+
+        <div id="sideTListView">
+          <button class="btn btn-primary" onclick="createNewSideTournament()" style="margin-bottom: 12px">➕ Nuovo Torneo Parallelo</button>
+          <div id="sideTListContainer"></div>
+        </div>
+
+        <div id="sideTDetailView" style="display: none">
+          <button class="btn" onclick="backToSideTList()" style="margin-bottom: 12px">← Torna all'elenco</button>
+
+          <div class="card" style="background: #fff3e0; padding: 12px">
+            <h4 style="margin-top: 0">⚙️ Impostazioni</h4>
+            <div class="field">
+              <label>Nome</label>
+              <input id="sideTName" type="text" style="width: 100%">
+            </div>
+            <label style="display: block; margin-top: 8px"><input type="checkbox" id="sideTEnabled"> Abilitato nella home pubblica</label>
+            <label style="display: block; margin-top: 4px"><input type="checkbox" id="sideTSignupOpen"> Iscrizioni libere aperte</label>
+            <div class="field" style="margin-top: 8px">
+              <label>Da dove arrivano i partecipanti</label>
+              <select id="sideTParticipantSource" style="width: 100%; padding: 6px">
+                <option value="registered">Solo dai già iscritti al torneo principale</option>
+                <option value="standalone">Solo iscrizioni libere separate</option>
+                <option value="both">Entrambe</option>
+              </select>
+            </div>
+            <div class="row" style="gap: 12px; margin-top: 8px">
+              <div class="field" style="flex: 1">
+                <label>Formato punteggio</label>
+                <select id="sideTMatchMode" style="width: 100%; padding: 6px">
+                  <option value="sets">A set (es. ping-pong)</option>
+                  <option value="single_score">Punteggio singolo (es. bocce, arcade)</option>
+                </select>
+              </div>
+              <div class="field" style="flex: 1">
+                <label>Meglio di (n. set)</label>
+                <input id="sideTBestOf" type="number" min="1" value="3" style="width: 100%">
+              </div>
+              <div class="field" style="flex: 1">
+                <label>Punteggio vincente per set</label>
+                <input id="sideTTargetScore" type="number" min="1" value="11" style="width: 100%">
+              </div>
+            </div>
+            <button class="btn btn-green" onclick="saveSideTournamentSettings()" style="margin-top: 10px">💾 Salva Impostazioni</button>
+          </div>
+
+          <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🙋 Partecipanti</h4>
+            <div class="row" style="gap: 8px; margin-bottom: 10px; flex-wrap: wrap">
+              <input id="sideTNewParticipantName" type="text" placeholder="Nome partecipante" style="flex: 1; min-width: 150px; padding: 6px">
+              <button class="btn" onclick="addSideTournamentParticipant()">➕ Aggiungi</button>
+              <select id="sideTRegisteredPlayerSelect" style="flex: 1; min-width: 200px; padding: 6px">
+                <option value="">— oppure scegli tra i già iscritti —</option>
+              </select>
+              <button class="btn" onclick="addRegisteredPlayerAsParticipant()">➕ Aggiungi dai già iscritti</button>
+            </div>
+            <div id="sideTParticipantsContainer"></div>
+          </div>
+
+          <div class="card" style="background: #ede7f6; padding: 12px; margin-top: 12px">
+            <h4 style="margin-top: 0">🗓️ Fasi</h4>
+            <div class="row" style="gap: 8px; margin-bottom: 10px; flex-wrap: wrap">
+              <input id="sideTNumGroups" type="number" min="1" value="1" style="width: 90px; padding: 6px" title="Numero gironi">
+              <button class="btn btn-primary" onclick="generateSideTournamentGroups()">🎲 Genera Gironi (fase 1)</button>
+            </div>
+            <div id="sideTNextPhaseContainer"></div>
+            <div id="sideTPhasesContainer"></div>
+          </div>
         </div>
       </div>
 
@@ -2014,6 +2088,8 @@
         loadEventsList();
       } else if (page === 'predictions') {
         loadPredictionsPage();
+      } else if (page === 'sideTournaments') {
+        loadSideTournamentsList();
       } else if (page === 'todo') {
         loadAttendees();
       } else if (page === 'gallery') {
@@ -11133,6 +11209,333 @@ html += `
     let seatMapDrag = null; // stato del trascinamento in corso
 
     // ==================== 🆕 PRONOSTICI SCHERZOSI ====================
+    // ==================== 🆕 TORNEI PARALLELI ====================
+    let sideTournamentsData = [];
+    let currentSideT = null;
+    let registeredPlayersCache = [];
+
+    async function loadSideTournamentsList() {
+      try {
+        const result = await callApi('admin_get_side_tournaments', 'GET', null, true);
+        sideTournamentsData = result.sideTournaments || [];
+        renderSideTList();
+      } catch (e) {
+        console.error('Errore caricamento tornei paralleli:', e);
+      }
+    }
+
+    function renderSideTList() {
+      const container = document.getElementById('sideTListContainer');
+      if (!sideTournamentsData.length) {
+        container.innerHTML = '<p class="muted">Nessun torneo parallelo creato. Clicca "Nuovo Torneo Parallelo" per iniziare.</p>';
+        return;
+      }
+      container.innerHTML = sideTournamentsData.map(s => {
+        const lastPhase = (s.phases || [])[s.phases.length - 1];
+        return `
+        <div class="card" style="background: white; padding: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px">
+          <div>
+            <strong>${escapeHtml(s.name)}</strong>
+            <span class="badge ${s.enabled ? 'ok' : 'no'}" style="margin-left: 6px">${s.enabled ? 'Abilitato' : 'Disabilitato'}</span>
+            <div style="font-size: 12px; color: #666; margin-top: 2px">${(s.participants || []).length} partecipanti · ${(s.phases || []).length} fasi generate${lastPhase ? ' · ultima: ' + escapeHtml(lastPhase.name) : ''}</div>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" onclick="openSideTDetail('${s.id}')">⚙️ Gestisci</button>
+            <button class="btn btn-danger" onclick="deleteSideTournament('${s.id}')">🗑️</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function createNewSideTournament() {
+      const name = prompt('Nome del nuovo torneo parallelo (es: "Torneo di Ping-Pong"):');
+      if (!name || !name.trim()) return;
+      try {
+        const result = await callApi('admin_create_side_tournament', 'POST', { name: name.trim() }, true);
+        sideTournamentsData.push(result.sideTournament);
+        openSideTDetail(result.sideTournament.id);
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function deleteSideTournament(id) {
+      const confirmed = await showConfirmDialog('Elimina torneo parallelo', 'Vuoi davvero eliminare questo torneo parallelo e tutti i suoi dati? L\'azione non può essere annullata.');
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_side_tournament', 'POST', { id }, true);
+        await loadSideTournamentsList();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function openSideTDetail(id) {
+      currentSideT = sideTournamentsData.find(s => s.id === id);
+      if (!currentSideT) return;
+
+      document.getElementById('sideTListView').style.display = 'none';
+      document.getElementById('sideTDetailView').style.display = 'block';
+
+      document.getElementById('sideTName').value = currentSideT.name || '';
+      document.getElementById('sideTEnabled').checked = !!currentSideT.enabled;
+      document.getElementById('sideTSignupOpen').checked = !!currentSideT.signupOpen;
+      document.getElementById('sideTParticipantSource').value = currentSideT.participantSource || 'both';
+      document.getElementById('sideTMatchMode').value = currentSideT.matchFormat?.mode || 'sets';
+      document.getElementById('sideTBestOf').value = currentSideT.matchFormat?.bestOf || 3;
+      document.getElementById('sideTTargetScore').value = currentSideT.matchFormat?.targetScore || 11;
+
+      renderSideTParticipants();
+      renderSideTPhases();
+      loadRegisteredPlayersDropdown();
+    }
+
+    function backToSideTList() {
+      document.getElementById('sideTDetailView').style.display = 'none';
+      document.getElementById('sideTListView').style.display = 'block';
+      currentSideT = null;
+      loadSideTournamentsList();
+    }
+
+    async function saveSideTournamentSettings() {
+      if (!currentSideT) return;
+      try {
+        const payload = {
+          id: currentSideT.id,
+          name: document.getElementById('sideTName').value.trim(),
+          enabled: document.getElementById('sideTEnabled').checked,
+          signupOpen: document.getElementById('sideTSignupOpen').checked,
+          participantSource: document.getElementById('sideTParticipantSource').value,
+          matchFormat: {
+            mode: document.getElementById('sideTMatchMode').value,
+            bestOf: parseInt(document.getElementById('sideTBestOf').value) || 3,
+            targetScore: parseInt(document.getElementById('sideTTargetScore').value) || 11
+          }
+        };
+        await callApi('admin_update_side_tournament_settings', 'POST', payload, true);
+        Object.assign(currentSideT, payload);
+        await showInfoDialog('✅ Salvato', 'Impostazioni salvate.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function loadRegisteredPlayersDropdown() {
+      try {
+        const result = await callApi('admin_get_registered_players_for_side_tournament', 'GET', null, true);
+        registeredPlayersCache = result.players || [];
+        const select = document.getElementById('sideTRegisteredPlayerSelect');
+        select.innerHTML = '<option value="">— oppure scegli tra i già iscritti —</option>' +
+          registeredPlayersCache.map((p, idx) => `<option value="${idx}">${escapeHtml(p.name)} (${escapeHtml(p.teamName)})</option>`).join('');
+      } catch (e) {
+        console.error('Errore caricamento giocatori iscritti:', e);
+      }
+    }
+
+    function renderSideTParticipants() {
+      const container = document.getElementById('sideTParticipantsContainer');
+      const participants = currentSideT?.participants || [];
+      const hasPhases = (currentSideT?.phases || []).length > 0;
+      if (!participants.length) {
+        container.innerHTML = '<p class="muted">Nessun partecipante ancora aggiunto.</p>';
+        return;
+      }
+      container.innerHTML = participants.map(p => `
+        <span class="badge" style="background: ${p.sourceType === 'registered' ? '#1976d2' : '#7b1fa2'}; color: white; margin: 3px; display: inline-flex; align-items: center; gap: 6px">
+          ${escapeHtml(p.name)} ${p.sourceType === 'registered' ? '(iscritto)' : '(libero)'}
+          ${!hasPhases ? `<span onclick="removeSideTournamentParticipant('${p.id}')" style="cursor: pointer; font-weight: bold">✕</span>` : ''}
+        </span>
+      `).join('');
+    }
+
+    async function addSideTournamentParticipant() {
+      const input = document.getElementById('sideTNewParticipantName');
+      const name = input.value.trim();
+      if (!name || !currentSideT) return;
+      try {
+        await callApi('admin_add_side_tournament_participant', 'POST', { sideId: currentSideT.id, name, sourceType: 'standalone' }, true);
+        currentSideT.participants.push({ id: 'tmp_' + Date.now(), name, sourceType: 'standalone' });
+        input.value = '';
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function addRegisteredPlayerAsParticipant() {
+      const select = document.getElementById('sideTRegisteredPlayerSelect');
+      const idx = select.value;
+      if (idx === '' || !currentSideT) return;
+      const player = registeredPlayersCache[idx];
+      try {
+        await callApi('admin_add_side_tournament_participant', 'POST', { sideId: currentSideT.id, name: player.name, sourceType: 'registered', linkedTeamId: player.teamId }, true);
+        select.value = '';
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function removeSideTournamentParticipant(participantId) {
+      if (!currentSideT) return;
+      try {
+        await callApi('admin_remove_side_tournament_participant', 'POST', { sideId: currentSideT.id, participantId }, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function refreshCurrentSideT() {
+      const id = currentSideT.id;
+      const result = await callApi('admin_get_side_tournaments', 'GET', null, true);
+      sideTournamentsData = result.sideTournaments || [];
+      currentSideT = sideTournamentsData.find(s => s.id === id);
+      renderSideTParticipants();
+      renderSideTPhases();
+    }
+
+    async function generateSideTournamentGroups() {
+      if (!currentSideT) return;
+      const numGroups = parseInt(document.getElementById('sideTNumGroups').value) || 1;
+      try {
+        await callApi('admin_generate_side_tournament_groups', 'POST', { sideId: currentSideT.id, numGroups }, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function renderSideTPhases() {
+      const container = document.getElementById('sideTPhasesContainer');
+      const phases = currentSideT?.phases || [];
+      const participantsById = {};
+      (currentSideT?.participants || []).forEach(p => participantsById[p.id] = p.name);
+      const matchFormat = currentSideT?.matchFormat || { mode: 'sets', bestOf: 3 };
+
+      if (!phases.length) {
+        container.innerHTML = '';
+        renderSideTNextPhaseControls();
+        return;
+      }
+
+      container.innerHTML = phases.map((ph, phIdx) => {
+        let bodyHtml = '';
+        if (ph.type === 'groups') {
+          bodyHtml = (ph.groups || []).map(g => {
+            const groupMatches = (ph.matches || []).filter(m => m.group === g.group);
+            return `
+              <div style="margin-bottom: 10px">
+                <strong>Girone ${escapeHtml(g.group)}</strong>
+                ${groupMatches.map(m => renderSideMatchRow(m, ph.phaseNumber, participantsById, matchFormat)).join('')}
+              </div>
+            `;
+          }).join('');
+        } else {
+          bodyHtml = (ph.matches || []).map(m => renderSideMatchRow(m, ph.phaseNumber, participantsById, matchFormat)).join('');
+        }
+
+        return `
+          <div class="card" style="background: #fafafa; padding: 10px; margin-bottom: 10px">
+            <h5 style="margin: 0 0 8px 0">Fase ${ph.phaseNumber}: ${escapeHtml(ph.name)} (${ph.type === 'groups' ? 'Gironi' : 'Eliminazione diretta'})</h5>
+            ${bodyHtml}
+          </div>
+        `;
+      }).join('');
+
+      renderSideTNextPhaseControls();
+    }
+
+    function renderSideMatchRow(m, phaseNumber, participantsById, matchFormat) {
+      const p1Name = m.p1Id ? (participantsById[m.p1Id] || '?') : (m.byeWinnerId ? `${participantsById[m.byeWinnerId] || '?'} (bye)` : '—');
+      const p2Name = m.p2Id ? (participantsById[m.p2Id] || '?') : (m.byeWinnerId ? '' : (m.p1Id ? '—' : ''));
+      if (m.byeWinnerId) {
+        return `<div style="padding: 4px 0; color: #888; font-size: 13px">${escapeHtml(p1Name)} — passa il turno</div>`;
+      }
+      const numSets = matchFormat.mode === 'single_score' ? 1 : (matchFormat.bestOf || 3);
+      const existingSets = m.sets || [];
+      let setsInputsHtml = '';
+      for (let i = 0; i < numSets; i++) {
+        const s = existingSets[i] || {};
+        setsInputsHtml += `<input type="number" id="sideSet_${m.id}_${i}_p1" value="${s.p1 ?? ''}" style="width: 45px; padding: 3px" placeholder="-">`;
+        setsInputsHtml += ` - `;
+        setsInputsHtml += `<input type="number" id="sideSet_${m.id}_${i}_p2" value="${s.p2 ?? ''}" style="width: 45px; padding: 3px" placeholder="-">`;
+        setsInputsHtml += ' &nbsp; ';
+      }
+      return `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; font-size: 13px">
+          <span style="min-width: 140px">${escapeHtml(p1Name)} vs ${escapeHtml(p2Name)}</span>
+          ${setsInputsHtml}
+          <button class="btn" style="padding: 3px 8px; font-size: 12px" onclick="saveSideMatchScore('${phaseNumber}', '${m.id}', ${numSets})">💾</button>
+        </div>
+      `;
+    }
+
+    async function saveSideMatchScore(phaseNumber, matchId, numSets) {
+      if (!currentSideT) return;
+      const sets = [];
+      for (let i = 0; i < numSets; i++) {
+        const p1 = document.getElementById(`sideSet_${matchId}_${i}_p1`)?.value;
+        const p2 = document.getElementById(`sideSet_${matchId}_${i}_p2`)?.value;
+        if (p1 === '' && p2 === '') continue;
+        sets.push({ p1: p1 === '' ? null : p1, p2: p2 === '' ? null : p2 });
+      }
+      try {
+        await callApi('admin_update_side_match_score', 'POST', { sideId: currentSideT.id, phaseNumber: parseInt(phaseNumber), matchId, sets }, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    function renderSideTNextPhaseControls() {
+      const container = document.getElementById('sideTNextPhaseContainer');
+      const phases = currentSideT?.phases || [];
+      const lastPhase = phases[phases.length - 1];
+      if (!lastPhase || lastPhase.type !== 'groups') {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = `
+        <div style="background: #fff3e0; padding: 10px; border-radius: 6px; margin-bottom: 10px">
+          <strong>➡️ Genera fase successiva dalla Fase ${lastPhase.phaseNumber}</strong>
+          <div class="row" style="gap: 8px; margin-top: 8px; flex-wrap: wrap">
+            <select id="sideTNextSourceBranch" style="padding: 6px">
+              <option value="qualified">Qualificati (primi N per girone)</option>
+              <option value="eliminated">Eliminati (il resto)</option>
+            </select>
+            <input id="sideTNextAdvancePerGroup" type="number" min="1" value="2" style="width: 70px; padding: 6px" title="Quanti per girone">
+            <select id="sideTNextType" style="padding: 6px">
+              <option value="knockout">Eliminazione diretta</option>
+              <option value="groups">Gironi</option>
+            </select>
+            <input id="sideTNextNumGroups" type="number" min="1" value="1" style="width: 70px; padding: 6px" title="Numero gironi (se gironi)">
+            <input id="sideTNextName" type="text" placeholder="Nome fase (es: Finale)" style="padding: 6px; flex: 1; min-width: 120px">
+            <button class="btn btn-primary" onclick="createSideTournamentNextPhase(${lastPhase.phaseNumber})">🎲 Genera</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function createSideTournamentNextPhase(sourcePhaseNumber) {
+      if (!currentSideT) return;
+      try {
+        const payload = {
+          sideId: currentSideT.id,
+          sourcePhaseNumber,
+          sourceBranch: document.getElementById('sideTNextSourceBranch').value,
+          advancePerGroup: parseInt(document.getElementById('sideTNextAdvancePerGroup').value) || 2,
+          type: document.getElementById('sideTNextType').value,
+          numGroups: parseInt(document.getElementById('sideTNextNumGroups').value) || 1,
+          name: document.getElementById('sideTNextName').value.trim()
+        };
+        await callApi('admin_create_side_tournament_phase', 'POST', payload, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     async function loadPredictionsPage() {
       document.getElementById('predictionsEnabled').checked = config.predictions?.enabled || false;
       document.getElementById('predictionsPrizeLabel').value = config.predictions?.prizeLabel || 'salamella';

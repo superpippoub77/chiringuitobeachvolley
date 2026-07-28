@@ -1211,6 +1211,7 @@
         <a href="#" id="navPaymentLink" class="main-nav-link" data-tab-key="payment" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
         <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" data-tab-key="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
         <a href="#" id="navPredictionsLink" class="main-nav-link" data-phase="predictions" data-tab-key="predictions" style="display: none" onclick="showPhase('predictions'); loadPredictionsForPublic(); return false;">🌭 <span data-i18n="nav_predictions">Pronostici</span></a>
+        <a href="#" id="navSideTLink" class="main-nav-link" data-phase="sideTournaments" data-tab-key="sideTournaments" style="display: none" onclick="showPhase('sideTournaments'); loadSideTournamentsForPublic(); return false;">🏓 <span data-i18n="nav_side_tournaments">Tornei Paralleli</span></a>
         <a href="#" class="main-nav-link" data-tab-key="contact" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
         <a href="regolamento.html" target="_blank" class="main-nav-link" data-tab-key="rules">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
@@ -1229,6 +1230,7 @@
       <section class="page" id="page-shop"></section>
       <section class="page" id="page-events"></section>
       <section class="page" id="page-predictions"></section>
+      <section class="page" id="page-sideTournaments"></section>
 
       <footer>
         <a href="policy.html" target="_blank">Privacy Policy</a>
@@ -3680,6 +3682,134 @@
     // ==================== 🆕 PRONOSTICI SCHERZOSI (public) ====================
     let predictionsPrizeLabel = 'salamella';
 
+    // ==================== 🆕 TORNEI PARALLELI (public) ====================
+    async function checkSideTournamentsAvailability() {
+      try {
+        const response = await fetch(`${API}?action=get_public_side_tournaments`);
+        const data = await response.json();
+        const navLink = document.getElementById('navSideTLink');
+        if (navLink) navLink.style.display = (data.ok && data.sideTournaments?.length) ? 'inline-block' : 'none';
+      } catch (e) {
+        console.error('Errore verifica tornei paralleli:', e);
+      }
+    }
+
+    async function loadSideTournamentsForPublic() {
+      const container = document.getElementById('page-sideTournaments');
+      container.innerHTML = `<h3>🏓 Tornei Paralleli</h3><p class="muted">Caricamento...</p>`;
+      try {
+        const response = await fetch(`${API}?action=get_public_side_tournaments`);
+        const data = await response.json();
+        const list = data.sideTournaments || [];
+        if (!list.length) {
+          container.innerHTML = `<h3>🏓 Tornei Paralleli</h3><p class="muted">Nessun torneo parallelo disponibile al momento.</p>`;
+          return;
+        }
+        container.innerHTML = `<h3>🏓 Tornei Paralleli</h3>` + list.map(s => `
+          <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 12px">
+            <strong style="font-size: 16px">${esc(s.name)}</strong>
+            <div style="font-size: 13px; color: #666; margin-top: 4px">${s.participantsCount} partecipanti${s.signupOpen ? ' · iscrizioni aperte' : ''}</div>
+            <button class="btn" style="background: #00897b; color: white; margin-top: 10px" onclick="openSideTournamentPublicDetail('${s.id}')">🏓 Vedi dettagli</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = `<h3>🏓 Tornei Paralleli</h3><p class="muted">Errore di caricamento.</p>`;
+      }
+    }
+
+    async function openSideTournamentPublicDetail(id) {
+      const container = document.getElementById('page-sideTournaments');
+      try {
+        const response = await fetch(`${API}?action=get_side_tournament_detail&id=${encodeURIComponent(id)}`);
+        const data = await response.json();
+        if (!data.ok) {
+          container.innerHTML = `<p class="muted">${esc(data.error || 'Torneo non disponibile')}</p>`;
+          return;
+        }
+        renderSideTournamentPublicDetail(data.sideTournament);
+      } catch (e) {
+        container.innerHTML = `<p class="muted">Errore di connessione.</p>`;
+      }
+    }
+
+    function renderSideTournamentPublicDetail(s) {
+      const container = document.getElementById('page-sideTournaments');
+      const canSignup = s.signupOpen && ['standalone', 'both'].includes(s.participantSource);
+
+      const signupHtml = canSignup ? `
+        <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 16px">
+          <strong>🙋 Iscriviti</strong>
+          <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
+            <input id="sideTSignupName" type="text" placeholder="Il tuo nome" style="flex: 1; min-width: 140px; padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+            <button class="btn" style="background: #2e7d32; color: white" onclick="submitSideTournamentSignup('${s.id}')">Iscriviti</button>
+          </div>
+          <div id="sideTSignupStatus" style="font-size: 13px; margin-top: 6px"></div>
+        </div>
+      ` : '';
+
+      const participantsHtml = `<p style="font-size: 13px; color: #666">Partecipanti: ${s.participants.map(p => esc(p.name)).join(', ') || 'Nessuno ancora'}</p>`;
+
+      const phasesHtml = (s.phases || []).map(ph => {
+        if (ph.type === 'groups') {
+          const groupsHtml = (ph.standings || []).map(g => `
+            <div style="margin-bottom: 14px">
+              <strong>Girone ${esc(g.group)}</strong>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13px">
+                <thead><tr style="background: #f0f0f0"><th style="text-align:left; padding:4px">#</th><th style="text-align:left; padding:4px">Nome</th><th style="padding:4px">Punti</th><th style="padding:4px">V</th><th style="padding:4px">S</th></tr></thead>
+                <tbody>${g.rows.map((r, i) => `<tr><td style="padding:4px">${i + 1}</td><td style="padding:4px">${esc(r.name)}</td><td style="text-align:center; padding:4px; font-weight:bold">${r.points}</td><td style="text-align:center; padding:4px">${r.won}</td><td style="text-align:center; padding:4px">${r.lost}</td></tr>`).join('')}</tbody>
+              </table>
+            </div>
+          `).join('');
+          const matchesHtml = `<details style="margin-top: 6px"><summary style="cursor:pointer; font-size:13px; color:#666">Vedi tutte le partite</summary>
+            ${(ph.matches || []).map(m => `<div style="font-size: 13px; padding: 3px 0">${esc(m.p1Name)} vs ${esc(m.p2Name)}: ${m.hasResult ? `<strong>${m.won1} - ${m.won2}</strong>` : '<em>da giocare</em>'}</div>`).join('')}
+          </details>`;
+          return `<div style="margin-bottom: 20px"><h4>Fase ${ph.phaseNumber}: ${esc(ph.name)}</h4>${groupsHtml}${matchesHtml}</div>`;
+        } else {
+          const matchesHtml = (ph.matches || []).map(m => {
+            if (m.byeWinnerName) return `<div style="padding: 4px 0; color: #888; font-size: 13px">${esc(m.byeWinnerName)} — passa il turno</div>`;
+            return `<div style="padding: 4px 0; font-size: 13px">${esc(m.p1Name || '?')} vs ${esc(m.p2Name || '?')}: ${m.hasResult ? `<strong>${m.won1} - ${m.won2}</strong>` : '<em>da giocare</em>'}</div>`;
+          }).join('');
+          return `<div style="margin-bottom: 20px"><h4>Fase ${ph.phaseNumber}: ${esc(ph.name)} (Eliminazione diretta)</h4>${matchesHtml}</div>`;
+        }
+      }).join('');
+
+      container.innerHTML = `
+        <button class="btn" onclick="loadSideTournamentsForPublic()" style="margin-bottom: 12px">← Torna ai tornei paralleli</button>
+        <h3>🏓 ${esc(s.name)}</h3>
+        ${participantsHtml}
+        ${signupHtml}
+        ${phasesHtml || '<p class="muted">Le fasi non sono ancora state generate.</p>'}
+      `;
+    }
+
+    async function submitSideTournamentSignup(sideId) {
+      const statusEl = document.getElementById('sideTSignupStatus');
+      const name = document.getElementById('sideTSignupName')?.value.trim();
+      if (!name) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci il tuo nome.';
+        return;
+      }
+      try {
+        const response = await fetch(`${API}?action=side_tournament_signup`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sideId, name })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Errore iscrizione';
+          return;
+        }
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = `✅ Iscrizione confermata, ${name}!`;
+        setTimeout(() => openSideTournamentPublicDetail(sideId), 1200);
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
     async function checkPredictionsAvailability() {
       try {
         const response = await fetch(`${API}?action=get_predictable_matches`);
@@ -4781,6 +4911,7 @@
     loadPaymentStatus();
     checkEventsAvailability();
     checkPredictionsAvailability();
+    checkSideTournamentsAvailability();
 
     // ==================== NEWS SECTION ====================
 

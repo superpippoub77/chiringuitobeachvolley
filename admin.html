@@ -12215,6 +12215,16 @@ html += `
           </div>
 
           <div class="field" style="margin-top: 8px">
+            <label>🎉 Eventi di oggi — voci (una per riga)</label>
+            <textarea id="gzEventsItems" rows="3" style="width: 100%">${escapeHtml((g.eventsSection?.items || []).join('\n'))}</textarea>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
+            <label>🏓 Tornei Paralleli — voci (una per riga)</label>
+            <textarea id="gzSideTItems" rows="3" style="width: 100%">${escapeHtml((g.sideTournamentsSection?.items || []).join('\n'))}</textarea>
+          </div>
+
+          <div class="field" style="margin-top: 8px">
             <label>🌤️ Meteo (calcolato automaticamente da posizione GPS)</label>
             <div style="padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 13px">${escapeHtml(weatherText)}</div>
           </div>
@@ -12258,6 +12268,14 @@ html += `
         g.photoServiceSection = {
           title: currentGazette.photoServiceSection?.title || '📸 Stampa la tua foto',
           text: document.getElementById('gzPhotoText').value.trim()
+        };
+        g.eventsSection = {
+          title: currentGazette.eventsSection?.title || '🎉 Eventi di oggi',
+          items: document.getElementById('gzEventsItems').value.split('\n').map(s => s.trim()).filter(Boolean)
+        };
+        g.sideTournamentsSection = {
+          title: currentGazette.sideTournamentsSection?.title || '🏓 Tornei Paralleli',
+          items: document.getElementById('gzSideTItems').value.split('\n').map(s => s.trim()).filter(Boolean)
         };
         g.curiosities = document.getElementById('gzCuriosities').value.split('\n').map(s => s.trim()).filter(Boolean);
         g.footerServices = document.getElementById('gzFooterServices').value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -12336,6 +12354,14 @@ html += `
               <h4>${escapeHtml(g.photoServiceSection?.title || '')}</h4>
               <p>${escapeHtml(g.photoServiceSection?.text || '')}</p>
             </div>
+            ${g.eventsSection?.items?.length ? `<div class="gz-footer-block">
+              <h4>${escapeHtml(g.eventsSection.title || '🎉 Eventi di oggi')}</h4>
+              ${listHtml(g.eventsSection.items)}
+            </div>` : ''}
+            ${g.sideTournamentsSection?.items?.length ? `<div class="gz-footer-block">
+              <h4>${escapeHtml(g.sideTournamentsSection.title || '🏓 Tornei Paralleli')}</h4>
+              ${listHtml(g.sideTournamentsSection.items)}
+            </div>` : ''}
             <div class="gz-footer-block">
               <h4>🌤️ Meteo di oggi</h4>
               <p>${weatherHtml}</p>

@@ -2912,6 +2912,17 @@ function buildGazetteContent(array $config, array $state): array {
     $sportLabels = ['beachvolley' => 'Beach Volley', 'beachtennis' => 'Beach Tennis', 'beachsoccer' => 'Beach Soccer'];
     $sportLabel = $sportLabels[$tournament['sportType'] ?? 'beachvolley'] ?? 'Beach Volley';
 
+    // 🆕 Eventi indipendenti dal torneo (cene, serate, ecc.), solo quelli abilitati
+    $events = array_values(array_filter(readEvents(), fn($e) => !empty($e['enabled'])));
+    $eventsSummary = array_map(function ($e) {
+        $when = trim(($e['date'] ?? '') . ' ' . ($e['time'] ?? ''));
+        return trim($e['name'] . ($when !== '' ? " ($when)" : ''));
+    }, $events);
+
+    // 🆕 Tornei paralleli abilitati (ping-pong, bocce, arcade, ecc.)
+    $sideTournaments = array_values(array_filter(readSideTournaments(), fn($s) => !empty($s['enabled'])));
+    $sideTournamentsSummary = array_map(fn($s) => $s['name'] . ' (' . count($s['participants'] ?? []) . ' partecipanti)', $sideTournaments);
+
     return [
         'title' => 'TODAY',
         'subtitle' => $tournament['name'] ?? 'Il Torneo',
@@ -2936,6 +2947,16 @@ function buildGazetteContent(array $config, array $state): array {
                 ? 'Scatta, scegli la tua foto preferita dalla galleria (o caricane una tua), applica una cornice del torneo e portala a casa: stampala o scaricala direttamente dal sito!'
                 : ''
         ],
+        // 🆕 Eventi della giornata (cene, serate, ecc.), solo se ce n'è almeno uno abilitato
+        'eventsSection' => [
+            'title' => '🎉 Eventi di oggi',
+            'items' => $eventsSummary
+        ],
+        // 🆕 Tornei paralleli, solo se ce n'è almeno uno abilitato
+        'sideTournamentsSection' => [
+            'title' => '🏓 Tornei Paralleli',
+            'items' => $sideTournamentsSummary
+        ],
         'weather' => $weather,
         'locationName' => $tournament['locationName'] ?? '',
         'curiosities' => [],
@@ -2944,6 +2965,11 @@ function buildGazetteContent(array $config, array $state): array {
             !empty($shopCategories) ? '🍹 Bar con ordini e pagamento online' : null,
             !empty($config['photoFrames']['enabled']) ? '📸 Stampa foto ricordo' : null,
             !empty($config['attendanceSettings']['enabled']) ? '🎟️ Partecipazione spettatori' : null,
+            // 🆕 Nuovi servizi aggiunti da allora, elencati solo se effettivamente attivi
+            !empty($config['predictions']['enabled']) ? '🌭 Pronostici sulle partite' : null,
+            !empty($config['teamVoting']['enabled']) ? '⭐ Vota la tua squadra preferita' : null,
+            !empty($events) ? '🎉 Eventi speciali del torneo' : null,
+            !empty($sideTournaments) ? '🏓 Tornei paralleli (ping-pong, bocce e altro)' : null,
         ])),
         'generatedAt' => date('c')
     ];

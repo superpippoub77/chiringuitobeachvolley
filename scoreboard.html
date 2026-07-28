@@ -1915,28 +1915,32 @@
         const weight = getTeamWeight(t);
         const weightColor = getWeightColor(weight);
 
-        // 🆕 Badge "NEW" per le squadre iscritte di recente (ultime 48 ore)
+        // 🆕 Badge "NEW" spostato in alto a sinistra (inizio della riga),
+        // per lasciare libero l'angolo in alto a destra alla stellina livello
         const isNew = t.createdAt && (Date.now() - new Date(t.createdAt).getTime()) < 48 * 60 * 60 * 1000;
         const newBadgeHtml = isNew
-          ? `<div style="position: absolute; top: -10px; right: -8px; background: #e53935; color: #fff; font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 4px; transform: rotate(-8deg); box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 1; letter-spacing: 0.5px">NEW</div>`
+          ? `<div style="position: absolute; top: -10px; left: -8px; background: #e53935; color: #fff; font-weight: 800; font-size: 11px; padding: 3px 10px; border-radius: 4px; transform: rotate(8deg); box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 1; letter-spacing: 0.5px">NEW</div>`
           : '';
+
+        // 🆕 Livello medio come stellina con il numero dentro, al posto del
+        // badge NEW — ora in alto a destra della scheda.
+        const levelStarHtml = `<div title="${i18n('team_avg_level')}: ${weight}"
+          style="position: absolute; top: -10px; right: -8px; width: 30px; height: 30px; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); background: ${weightColor}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; z-index: 1">${weight}</div>`;
 
         // 🆕 Spunta di stato al posto del testo "Confermata"/"In attesa":
         // verde se confermata, gialla se in attesa — in basso a destra della
-        // scheda, speculare al badge NEW che sta in alto a destra.
+        // scheda, speculare al badge NEW che sta in alto a sinistra.
         const statusCheckHtml = `<div title="${t.approved ? i18n('team_confirmed') : i18n('stat_pending')}"
           style="position: absolute; bottom: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; background: ${t.approved ? '#43a047' : '#fbc02d'}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; box-shadow: 0 2px 5px rgba(0,0,0,0.25); z-index: 1; border: 2px solid #fff">✓</div>`;
 
         return `<div class="team" style="position: relative; border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: #fafafa; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start">
           ${newBadgeHtml}
+          ${levelStarHtml}
           ${statusCheckHtml}
           <div style="min-width: 160px; flex-shrink: 0">
             <strong style="font-size: 15px">${esc(t.name)}</strong>
             <div style="margin-top: 4px">
               ${t.dummy ? `<span class="badge" style="background:#d8c39f;color:#1d1a13">${i18n('team_dummy')}</span>` : ''}
-            </div>
-            <div style="margin-top: 6px">
-              <span class="badge" style="background: ${weightColor}; color: white; font-weight: bold">⚖️ ${i18n('team_avg_level')}: ${weight}</span>
             </div>
           </div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1">

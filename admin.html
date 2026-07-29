@@ -1663,6 +1663,7 @@
 
         <div class="row" style="margin-top: 10px; gap: 8px">
           <input id="todoNewText" type="text" placeholder="Es: Confermare disponibilità campi con il comune" maxlength="200" style="flex: 1" onkeypress="if(event.key==='Enter') addTodoItem()">
+          <input id="todoNewHours" type="number" min="0" step="0.5" placeholder="Ore" title="Ore stimate" style="width: 80px">
           <button class="btn btn-primary" onclick="addTodoItem()">➕ Aggiungi</button>
         </div>
 
@@ -2360,6 +2361,15 @@
         ? Math.round(activeItems.reduce((sum, i) => sum + (i.completionPercent ?? (i.done ? 100 : 0)), 0) / total)
         : 0;
 
+      // 🆕 Ore rimanenti stimate: per ogni punto, le ore stimate scalano con
+      // quanto manca al 100% — un punto già al 60% ha solo il 40% delle sue
+      // ore ancora da fare. Si aggiorna da solo insieme alla percentuale.
+      const totalEstimatedHours = activeItems.reduce((sum, i) => sum + (i.estimatedHours || 0), 0);
+      const remainingHours = activeItems.reduce((sum, i) => {
+        const pct = i.completionPercent ?? (i.done ? 100 : 0);
+        return sum + (i.estimatedHours || 0) * (1 - pct / 100);
+      }, 0);
+
       bar.innerHTML = total > 0 ? `
         <div style="display: flex; justify-content: space-between; font-size: 13px; color: #6a5737; margin-bottom: 4px">
           <span>${activeItems.filter(i => (i.completionPercent ?? 0) === 100).length} di ${total} al 100%</span>
@@ -2368,6 +2378,7 @@
         <div style="background: #eee; border-radius: 8px; height: 10px; overflow: hidden">
           <div style="background: ${avgPct === 100 ? '#2e5d1f' : '#ea5b0c'}; height: 100%; width: ${avgPct}%; transition: width 0.3s"></div>
         </div>
+        ${totalEstimatedHours > 0 ? `<div style="margin-top: 6px; font-size: 13px; color: #444"><strong>⏱️ ${remainingHours.toFixed(1)}h</strong> rimanenti su ${totalEstimatedHours.toFixed(1)}h stimate in totale</div>` : ''}
       ` : '';
 
       if (!activeItems.length) {
@@ -2379,6 +2390,7 @@
         container.innerHTML = sorted.map(item => {
           const pct = item.completionPercent ?? (item.done ? 100 : 0);
           const isComplete = pct === 100;
+          const itemRemainingHours = (item.estimatedHours || 0) * (1 - pct / 100);
           // 🆕 5 "stelle" da 20% l'una, stile rating — cliccabile per
           // impostare la percentuale, disabilitata una volta al 100%
           const starsHtml = [1, 2, 3, 4, 5].map(star => {
@@ -2391,6 +2403,8 @@
           <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 6px; background: ${isComplete ? '#f0f5ee' : '#fff8ea'}; border: 1px solid ${isComplete ? '#c8dcc0' : '#d9bf8c'}; border-radius: 6px; flex-wrap: wrap">
             <div style="display: flex; gap: 1px; flex-shrink: 0" title="${pct}% completato">${starsHtml}</div>
             <span style="flex: 1; min-width: 120px; ${isComplete ? 'text-decoration: line-through; color: #888' : ''}">${escapeHtml(item.text)}</span>
+            <input type="number" min="0" step="0.5" value="${item.estimatedHours || 0}" title="Ore stimate" style="width: 60px; padding: 3px; font-size: 12px" onchange="setTodoEstimatedHours('${item.id}', this.value)">
+            <span style="font-size: 11px; color: #888">h${!isComplete && itemRemainingHours > 0 ? ` (${itemRemainingHours.toFixed(1)}h rimanenti)` : ''}</span>
             ${isComplete ? `<button class="btn" style="padding: 4px 8px; font-size: 12px; background: #607d8b; color: white" onclick="archiveTodoItem('${item.id}')" title="Sposta nell'archivio">📦 Archivia</button>` : ''}
             <button class="btn" style="padding: 4px 8px; font-size: 12px" onclick="editTodoItem('${item.id}', '${escapeHtml(item.text).replace(/'/g, "\\'")}')" title="Modifica testo">✏️</button>
             <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px" onclick="deleteTodoItem('${item.id}')" title="Elimina">🗑️</button>
@@ -2431,6 +2445,15 @@
       }
     }
 
+    async function setTodoEstimatedHours(id, value) {
+      try {
+        await callApi('admin_set_todo_estimated_hours', 'POST', { id, estimatedHours: parseFloat(value) || 0 }, true);
+        await refresh();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     async function archiveTodoItem(id) {
       try {
         await callApi('admin_archive_todo', 'POST', { id }, true);
@@ -2442,12 +2465,15 @@
 
     async function addTodoItem() {
       const input = document.getElementById('todoNewText');
+      const hoursInput = document.getElementById('todoNewHours');
       const text = input.value.trim();
+      const estimatedHours = parseFloat(hoursInput.value) || 0;
       if (!text) return;
 
       try {
-        await callApi('admin_add_todo', 'POST', { text }, true);
+        await callApi('admin_add_todo', 'POST', { text, estimatedHours }, true);
         input.value = '';
+        hoursInput.value = '';
         await refresh();
       } catch (e) {
         await showInfoDialog('Errore', e.message);

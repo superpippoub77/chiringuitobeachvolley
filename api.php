@@ -8848,13 +8848,16 @@ if ($action === 'admin_add_todo' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();
     $text = mb_substr(trim((string)($body['text'] ?? '')), 0, 200);
+    // 🆕 Stima in ore del lavoro da svolgere, per poter calcolare quanto
+    // tempo resta ancora in base alla percentuale di completamento
+    $estimatedHours = max(0, (float)($body['estimatedHours'] ?? 0));
 
     if ($text === '') {
         jsonResponse(422, ['ok' => false, 'error' => 'Il testo del punto non può essere vuoto']);
     }
 
     $newItem = null;
-    withStateTransaction(function (&$state) use ($text, &$newItem) {
+    withStateTransaction(function (&$state) use ($text, $estimatedHours, &$newItem) {
         if (!isset($state['todoList']) || !is_array($state['todoList'])) {
             $state['todoList'] = [];
         }
@@ -8864,6 +8867,7 @@ if ($action === 'admin_add_todo' && $method === 'POST') {
             'done' => false,
             // 🆕 Percentuale di completamento (stile rating a stelline: 0/20/40/60/80/100)
             'completionPercent' => 0,
+            'estimatedHours' => $estimatedHours,
             'archived' => false,
             'createdAt' => date('c')
         ];
@@ -8872,6 +8876,39 @@ if ($action === 'admin_add_todo' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true, 'item' => $newItem]);
+}
+
+// 🆕 Aggiorna la stima in ore di un punto esistente
+if ($action === 'admin_set_todo_estimated_hours' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $id = (string)($body['id'] ?? '');
+    $estimatedHours = max(0, (float)($body['estimatedHours'] ?? 0));
+
+    if ($id === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'ID punto obbligatorio']);
+    }
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($id, $estimatedHours, &$found) {
+        if (!isset($state['todoList']) || !is_array($state['todoList'])) {
+            $state['todoList'] = [];
+        }
+        foreach ($state['todoList'] as &$item) {
+            if (($item['id'] ?? '') === $id) {
+                $item['estimatedHours'] = $estimatedHours;
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Punto non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 if ($action === 'admin_toggle_todo' && $method === 'POST') {

@@ -13183,7 +13183,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
 
         // 🆕 Voci del menu principale da far lampeggiare, per farle risaltare
         if (isset($body['display']['blinkingTabs']) && is_array($body['display']['blinkingTabs'])) {
-            $allowedTabKeys = ['iscrizione', 'teams', 'groups', 'shop', 'gallery', 'tablescore', 'newsletter', 'attendance', 'payment', 'events', 'contact', 'rules'];
+            $allowedTabKeys = ['iscrizione', 'teams', 'groups', 'shop', 'gallery', 'tablescore', 'newsletter', 'attendance', 'payment', 'events', 'contact', 'rules', 'predictions', 'sideTournaments', 'selfEdit'];
             $config['display']['blinkingTabs'] = array_values(array_intersect($body['display']['blinkingTabs'], $allowedTabKeys));
         }
     }

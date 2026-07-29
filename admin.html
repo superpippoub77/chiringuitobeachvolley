@@ -2683,6 +2683,25 @@
                 <button class="btn btn-green" onclick="saveCustomFields()">💾 Salva Campi Personalizzati</button>
               </div>
             </div>
+
+            <div class="card" style="background: #e8f0fe; padding: 12px; margin-top: 12px">
+              <h4 style="margin-top: 0">🔑 Auto-modifica squadra (codice personale)</h4>
+              <p class="muted" style="margin-top: 0">Ogni squadra riceve un codice univoco che le permette di modificare da sola alcuni propri dati, senza bisogno del tuo intervento. Pagato, confermata, kit e privacy non sono mai modificabili da qui.</p>
+              <label><input type="checkbox" id="cfg-selfEditEnabled" ${config.selfEdit?.enabled ? 'checked' : ''}> Abilitato per i partecipanti</label>
+              <div class="row" style="gap: 16px; margin-top: 10px; flex-wrap: wrap">
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+                  <input type="checkbox" id="cfg-teamNameEditable" ${config.selfEdit?.teamNameEditable !== false ? 'checked' : ''}> Nome squadra
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+                  <input type="checkbox" id="cfg-playerNamesEditable" ${config.selfEdit?.playerNamesEditable !== false ? 'checked' : ''}> Nomi giocatori
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+                  <input type="checkbox" id="cfg-songEditable" ${config.selfEdit?.songEditable !== false ? 'checked' : ''}> Canzone della squadra
+                </label>
+              </div>
+              <small style="color: #666; display: block; margin-top: 8px">I campi personalizzati modificabili si scelgono singolarmente qui sopra, sezione "Campi Personalizzati Iscrizione".</small>
+              <button class="btn btn-green" onclick="saveSelfEditSettings()" style="margin-top: 10px">💾 Salva Impostazioni</button>
+            </div>
           </div>
 
           <!-- TAB 2: COMUNICAZIONI -->
@@ -4283,6 +4302,7 @@
         <div class="team-card-actions">
           ${contactButtonsHtml}
           <button class="btn btn-primary" onclick="openTeamDialog('${team.id}')">Modifica completa</button>
+          <button class="btn" style="background: #1565c0; color: white" onclick="showTeamEditCode('${team.id}', '${escapeHtml(team.name)}', '${team.editCode || ''}')">🔑 Codice</button>
           ${canDelete && !isDummy ? `<button class="btn btn-danger" onclick="deleteTeamFromList('${team.id}','${escapeHtml(team.name)}')">Elimina</button>` : ''}
         </div>
       </div>`;
@@ -4582,6 +4602,44 @@
       if (addBtn) {
         addBtn.onclick = openAddTeamDialog;
       }
+    }
+
+    // 🆕 Mostra il codice personale della squadra (per l'auto-modifica), con possibilita' di rigenerarlo
+    async function showTeamEditCode(teamId, teamName, currentCode) {
+      const bodyHtml = `
+        <p>Il codice personale di <strong>${escapeHtml(teamName)}</strong> le permette di modificare da sola alcuni suoi dati (nome, giocatori, canzone) sulla pagina pubblica "Modifica la tua squadra".</p>
+        <div style="background: #f5f5f5; padding: 14px; border-radius: 8px; text-align: center; margin: 10px 0">
+          <span id="teamEditCodeDisplay" style="font-size: 22px; font-weight: 800; letter-spacing: 2px; font-family: monospace">${escapeHtml(currentCode || 'Nessun codice')}</span>
+        </div>
+        <div id="regenCodeStatus" style="font-size: 13px; margin-bottom: 8px"></div>
+      `;
+
+      openModal({
+        title: '🔑 Codice personale',
+        bodyHtml,
+        buttons: [
+          { text: '🔄 Rigenera codice', className: 'btn', onClick: async () => {
+            try {
+              const result = await callApi('admin_regenerate_team_edit_code', 'POST', { teamId }, true);
+              document.getElementById('teamEditCodeDisplay').textContent = result.editCode;
+              const team = state?.teams?.find(t => t.id === teamId);
+              if (team) team.editCode = result.editCode;
+              document.getElementById('regenCodeStatus').textContent = '✅ Nuovo codice generato.';
+            } catch (e) {
+              document.getElementById('regenCodeStatus').textContent = 'Errore: ' + e.message;
+            }
+          }},
+          { text: '📧 Invia via email', className: 'btn btn-primary', onClick: async () => {
+            try {
+              const result = await callApi('admin_send_team_edit_code_email', 'POST', { teamId }, true);
+              document.getElementById('regenCodeStatus').textContent = `✅ Codice inviato a ${result.sentTo}.`;
+            } catch (e) {
+              document.getElementById('regenCodeStatus').textContent = 'Errore: ' + e.message;
+            }
+          }},
+          { text: 'Chiudi', className: 'btn', closeOnClick: true }
+        ]
+      });
     }
 
     async function deleteTeamFromList(teamId, teamName) {
@@ -11028,6 +11086,10 @@ html += `
               <input type="checkbox" data-cf-idx="${idx}" data-field="required" class="cf-input" ${field.required ? 'checked' : ''}>
               Obbligatorio
             </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal; margin: 0; color: #1565c0">
+              <input type="checkbox" data-cf-idx="${idx}" data-field="selfEditable" class="cf-input" ${field.selfEditable ? 'checked' : ''}>
+              ✏️ Modificabile dalla squadra
+            </label>
             <button class="btn btn-danger" onclick="removeCustomField(${idx})">🗑️</button>
           </div>
           <div id="cfOptionsRow${idx}" style="margin-top: 8px; ${field.type === 'select' ? '' : 'display: none'}">
@@ -11054,6 +11116,22 @@ html += `
       renderCustomFields();
     }
 
+    async function saveSelfEditSettings() {
+      try {
+        const payload = {
+          enabled: document.getElementById('cfg-selfEditEnabled').checked,
+          teamNameEditable: document.getElementById('cfg-teamNameEditable').checked,
+          playerNamesEditable: document.getElementById('cfg-playerNamesEditable').checked,
+          songEditable: document.getElementById('cfg-songEditable').checked
+        };
+        const result = await callApi('admin_update_self_edit_settings', 'POST', payload, true);
+        config.selfEdit = result.selfEdit;
+        await showInfoDialog('✅ Salvato', 'Impostazioni auto-modifica squadra salvate.');
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     async function saveCustomFields() {
       try {
         // Raccogli i dati dai campi (stesso schema di saveNotes)
@@ -11068,6 +11146,7 @@ html += `
           if (field === 'label') updated[idx].label = input.value.trim();
           else if (field === 'type') updated[idx].type = input.value;
           else if (field === 'required') updated[idx].required = input.checked;
+          else if (field === 'selfEditable') updated[idx].selfEditable = input.checked;
           else if (field === 'options') {
             updated[idx].options = input.value.split('\n').map(v => v.trim()).filter(v => v !== '');
           }

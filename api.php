@@ -781,6 +781,7 @@ Presentati in cassa per pagare e ritirare (totale: € {total}).',
             'print_studio_landscape' => '🖥️ Orizzontale',
             'nav_predictions' => 'Pronostici',
             'nav_side_tournaments' => 'Tornei Paralleli',
+            'nav_self_edit' => 'Modifica Squadra',
             'nav_events' => 'Eventi',
         ],
         'en' => [
@@ -1027,6 +1028,7 @@ Come to the counter to pay and pick up (total: € {total}).',
             'print_studio_landscape' => '🖥️ Landscape',
             'nav_predictions' => 'Predictions',
             'nav_side_tournaments' => 'Side Tournaments',
+            'nav_self_edit' => 'Edit Your Team',
             'nav_events' => 'Events',
         ],
         'fr' => [
@@ -1273,6 +1275,7 @@ Présentez-vous à la caisse pour payer et récupérer (total : {total} €).',
             'print_studio_landscape' => '🖥️ Paysage',
             'nav_predictions' => 'Pronostics',
             'nav_side_tournaments' => 'Tournois Parallèles',
+            'nav_self_edit' => 'Modifier l\'équipe',
             'nav_events' => 'Événements',
         ],
         'de' => [
@@ -1519,6 +1522,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_landscape' => '🖥️ Querformat',
             'nav_predictions' => 'Tipps',
             'nav_side_tournaments' => 'Nebenturniere',
+            'nav_self_edit' => 'Team bearbeiten',
             'nav_events' => 'Veranstaltungen',
         ],
         'zh' => [
@@ -1765,6 +1769,7 @@ Komm zur Theke, um zu bezahlen und abzuholen (Gesamt: {total} €).',
             'print_studio_landscape' => '🖥️ 横版',
             'nav_predictions' => '竞猜',
             'nav_side_tournaments' => '附加赛事',
+            'nav_self_edit' => '编辑球队',
             'nav_events' => '活动',
         ],
     ];
@@ -1869,6 +1874,15 @@ function defaultConfig(): array {
         // gradimento — massimo 2 preferenze per indirizzo IP
         'teamVoting' => [
             'enabled' => false
+        ],
+        // 🆕 Auto-modifica squadra: quali campi "fissi" (non personalizzati)
+        // la squadra può modificare da sola col proprio codice — pagato,
+        // confermata, kit e privacy non sono MAI qui, sono sempre bloccati.
+        'selfEdit' => [
+            'enabled' => false,
+            'teamNameEditable' => true,
+            'playerNamesEditable' => true,
+            'songEditable' => true
         ],
         'payment' => [
             'enabled' => false,
@@ -2029,6 +2043,11 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // 🆕 Preserva la configurazione del voto squadra preferita
     if (isset($existingConfig['teamVoting'])) {
         $merged['teamVoting'] = $existingConfig['teamVoting'];
+    }
+
+    // 🆕 Preserva la configurazione dell'auto-modifica squadra
+    if (isset($existingConfig['selfEdit'])) {
+        $merged['selfEdit'] = $existingConfig['selfEdit'];
     }
 
     // 🔧 FIX CRITICO: mancava la preservazione del kit — senza questo blocco,
@@ -7715,6 +7734,67 @@ if ($action === 'side_tournament_signup' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+// 🆕 Iscrizione a un torneo parallelo usando il proprio codice squadra: si
+// sceglie tra i giocatori già registrati, senza dover riscrivere il nome —
+// il partecipante risulta collegato alla squadra (sourceType 'registered').
+if ($action === 'side_tournament_signup_with_code' && $method === 'POST') {
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $code = trim((string)($body['code'] ?? ''));
+    $playerName = mb_substr(trim((string)($body['playerName'] ?? '')), 0, 80);
+
+    if ($sideId === '' || $code === '' || $playerName === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Codice e nome giocatore sono obbligatori']);
+    }
+
+    $mainState = readJsonFile(DATA_FILE, ['teams' => []]);
+    $team = findTeamByEditCode($mainState, $code);
+    if ($team === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Codice non valido']);
+    }
+
+    // Il nome scelto deve appartenere davvero al roster di questa squadra
+    $rosterNames = array_map(fn($p) => $p['name'] ?? '', $team['players'] ?? []);
+    if (!in_array($playerName, $rosterNames, true)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il giocatore scelto non fa parte di questa squadra']);
+    }
+
+    $errorMsg = null;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $playerName, $team, &$errorMsg) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            if (empty($s['enabled']) || empty($s['signupOpen'])) {
+                $errorMsg = 'Le iscrizioni non sono aperte per questo torneo';
+                return [];
+            }
+            if (!in_array($s['participantSource'] ?? 'both', ['registered', 'both'], true)) {
+                $errorMsg = 'Questo torneo non accetta iscrizioni tramite codice squadra';
+                return [];
+            }
+            foreach (($s['participants'] ?? []) as $p) {
+                if (($p['linkedTeamId'] ?? null) === $team['id'] && ($p['name'] ?? '') === $playerName) {
+                    $errorMsg = 'Sei già iscritto a questo torneo parallelo';
+                    return [];
+                }
+            }
+            $s['participants'][] = [
+                'id' => bin2hex(random_bytes(8)),
+                'name' => $playerName,
+                'sourceType' => 'registered',
+                'linkedTeamId' => $team['id']
+            ];
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if ($errorMsg !== null) {
+        jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
 // Admin: genera i gironi (fase 1) di un torneo parallelo dai partecipanti iscritti
 if ($action === 'admin_generate_side_tournament_groups' && $method === 'POST') {
     requireAdmin();
@@ -8452,6 +8532,9 @@ if ($action === 'register_team' && $method === 'POST') {
     $category = 'Misto';
     $phone = normalizePhoneInternational(trim((string)($body['phone'] ?? '')));
     $teamEmail = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
+    // 🆕 Canzone della squadra (opzionale) — modificabile in seguito dalla
+    // squadra stessa tramite il proprio codice personale
+    $song = mb_substr(trim((string)($body['song'] ?? '')), 0, 150);
 
     // Supporta sia nuovo formato (players array) che vecchio formato (player1, player2, player3)
     $playersData = [];
@@ -8587,7 +8670,7 @@ if ($action === 'register_team' && $method === 'POST') {
 
     $emailResult = null;
 
-    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, $customFieldValues, &$emailResult) {
+    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, $customFieldValues, $song, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -8632,6 +8715,10 @@ if ($action === 'register_team' && $method === 'POST') {
             $players[] = $player;
         }
 
+        // 🆕 Codice univoco che permette alla squadra di modificare da sola
+        // i propri dati consentiti (serve anche per l'email di conferma)
+        $editCode = strtoupper(bin2hex(random_bytes(4)));
+
         $state['teams'][] = [
             'id' => $teamId,
             'name' => $name,
@@ -8641,6 +8728,9 @@ if ($action === 'register_team' && $method === 'POST') {
             'phone' => $phone,
             'paid' => false,
             'approved' => false,
+            // 🆕 Canzone della squadra
+            'song' => $song,
+            'editCode' => $editCode,
             // 🆕 Valori dei campi personalizzati definiti dall'organizzatore
             'customFieldValues' => $customFieldValues,
             'createdAt' => gmdate('c')
@@ -8710,6 +8800,21 @@ if ($action === 'register_team' && $method === 'POST') {
 </html>
 HTML;
             $emailResult = sendEmail($managerEmail, $subject, $body);
+        }
+
+        // 🆕 Invia anche una mail alla squadra stessa (se ha fornito un
+        // indirizzo email), con il proprio codice personale per l'auto-modifica
+        if (!empty($teamEmail) && filter_var($teamEmail, FILTER_VALIDATE_EMAIL)) {
+            $teamSubject = '✅ Iscrizione confermata — il tuo codice personale';
+            $teamBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto">'
+                . '<h2 style="color: #e45a0a">Iscrizione confermata!</h2>'
+                . '<p>La squadra <strong>' . htmlspecialchars($name) . '</strong> è stata registrata con successo.</p>'
+                . '<p>Conserva questo codice: ti permette di modificare da solo alcuni dati della tua squadra (es. nome, giocatori, canzone) in qualunque momento, dalla pagina "Modifica Squadra" sul sito del torneo.</p>'
+                . '<div style="background:#f5f5f5; padding:16px; border-radius:8px; text-align:center; margin:16px 0">'
+                . '<span style="font-size:24px; font-weight:800; letter-spacing:2px; font-family:monospace">' . htmlspecialchars($editCode) . '</span>'
+                . '</div>'
+                . '</div>';
+            sendEmail($teamEmail, $teamSubject, $teamBody);
         }
 
         return ['message' => 'Squadra registrata con successo'];
@@ -9278,6 +9383,218 @@ if ($action === 'admin_update_team' && $method === 'POST') {
         return ['ok' => true];
     });
 
+    jsonResponse(200, ['ok' => true]);
+}
+
+// ==================== 🆕 AUTO-MODIFICA SQUADRA (codice personale) ====================
+// Ogni squadra riceve un codice univoco che le permette di modificare da
+// sola alcuni propri dati (nome squadra, nomi giocatori, canzone, campi
+// personalizzati contrassegnati come tali) — MAI pagato, confermata, kit o
+// privacy, che restano sempre gestibili solo dall'admin.
+
+// Admin: impostazioni auto-modifica (quali campi fissi sono modificabili)
+if ($action === 'admin_update_self_edit_settings' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['selfEdit'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        'teamNameEditable' => (bool)($body['teamNameEditable'] ?? true),
+        'playerNamesEditable' => (bool)($body['playerNamesEditable'] ?? true),
+        'songEditable' => (bool)($body['songEditable'] ?? true)
+    ];
+
+    writeConfig($config);
+    saveToHistory('Aggiornamento impostazioni auto-modifica squadra');
+
+    jsonResponse(200, ['ok' => true, 'selfEdit' => $config['selfEdit']]);
+}
+
+// Admin: genera (o rigenera) il codice personale di una squadra — sia
+// automaticamente disponibile dopo la registrazione, sia tramite un
+// pulsante nel pannello per rigenerarlo se serve.
+if ($action === 'admin_regenerate_team_edit_code' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+
+    $newCode = strtoupper(bin2hex(random_bytes(4)));
+    $found = false;
+    withStateTransaction(function (&$state) use ($teamId, $newCode, &$found) {
+        foreach ($state['teams'] as &$t) {
+            if (($t['id'] ?? '') !== $teamId) continue;
+            $t['editCode'] = $newCode;
+            $found = true;
+            break;
+        }
+        unset($t);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+    }
+    jsonResponse(200, ['ok' => true, 'editCode' => $newCode]);
+}
+
+// Admin: invia (o reinvia) via email il codice personale attuale della squadra
+if ($action === 'admin_send_team_edit_code_email' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $teamId = (string)($body['teamId'] ?? '');
+
+    $state = readJsonFile(DATA_FILE, ['teams' => []]);
+    $team = null;
+    foreach ($state['teams'] ?? [] as $t) {
+        if (($t['id'] ?? '') === $teamId) { $team = $t; break; }
+    }
+    if ($team === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+    }
+    $teamEmail = trim((string)($team['email'] ?? ''));
+    if ($teamEmail === '' || !filter_var($teamEmail, FILTER_VALIDATE_EMAIL)) {
+        jsonResponse(422, ['ok' => false, 'error' => 'La squadra non ha un indirizzo email valido registrato']);
+    }
+
+    $teamSubject = '🔑 Il tuo codice personale — ' . $team['name'];
+    $teamBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto">'
+        . '<h2 style="color: #e45a0a">Il tuo codice personale</h2>'
+        . '<p>Ecco il codice per modificare i dati della squadra <strong>' . htmlspecialchars($team['name']) . '</strong>, dalla pagina "Modifica Squadra" sul sito del torneo.</p>'
+        . '<div style="background:#f5f5f5; padding:16px; border-radius:8px; text-align:center; margin:16px 0">'
+        . '<span style="font-size:24px; font-weight:800; letter-spacing:2px; font-family:monospace">' . htmlspecialchars($team['editCode'] ?? '') . '</span>'
+        . '</div>'
+        . '</div>';
+
+    $sendResult = sendEmail($teamEmail, $teamSubject, $teamBody);
+    if (!($sendResult['success'] ?? false)) {
+        jsonResponse(500, ['ok' => false, 'error' => $sendResult['error'] ?? 'Invio non riuscito']);
+    }
+    jsonResponse(200, ['ok' => true, 'sentTo' => $teamEmail]);
+}
+
+/**
+ * 🆕 Verifica che il codice fornito corrisponda a quello della squadra, e
+ * restituisce la squadra se valido — usata da entrambi gli endpoint
+ * pubblici di auto-modifica, per non duplicare il controllo.
+ */
+function findTeamByEditCode(array $state, string $code): ?array {
+    if ($code === '') return null;
+    foreach ($state['teams'] ?? [] as $t) {
+        if (strcasecmp((string)($t['editCode'] ?? ''), $code) === 0) {
+            return $t;
+        }
+    }
+    return null;
+}
+
+// Pubblico: verifica il codice e restituisce i dati modificabili della squadra
+if ($action === 'team_self_edit_verify' && $method === 'POST') {
+    $body = bodyJson();
+    $code = trim((string)($body['code'] ?? ''));
+
+    $config = readConfig();
+    if (empty($config['selfEdit']['enabled'])) {
+        jsonResponse(422, ['ok' => false, 'error' => "L'auto-modifica non è attiva al momento"]);
+    }
+
+    $state = readJsonFile(DATA_FILE, ['teams' => []]);
+    $team = findTeamByEditCode($state, $code);
+    if ($team === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Codice non valido']);
+    }
+
+    $selfEdit = $config['selfEdit'];
+    $editableCustomFields = array_values(array_filter($config['customFields'] ?? [], fn($f) => !empty($f['selfEditable'])));
+
+    jsonResponse(200, [
+        'ok' => true,
+        'team' => [
+            'id' => $team['id'],
+            'name' => $team['name'],
+            'song' => $team['song'] ?? '',
+            'players' => array_map(fn($p) => ['name' => $p['name'] ?? '', 'isCaptain' => $p['isCaptain'] ?? false], $team['players'] ?? []),
+            'customFieldValues' => $team['customFieldValues'] ?? []
+        ],
+        'editableFields' => [
+            'teamName' => !empty($selfEdit['teamNameEditable']),
+            'playerNames' => !empty($selfEdit['playerNamesEditable']),
+            'song' => !empty($selfEdit['songEditable'])
+        ],
+        'editableCustomFields' => $editableCustomFields
+    ]);
+}
+
+// Pubblico: salva le modifiche apportate dalla squadra — applica SOLO i
+// campi effettivamente marcati come modificabili, ignorando ogni altro
+// valore anche se presente nella richiesta (difesa in profondità).
+if ($action === 'team_self_edit_save' && $method === 'POST') {
+    $body = bodyJson();
+    $code = trim((string)($body['code'] ?? ''));
+    $updates = (array)($body['updates'] ?? []);
+
+    $config = readConfig();
+    if (empty($config['selfEdit']['enabled'])) {
+        jsonResponse(422, ['ok' => false, 'error' => "L'auto-modifica non è attiva al momento"]);
+    }
+
+    $stateCheck = readJsonFile(DATA_FILE, ['teams' => []]);
+    $verifiedTeam = findTeamByEditCode($stateCheck, $code);
+    if ($verifiedTeam === null) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Codice non valido']);
+    }
+    $teamId = $verifiedTeam['id'];
+
+    $selfEdit = $config['selfEdit'];
+    $editableCustomFieldIds = array_column(array_filter($config['customFields'] ?? [], fn($f) => !empty($f['selfEditable'])), 'id');
+
+    $found = false;
+    withStateTransaction(function (&$state) use ($teamId, $updates, $selfEdit, $editableCustomFieldIds, &$found) {
+        foreach ($state['teams'] as &$t) {
+            if (($t['id'] ?? '') !== $teamId) continue;
+            $found = true;
+
+            // Nome squadra — solo se il campo è abilitato dall'admin
+            if (!empty($selfEdit['teamNameEditable']) && isset($updates['name'])) {
+                $newName = mb_substr(trim((string)$updates['name']), 0, 60);
+                if ($newName !== '') $t['name'] = $newName;
+            }
+
+            // Canzone — solo se il campo è abilitato dall'admin
+            if (!empty($selfEdit['songEditable']) && isset($updates['song'])) {
+                $t['song'] = mb_substr(trim((string)$updates['song']), 0, 150);
+            }
+
+            // Nomi giocatori — solo se il campo è abilitato dall'admin, e
+            // solo il NOME: livello/foto/minorenne/pagato restano intoccati
+            if (!empty($selfEdit['playerNamesEditable']) && isset($updates['playerNames']) && is_array($updates['playerNames'])) {
+                foreach ($updates['playerNames'] as $idx => $newPlayerName) {
+                    $idx = (int)$idx;
+                    if (!isset($t['players'][$idx])) continue;
+                    $newPlayerName = mb_substr(trim((string)$newPlayerName), 0, 50);
+                    if ($newPlayerName !== '') $t['players'][$idx]['name'] = $newPlayerName;
+                }
+            }
+
+            // Campi personalizzati — solo quelli marcati selfEditable dall'admin
+            if (isset($updates['customFieldValues']) && is_array($updates['customFieldValues'])) {
+                if (!isset($t['customFieldValues']) || !is_array($t['customFieldValues'])) {
+                    $t['customFieldValues'] = [];
+                }
+                foreach ($updates['customFieldValues'] as $fieldId => $value) {
+                    if (!in_array($fieldId, $editableCustomFieldIds, true)) continue; // non modificabile: ignorato
+                    $t['customFieldValues'][$fieldId] = mb_substr(trim((string)$value), 0, 200);
+                }
+            }
+            break;
+        }
+        unset($t);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Squadra non trovata']);
+    }
     jsonResponse(200, ['ok' => true]);
 }
 
@@ -14138,7 +14455,10 @@ if ($action === 'admin_update_custom_fields' && $method === 'POST') {
                 'id' => trim((string)($f['id'] ?? bin2hex(random_bytes(4)))),
                 'label' => $label,
                 'type' => $type,
-                'required' => (bool)($f['required'] ?? false)
+                'required' => (bool)($f['required'] ?? false),
+                // 🆕 Se true, la squadra può modificare questo campo da sola
+                // tramite il proprio codice personale
+                'selfEditable' => (bool)($f['selfEditable'] ?? false)
             ];
 
             // 🆕 Tipo "select": elenco di valori predefiniti tra cui scegliere

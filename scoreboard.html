@@ -1212,6 +1212,7 @@
         <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" data-tab-key="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
         <a href="#" id="navPredictionsLink" class="main-nav-link" data-phase="predictions" data-tab-key="predictions" style="display: none" onclick="showPhase('predictions'); loadPredictionsForPublic(); return false;">🌭 <span data-i18n="nav_predictions">Pronostici</span></a>
         <a href="#" id="navSideTLink" class="main-nav-link" data-phase="sideTournaments" data-tab-key="sideTournaments" style="display: none" onclick="showPhase('sideTournaments'); loadSideTournamentsForPublic(); return false;">🏓 <span data-i18n="nav_side_tournaments">Tornei Paralleli</span></a>
+        <a href="#" id="navSelfEditLink" class="main-nav-link" data-phase="selfEdit" data-tab-key="selfEdit" style="display: none" onclick="showPhase('selfEdit'); renderSelfEditPage(); return false;">🔑 <span data-i18n="nav_self_edit">Modifica Squadra</span></a>
         <a href="#" class="main-nav-link" data-tab-key="contact" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
         <a href="regolamento.html" target="_blank" class="main-nav-link" data-tab-key="rules">🏐 <span data-i18n="nav_rules">Regolamento</span></a>
       </nav>
@@ -1231,6 +1232,7 @@
       <section class="page" id="page-events"></section>
       <section class="page" id="page-predictions"></section>
       <section class="page" id="page-sideTournaments"></section>
+      <section class="page" id="page-selfEdit"></section>
 
       <footer>
         <a href="policy.html" target="_blank">Privacy Policy</a>
@@ -3686,6 +3688,140 @@
     let predictionsPrizeLabel = 'salamella';
 
     // ==================== 🆕 TORNEI PARALLELI (public) ====================
+    // ==================== 🆕 AUTO-MODIFICA SQUADRA (public) ====================
+    let selfEditVerifiedData = null;
+    let selfEditCurrentCode = '';
+
+    function renderSelfEditPage() {
+      const container = document.getElementById('page-selfEdit');
+      container.innerHTML = `
+        <h3>🔑 Modifica la tua squadra</h3>
+        <p style="color: #666; font-size: 14px">Inserisci il codice personale ricevuto via email per modificare i dati della tua squadra.</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap">
+          <input id="selfEditCodeInput" type="text" placeholder="Es: 9B7AB56D" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; text-transform: uppercase; flex: 1; min-width: 160px">
+          <button class="btn" style="background: #1565c0; color: white" onclick="verifySelfEditCode()">Verifica</button>
+        </div>
+        <div id="selfEditStatus" style="font-size: 13px; margin-bottom: 10px"></div>
+        <div id="selfEditFormContainer"></div>
+      `;
+    }
+
+    async function verifySelfEditCode() {
+      const code = document.getElementById('selfEditCodeInput').value.trim();
+      const statusEl = document.getElementById('selfEditStatus');
+      if (!code) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci il codice.';
+        return;
+      }
+      try {
+        const response = await fetch(`${API}?action=team_self_edit_verify`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Codice non valido';
+          document.getElementById('selfEditFormContainer').innerHTML = '';
+          return;
+        }
+        selfEditVerifiedData = data;
+        selfEditCurrentCode = code;
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = `✅ Codice verificato — stai modificando "${data.team.name}"`;
+        renderSelfEditForm();
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
+    function renderSelfEditForm() {
+      const container = document.getElementById('selfEditFormContainer');
+      const { team, editableFields, editableCustomFields } = selfEditVerifiedData;
+
+      const nameFieldHtml = editableFields.teamName ? `
+        <div class="field" style="margin-bottom: 10px">
+          <label>Nome squadra</label>
+          <input id="seTeamName" type="text" value="${esc(team.name)}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box">
+        </div>` : '';
+
+      const songFieldHtml = editableFields.song ? `
+        <div class="field" style="margin-bottom: 10px">
+          <label>🎵 Canzone della squadra</label>
+          <input id="seSong" type="text" value="${esc(team.song || '')}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box">
+        </div>` : '';
+
+      const playersFieldHtml = editableFields.playerNames ? `
+        <div class="field" style="margin-bottom: 10px">
+          <label>Giocatori</label>
+          ${team.players.map((p, idx) => `<input id="sePlayer_${idx}" type="text" value="${esc(p.name)}" placeholder="${p.isCaptain ? '👑 Capitano' : `Giocatore ${idx + 1}`}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: 6px">`).join('')}
+        </div>` : '';
+
+      const customFieldsHtml = editableCustomFields.map(f => `
+        <div class="field" style="margin-bottom: 10px">
+          <label>${esc(f.label)}</label>
+          <input id="seCustom_${f.id}" type="text" value="${esc(team.customFieldValues?.[f.id] || '')}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box">
+        </div>
+      `).join('');
+
+      if (!nameFieldHtml && !songFieldHtml && !playersFieldHtml && !customFieldsHtml) {
+        container.innerHTML = '<p class="muted">Al momento nessun campo è modificabile direttamente. Contatta l\'organizzazione per eventuali modifiche.</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-top: 10px">
+          ${nameFieldHtml}
+          ${songFieldHtml}
+          ${playersFieldHtml}
+          ${customFieldsHtml}
+          <button class="btn" style="background: #2e7d32; color: white; margin-top: 6px" onclick="saveSelfEditForm()">💾 Salva Modifiche</button>
+          <div id="selfEditSaveStatus" style="font-size: 13px; margin-top: 8px"></div>
+        </div>
+      `;
+    }
+
+    async function saveSelfEditForm() {
+      const { editableFields, editableCustomFields } = selfEditVerifiedData;
+      const statusEl = document.getElementById('selfEditSaveStatus');
+      const updates = {};
+
+      if (editableFields.teamName) updates.name = document.getElementById('seTeamName').value.trim();
+      if (editableFields.song) updates.song = document.getElementById('seSong').value.trim();
+      if (editableFields.playerNames) {
+        updates.playerNames = {};
+        selfEditVerifiedData.team.players.forEach((p, idx) => {
+          updates.playerNames[idx] = document.getElementById(`sePlayer_${idx}`).value.trim();
+        });
+      }
+      if (editableCustomFields.length) {
+        updates.customFieldValues = {};
+        editableCustomFields.forEach(f => {
+          updates.customFieldValues[f.id] = document.getElementById(`seCustom_${f.id}`).value.trim();
+        });
+      }
+
+      try {
+        const response = await fetch(`${API}?action=team_self_edit_save`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: selfEditCurrentCode, updates })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Errore nel salvataggio';
+          return;
+        }
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = '✅ Modifiche salvate con successo!';
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
     async function checkSideTournamentsAvailability() {
       try {
         const response = await fetch(`${API}?action=get_public_side_tournaments`);
@@ -3737,9 +3873,10 @@
 
     function renderSideTournamentPublicDetail(s) {
       const container = document.getElementById('page-sideTournaments');
-      const canSignup = s.signupOpen && ['standalone', 'both'].includes(s.participantSource);
+      const canSignupStandalone = s.signupOpen && ['standalone', 'both'].includes(s.participantSource);
+      const canSignupWithCode = s.signupOpen && ['registered', 'both'].includes(s.participantSource);
 
-      const signupHtml = canSignup ? `
+      const signupHtml = canSignupStandalone ? `
         <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 16px">
           <strong>🙋 Iscriviti</strong>
           <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
@@ -3747,6 +3884,18 @@
             <button class="btn" style="background: #2e7d32; color: white" onclick="submitSideTournamentSignup('${s.id}')">Iscriviti</button>
           </div>
           <div id="sideTSignupStatus" style="font-size: 13px; margin-top: 6px"></div>
+        </div>
+      ` : '';
+
+      const signupWithCodeHtml = canSignupWithCode ? `
+        <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin-bottom: 16px">
+          <strong>🔑 Sei già iscritto al torneo? Partecipa col tuo codice squadra</strong>
+          <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap">
+            <input id="sideTCodeInput" type="text" placeholder="Codice squadra (es: 9B7AB56D)" style="flex: 1; min-width: 140px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; text-transform: uppercase">
+            <input id="sideTCodePlayerName" type="text" placeholder="Il tuo nome (come nel roster)" style="flex: 1; min-width: 140px; padding: 6px; border: 1px solid #ccc; border-radius: 4px">
+            <button class="btn" style="background: #1565c0; color: white" onclick="submitSideTournamentSignupWithCode('${s.id}')">Partecipa</button>
+          </div>
+          <div id="sideTCodeSignupStatus" style="font-size: 13px; margin-top: 6px"></div>
         </div>
       ` : '';
 
@@ -3781,6 +3930,7 @@
         <h3>🏓 ${esc(s.name)}</h3>
         ${participantsHtml}
         ${signupHtml}
+        ${signupWithCodeHtml}
         ${phasesHtml || '<p class="muted">Le fasi non sono ancora state generate.</p>'}
       `;
     }
@@ -3806,6 +3956,36 @@
         }
         statusEl.style.color = '#2e5d1f';
         statusEl.textContent = `✅ Iscrizione confermata, ${name}!`;
+        setTimeout(() => openSideTournamentPublicDetail(sideId), 1200);
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Errore di connessione: ' + e.message;
+      }
+    }
+
+    // 🆕 Iscrizione a un torneo parallelo usando il proprio codice squadra
+    async function submitSideTournamentSignupWithCode(sideId) {
+      const statusEl = document.getElementById('sideTCodeSignupStatus');
+      const code = document.getElementById('sideTCodeInput')?.value.trim();
+      const playerName = document.getElementById('sideTCodePlayerName')?.value.trim();
+      if (!code || !playerName) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Inserisci codice squadra e il tuo nome.';
+        return;
+      }
+      try {
+        const response = await fetch(`${API}?action=side_tournament_signup_with_code`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sideId, code, playerName })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          statusEl.style.color = '#b71c1c';
+          statusEl.textContent = data.error || 'Errore iscrizione';
+          return;
+        }
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = `✅ Iscrizione confermata, ${playerName}!`;
         setTimeout(() => openSideTournamentPublicDetail(sideId), 1200);
       } catch (e) {
         statusEl.style.color = '#b71c1c';
@@ -4480,6 +4660,10 @@
               document.getElementById('ogImage')?.setAttribute('content', absoluteLogo);
               document.getElementById('twitterImage')?.setAttribute('content', absoluteLogo);
             }
+
+            // 🆕 Voce di menu "Modifica Squadra", visibile solo se l'auto-modifica è attiva
+            const navSelfEditLink = document.getElementById('navSelfEditLink');
+            if (navSelfEditLink) navSelfEditLink.style.display = data.config.selfEdit?.enabled ? 'inline-block' : 'none';
 
             // Carica tema
             if (data.config.display.theme) {

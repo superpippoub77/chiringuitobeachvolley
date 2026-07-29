@@ -4440,6 +4440,91 @@
     // multiplo via click-to-chat (vedi https://faq.whatsapp.com/5913398998672934/):
     // si genera quindi un link "wa.me" con messaggio precompilato per ogni
     // squadra, che l'admin apre e invia uno alla volta.
+    // 🆕 Pannello "Crea Gruppo WhatsApp": prepara nome, logo e numeri da
+    // incollare a mano nel nuovo gruppo — WhatsApp non offre nessun modo per
+    // farlo in automatico da un sito esterno, quindi questo è il modo più
+    // veloce per farlo manualmente (vedi spiegazione data all'utente).
+    function openWhatsAppGroupCreationDialog() {
+      const groupName = config?.tournament?.name || 'Torneo';
+      const logoUrl = config?.display?.logoFile || '';
+
+      const approvedTeams = (state?.teams || []).filter(t => t.approved && t.phone);
+      const phoneNumbers = approvedTeams.map(t => t.phone).filter(Boolean);
+      const numbersText = phoneNumbers.join('\n');
+
+      const bodyHtml = `
+        <p class="muted">Prepara qui i tre elementi, poi incollali a mano nel nuovo gruppo che crei in WhatsApp (WhatsApp non permette di crearlo in automatico da un sito esterno).</p>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 10px">
+          <strong>1️⃣ Nome del gruppo</strong>
+          <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center">
+            <input id="waGroupNameField" type="text" value="${escapeHtml(groupName)}" readonly style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px">
+            <button class="btn" onclick="copyWaGroupText('waGroupNameField')">📋 Copia</button>
+          </div>
+        </div>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 10px">
+          <strong>2️⃣ Logo del gruppo</strong>
+          <div style="display: flex; gap: 12px; margin-top: 8px; align-items: center; flex-wrap: wrap">
+            ${logoUrl ? `<img id="waGroupLogoImg" src="${logoUrl}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 50%; border: 2px solid #ddd">` : '<span class="muted">Nessun logo caricato in Impostazioni → Visualizzazione</span>'}
+            ${logoUrl ? `<button class="btn" onclick="copyWaGroupLogo()">🖼️ Copia immagine</button>` : ''}
+          </div>
+          <div id="waGroupLogoStatus" style="font-size: 13px; margin-top: 6px"></div>
+        </div>
+
+        <div class="card" style="background: #f5f5f5; padding: 12px; margin-top: 10px">
+          <strong>3️⃣ Numeri di telefono (${phoneNumbers.length} squadre confermate)</strong>
+          <textarea id="waGroupNumbersField" rows="6" readonly style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 8px; font-family: monospace; box-sizing: border-box">${escapeHtml(numbersText)}</textarea>
+          <button class="btn" onclick="copyWaGroupText('waGroupNumbersField')" style="margin-top: 8px">📋 Copia numeri</button>
+        </div>
+
+        <div style="margin-top: 14px; padding: 10px; background: #fff3e0; border-radius: 6px; font-size: 13px">
+          <strong>Come si fa:</strong> apri WhatsApp → Nuovo gruppo → incolla il nome → tocca l'icona del gruppo e incolla il logo → aggiungi i numeri (incollandoli o cercandoli uno per uno, a seconda della versione di WhatsApp che usi).
+        </div>
+      `;
+
+      openModal({
+        title: '👥 Crea Gruppo WhatsApp',
+        bodyHtml,
+        buttons: [{ text: 'Chiudi', className: 'btn', closeOnClick: true }]
+      });
+    }
+
+    function copyWaGroupText(fieldId) {
+      const field = document.getElementById(fieldId);
+      field.select();
+      navigator.clipboard.writeText(field.value).catch(() => {
+        document.execCommand('copy'); // ripiego per browser piu' vecchi
+      });
+    }
+
+    // 🆕 Copia il logo negli appunti come IMMAGINE (non come link), cosi'
+    // si può incollare direttamente come foto del gruppo in WhatsApp —
+    // passa sempre da un canvas per convertirlo in PNG, il formato con
+    // maggiore compatibilità per l'incolla-immagine del sistema operativo.
+    async function copyWaGroupLogo() {
+      const statusEl = document.getElementById('waGroupLogoStatus');
+      const img = document.getElementById('waGroupLogoImg');
+      if (!img) return;
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 300;
+        canvas.height = img.naturalHeight || 300;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+
+        statusEl.style.color = '#2e5d1f';
+        statusEl.textContent = '✅ Logo copiato — ora incollalo nell\'icona del gruppo su WhatsApp.';
+      } catch (e) {
+        statusEl.style.color = '#b71c1c';
+        statusEl.textContent = 'Il browser non permette di copiare l\'immagine automaticamente. Fai clic destro sul logo qui sopra → "Copia immagine".';
+      }
+    }
+
     function openWhatsAppBroadcastDialog() {
       const phases = state?.phases || [];
       const phaseOptions = phases.map(p => `<option value="${p.phaseNumber}">${escapeHtml(p.name || ('Fase ' + p.phaseNumber))}</option>`).join('');
@@ -4601,11 +4686,17 @@
           <button class="btn" style="background: #25D366; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppBroadcastDialog()">
             💬 Contatta via WhatsApp
           </button>
+          <button class="btn" style="background: #128C7E; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppGroupCreationDialog()">
+            👥 Crea Gruppo WhatsApp
+          </button>
         </div>
       ` : `
-        <div style="margin-bottom: 16px">
+        <div style="margin-bottom: 16px; display: flex; gap: 8px; flex-wrap: wrap">
           <button class="btn" style="background: #25D366; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppBroadcastDialog()">
             💬 Contatta via WhatsApp
+          </button>
+          <button class="btn" style="background: #128C7E; color: white; padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px" onclick="openWhatsAppGroupCreationDialog()">
+            👥 Crea Gruppo WhatsApp
           </button>
         </div>
       `;

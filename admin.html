@@ -2673,7 +2673,7 @@
               </div>
               <div class="field">
                 <label>Minuti per set/tempo</label>
-                <input id="cfg-timePerSet" type="number" min="20" max="60" value="${t.timePerSetMinutes || ''}" placeholder="Es: 35">
+                <input id="cfg-timePerSet" type="number" min="1" value="${t.timePerSetMinutes || ''}" placeholder="Es: 35">
                 <small style="color: #666; display: block; margin-top: 4px">Per Beach Volley/Tennis è solo una stima usata per il calendario. Per Beach Soccer è la durata reale del countdown su ogni tempo nel tabellone live.</small>
               </div>
               <div class="field">
@@ -3810,7 +3810,7 @@
             maxSubstitutions: Math.max(0, maxSubstitutionsVal),
             numSets: parseInt(document.getElementById('cfg-numSets').value) || 1,
             winScore: winScoreVal > 0 ? Math.max(15, Math.min(30, winScoreVal)) : 0,
-            timePerSetMinutes: timePerSetVal > 0 ? Math.max(20, Math.min(60, timePerSetVal)) : 25,
+            timePerSetMinutes: timePerSetVal > 0 ? timePerSetVal : 25,
             setupTimeMinutes: setupTimeVal > 0 ? Math.max(1, Math.min(15, setupTimeVal)) : 0,
             maxTimeoutsPerSet: maxTimeoutsVal > 0 ? Math.max(0, Math.min(5, maxTimeoutsVal)) : 0,
             registrationsClosed: document.getElementById('cfg-registrationsClosed').checked,

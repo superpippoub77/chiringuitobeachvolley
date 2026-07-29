@@ -13010,7 +13010,7 @@ if ($action === 'admin_update_config' && $method === 'POST') {
         if (isset($t['numGroups'])) $config['tournament']['numGroups'] = max(1, min(8, (int)$t['numGroups']));
         if (isset($t['numSets'])) $config['tournament']['numSets'] = ((int)$t['numSets'] === 1 ? 1 : 2);
         if (isset($t['winScore'])) $config['tournament']['winScore'] = max(15, min(30, (int)$t['winScore']));
-        if (isset($t['timePerSetMinutes'])) $config['tournament']['timePerSetMinutes'] = max(20, min(60, (int)$t['timePerSetMinutes']));
+        if (isset($t['timePerSetMinutes'])) $config['tournament']['timePerSetMinutes'] = max(1, (int)$t['timePerSetMinutes']);
         if (isset($t['setupTimeMinutes'])) $config['tournament']['setupTimeMinutes'] = max(1, min(15, (int)$t['setupTimeMinutes']));
         if (isset($t['maxTimeoutsPerSet'])) $config['tournament']['maxTimeoutsPerSet'] = max(0, min(5, (int)$t['maxTimeoutsPerSet']));
         if (isset($t['registrationsClosed'])) $config['tournament']['registrationsClosed'] = (bool)$t['registrationsClosed'];

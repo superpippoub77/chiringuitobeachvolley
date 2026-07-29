@@ -2721,11 +2721,8 @@
                 <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
                   <input type="checkbox" id="cfg-playerNamesEditable" ${config.selfEdit?.playerNamesEditable !== false ? 'checked' : ''}> Nomi giocatori
                 </label>
-                <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
-                  <input type="checkbox" id="cfg-songEditable" ${config.selfEdit?.songEditable !== false ? 'checked' : ''}> Canzone della squadra
-                </label>
               </div>
-              <small style="color: #666; display: block; margin-top: 8px">I campi personalizzati modificabili si scelgono singolarmente qui sopra, sezione "Campi Personalizzati Iscrizione".</small>
+              <small style="color: #666; display: block; margin-top: 8px">I campi personalizzati modificabili (es. la vostra "Musica Intro") si scelgono singolarmente qui sopra, sezione "Campi Personalizzati Iscrizione".</small>
               <button class="btn btn-green" onclick="saveSelfEditSettings()" style="margin-top: 10px">💾 Salva Impostazioni</button>
             </div>
           </div>
@@ -4636,7 +4633,7 @@
     // 🆕 Mostra il codice personale della squadra (per l'auto-modifica), con possibilita' di rigenerarlo
     async function showTeamEditCode(teamId, teamName, currentCode) {
       const bodyHtml = `
-        <p>Il codice personale di <strong>${escapeHtml(teamName)}</strong> le permette di modificare da sola alcuni suoi dati (nome, giocatori, canzone) sulla pagina pubblica "Modifica la tua squadra".</p>
+        <p>Il codice personale di <strong>${escapeHtml(teamName)}</strong> le permette di modificare da sola alcuni suoi dati (nome, giocatori) sulla pagina pubblica "Modifica la tua squadra".</p>
         <div style="background: #f5f5f5; padding: 14px; border-radius: 8px; text-align: center; margin: 10px 0">
           <span id="teamEditCodeDisplay" style="font-size: 22px; font-weight: 800; letter-spacing: 2px; font-family: monospace">${escapeHtml(currentCode || 'Nessun codice')}</span>
         </div>
@@ -11150,8 +11147,7 @@ html += `
         const payload = {
           enabled: document.getElementById('cfg-selfEditEnabled').checked,
           teamNameEditable: document.getElementById('cfg-teamNameEditable').checked,
-          playerNamesEditable: document.getElementById('cfg-playerNamesEditable').checked,
-          songEditable: document.getElementById('cfg-songEditable').checked
+          playerNamesEditable: document.getElementById('cfg-playerNamesEditable').checked
         };
         const result = await callApi('admin_update_self_edit_settings', 'POST', payload, true);
         config.selfEdit = result.selfEdit;

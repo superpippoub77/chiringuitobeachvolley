@@ -3747,12 +3747,6 @@
           <input id="seTeamName" type="text" value="${esc(team.name)}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box">
         </div>` : '';
 
-      const songFieldHtml = editableFields.song ? `
-        <div class="field" style="margin-bottom: 10px">
-          <label>🎵 Canzone della squadra</label>
-          <input id="seSong" type="text" value="${esc(team.song || '')}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box">
-        </div>` : '';
-
       const playersFieldHtml = editableFields.playerNames ? `
         <div class="field" style="margin-bottom: 10px">
           <label>Giocatori</label>
@@ -3766,7 +3760,7 @@
         </div>
       `).join('');
 
-      if (!nameFieldHtml && !songFieldHtml && !playersFieldHtml && !customFieldsHtml) {
+      if (!nameFieldHtml && !playersFieldHtml && !customFieldsHtml) {
         container.innerHTML = '<p class="muted">Al momento nessun campo è modificabile direttamente. Contatta l\'organizzazione per eventuali modifiche.</p>';
         return;
       }
@@ -3774,7 +3768,6 @@
       container.innerHTML = `
         <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-top: 10px">
           ${nameFieldHtml}
-          ${songFieldHtml}
           ${playersFieldHtml}
           ${customFieldsHtml}
           <button class="btn" style="background: #2e7d32; color: white; margin-top: 6px" onclick="saveSelfEditForm()">💾 Salva Modifiche</button>
@@ -3789,7 +3782,6 @@
       const updates = {};
 
       if (editableFields.teamName) updates.name = document.getElementById('seTeamName').value.trim();
-      if (editableFields.song) updates.song = document.getElementById('seSong').value.trim();
       if (editableFields.playerNames) {
         updates.playerNames = {};
         selfEditVerifiedData.team.players.forEach((p, idx) => {

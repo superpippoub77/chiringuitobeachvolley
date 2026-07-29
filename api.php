@@ -1881,8 +1881,7 @@ function defaultConfig(): array {
         'selfEdit' => [
             'enabled' => false,
             'teamNameEditable' => true,
-            'playerNamesEditable' => true,
-            'songEditable' => true
+            'playerNamesEditable' => true
         ],
         'payment' => [
             'enabled' => false,
@@ -8532,9 +8531,6 @@ if ($action === 'register_team' && $method === 'POST') {
     $category = 'Misto';
     $phone = normalizePhoneInternational(trim((string)($body['phone'] ?? '')));
     $teamEmail = mb_substr(trim((string)($body['email'] ?? '')), 0, 100);
-    // 🆕 Canzone della squadra (opzionale) — modificabile in seguito dalla
-    // squadra stessa tramite il proprio codice personale
-    $song = mb_substr(trim((string)($body['song'] ?? '')), 0, 150);
 
     // Supporta sia nuovo formato (players array) che vecchio formato (player1, player2, player3)
     $playersData = [];
@@ -8670,7 +8666,7 @@ if ($action === 'register_team' && $method === 'POST') {
 
     $emailResult = null;
 
-    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, $customFieldValues, $song, &$emailResult) {
+    withStateTransaction(function (&$state) use ($name, $playersData, $category, $phone, $teamEmail, $managerEmail, $customFieldValues, &$emailResult) {
         foreach ($state['teams'] as $team) {
             if (strtolower($team['name']) === strtolower($name)) {
                 jsonResponse(409, ['ok' => false, 'error' => 'Nome squadra gia presente']);
@@ -8728,8 +8724,6 @@ if ($action === 'register_team' && $method === 'POST') {
             'phone' => $phone,
             'paid' => false,
             'approved' => false,
-            // 🆕 Canzone della squadra
-            'song' => $song,
             'editCode' => $editCode,
             // 🆕 Valori dei campi personalizzati definiti dall'organizzatore
             'customFieldValues' => $customFieldValues,
@@ -8809,7 +8803,7 @@ HTML;
             $teamBody = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto">'
                 . '<h2 style="color: #e45a0a">Iscrizione confermata!</h2>'
                 . '<p>La squadra <strong>' . htmlspecialchars($name) . '</strong> è stata registrata con successo.</p>'
-                . '<p>Conserva questo codice: ti permette di modificare da solo alcuni dati della tua squadra (es. nome, giocatori, canzone) in qualunque momento, dalla pagina "Modifica Squadra" sul sito del torneo.</p>'
+                . '<p>Conserva questo codice: ti permette di modificare da solo alcuni dati della tua squadra (es. nome, giocatori) in qualunque momento, dalla pagina "Modifica Squadra" sul sito del torneo.</p>'
                 . '<div style="background:#f5f5f5; padding:16px; border-radius:8px; text-align:center; margin:16px 0">'
                 . '<span style="font-size:24px; font-weight:800; letter-spacing:2px; font-family:monospace">' . htmlspecialchars($editCode) . '</span>'
                 . '</div>'
@@ -9425,7 +9419,7 @@ if ($action === 'admin_update_team' && $method === 'POST') {
 
 // ==================== 🆕 AUTO-MODIFICA SQUADRA (codice personale) ====================
 // Ogni squadra riceve un codice univoco che le permette di modificare da
-// sola alcuni propri dati (nome squadra, nomi giocatori, canzone, campi
+// sola alcuni propri dati (nome squadra, nomi giocatori, campi
 // personalizzati contrassegnati come tali) — MAI pagato, confermata, kit o
 // privacy, che restano sempre gestibili solo dall'admin.
 
@@ -9438,8 +9432,7 @@ if ($action === 'admin_update_self_edit_settings' && $method === 'POST') {
     $config['selfEdit'] = [
         'enabled' => (bool)($body['enabled'] ?? false),
         'teamNameEditable' => (bool)($body['teamNameEditable'] ?? true),
-        'playerNamesEditable' => (bool)($body['playerNamesEditable'] ?? true),
-        'songEditable' => (bool)($body['songEditable'] ?? true)
+        'playerNamesEditable' => (bool)($body['playerNamesEditable'] ?? true)
     ];
 
     writeConfig($config);
@@ -9549,14 +9542,12 @@ if ($action === 'team_self_edit_verify' && $method === 'POST') {
         'team' => [
             'id' => $team['id'],
             'name' => $team['name'],
-            'song' => $team['song'] ?? '',
             'players' => array_map(fn($p) => ['name' => $p['name'] ?? '', 'isCaptain' => $p['isCaptain'] ?? false], $team['players'] ?? []),
             'customFieldValues' => $team['customFieldValues'] ?? []
         ],
         'editableFields' => [
             'teamName' => !empty($selfEdit['teamNameEditable']),
-            'playerNames' => !empty($selfEdit['playerNamesEditable']),
-            'song' => !empty($selfEdit['songEditable'])
+            'playerNames' => !empty($selfEdit['playerNamesEditable'])
         ],
         'editableCustomFields' => $editableCustomFields
     ]);
@@ -9595,11 +9586,6 @@ if ($action === 'team_self_edit_save' && $method === 'POST') {
             if (!empty($selfEdit['teamNameEditable']) && isset($updates['name'])) {
                 $newName = mb_substr(trim((string)$updates['name']), 0, 60);
                 if ($newName !== '') $t['name'] = $newName;
-            }
-
-            // Canzone — solo se il campo è abilitato dall'admin
-            if (!empty($selfEdit['songEditable']) && isset($updates['song'])) {
-                $t['song'] = mb_substr(trim((string)$updates['song']), 0, 150);
             }
 
             // Nomi giocatori — solo se il campo è abilitato dall'admin, e

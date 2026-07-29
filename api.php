@@ -12807,6 +12807,12 @@ if ($action === 'get_config' && $method === 'GET') {
         'contact' => [
             'managerEmail' => $config['contact']['managerEmail'] ?? '',
             'managerPhone' => $config['contact']['managerPhone'] ?? ''
+        ],
+        // 🆕 Auto-modifica squadra: serve alla home pubblica solo per
+        // decidere se mostrare la voce di menu "Modifica Squadra" — i
+        // permessi sui singoli campi si ottengono a parte, verificando il codice
+        'selfEdit' => [
+            'enabled' => !empty($config['selfEdit']['enabled'])
         ]
     ];
     jsonResponse(200, ['ok' => true, 'config' => $publicConfig]);

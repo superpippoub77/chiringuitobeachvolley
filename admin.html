@@ -1118,11 +1118,9 @@
 
         <div class="card" style="background: #fff8ea; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">📋 Categorie e Prodotti</h4>
+          <p class="muted" style="margin-top: 0">Prima crea (o scegli) una categoria, poi aggiungi i prodotti al suo interno — ognuno con foto, prezzo e, se vuoi, scorta a magazzino.</p>
+          <button class="btn btn-primary" onclick="addShopCategory()" style="margin-bottom: 10px">➕ Nuova Categoria</button>
           <div id="shopCategoriesContainer"></div>
-          <div class="row" style="margin-top: 10px">
-            <button class="btn" onclick="addShopCategory()">➕ Aggiungi Categoria</button>
-            <button class="btn btn-green" onclick="saveShopCategories()">💾 Salva Menu</button>
-          </div>
         </div>
 
         <div class="card" style="background: #f0f0f0; padding: 12px; margin-top: 12px">
@@ -12851,92 +12849,272 @@ html += `
       if (!container) return;
 
       if (!shopCategoriesData.length) {
-        container.innerHTML = '<p class="muted">Nessuna categoria. Clicca "Aggiungi Categoria" per iniziare.</p>';
+        container.innerHTML = '<p class="muted">Nessuna categoria ancora. Clicca "➕ Nuova Categoria" per iniziare.</p>';
         return;
       }
 
-      container.innerHTML = shopCategoriesData.map((cat, catIdx) => `
+      container.innerHTML = shopCategoriesData.map((cat, catIdx) => {
+        const products = cat.products || [];
+        const productCardsHtml = products.map((p, prodIdx) => {
+          const stockTracked = p.stockQuantity !== null && p.stockQuantity !== undefined;
+          const isLow = stockTracked && p.lowStockThreshold !== null && p.lowStockThreshold !== undefined && p.stockQuantity <= p.lowStockThreshold;
+          const thumb = p.image
+            ? `<img src="${escapeHtml(p.image)}" style="width: 100%; height: 90px; object-fit: cover; border-radius: 6px 6px 0 0">`
+            : `<div style="width: 100%; height: 90px; background: #eee; display: flex; align-items: center; justify-content: center; font-size: 28px; border-radius: 6px 6px 0 0; color: #bbb">🍹</div>`;
+          return `
+            <div onclick="openShopProductEditor('${cat.id}', '${p.id}')" style="cursor: pointer; width: 130px; background: white; border: 1px solid #eee; border-radius: 6px; overflow: hidden; position: relative; ${p.available === false ? 'opacity: 0.5' : ''}">
+              ${thumb}
+              ${isLow ? `<div style="position: absolute; top: 4px; right: 4px; background: #d32f2f; color: white; font-size: 10px; padding: 2px 5px; border-radius: 4px; font-weight: bold">⚠️ ${p.stockQuantity}</div>` : ''}
+              <div style="padding: 6px">
+                <div style="font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">${escapeHtml(p.name || '(senza nome)')}</div>
+                <div style="font-size: 12px; color: #666">€${(p.price ?? 0).toFixed(2)}${stockTracked ? ` · 📦 ${p.stockQuantity}` : ''}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
         <div class="card" style="background: #fafafa; padding: 10px; margin-bottom: 10px; border-left: 4px solid #ff9800">
           <div style="display: flex; gap: 8px; align-items: center">
-            <input type="text" value="${escapeHtml(cat.name || '')}" data-shop-cat-idx="${catIdx}" data-shop-field="catName" class="shop-input"
-                   placeholder="Nome categoria (es: Bevande)" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold">
-            <button class="btn btn-danger" onclick="removeShopCategory(${catIdx})">🗑️ Categoria</button>
+            <input type="text" value="${escapeHtml(cat.name || '')}" id="catNameInput_${catIdx}"
+                   placeholder="Nome categoria (es: Bevande)" style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold"
+                   onchange="renameShopCategory('${cat.id}', this.value)">
+            <button class="btn btn-danger" onclick="removeShopCategory('${cat.id}')">🗑️ Categoria</button>
           </div>
-          <div style="margin-top: 8px">
-            ${(cat.products || []).map((p, prodIdx) => `
-              <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; padding: 6px; background: white; border-radius: 4px; border: 1px solid #eee">
-                <input type="text" value="${escapeHtml(p.name || '')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodName" class="shop-input"
-                       placeholder="Nome prodotto" style="flex: 2; min-width: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-                <input type="text" value="${escapeHtml(p.description || '')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodDesc" class="shop-input"
-                       placeholder="Descrizione" style="flex: 2; min-width: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-                <input type="number" step="0.01" min="0" value="${p.price ?? 0}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodPrice" class="shop-input"
-                       placeholder="Prezzo €" style="width: 80px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-                <input type="text" value="${(p.allergens || []).join(', ')}" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodAllergens" class="shop-input"
-                       placeholder="Allergeni (separati da virgola)" style="flex: 2; min-width: 140px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-                <label style="display: flex; align-items: center; gap: 4px; font-weight: normal; font-size: 13px; margin: 0">
-                  <input type="checkbox" data-shop-cat-idx="${catIdx}" data-shop-prod-idx="${prodIdx}" data-shop-field="prodAvailable" class="shop-input" ${(p.available ?? true) ? 'checked' : ''}>
-                  Disponibile
-                </label>
-                <button class="btn btn-danger" onclick="removeShopProduct(${catIdx}, ${prodIdx})" style="padding: 4px 8px">🗑️</button>
-              </div>
-            `).join('')}
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px">
+            ${productCardsHtml}
+            <div onclick="openShopProductEditor('${cat.id}', null)" style="cursor: pointer; width: 130px; min-height: 130px; background: white; border: 2px dashed #ccc; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 13px; text-align: center; padding: 8px">
+              ➕<br>Aggiungi prodotto
+            </div>
           </div>
-          <button class="btn" style="margin-top: 8px" onclick="addShopProduct(${catIdx})">➕ Aggiungi Prodotto</button>
         </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    function addShopCategory() {
-      shopCategoriesData.push({ id: bin2hex(8), name: '', products: [] });
-      renderShopCategories();
-    }
-
-    function removeShopCategory(catIdx) {
-      shopCategoriesData.splice(catIdx, 1);
-      renderShopCategories();
-    }
-
-    function addShopProduct(catIdx) {
-      if (!shopCategoriesData[catIdx].products) shopCategoriesData[catIdx].products = [];
-      shopCategoriesData[catIdx].products.push({ id: bin2hex(8), name: '', description: '', price: 0, allergens: [], available: true });
-      renderShopCategories();
-    }
-
-    function removeShopProduct(catIdx, prodIdx) {
-      shopCategoriesData[catIdx].products.splice(prodIdx, 1);
-      renderShopCategories();
-    }
-
-    async function saveShopCategories() {
+    async function addShopCategory() {
+      const name = prompt('Nome della nuova categoria (es: "Bevande", "Snack"):');
+      if (!name || !name.trim()) return;
       try {
-        // Raccogli i dati dai campi (stesso schema delle altre sezioni con salvataggio generale)
-        const inputs = document.querySelectorAll('.shop-input');
-        const updatedCats = shopCategoriesData.map(c => ({ ...c, products: (c.products || []).map(p => ({ ...p })) }));
-
-        inputs.forEach(input => {
-          const catIdx = parseInt(input.dataset.shopCatIdx);
-          const prodIdx = input.dataset.shopProdIdx !== undefined ? parseInt(input.dataset.shopProdIdx) : null;
-          const field = input.dataset.shopField;
-
-          if (field === 'catName') {
-            updatedCats[catIdx].name = input.value.trim();
-            return;
-          }
-          const prod = updatedCats[catIdx].products[prodIdx];
-          if (!prod) return;
-          if (field === 'prodName') prod.name = input.value.trim();
-          else if (field === 'prodDesc') prod.description = input.value.trim();
-          else if (field === 'prodPrice') prod.price = parseFloat(input.value) || 0;
-          else if (field === 'prodAllergens') prod.allergens = input.value.split(',').map(a => a.trim()).filter(Boolean);
-          else if (field === 'prodAvailable') prod.available = input.checked;
-        });
-
-        const finalCats = updatedCats.filter(c => c.name);
-        const result = await callApi('admin_update_shop_categories', 'POST', { categories: finalCats }, true);
+        const updated = shopCategoriesData.map(c => ({ ...c }));
+        updated.push({ id: bin2hex(8), name: name.trim(), products: [] });
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: updated }, true);
         shopCategoriesData = result.categories;
         renderShopCategories();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
 
-        await showInfoDialog('✅ Successo', 'Menu del bar salvato');
+    async function renameShopCategory(catId, newName) {
+      newName = newName.trim();
+      if (!newName) return;
+      try {
+        const updated = shopCategoriesData.map(c => c.id === catId ? { ...c, name: newName } : c);
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: updated }, true);
+        shopCategoriesData = result.categories;
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function removeShopCategory(catId) {
+      const cat = shopCategoriesData.find(c => c.id === catId);
+      const confirmed = await showConfirmDialog('Elimina categoria', `Eliminare la categoria "${cat?.name || ''}" e tutti i suoi ${(cat?.products || []).length} prodotti?`);
+      if (!confirmed) return;
+      try {
+        const updated = shopCategoriesData.filter(c => c.id !== catId);
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: updated }, true);
+        shopCategoriesData = result.categories;
+        renderShopCategories();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // 🆕 Editor prodotto in finestra modale: foto, categoria (con la
+    // possibilità di crearne una nuova al volo), prezzo, scorta e soglia di
+    // allerta — invece delle righe compresse di prima, molto più chiare.
+    let shopProductEditorImage = ''; // foto attualmente selezionata nell'editor
+
+    function openShopProductEditor(catId, productId) {
+      const cat = shopCategoriesData.find(c => c.id === catId);
+      const product = productId ? (cat?.products || []).find(p => p.id === productId) : null;
+      shopProductEditorImage = product?.image || '';
+
+      const categoryOptionsHtml = shopCategoriesData.map(c =>
+        `<option value="${c.id}" ${c.id === catId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+      ).join('') + `<option value="__new__">➕ Crea nuova categoria...</option>`;
+
+      const bodyHtml = `
+        <input type="hidden" id="spCatId" value="${catId}">
+        <input type="hidden" id="spProductId" value="${productId || ''}">
+        <div class="field">
+          <label>Categoria</label>
+          <select id="spCategory" onchange="handleShopProductCategoryChange(this)" style="width: 100%; padding: 8px">${categoryOptionsHtml}</select>
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Foto del prodotto</label>
+          <div id="spImagePreview" style="margin-bottom: 8px">
+            ${shopProductEditorImage ? `<img src="${escapeHtml(shopProductEditorImage)}" style="max-width: 120px; max-height: 120px; border-radius: 8px; display: block">` : '<span class="muted" style="font-size: 13px">Nessuna foto</span>'}
+          </div>
+          <input type="file" id="spImageFile" accept="image/*" onchange="uploadShopProductImage(this)">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Nome prodotto</label>
+          <input id="spName" type="text" value="${escapeHtml(product?.name || '')}" placeholder="Es: Birra alla spina" style="width: 100%; padding: 8px">
+        </div>
+        <div class="field" style="margin-top: 10px">
+          <label>Descrizione (facoltativa)</label>
+          <input id="spDescription" type="text" value="${escapeHtml(product?.description || '')}" style="width: 100%; padding: 8px">
+        </div>
+        <div class="row" style="gap: 12px; margin-top: 10px">
+          <div class="field" style="flex: 1">
+            <label>Prezzo (€)</label>
+            <input id="spPrice" type="number" min="0" step="0.10" value="${product?.price ?? 0}" style="width: 100%; padding: 8px">
+          </div>
+          <div class="field" style="flex: 1">
+            <label>Allergeni (separati da virgola)</label>
+            <input id="spAllergens" type="text" value="${(product?.allergens || []).join(', ')}" style="width: 100%; padding: 8px">
+          </div>
+        </div>
+        <label style="display: block; margin-top: 10px"><input type="checkbox" id="spAvailable" ${(product?.available ?? true) ? 'checked' : ''}> Disponibile</label>
+
+        <div class="card" style="background: #f0f7ff; padding: 10px; margin-top: 14px">
+          <strong>📦 Magazzino (facoltativo)</strong>
+          <p class="muted" style="margin: 4px 0 8px 0; font-size: 12px">Se imposti una quantità, si riduce da sola ad ogni acquisto. Lascia vuoto per scorta illimitata (come prima).</p>
+          <div class="row" style="gap: 12px">
+            <div class="field" style="flex: 1">
+              <label>Quantità disponibile</label>
+              <input id="spStockQuantity" type="number" min="0" value="${product?.stockQuantity ?? ''}" placeholder="Illimitata" style="width: 100%; padding: 8px">
+            </div>
+            <div class="field" style="flex: 1">
+              <label>Soglia di allerta scorte basse</label>
+              <input id="spLowStockThreshold" type="number" min="0" value="${product?.lowStockThreshold ?? ''}" placeholder="Nessuna" style="width: 100%; padding: 8px">
+            </div>
+          </div>
+        </div>
+      `;
+
+      const buttons = [
+        { text: '💾 Salva', className: 'btn btn-green', onClick: saveShopProductFromEditor, closeOnClick: false },
+        { text: 'Annulla', className: 'btn', closeOnClick: true }
+      ];
+      if (productId) {
+        buttons.splice(1, 0, { text: '🗑️ Elimina prodotto', className: 'btn btn-danger', onClick: deleteShopProductFromEditor, closeOnClick: false });
+      }
+
+      openModal({
+        title: productId ? '✏️ Modifica prodotto' : '➕ Nuovo prodotto',
+        bodyHtml,
+        buttons
+      });
+    }
+
+    function handleShopProductCategoryChange(select) {
+      if (select.value !== '__new__') return;
+      const name = prompt('Nome della nuova categoria:');
+      if (!name || !name.trim()) {
+        select.value = document.getElementById('spCatId').value; // ripristina la selezione precedente
+        return;
+      }
+      // Aggiunge un'opzione temporanea per la nuova categoria (verrà creata davvero al salvataggio)
+      const opt = document.createElement('option');
+      opt.value = '__new__:' + name.trim();
+      opt.textContent = name.trim() + ' (nuova)';
+      opt.selected = true;
+      select.insertBefore(opt, select.lastElementChild);
+    }
+
+    async function uploadShopProductImage(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const response = await fetch('api.php?action=admin_upload_shop_product_image', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await response.json();
+        if (data.ok) {
+          shopProductEditorImage = data.imageFile;
+          document.getElementById('spImagePreview').innerHTML = `<img src="${data.imageFile}" style="max-width: 120px; max-height: 120px; border-radius: 8px; display: block">`;
+        } else {
+          await showInfoDialog('Errore', data.error || 'Errore upload');
+        }
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function saveShopProductFromEditor() {
+      const catId = document.getElementById('spCatId').value;
+      const productId = document.getElementById('spProductId').value;
+      const name = document.getElementById('spName').value.trim();
+      if (!name) {
+        await showInfoDialog('Nome mancante', 'Il nome del prodotto è obbligatorio.');
+        return;
+      }
+
+      const selectedCatValue = document.getElementById('spCategory').value;
+      const stockVal = document.getElementById('spStockQuantity').value;
+      const thresholdVal = document.getElementById('spLowStockThreshold').value;
+
+      const productData = {
+        id: productId || bin2hex(8),
+        name,
+        description: document.getElementById('spDescription').value.trim(),
+        price: parseFloat(document.getElementById('spPrice').value) || 0,
+        allergens: document.getElementById('spAllergens').value.split(',').map(a => a.trim()).filter(Boolean),
+        available: document.getElementById('spAvailable').checked,
+        image: shopProductEditorImage,
+        stockQuantity: stockVal === '' ? null : parseInt(stockVal),
+        lowStockThreshold: thresholdVal === '' ? null : parseInt(thresholdVal)
+      };
+
+      try {
+        let updated = shopCategoriesData.map(c => ({ ...c, products: [...(c.products || [])] }));
+        let targetCatId = catId;
+
+        // Se è stata scelta "crea nuova categoria", la crea adesso
+        if (selectedCatValue.startsWith('__new__:')) {
+          const newCatName = selectedCatValue.replace('__new__:', '');
+          const newCat = { id: bin2hex(8), name: newCatName, products: [] };
+          updated.push(newCat);
+          targetCatId = newCat.id;
+        } else if (selectedCatValue !== catId) {
+          targetCatId = selectedCatValue;
+        }
+
+        // Rimuove il prodotto dalla categoria originale (se stava cambiando categoria)
+        updated = updated.map(c => ({ ...c, products: c.products.filter(p => p.id !== productData.id) }));
+
+        // Lo aggiunge alla categoria di destinazione
+        const targetCat = updated.find(c => c.id === targetCatId);
+        if (targetCat) targetCat.products.push(productData);
+
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: updated }, true);
+        shopCategoriesData = result.categories;
+        renderShopCategories();
+        closeModal();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    async function deleteShopProductFromEditor() {
+      const productId = document.getElementById('spProductId').value;
+      if (!productId) return;
+      const confirmed = await showConfirmDialog('Elimina prodotto', 'Vuoi davvero eliminare questo prodotto?');
+      if (!confirmed) return;
+      try {
+        const updated = shopCategoriesData.map(c => ({ ...c, products: (c.products || []).filter(p => p.id !== productId) }));
+        const result = await callApi('admin_update_shop_categories', 'POST', { categories: updated }, true);
+        shopCategoriesData = result.categories;
+        renderShopCategories();
+        closeModal();
       } catch (e) {
         await showInfoDialog('Errore', 'Errore: ' + e.message);
       }

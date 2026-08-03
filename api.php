@@ -14664,7 +14664,14 @@ if ($action === 'admin_update_shop_categories' && $method === 'POST') {
                 'description' => mb_substr(trim((string)($p['description'] ?? '')), 0, 300),
                 'price' => $price,
                 'allergens' => $allergens,
-                'available' => (bool)($p['available'] ?? true)
+                'available' => (bool)($p['available'] ?? true),
+                // 🆕 Foto del prodotto (base64 o URL)
+                'image' => is_string($p['image'] ?? null) ? $p['image'] : '',
+                // 🆕 Quantità in magazzino — null/non impostata = non tracciata
+                // (scorta illimitata, comportamento di prima)
+                'stockQuantity' => is_numeric($p['stockQuantity'] ?? null) ? max(0, (int)$p['stockQuantity']) : null,
+                // 🆕 Soglia di allerta scorte basse — facoltativa
+                'lowStockThreshold' => is_numeric($p['lowStockThreshold'] ?? null) ? max(0, (int)$p['lowStockThreshold']) : null
             ];
         }
 
@@ -14749,10 +14756,52 @@ if ($action === 'shop_place_order' && $method === 'POST') {
         'createdAt' => gmdate('c')
     ];
 
-    withShopTransaction(function (&$shop) use ($order) {
+    // 🆕 Verifica le scorte e le scala, DENTRO la transazione (per evitare
+    // che due ordini contemporanei superino insieme la scorta disponibile)
+    // — solo per i prodotti che hanno effettivamente una quantità tracciata;
+    // chi non la traccia si comporta come prima (scorta illimitata).
+    $stockErrorMsg = null;
+    withShopTransaction(function (&$shop) use ($order, &$stockErrorMsg) {
+        foreach ($order['items'] as $item) {
+            foreach ($shop['categories'] as &$cat) {
+                foreach ($cat['products'] as &$p) {
+                    if ($p['id'] !== $item['productId']) continue;
+                    if (isset($p['stockQuantity']) && $p['stockQuantity'] !== null) {
+                        if ($p['stockQuantity'] < $item['qty']) {
+                            $stockErrorMsg = "\"{$p['name']}\" non ha abbastanza scorta disponibile (rimasti: {$p['stockQuantity']})";
+                            return [];
+                        }
+                    }
+                    break 2;
+                }
+                unset($p);
+            }
+            unset($cat);
+            if ($stockErrorMsg !== null) return [];
+        }
+
+        // Tutte le verifiche superate: scala le scorte e salva l'ordine
+        foreach ($order['items'] as $item) {
+            foreach ($shop['categories'] as &$cat) {
+                foreach ($cat['products'] as &$p) {
+                    if ($p['id'] !== $item['productId']) continue;
+                    if (isset($p['stockQuantity']) && $p['stockQuantity'] !== null) {
+                        $p['stockQuantity'] = max(0, $p['stockQuantity'] - $item['qty']);
+                    }
+                    break 2;
+                }
+                unset($p);
+            }
+            unset($cat);
+        }
+
         $shop['orders'][] = $order;
         return [];
     });
+
+    if ($stockErrorMsg !== null) {
+        jsonResponse(409, ['ok' => false, 'error' => $stockErrorMsg]);
+    }
 
     jsonResponse(200, ['ok' => true, 'order' => $order]);
 }
@@ -15189,6 +15238,50 @@ if ($action === 'admin_upload_news_image' && $method === 'POST') {
         return;
     }
     
+    jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
+}
+
+// 🆕 Carica la foto di un prodotto del bar (stesso schema di admin_upload_news_image)
+if ($action === 'admin_upload_shop_product_image' && $method === 'POST') {
+    requireAdmin();
+
+    if (!isset($_FILES['image'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $file = $_FILES['image'];
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa JPEG, PNG, GIF o WebP']);
+        return;
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+        return;
+    }
+
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $newFilename = 'shopproduct-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+
     jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
 }
 

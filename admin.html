@@ -14800,7 +14800,12 @@ html += `
             const totalOccupiedSlotsOnDate = getTotalMatchesForDate(courtIdx, dateIdx);
             const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot);
             const indicatorHtml = slotStatus.indicator ? `<span style="color: ${slotStatus.indicatorColor}; font-size: 16px; margin-left: 4px">${slotStatus.indicator}</span>` : '';
-            const slotBoxes = renderSlotBoxes(effectiveSlots, totalOccupiedSlotsOnDate, slotStatus.isPast, courtIdx, dateIdx, slotIdx);
+            // 🔧 FIX: prima si passava il conteggio dell'INTERA DATA (che
+            // conta solo quante fasce diverse sono usate, es. 2, per un bug
+            // di collisione tra fasce con lo stesso slotIdx) — ora si passa
+            // il conteggio CORRETTO per QUESTA fascia specifica, già
+            // calcolato sopra in matchesInSlot.
+            const slotBoxes = renderSlotBoxes(effectiveSlots, matchesInSlot, slotStatus.isPast, courtIdx, dateIdx, slotIdx);
             
             slotsHtml += `<div class="row" style="margin-bottom: 6px; background: ${slotStatus.color}; padding: 8px; border-radius: 3px; align-items: flex-end; flex-wrap: wrap; border-left: 3px solid ${slotStatus.indicatorColor || '#ddd'}">
               <div style="flex: 1; min-width: 100px">
@@ -15012,12 +15017,17 @@ html += `
       let boxesHtml = '<div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px">';
       
       for (let i = 0; i < effectiveSlots; i++) {
-        // Recupera l'orario per QUESTO box (che corrisponde a slotIdx = i)
+        // Recupera l'orario per QUESTO box (posizione i DENTRO la fascia
+        // slotIdx corrente) — 🔧 FIX: prima si confrontava match.slotIdx
+        // (che indica la FASCIA, es. mattina=0/pomeriggio=1) con "i" (la
+        // posizione del box, 0..effectiveSlots-1): due cose diverse, che
+        // quasi mai coincidevano. Ora si usa anche matchNum (la posizione
+        // reale dentro la fascia) per trovare il match giusto.
         let boxTimeStr = 'N/A';
         const allMatches = getAllMatches();
         if (state && allMatches && Array.isArray(allMatches)) {
           for (let match of allMatches) {
-            if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === i) {
+            if (match.courtIdx === courtIdx && match.dateIdx === dateIdx && match.slotIdx === slotIdx && (match.matchNum ?? 0) === i) {
               boxTimeStr = match.startTime;
               break;
             }
@@ -15032,7 +15042,12 @@ html += `
         if (isPast) {
           boxColor = '#999999'; // Grigio - passato
           boxTitle = `Slot ${i} - Giorno passato`;
-        } else if (i < totalOccupiedSlots) {
+        } else if (boxTimeStr !== 'N/A') {
+          // 🔧 FIX: prima si coloravano sempre "le prime N caselle" in base
+          // al totale occupato (i < totalOccupiedSlots), che poteva non
+          // corrispondere a quali caselle fossero DAVVERO occupate. Ora si
+          // colora questa specifica casella solo se esiste davvero un match
+          // in questa posizione (già verificato sopra per il tooltip).
           boxColor = '#dc3545'; // Rosso - occupato
           boxTitle = `Slot ${i} - Ore ${boxTimeStr}`;
           fontWeight = 'bold';

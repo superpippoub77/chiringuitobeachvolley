@@ -6279,6 +6279,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             $match['courtIdx'] = $slot['courtIdx'];
             $match['dateIdx'] = $slot['dateIdx'];
             $match['slotIdx'] = $slot['slotIdx'];
+            // 🆕 Posizione del match DENTRO la fascia oraria (slotIdx indica
+            // solo QUALE fascia, es. mattina=0/pomeriggio=1 — serve anche
+            // questo per sapere quale casella specifica evidenziare in admin)
+            $match['matchNum'] = $slot['matchNum'] ?? 0;
             $matchesWithSlots[$idx] = $match;
         }
 
@@ -6489,6 +6493,9 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $match['courtIdx'] = $slot['courtIdx'];
                 $match['dateIdx'] = $slot['dateIdx'];
                 $match['slotIdx'] = $slot['slotIdx'];
+                // 🆕 Posizione del match DENTRO la fascia oraria (vedi nota
+                // sopra nella modalità interleaved)
+                $match['matchNum'] = $slot['matchNum'] ?? 0;
                 
                 $matchesWithSlots[$idx] = $match;
                 $slotUsed[$bestSlotIdx] = true;

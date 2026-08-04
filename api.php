@@ -4419,8 +4419,16 @@ function publicState(array $state): array {
     
     // Estrai groups e matches dalla prima fase (gironi)
     $groupsPhase = $state['phases'][0] ?? null;
-    $groups = $groupsPhase ? ($groupsPhase['groups'] ?? []) : [];
-    $allMatches = $groupsPhase ? ($groupsPhase['matches'] ?? []) : [];
+    // 🆕 Se la Fase 1 è segnata come non pubblicata, nascondi anche questi
+    // campi legacy (altrimenti la home continuerebbe a vederla lo stesso
+    // da qui, bypassando il flag)
+    $phase1ConfigForLegacy = null;
+    foreach (($config['phases'] ?? []) as $cp) {
+        if (($cp['phaseNumber'] ?? null) === 1) { $phase1ConfigForLegacy = $cp; break; }
+    }
+    $phase1Published = !isset($phase1ConfigForLegacy['publishedOnHomepage']) || $phase1ConfigForLegacy['publishedOnHomepage'] !== false;
+    $groups = ($groupsPhase && $phase1Published) ? ($groupsPhase['groups'] ?? []) : [];
+    $allMatches = ($groupsPhase && $phase1Published) ? ($groupsPhase['matches'] ?? []) : [];
     
     // Crea una mappa matchId -> phaseInfo per recuperare fase e nome
     $matchPhaseMap = [];
@@ -4548,14 +4556,30 @@ function publicState(array $state): array {
         'currentMatch' => $state['currentMatch'] ?? ['matchId' => null, 'phaseNumber' => null],
         // 🆕 Contatore di visualizzazioni della pagina pubblica
         'pageViews' => (int)($state['pageViews'] ?? 0),
-        'phases' => array_map(function ($phase, $idx) use ($state) {
-            // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
-            if (($phase['type'] ?? '') === 'groups') {
+        'phases' => (function () use ($state, $config) {
+            $result = [];
+            foreach (($state['phases'] ?? []) as $idx => $phase) {
                 $phaseNumber = $phase['phaseNumber'] ?? ($idx + 1);
-                $phase['standings'] = computeStandingsForPhase($state, $phaseNumber);
+
+                // 🆕 Il flag "pubblica su homepage" si imposta e si salva
+                // nelle impostazioni della fase (config.phases), non nei
+                // dati di gioco (state.phases) — qui li incrociamo per
+                // sapere se questa fase va nascosta al pubblico.
+                $configPhase = null;
+                foreach (($config['phases'] ?? []) as $cp) {
+                    if (($cp['phaseNumber'] ?? null) === $phaseNumber) { $configPhase = $cp; break; }
+                }
+                $isPublished = !isset($configPhase['publishedOnHomepage']) || $configPhase['publishedOnHomepage'] !== false;
+                if (!$isPublished) continue;
+
+                // ✅ Aggiungi standings a TUTTE le fasi di tipo 'groups', non solo la prima
+                if (($phase['type'] ?? '') === 'groups') {
+                    $phase['standings'] = computeStandingsForPhase($state, $phaseNumber);
+                }
+                $result[] = $phase;
             }
-            return $phase;
-        }, $state['phases'] ?? [], array_keys($state['phases'] ?? []))
+            return $result;
+        })()
     ];
 }
 
@@ -10108,6 +10132,13 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
     $phase['notes'] = $body['notes'] ?? '';
     $phase['qualifiedGoTo'] = $body['qualifiedGoTo'] ?? '';
     $phase['eliminatedGoTo'] = $body['eliminatedGoTo'] ?? '';
+    // 🆕 Se true (o non impostato, default per compatibilità con le fasi già
+    // esistenti), la fase è visibile pubblicamente in home
+    if (isset($body['publishedOnHomepage'])) {
+        $phase['publishedOnHomepage'] = (bool)$body['publishedOnHomepage'];
+    } elseif (!isset($phase['publishedOnHomepage'])) {
+        $phase['publishedOnHomepage'] = true;
+    }
     
     // Parametri specifici per tipo
     if ($phase['type'] === 'groups') {
@@ -11052,18 +11083,13 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
     $phaseNumber = (int)($body['phaseNumber'] ?? 0);
     $filterDates = $body['dates'] ?? [];      // Date selezionate dall'utente
     $filterSlots = $body['timeSlots'] ?? [];  // Fasce selezionate dall'utente
-    // 🆕 Se true, ripianifica anche le partite che hanno GIÀ un orario
-    // assegnato (purché non abbiano ancora un risultato, cioè non siano in
-    // corso o concluse) — non solo quelle ancora senza data. Utile per
-    // "Rischedula" invece di solo "completa gli orari mancanti".
-    $rescheduleAll = (bool)($body['rescheduleAll'] ?? false);
 
     if ($phaseNumber < 1) {
         jsonResponse(422, ['ok' => false, 'error' => 'phaseNumber richiesto']);
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots, $rescheduleAll) {
+    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots) {
         ensurePhases($state);
 
         $config = readConfig();
@@ -11210,40 +11236,12 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
         $scheduled = 0;
         $skippedByes = 0;
-        $skippedWithResult = 0;
 
-        // Partite ancora da schedulare in questa fase (bye e già-giocate
-        // escluse sempre). 🆕 Se rescheduleAll è true, include anche le
-        // partite che hanno GIÀ un orario ma non hanno ancora un risultato
-        // (non sono in corso né concluse), azzerando il loro vecchio orario
-        // prima di riassegnarlo — così si possono davvero ripianificare, non
-        // solo completare quelle rimaste senza data.
-        $sportTypeForCheck = $config['tournament']['sportType'] ?? 'beachvolley';
+        // Partite ancora da schedulare in questa fase (bye e già-schedulate escluse)
         $pendingMatches = [];
         foreach ($currentPhase['matches'] as $idx => $m) {
             if (!empty($m['bye'])) { $skippedByes++; continue; }
-
-            [, , $hasResult] = getMatchSetsWon($m, $sportTypeForCheck);
-            if ($hasResult) { $skippedWithResult++; continue; } // in corso o concluso: mai toccarla
-
-            if (!empty($m['date']) && !$rescheduleAll) continue; // già schedulata, e non stiamo ripianificando tutto
-
-            if (!empty($m['date']) && $rescheduleAll) {
-                // Azzera sia la copia locale sia la struttura reale: se poi
-                // non ci sono abbastanza slot per riassegnare proprio questa
-                // partita, resta correttamente "senza orario" invece di
-                // mantenere quello vecchio.
-                $m['date'] = null; $m['startTime'] = null; $m['endTime'] = null;
-                $m['courtId'] = null; $m['courtName'] = null; $m['courtIdx'] = null; $m['dateIdx'] = null; $m['slotIdx'] = null;
-                $currentPhase['matches'][$idx]['date'] = null;
-                $currentPhase['matches'][$idx]['startTime'] = null;
-                $currentPhase['matches'][$idx]['endTime'] = null;
-                $currentPhase['matches'][$idx]['courtId'] = null;
-                $currentPhase['matches'][$idx]['courtName'] = null;
-                $currentPhase['matches'][$idx]['courtIdx'] = null;
-                $currentPhase['matches'][$idx]['dateIdx'] = null;
-                $currentPhase['matches'][$idx]['slotIdx'] = null;
-            }
+            if (!empty($m['date'])) continue;
             $pendingMatches[] = ['idx' => $idx, 'match' => $m];
         }
 

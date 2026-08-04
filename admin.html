@@ -8494,6 +8494,21 @@
               </div>
 
               <div class="field" style="margin-top: 12px">
+                <label>🗓️ Distribuzione partite di questa fase</label>
+                <select id="editGroupsScheduleMode" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+                  <option value="" ${!phase.scheduleMode ? 'selected' : ''}>Usa l'impostazione generale del torneo</option>
+                  <option value="sequential" ${phase.scheduleMode === 'sequential' ? 'selected' : ''}>Tutte le partite di un girone, poi tutte del successivo</option>
+                  <option value="interleaved" ${phase.scheduleMode === 'interleaved' ? 'selected' : ''}>Una partita per girone a rotazione</option>
+                </select>
+              </div>
+
+              <div class="field" style="margin-top: 12px">
+                <label>🏐 Campi da usare per questa fase</label>
+                <div id="editGroupsCourtSelectionContainer" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; padding: 8px; background: #fafafa; border-radius: 6px"></div>
+                <small style="color: #888; display: block; margin-top: 4px; font-size: 12px">Nessuno selezionato = usa l'impostazione generale del torneo (o tutti i campi, se anche quella è vuota).</small>
+              </div>
+
+              <div class="field" style="margin-top: 12px">
                 <label>Qualificate vanno a:</label>
                 <input type="text" id="editQualifiedGoTo" value="${escapeHtml(phase.qualifiedGoTo || '')}" maxlength="100" placeholder="es. Fase 2" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
               </div>
@@ -8614,6 +8629,32 @@
           }
         ]
       });
+
+      // 🆕 Popola i checkbox dei campi per questa fase (fuori da openModal
+      // perché il contenitore esiste solo dopo che il modale è stato inserito nel DOM)
+      if (phase.type === 'groups') {
+        renderEditPhaseCourtSelection(phase);
+      }
+    }
+
+    // 🆕 Checkbox per scegliere quali campi usare specificamente per QUESTA
+    // fase — se nessuno selezionato, ricade sull'impostazione generale del
+    // torneo (o su tutti i campi, se anche quella è vuota).
+    function renderEditPhaseCourtSelection(phase) {
+      const container = document.getElementById('editGroupsCourtSelectionContainer');
+      if (!container) return;
+      const courts = config.schedule?.courts || [];
+      if (!courts.length) {
+        container.innerHTML = '<span class="muted" style="font-size: 13px">Nessun campo ancora configurato in Orari/Campi.</span>';
+        return;
+      }
+      const selected = phase.selectedCourtIds || [];
+      container.innerHTML = courts.map(c => `
+        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; background: white; padding: 5px 10px; border-radius: 6px; border: 1px solid #ddd">
+          <input type="checkbox" class="edit-phase-court-checkbox" value="${c.courtId}" ${selected.includes(c.courtId) ? 'checked' : ''}>
+          ${escapeHtml(c.courtName || c.courtId)}
+        </label>
+      `).join('');
     }
 
     function updatePhaseTypeFields() {
@@ -8662,6 +8703,8 @@
       }
 
       updates.notes = document.getElementById('editPhaseNotes')?.value || '';
+      updates.scheduleMode = document.getElementById('editGroupsScheduleMode')?.value || '';
+      updates.selectedCourtIds = Array.from(document.querySelectorAll('.edit-phase-court-checkbox:checked')).map(cb => cb.value);
       updates.publishedOnHomepage = document.getElementById('editPublishedOnHomepage')?.checked ?? true;
 
       // 🔧 Regole di gioco specifiche della fase: campo vuoto = non impostato,

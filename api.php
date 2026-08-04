@@ -6103,9 +6103,13 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     $config = readConfig();
     $courts = $config['schedule']['courts'] ?? [];
 
-    // 🆕 Se l'admin ha selezionato campi specifici per i gironi, usa solo
-    // quelli — altrimenti (comportamento di prima) usa tutti i campi configurati.
-    $selectedCourtIds = $config['tournament']['groupsSelectedCourtIds'] ?? [];
+    // 🆕 Priorità: prima la selezione campi specifica di QUESTA fase (Fase 1),
+    // poi l'impostazione generale del torneo, poi tutti i campi configurati.
+    $configPhase1 = null;
+    foreach (($config['phases'] ?? []) as $cp) {
+        if (($cp['phaseNumber'] ?? null) === 1) { $configPhase1 = $cp; break; }
+    }
+    $selectedCourtIds = $configPhase1['selectedCourtIds'] ?? ($config['tournament']['groupsSelectedCourtIds'] ?? []);
     if (!empty($selectedCourtIds)) {
         $courts = array_values(array_filter($courts, fn($c) => in_array((string)($c['courtId'] ?? ''), $selectedCourtIds, true)));
         error_log('DEBUG buildGroupMatchesWithSchedule: Filtrati ' . count($courts) . ' campi in base alla selezione admin');
@@ -6238,9 +6242,10 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     
     error_log('DEBUG buildGroupMatchesWithSchedule: totalMatches=' . count($matches));
 
-    // 🆕 Modalità di distribuzione: 'sequential' (comportamento di prima,
-    // invariato) oppure 'interleaved' (una partita per girone a rotazione)
-    $scheduleMode = $config['tournament']['groupsScheduleMode'] ?? 'sequential';
+    // 🆕 Modalità di distribuzione: priorità a quella specifica di QUESTA
+    // fase (Fase 1), poi all'impostazione generale del torneo, poi
+    // 'sequential' come comportamento di prima.
+    $scheduleMode = $configPhase1['scheduleMode'] ?? ($config['tournament']['groupsScheduleMode'] ?? 'sequential');
     $matchesWithSlots = [];
 
     if ($scheduleMode === 'interleaved') {
@@ -10138,6 +10143,19 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
         $phase['publishedOnHomepage'] = (bool)$body['publishedOnHomepage'];
     } elseif (!isset($phase['publishedOnHomepage'])) {
         $phase['publishedOnHomepage'] = true;
+    }
+    // 🆕 Modalità di distribuzione e campi selezionati specifici per QUESTA
+    // fase — vuoto/non impostato = ricade sull'impostazione generale del
+    // torneo (config.tournament.groupsScheduleMode/groupsSelectedCourtIds)
+    if (isset($body['scheduleMode']) && in_array($body['scheduleMode'], ['sequential', 'interleaved'], true)) {
+        $phase['scheduleMode'] = $body['scheduleMode'];
+    } else {
+        unset($phase['scheduleMode']); // valore vuoto = usa il default del torneo
+    }
+    if (isset($body['selectedCourtIds']) && is_array($body['selectedCourtIds']) && !empty($body['selectedCourtIds'])) {
+        $phase['selectedCourtIds'] = array_values(array_map('strval', $body['selectedCourtIds']));
+    } else {
+        unset($phase['selectedCourtIds']);
     }
     
     // Parametri specifici per tipo

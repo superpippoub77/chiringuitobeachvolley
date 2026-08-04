@@ -6432,17 +6432,32 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                 $slot = $availableSlots[$slotIdx];
                 $slotTime = strtotime($slot['startTime']);
                 
-                $team1LastTime = $teamLastTime[$team1] ?? PHP_INT_MIN;
-                $team2LastTime = $teamLastTime[$team2] ?? PHP_INT_MIN;
-                
-                $team1Gap = ($slotTime - $team1LastTime) / 60;
-                $team2Gap = ($slotTime - $team2LastTime) / 60;
-                $minGap = min($team1Gap, $team2Gap);
-                
-                // Score: preferiamo gap >= 75 minuti
-                $slotScore = ($minGap >= 75 || $team1LastTime === PHP_INT_MIN || $team2LastTime === PHP_INT_MIN) 
-                    ? (1000 + $minGap) 
-                    : $minGap;
+                // 🔧 FIX: quando una squadra non ha ancora giocato nessuna
+                // partita, prima si usava PHP_INT_MIN come "ultimo orario di
+                // gioco" — questo faceva risultare il gap (slotTime - PHP_INT_MIN)
+                // enorme e SEMPRE PIÙ GRANDE per gli slot più tardivi della
+                // giornata, quindi l'algoritmo preferiva sistematicamente gli
+                // orari serali per le prime partite di ogni squadra, saltando
+                // completamente la mattina. Ora chi non ha ancora giocato non
+                // ha nessun vincolo di riposo (va bene qualunque slot).
+                $team1HasPlayed = isset($teamLastTime[$team1]);
+                $team2HasPlayed = isset($teamLastTime[$team2]);
+
+                if (!$team1HasPlayed && !$team2HasPlayed) {
+                    // Nessuna delle due ha mai giocato: preferisci lo slot più
+                    // presto della giornata, per riempirla dall'inizio invece
+                    // che lasciare vuoti gli orari iniziali.
+                    $slotScore = -$slotTime;
+                } else {
+                    $team1Gap = $team1HasPlayed ? ($slotTime - $teamLastTime[$team1]) / 60 : 999;
+                    $team2Gap = $team2HasPlayed ? ($slotTime - $teamLastTime[$team2]) / 60 : 999;
+                    $minGap = min($team1Gap, $team2Gap);
+
+                    $slotScore = ($minGap >= 75) ? (1000 + $minGap) : $minGap;
+                    // Uno slot PRIMA dell'ultima partita già assegnata a una
+                    // squadra creerebbe un ordine incoerente: penalizzalo forte
+                    if ($minGap < 0) $slotScore -= 1000000;
+                }
                 
                 if ($slotScore > $bestSlotScore) {
                     $bestSlotScore = $slotScore;

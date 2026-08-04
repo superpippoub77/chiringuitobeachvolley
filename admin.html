@@ -5581,7 +5581,14 @@
           message += `• Squadre qualificate: ${status.teamsQualified || 0}/${status.teamsExpected || 0}<br>`;
         }
         
-        await showInfoDialog('🔍 Verifica Fase', message);
+        await new Promise((resolve) => {
+          openModal({
+            title: '🔍 Verifica Fase',
+            bodyHtml: `<div>${message}</div>`,
+            onClose: () => resolve(true),
+            buttons: [{ text: 'Chiudi', className: 'btn btn-primary', closeOnClick: true, onClick: () => resolve(true) }]
+          });
+        });
       } catch (e) {
         console.error('Errore showPhaseCompletionStatus:', e);
         await showInfoDialog('Errore', e.message);

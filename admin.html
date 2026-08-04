@@ -7665,7 +7665,7 @@
       </div>
       <p style="font-size: 12px; color: #666; margin: 0 0 8px 0">🖐️ Trascina una riga su un'altra per scambiare gli orari/campo tra le due partite.</p>
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch">
-      <table style="min-width: 720px"><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Azioni</th></tr></thead><tbody>
+      <table style="min-width: 720px"><thead><tr><th></th><th>Girone</th><th>Squadra 1</th><th>Score</th><th>Squadra 2</th><th>Data</th><th>Ora</th><th>Arbitro</th><th>Azioni</th></tr></thead><tbody>
       ${m.map(match => `<tr draggable="true" data-match-id="${match.id}"
           ondragstart="handleMatchDragStart(event, '${match.id}')"
           ondragend="handleMatchDragEnd(event)"
@@ -7681,6 +7681,7 @@
         <td>${escapeHtml(match.team2Name)}</td>
         <td>${match.date ? formatDateIta(match.date) : '-'}</td>
         <td><input id="t-${match.id}" type="text" style="width:80px" value="${match.startTime || ''}"></td>
+        <td style="font-size: 12px; color: #555">${match.refereeTeamName ? escapeHtml(match.refereeTeamName) : '<span style="color:#bbb">-</span>'}</td>
         <td style="white-space: nowrap; display: flex; gap: 4px; flex-wrap: wrap">
           <button class="btn btn-primary" onclick="saveMatch('${match.id}')" style="font-size: 12px; padding: 4px 8px">Salva</button>
           <button class="btn btn-info" onclick="openSlotPicker('${match.id}')" style="font-size: 12px; padding: 4px 8px">📅 Slot</button>

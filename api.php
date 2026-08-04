@@ -10486,7 +10486,7 @@ if ($action === 'admin_regenerate_phase_matches' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'message' => 'Partite ricalcolate e salvate con successo']);
 }
 if ($action === 'admin_get_current_phase' && $method === 'GET') {
-    $state = readState();
+    $state = readJsonFile(DATA_FILE, initialState());
     ensurePhases($state);
     
     $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
@@ -10537,7 +10537,7 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
     $body = bodyJson();
     $phaseIdx = (int)($body['phaseIdx'] ?? 0);
     
-    $state = readState();
+    $state = readJsonFile(DATA_FILE, initialState());
     ensurePhases($state);
     
     $phase = getPhase($state, $phaseIdx);

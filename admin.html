@@ -5415,6 +5415,19 @@
       }
     }
 
+    // 🆕 Rigenera la fase gironi da zero — equivalente di "🔄 Ricalcola" per
+    // il castello, ma per i gironi (che non hanno una fase sorgente da cui
+    // dipendere, essendo la prima fase: qui si ripescano di nuovo le
+    // squadre approvate e si rigenerano composizione + orari).
+    async function recalculateGroupsPhase(phaseNumber) {
+      const confirmed = await showConfirmDialog(
+        '🔄 Ricalcola Gironi',
+        'Vuoi rigenerare i gironi da zero? Verranno ricreati composizione e orari delle partite, ripescando di nuovo le squadre approvate. Le partite già giocate e i risultati inseriti andranno persi.'
+      );
+      if (!confirmed) return;
+      await generateGroups();
+    }
+
     async function generateGroups() {
       try {
         // Verifica che lo schedule sia configurato
@@ -8761,6 +8774,7 @@
         </div>
         ${unscheduledGroupCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
         ${phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="openRecalculatePhaseModal(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera questa fase da zero, ripescando di nuovo le squadre reali dalla fase sorgente">🔄 Ricalcola</button>` : ''}
+        ${!phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="recalculateGroupsPhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera i gironi da zero (nuova composizione e nuovi orari), ripescando di nuovo le squadre approvate">🔄 Ricalcola Gironi</button>` : ''}
       </div>`;
 
       // Renderizza ogni girone

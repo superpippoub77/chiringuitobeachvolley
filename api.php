@@ -4509,8 +4509,8 @@ function publicState(array $state): array {
                 'team2Id' => $m['team2'] ?? $m['team2Id'] ?? null,
                 'team1Name' => ($teamMap[$m['team1'] ?? $m['team1Id'] ?? null]['name'] ?? null) ?? $m['team1Name'] ?? 'N/D',
                 'team2Name' => ($teamMap[$m['team2'] ?? $m['team2Id'] ?? null]['name'] ?? null) ?? $m['team2Name'] ?? 'N/D',
-                'score1' => $m['score1'],
-                'score2' => $m['score2'],
+                'score1' => $m['score1'] ?? null,
+                'score2' => $m['score2'] ?? null,
                 'date' => $m['date'] ?? null,
                 'dayDate' => $m['date'] ?? null,
                 'courtId' => $m['courtId'] ?? null,
@@ -4595,8 +4595,8 @@ function playoffView(array $state): array {
             'team2Id' => $team2Id,
             'team1Name' => $teamMap[$team1Id]['name'] ?? '-',
             'team2Name' => $teamMap[$team2Id]['name'] ?? '-',
-            'score1' => $m['score1'],
-            'score2' => $m['score2']
+            'score1' => $m['score1'] ?? null,
+            'score2' => $m['score2'] ?? null
         ];
     };
 
@@ -4971,8 +4971,20 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             $playedMatches = 0;
             foreach ($phase['matches'] ?? [] as $m) {
                 $mg = $m['groupName'] ?? $m['group'] ?? '';
-                if (($mg === $g['group'] || $mg === ('Girone ' . $g['group'])) && $m['score1'] !== null && $m['score2'] !== null) {
-                    $playedMatches++;
+                if ($mg !== $g['group'] && $mg !== ('Girone ' . $g['group'])) continue;
+                // 🔧 FIX: score1/score2 non vengono più impostati da nessuna
+                // parte del sistema attuale (si usa 'sets') — controllarli
+                // qui sia causava un errore fatale (chiave assente), sia
+                // avrebbe sempre considerato "non giocata" qualunque
+                // partita con risultato inserito nel formato attuale.
+                if (!empty($m['sets'])) {
+                    $hasResult = true;
+                    foreach ($m['sets'] as $set) {
+                        if (($set['team1'] ?? null) === null || ($set['team2'] ?? null) === null) { $hasResult = false; break; }
+                    }
+                    if ($hasResult) $playedMatches++;
+                } elseif (($m['score1'] ?? null) !== null && ($m['score2'] ?? null) !== null) {
+                    $playedMatches++; // ripiego per eventuali vecchie partite ancora in formato legacy
                 }
             }
             error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP {$g['group']} expectedMatches=$expectedMatches, playedMatches=$playedMatches");
@@ -12192,8 +12204,8 @@ if ($action === 'admin_swap_knockout_teams' && $method === 'POST') {
                 $match['team2Name'] = $tmp2;
                 
                 // Scambio anche gli score se non sono null
-                $tmpScore = $match['score1'];
-                $match['score1'] = $match['score2'];
+                $tmpScore = $match['score1'] ?? null;
+                $match['score1'] = $match['score2'] ?? null;
                 $match['score2'] = $tmpScore;
                 
                 $result['team1Name'] = $match['team1Name'];
@@ -15923,7 +15935,7 @@ if ($action === 'admin_update_match_score' && $method === 'POST') {
                 }
                 
                 error_log("✅ TABELLONE KNOCKOUT: Partita {$matchId} → sets=" . count($sets) . 
-                    ", setsWon={$team1SetsWon}-{$team2SetsWon}, currentSet={$match['score1']}-{$match['score2']}");
+                    ", setsWon={$team1SetsWon}-{$team2SetsWon}, currentSet=" . ($match['score1'] ?? 'null') . "-" . ($match['score2'] ?? 'null'));
             } else {
                 $match['score1'] = null;
                 $match['score2'] = null;

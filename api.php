@@ -5642,33 +5642,39 @@ function parseTimeToMinutes(string $timeStr): int {
 
 function buildGroupMatches(array &$state): void {
     $matches = [];
-    $day = 1;
-    $slot = 0;
 
     // ✅ REFACTORED: Leggi i gruppi dalla prima fase
     $groups = $state['phases'][0]['groups'] ?? [];
+
+    // 🔧 FIX: risolve subito i nomi delle squadre (mancavano del tutto —
+    // la tabella "Partite" in admin legge match.team1Name/team2Name
+    // direttamente dai dati grezzi, senza risolverli lei stessa)
+    $teamMap = getTeamMap($state);
 
     foreach ($groups as $group) {
         $ids = $group['teamIds'];
         for ($i = 0; $i < count($ids) - 1; $i++) {
             for ($j = $i + 1; $j < count($ids); $j++) {
-                $hour = 19 + intdiv($slot, 2);
-                $mins = ($slot % 2 === 0) ? '30' : '55';
                 $matches[] = [
                     'id' => uid(),
                     'group' => $group['name'],
                     'team1Id' => $ids[$i],
                     'team2Id' => $ids[$j],
-                    'score1' => null,
-                    'score2' => null,
-                    'day' => $day,
-                    'time' => $hour . ':' . $mins
+                    'team1Name' => $teamMap[$ids[$i]]['name'] ?? '?',
+                    'team2Name' => $teamMap[$ids[$j]]['name'] ?? '?',
+                    // 🔧 FIX: niente più orario finto (19:30/19:55...) senza
+                    // relazione con la schedulazione reale — resta
+                    // esplicitamente "da programmare" (data assente)
+                    'date' => null,
+                    'startTime' => null,
+                    'endTime' => null,
+                    'courtId' => null,
+                    'courtName' => null,
+                    'courtIdx' => null,
+                    'dateIdx' => null,
+                    'slotIdx' => null,
+                    'sets' => []
                 ];
-                $slot++;
-                if ($slot > 5) {
-                    $slot = 0;
-                    $day++;
-                }
             }
         }
     }
@@ -5677,9 +5683,13 @@ function buildGroupMatches(array &$state): void {
     if (!isset($state['phases'][0])) {
         $state['phases'][0] = [];
     }
-    // 🆕 Assegna una squadra arbitro (non impegnata) ad ogni partita, se attivo
-    assignRefereesToMatches($matches, approvedTeams($state));
     $state['phases'][0]['matches'] = $matches;
+    // 🆕 Assegna una squadra arbitro (non impegnata) ad ogni partita, se
+    // attivo — 🔧 FIX: qui le partite non hanno ancora un orario reale
+    // (sono "da programmare"), quindi l'assegnazione non può ancora
+    // verificare i conflitti — verrà rifatta correttamente in
+    // admin_auto_schedule_phase, DOPO che le partite hanno un orario vero.
+    assignRefereesToMatches($state['phases'][0]['matches'], approvedTeams($state));
 }
 
 function winnerLoser(?array $match, string $sportType = 'beachvolley'): array {
@@ -6275,17 +6285,31 @@ function buildGroupMatchesWithSchedule(array &$state): void {
             }
         }
 
-        $maxRounds = 0;
-        foreach ($roundsByGroup as $rounds) $maxRounds = max($maxRounds, count($rounds));
+        // 🔧 FIX: prima si alternava un intero TURNO per girone (che con
+        // gironi da 4+ squadre contiene più partite simultanee, es. 2),
+        // mostrando quindi "2 partite di un girone, poi 2 dell'altro"
+        // invece della singola partita per girone richiesta. Ora si
+        // appiattisce ogni girone nella sua sequenza di partite (in ordine
+        // di turno) e si alterna UNA partita alla volta tra i gironi.
+        $flatMatchesByGroup = [];
+        foreach ($roundsByGroup as $groupName => $rounds) {
+            $flat = [];
+            foreach ($rounds as $round) {
+                foreach ($round as $pair) $flat[] = $pair;
+            }
+            $flatMatchesByGroup[$groupName] = $flat;
+        }
+
+        $maxLen = 0;
+        foreach ($flatMatchesByGroup as $flat) $maxLen = max($maxLen, count($flat));
 
         $orderedIdx = [];
-        for ($r = 0; $r < $maxRounds; $r++) {
-            foreach ($roundsByGroup as $rounds) {
-                if (!isset($rounds[$r])) continue;
-                foreach ($rounds[$r] as $pair) {
-                    $key = $pair[0] . '|' . $pair[1];
-                    if (isset($pairToIdx[$key])) $orderedIdx[] = $pairToIdx[$key];
-                }
+        for ($i = 0; $i < $maxLen; $i++) {
+            foreach ($flatMatchesByGroup as $flat) {
+                if (!isset($flat[$i])) continue;
+                $pair = $flat[$i];
+                $key = $pair[0] . '|' . $pair[1];
+                if (isset($pairToIdx[$key])) $orderedIdx[] = $pairToIdx[$key];
             }
         }
 
@@ -11418,6 +11442,12 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                 $scheduled++;
             }
         }
+
+        // 🆕 Riassegna gli arbitri ORA che le partite hanno un orario reale
+        // — prima (quando erano ancora "da programmare", es. dopo un
+        // "Ricalcola Gironi") l'assegnazione non poteva verificare i
+        // conflitti di orario, quindi va rifatta qui con i dati corretti.
+        assignRefereesToMatches($currentPhase['matches'], approvedTeams($state));
 
         return [
             'ok' => true,

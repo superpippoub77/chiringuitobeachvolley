@@ -10169,8 +10169,24 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
         }
     }
     
+    // 🔧 FIX: se la fase non esiste ancora nelle impostazioni (es. creata
+    // dalla generazione gironi ma mai esplicitamente configurata prima),
+    // creala adesso invece di rispondere "Fase non trovata" — altrimenti
+    // non era possibile salvare NESSUNA impostazione al primo utilizzo.
     if ($phaseIdx === null) {
-        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
+        $phases[] = [
+            'phaseNumber' => $phaseNumber,
+            'name' => "Fase $phaseNumber",
+            'type' => 'groups',
+            'branch' => 'root',
+            'qualifiedGoTo' => '',
+            'eliminatedGoTo' => '',
+            'numGroups' => 4,
+            'teamsAdvance' => '2',
+            'hasRepescage' => false
+        ];
+        $phaseIdx = count($phases) - 1;
+        $config['phases'] = $phases;
     }
     
     // Aggiorna i parametri
@@ -11214,6 +11230,10 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                         
                         $allSlots[] = [
                             'courtIdx' => $courtIdx, 'dateIdx' => $dateIdx, 'slotIdx' => $rangeIdx,
+                            // 🆕 Posizione DENTRO la fascia oraria (slotIdx indica solo QUALE
+                            // fascia, es. mattina/pomeriggio) — serve per far corrispondere
+                            // correttamente le caselle "occupato/libero" in Calendario.
+                            'matchNum' => $sub,
                             'date' => $avail['date'] ?? null,
                             'startTime' => $minutesToTime($subStart), 'endTime' => $minutesToTime($subEnd),
                             'courtName' => $court['courtName'] ?? ('Campo ' . ($courtIdx + 1))
@@ -11373,6 +11393,7 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                 $currentPhase['matches'][$idx]['courtIdx'] = $slot['courtIdx'];
                 $currentPhase['matches'][$idx]['dateIdx'] = $slot['dateIdx'];
                 $currentPhase['matches'][$idx]['slotIdx'] = $slot['slotIdx'];
+                $currentPhase['matches'][$idx]['matchNum'] = $slot['matchNum'] ?? 0;
                 $currentPhase['matches'][$idx]['courtName'] = $slot['courtName'];
                 $currentPhase['matches'][$idx]['time'] = $slot['startTime'];
                 
@@ -11480,6 +11501,7 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
                 $currentPhase['matches'][$idx]['courtIdx'] = $slot['courtIdx'];
                 $currentPhase['matches'][$idx]['dateIdx'] = $slot['dateIdx'];
                 $currentPhase['matches'][$idx]['slotIdx'] = $slot['slotIdx'];
+                $currentPhase['matches'][$idx]['matchNum'] = $slot['matchNum'] ?? 0;
                 $currentPhase['matches'][$idx]['courtName'] = $slot['courtName'];
                 $currentPhase['matches'][$idx]['time'] = $slot['startTime'];
 

@@ -9934,7 +9934,19 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         // Limita al massimo
         $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
 
-        $groupCount = min(4, max(1, (int)ceil(count($approved) / 4)));
+        // 🔧 FIX: rispetta il numero di gironi impostato esplicitamente
+        // dall'admin (config.tournament.numGroups) — prima veniva SEMPRE
+        // ricalcolato da questa formula automatica, ignorando del tutto
+        // quello che l'admin aveva scelto (es. impostava 2 gironi e ne
+        // venivano generati 3, senza nessun modo di controllarlo).
+        // 0/non impostato = comportamento automatico di prima.
+        $genGroupsConfig = readConfig();
+        $configuredNumGroups = (int)($genGroupsConfig['tournament']['numGroups'] ?? 0);
+        if ($configuredNumGroups > 0) {
+            $groupCount = min($configuredNumGroups, count($approved));
+        } else {
+            $groupCount = min(4, max(1, (int)ceil(count($approved) / 4)));
+        }
         
         // Usa distribuzione bilanciata per peso squadra
         $groups = balancedGroupDistribution($approved, $groupCount);

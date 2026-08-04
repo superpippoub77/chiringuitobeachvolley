@@ -9935,13 +9935,18 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         $approved = array_slice(shuffleArray($approved), 0, $maxTeams);
 
         // 🔧 FIX: rispetta il numero di gironi impostato esplicitamente
-        // dall'admin (config.tournament.numGroups) — prima veniva SEMPRE
-        // ricalcolato da questa formula automatica, ignorando del tutto
-        // quello che l'admin aveva scelto (es. impostava 2 gironi e ne
-        // venivano generati 3, senza nessun modo di controllarlo).
-        // 0/non impostato = comportamento automatico di prima.
+        // dall'admin nella scheda Fasi — che lo salva in
+        // config.phases[X].numGroups (con phaseNumber corrispondente),
+        // NON in config.tournament.numGroups (posto sbagliato del mio primo
+        // tentativo di correzione, che infatti non risolveva il problema
+        // reale: la scheda Fasi salva altrove). 0/non impostato = comportamento
+        // automatico di prima.
         $genGroupsConfig = readConfig();
-        $configuredNumGroups = (int)($genGroupsConfig['tournament']['numGroups'] ?? 0);
+        $configPhase1 = null;
+        foreach (($genGroupsConfig['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === 1) { $configPhase1 = $cp; break; }
+        }
+        $configuredNumGroups = (int)($configPhase1['numGroups'] ?? 0);
         if ($configuredNumGroups > 0) {
             $groupCount = min($configuredNumGroups, count($approved));
         } else {

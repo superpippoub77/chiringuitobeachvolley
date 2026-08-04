@@ -5653,15 +5653,24 @@ function buildGroupMatches(array &$state): void {
 
     foreach ($groups as $group) {
         $ids = $group['teamIds'];
-        for ($i = 0; $i < count($ids) - 1; $i++) {
-            for ($j = $i + 1; $j < count($ids); $j++) {
+        // 🔧 FIX: usa la stessa struttura "a turni" (metodo del cerchio) di
+        // generateRoundRobinRounds(), non un semplice doppio ciclo — così
+        // l'ordine delle partite rispecchia già i turni del girone, ed è
+        // possibile alternare correttamente tra gironi quando poi si
+        // assegnano gli orari (altrimenti l'ordine grezzo mescola più
+        // turni insieme, rendendo l'alternanza incoerente con i riposi
+        // minimi tra una partita e l'altra della stessa squadra).
+        $rounds = generateRoundRobinRounds($ids);
+        foreach ($rounds as $round) {
+            foreach ($round as $pair) {
+                [$t1, $t2] = $pair;
                 $matches[] = [
                     'id' => uid(),
                     'group' => $group['name'],
-                    'team1Id' => $ids[$i],
-                    'team2Id' => $ids[$j],
-                    'team1Name' => $teamMap[$ids[$i]]['name'] ?? '?',
-                    'team2Name' => $teamMap[$ids[$j]]['name'] ?? '?',
+                    'team1Id' => $t1,
+                    'team2Id' => $t2,
+                    'team1Name' => $teamMap[$t1]['name'] ?? '?',
+                    'team2Name' => $teamMap[$t2]['name'] ?? '?',
                     // 🔧 FIX: niente più orario finto (19:30/19:55...) senza
                     // relazione con la schedulazione reale — resta
                     // esplicitamente "da programmare" (data assente)
@@ -6574,13 +6583,23 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         return;
     }
     
-    // Ricostruisci matches array mantenendo l'ordine originale
+    // 🔧 FIX: prima l'array restava nell'ordine di CREAZIONE originale (tutte
+    // le partite di un girone, poi tutte dell'altro) anche quando la
+    // modalità "interleaved" assegnava gli ORARI in modo alternato — quindi
+    // gli orari alternavano correttamente ma la tabella (che mostra
+    // l'array così com'è, senza riordinarlo) mostrava comunque "tutto un
+    // girone poi l'altro". Ora si riordina l'array per data/ora reali,
+    // così l'ordine visualizzato corrisponde sempre a quello cronologico.
     $finalMatches = [];
     foreach ($matches as $idx => $match) {
         if (isset($matchesWithSlots[$idx])) {
             $finalMatches[] = $matchesWithSlots[$idx];
         }
     }
+    usort($finalMatches, function ($a, $b) {
+        $cmp = strcmp($a['date'] ?? '', $b['date'] ?? '');
+        return $cmp !== 0 ? $cmp : strcmp($a['startTime'] ?? '', $b['startTime'] ?? '');
+    });
     
     error_log('DEBUG buildGroupMatchesWithSchedule: ✅ Successfully assigned all ' . count($finalMatches) . ' matches with time-aware distribution');
     // ✅ REFACTORED: Salva i match nella prima fase
@@ -11287,6 +11306,40 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
             $pendingMatches[] = ['idx' => $idx, 'match' => $m];
         }
 
+        // 🔧 FIX: l'assegnazione degli slot qui sotto processava le partite
+        // nell'ordine in cui si trovavano nell'array (tipicamente un intero
+        // girone, poi l'altro), ignorando del tutto la modalità di
+        // distribuzione scelta per la fase — quindi anche impostando
+        // "interleaved", gli orari finivano comunque raggruppati per girone.
+        // Ora, se la fase è di tipo gironi con modalità interleaved
+        // (specifica della fase, o generale del torneo), le riordina prima
+        // di assegnare gli slot.
+        if (($currentPhase['type'] ?? '') === 'groups' && !empty($currentPhase['groups'])) {
+            $scheduleConfigForReorder = readConfig();
+            $configPhaseForReorder = null;
+            foreach (($scheduleConfigForReorder['phases'] ?? []) as $cp) {
+                if (($cp['phaseNumber'] ?? null) === $phaseNumber) { $configPhaseForReorder = $cp; break; }
+            }
+            $reorderMode = $configPhaseForReorder['scheduleMode'] ?? ($scheduleConfigForReorder['tournament']['groupsScheduleMode'] ?? 'sequential');
+
+            if ($reorderMode === 'interleaved') {
+                $pendingByGroup = [];
+                foreach ($pendingMatches as $pm) {
+                    $pendingByGroup[$pm['match']['group'] ?? '']['flat'][] = $pm;
+                }
+                $maxLenReorder = 0;
+                foreach ($pendingByGroup as $g) $maxLenReorder = max($maxLenReorder, count($g['flat']));
+
+                $reordered = [];
+                for ($i = 0; $i < $maxLenReorder; $i++) {
+                    foreach ($pendingByGroup as $g) {
+                        if (isset($g['flat'][$i])) $reordered[] = $g['flat'][$i];
+                    }
+                }
+                $pendingMatches = $reordered;
+            }
+        }
+
         if (empty($pendingMatches)) {
             // Nessuna partita da schedulare
             return [
@@ -11448,6 +11501,15 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         // "Ricalcola Gironi") l'assegnazione non poteva verificare i
         // conflitti di orario, quindi va rifatta qui con i dati corretti.
         assignRefereesToMatches($currentPhase['matches'], approvedTeams($state));
+
+        // 🔧 FIX: riordina l'array per data/ora reali — altrimenti resta
+        // nell'ordine di creazione originale (es. tutto un girone, poi
+        // l'altro) anche se gli orari assegnati alternano correttamente tra
+        // i gironi (stesso motivo della correzione in buildGroupMatchesWithSchedule)
+        usort($currentPhase['matches'], function ($a, $b) {
+            $cmp = strcmp($a['date'] ?? '', $b['date'] ?? '');
+            return $cmp !== 0 ? $cmp : strcmp($a['startTime'] ?? '', $b['startTime'] ?? '');
+        });
 
         return [
             'ok' => true,

@@ -6453,7 +6453,20 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                     $team2Gap = $team2HasPlayed ? ($slotTime - $teamLastTime[$team2]) / 60 : 999;
                     $minGap = min($team1Gap, $team2Gap);
 
-                    $slotScore = ($minGap >= 75) ? (1000 + $minGap) : $minGap;
+                    // 🔧 FIX CRITICO: la formula precedente (1000 + minGap)
+                    // premiava i gap PIÙ GRANDI — tra uno slot che rispetta
+                    // appena il riposo minimo (es. 80 minuti) e uno molto più
+                    // lontano nel tempo (es. 495 minuti), sceglieva sempre
+                    // quest'ultimo, perché otteneva un punteggio più alto.
+                    // Risultato: la schedulazione saltava ore intere anche
+                    // quando c'erano slot liberi e validi molto più vicini.
+                    // Ora si preferisce il gap PIÙ VICINO al minimo richiesto
+                    // (il primo slot utile), non il più lontano.
+                    if ($minGap >= 75) {
+                        $slotScore = 100000 - $minGap;
+                    } else {
+                        $slotScore = $minGap;
+                    }
                     // Uno slot PRIMA dell'ultima partita già assegnata a una
                     // squadra creerebbe un ordine incoerente: penalizzalo forte
                     if ($minGap < 0) $slotScore -= 1000000;

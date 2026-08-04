@@ -6233,6 +6233,12 @@ function buildGroupMatchesWithSchedule(array &$state): void {
     // ✅ REFACTORED: Leggi i gruppi dalla prima fase
     $groups = $state['phases'][0]['groups'] ?? [];
     
+    // 🔧 FIX: risolve subito i nomi delle squadre (mancavano del tutto nei
+    // dati grezzi — la tabella "Partite" in admin legge match.team1Name/
+    // team2Name direttamente, senza risolverli lei stessa; solo la vista
+    // pubblica li risolveva sempre, mascherando il problema qui)
+    $teamMapForNames = getTeamMap($state);
+
     // Raccogli tutte le partite dei gironi
     $matches = [];
     foreach ($groups as $group) {
@@ -6244,6 +6250,8 @@ function buildGroupMatchesWithSchedule(array &$state): void {
                     'group' => $group['name'],
                     'team1Id' => $teamIds[$i],
                     'team2Id' => $teamIds[$j],
+                    'team1Name' => $teamMapForNames[$teamIds[$i]]['name'] ?? '?',
+                    'team2Name' => $teamMapForNames[$teamIds[$j]]['name'] ?? '?',
                     'score1' => null,
                     'score2' => null,
                     'date' => null,
@@ -11160,13 +11168,17 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
     $phaseNumber = (int)($body['phaseNumber'] ?? 0);
     $filterDates = $body['dates'] ?? [];      // Date selezionate dall'utente
     $filterSlots = $body['timeSlots'] ?? [];  // Fasce selezionate dall'utente
+    // 🆕 Se true, ripianifica anche le partite che hanno GIÀ un orario
+    // assegnato (purché non abbiano ancora un risultato, cioè non siano in
+    // corso o concluse) — non solo quelle ancora senza data.
+    $rescheduleAll = (bool)($body['rescheduleAll'] ?? false);
 
     if ($phaseNumber < 1) {
         jsonResponse(422, ['ok' => false, 'error' => 'phaseNumber richiesto']);
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots) {
+    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots, $rescheduleAll) {
         ensurePhases($state);
 
         $config = readConfig();
@@ -11317,12 +11329,35 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
         $scheduled = 0;
         $skippedByes = 0;
+        $skippedWithResult = 0;
 
-        // Partite ancora da schedulare in questa fase (bye e già-schedulate escluse)
+        // Partite ancora da schedulare in questa fase (bye e già-giocate
+        // escluse sempre). 🆕 Se rescheduleAll è true, include anche le
+        // partite che hanno GIÀ un orario ma non hanno ancora un risultato
+        // (non sono in corso né concluse), azzerando il loro vecchio orario
+        // prima di riassegnarlo.
+        $sportTypeForCheck = $config['tournament']['sportType'] ?? 'beachvolley';
         $pendingMatches = [];
         foreach ($currentPhase['matches'] as $idx => $m) {
             if (!empty($m['bye'])) { $skippedByes++; continue; }
-            if (!empty($m['date'])) continue;
+
+            [, , $hasResult] = getMatchSetsWon($m, $sportTypeForCheck);
+            if ($hasResult) { $skippedWithResult++; continue; } // in corso o concluso: mai toccarla
+
+            if (!empty($m['date']) && !$rescheduleAll) continue; // già schedulata, e non stiamo ripianificando tutto
+
+            if (!empty($m['date']) && $rescheduleAll) {
+                $m['date'] = null; $m['startTime'] = null; $m['endTime'] = null;
+                $m['courtId'] = null; $m['courtName'] = null; $m['courtIdx'] = null; $m['dateIdx'] = null; $m['slotIdx'] = null;
+                $currentPhase['matches'][$idx]['date'] = null;
+                $currentPhase['matches'][$idx]['startTime'] = null;
+                $currentPhase['matches'][$idx]['endTime'] = null;
+                $currentPhase['matches'][$idx]['courtId'] = null;
+                $currentPhase['matches'][$idx]['courtName'] = null;
+                $currentPhase['matches'][$idx]['courtIdx'] = null;
+                $currentPhase['matches'][$idx]['dateIdx'] = null;
+                $currentPhase['matches'][$idx]['slotIdx'] = null;
+            }
             $pendingMatches[] = ['idx' => $idx, 'match' => $m];
         }
 

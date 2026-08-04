@@ -8849,6 +8849,7 @@
         ${unscheduledGroupCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
         ${phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="openRecalculatePhaseModal(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera questa fase da zero, ripescando di nuovo le squadre reali dalla fase sorgente">🔄 Ricalcola</button>` : ''}
         ${!phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="recalculateGroupsPhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera i gironi da zero (nuova composizione e nuovi orari), ripescando di nuovo le squadre approvate">🔄 Ricalcola Gironi</button>` : ''}
+        ${(phaseData.matches || []).length > 0 ? `<button class="btn" style="background: #6a4fbb; color: white; font-size: 12px; padding: 6px 12px" onclick="rescheduleUnplayedMatches(${phaseData.phaseNumber})" title="Ripianifica le partite non ancora giocate su nuovi giorni/orari, senza toccare quelle già concluse o in corso, e senza rigenerare i gironi">🔄 Rischedula Orari</button>` : ''}
       </div>`;
 
       // Renderizza ogni girone
@@ -9435,7 +9436,18 @@ html += `
       return result;
     }
 
-    async function autoSchedulePhase(phaseNumber) {
+    // 🆕 Ripianifica le partite non ancora giocate/in corso su nuovi
+    // giorni/orari, senza toccare quelle concluse ne' rigenerare i gironi.
+    async function rescheduleUnplayedMatches(phaseNumber) {
+      const confirmed = await showConfirmDialog(
+        '🔄 Rischedula Orari',
+        'Vuoi scegliere nuovi giorni/orari per le partite non ancora giocate di questa fase? Quelle già concluse o in corso non verranno toccate, e la composizione dei gironi resterà invariata.'
+      );
+      if (!confirmed) return;
+      autoSchedulePhase(phaseNumber, true);
+    }
+
+    async function autoSchedulePhase(phaseNumber, rescheduleAll = false) {
       const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
       if (!phase) return;
       
@@ -9546,7 +9558,7 @@ html += `
       }
       
       openModal({
-        title: `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
+        title: rescheduleAll ? `🔄 Rischedula Orari - Fase ${phaseNumber}` : `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
         bodyHtml,
         buttons: [
           { text: 'Annulla', className: 'btn', closeOnClick: true },
@@ -9584,7 +9596,8 @@ html += `
               const res = await callApi('admin_auto_schedule_phase', 'POST', { 
                 phaseNumber,
                 dates: selectedDates,
-                timeSlots: selectedRangeLabels
+                timeSlots: selectedRangeLabels,
+                rescheduleAll
               }, true);
               
               await refresh();

@@ -8489,9 +8489,17 @@
 
               <div class="field" style="margin-top: 12px">
                 <label style="display: flex; gap: 8px; align-items: center">
-                  <input type="checkbox" id="editHasRepescage" ${phase.hasRepescage ? 'checked' : ''}>
+                  <input type="checkbox" id="editHasRepescage" onchange="document.getElementById('repescageCountField').style.display = this.checked ? '' : 'none'" ${phase.hasRepescage ? 'checked' : ''}>
                   <span>Ha Girone di Ripescaggio per Eliminate</span>
                 </label>
+              </div>
+
+              <div class="field" id="repescageCountField" style="margin-top: 12px; ${phase.hasRepescage ? '' : 'display: none'}">
+                <label>Quante eliminate per girone vanno al ripescaggio</label>
+                <input type="text" id="editRepescageCount" value="${escapeHtml(phase.repescageCount || '')}" placeholder="Vuoto = tutte le eliminate" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+                <small style="color: #888; display: block; margin-top: 6px; font-size: 12px">
+                  💡 Un singolo numero (es: <code style="background: #f5f5f5; padding: 2px 4px">2</code>) per 2 eliminate ripescate da ogni girone, oppure valori separati da virgola (es: <code style="background: #f5f5f5; padding: 2px 4px">2,1,2</code>) per girone. Lascia vuoto per ripescare tutte le eliminate. Vale sempre la posizione in classifica: si prendono sempre le migliori tra le eliminate.
+                </small>
               </div>
 
               <div class="field" style="margin-top: 12px">
@@ -8705,6 +8713,7 @@
         const teamsAdvanceStr = document.getElementById('editTeamsAdvance')?.value?.trim() || '2';
         updates.teamsAdvance = teamsAdvanceStr.includes(',') ? teamsAdvanceStr : parseInt(teamsAdvanceStr);
         updates.hasRepescage = document.getElementById('editHasRepescage')?.checked || false;
+        updates.repescageCount = document.getElementById('editRepescageCount')?.value?.trim() || '';
         updates.qualifiedGoTo = document.getElementById('editQualifiedGoTo')?.value || '';
         updates.eliminatedGoTo = document.getElementById('editEliminatedGoTo')?.value || '';
       } else if (type === 'knockout') {

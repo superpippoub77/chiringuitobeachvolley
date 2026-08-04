@@ -4925,7 +4925,7 @@ function computeStandingsForPhase(array $state, int $phaseNumber): array {
  *    Questo combacia con il campo "teamsAdvance" salvato in config.json (es. "2,1,2,2"),
  *    che permette gironi con un numero diverso di qualificati.
  */
-function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdvancePerGroup = 2, int $sortCriterion = 1): array {
+function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdvancePerGroup = 2, int $sortCriterion = 1, $repescageCountPerGroup = null): array {
     error_log("🔍 DEBUG getTeamsFromPhaseBranch: START sourcePhaseNumber=$sourcePhaseNumber, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", sortCriterion=$sortCriterion");
     
     $phaseIdx = array_search($sourcePhaseNumber, array_column($state['phases'] ?? [], 'phaseNumber'), true);
@@ -4952,6 +4952,17 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         } elseif (is_string($teamsAdvancePerGroup)) {
             $teamsAdvancePerGroup = (int)$teamsAdvancePerGroup;
             error_log("🔍 DEBUG getTeamsFromPhaseBranch: converted string to int: " . json_encode($teamsAdvancePerGroup));
+        }
+
+        // 🆕 Stessa conversione per il numero di eliminate ammesse al
+        // ripescaggio per girone — null/vuoto = nessun limite (tutte le
+        // eliminate, comportamento di prima)
+        if (is_string($repescageCountPerGroup) && trim($repescageCountPerGroup) === '') {
+            $repescageCountPerGroup = null;
+        } elseif (is_string($repescageCountPerGroup) && strpos($repescageCountPerGroup, ',') !== false) {
+            $repescageCountPerGroup = array_map(fn($x) => (int)trim($x), explode(',', $repescageCountPerGroup));
+        } elseif (is_string($repescageCountPerGroup)) {
+            $repescageCountPerGroup = (int)$repescageCountPerGroup;
         }
         
         $qualified = [];
@@ -5000,6 +5011,19 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
             error_log("🔍 DEBUG getTeamsFromPhaseBranch: GROUP {$g['group']} expectedMatches=$expectedMatches, playedMatches=$playedMatches");
             if ($playedMatches < $expectedMatches) $complete = false;
 
+            // 🆕 Se è impostato un limite al numero di eliminate ammesse al
+            // ripescaggio per QUESTO girone, calcolalo (stesso schema di
+            // advanceCount: singolo numero o uno per girone)
+            $repescageLimit = null;
+            if ($repescageCountPerGroup !== null) {
+                if (is_array($repescageCountPerGroup)) {
+                    $repescageLimit = $repescageCountPerGroup[$groupIdx] ?? end($repescageCountPerGroup) ?: null;
+                } else {
+                    $repescageLimit = $repescageCountPerGroup;
+                }
+            }
+            $eliminatedCountThisGroup = 0;
+
             foreach ($rows as $idx => $row) {
                 if ($idx < $advanceCount) {
                     $qualified[] = $row['teamId'];
@@ -5007,7 +5031,14 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                         $groupWinners[] = $row['teamId']; // 🆕 1a classificata del girone
                     }
                 } else {
-                    $eliminated[] = $row['teamId'];
+                    // 🆕 Rispetta il limite di ripescaggio per girone, se
+                    // impostato — prende sempre le migliori tra le eliminate
+                    // (l'ordine di $rows è già per posizione in classifica),
+                    // non un sottoinsieme casuale.
+                    if ($repescageLimit === null || $eliminatedCountThisGroup < $repescageLimit) {
+                        $eliminated[] = $row['teamId'];
+                        $eliminatedCountThisGroup++;
+                    }
                 }
             }
             $groupIdx++;
@@ -10272,6 +10303,9 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
         $phase['numGroups'] = (int)($body['numGroups'] ?? $phase['numGroups'] ?? 4);
         $phase['teamsAdvance'] = (string)($body['teamsAdvance'] ?? $phase['teamsAdvance'] ?? '2');
         $phase['hasRepescage'] = (bool)($body['hasRepescage'] ?? false);
+        // 🆕 Quante squadre eliminate (per girone) sono ammesse al
+        // ripescaggio — vuoto/non impostato = nessun limite, tutte accedono
+        $phase['repescageCount'] = trim((string)($body['repescageCount'] ?? ''));
     } elseif ($phase['type'] === 'knockout') {
         $phase['numTeams'] = (int)($body['numTeams'] ?? $phase['numTeams'] ?? 8);
         $phase['hasLosersPath'] = (bool)($body['hasLosersPath'] ?? false);
@@ -11743,6 +11777,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // Es: per gli eliminati della Fase 1 (2,3,3), usa "2,3,3" per calcolare,
             // non il "3" che l'utente ha messo per la Fase 3.
             $teamsAdvanceForCalculation = $teamsAdvancePerGroup;
+            $repescageCountForCalculation = null;
             if ($sourceBranch === 'eliminated' || $sourceBranch === 'qualified') {
                 // Leggi il valore della fase sorgente dal config
                 $cfg = readConfig();
@@ -11756,10 +11791,15 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                 if ($sourceConfigPhase && !empty($sourceConfigPhase['teamsAdvance'])) {
                     $teamsAdvanceForCalculation = $sourceConfigPhase['teamsAdvance'];
                 }
+                // 🆕 Numero di eliminate ammesse al ripescaggio (per girone) —
+                // se vuoto/non impostato, nessun limite (tutte le eliminate)
+                if ($sourceBranch === 'eliminated' && $sourceConfigPhase && isset($sourceConfigPhase['repescageCount']) && $sourceConfigPhase['repescageCount'] !== '') {
+                    $repescageCountForCalculation = $sourceConfigPhase['repescageCount'];
+                }
                 error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", teamsAdvanceForCalculation=" . json_encode($teamsAdvanceForCalculation));
             }
             
-            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation, $sortCriterion);
+            $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvanceForCalculation, $sortCriterion, $repescageCountForCalculation);
             error_log("🔍 DEBUG admin_create_phase: branchResult qualified=" . count($branchResult['qualified'] ?? []) . ", eliminated=" . count($branchResult['eliminated'] ?? []) . ", complete=" . ($branchResult['complete'] ? 'true' : 'false') . ", sortCriterion=$sortCriterion");
             if (!empty($branchResult['error'])) {
                 return ['ok' => false, 'error' => $branchResult['error']];

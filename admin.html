@@ -9333,10 +9333,18 @@ html += `
         return (occupiedIntervals[ckey] || []).some(([s, e]) => startMin < e && s < endMin);
       }
 
+      // 🆕 Esclude anche gli slot il cui orario è già passato rispetto ad ORA
+      // (non solo la data): un campo disponibile oggi dalle 10:00 alle 13:00
+      // non va più proposto come libero se sono già le 15:00 di oggi.
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
       const result = [];
       courts.forEach((court, courtIdx) => {
         (court.availability || []).forEach(av => {
           if (selectedDates && selectedDates.length && !selectedDates.includes(av.date)) return;
+          if (av.date < todayStr) return; // giornata intera già passata
           (av.timeSlots || []).forEach(ts => {
             const startMin = timeToMinutes(ts.startTime);
             const endMin = timeToMinutes(ts.endTime);
@@ -9349,6 +9357,9 @@ html += `
               const subStart = startMin + (sub * matchDuration);
               const subEnd = subStart + matchDuration;
               if (overlapsOccupied(ckey, subStart, subEnd)) continue;
+              // Se la giornata è proprio oggi, scarta gli slot il cui orario
+              // di inizio è già passato rispetto al momento attuale
+              if (av.date === todayStr && subStart <= nowMinutes) continue;
 
               result.push({
                 date: av.date,
@@ -14798,7 +14809,7 @@ html += `
             // Calcola lo stato dello slot
             const matchesInSlot = getMatchesInSlot(courtIdx, dateIdx, slotIdx);
             const totalOccupiedSlotsOnDate = getTotalMatchesForDate(courtIdx, dateIdx);
-            const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot);
+            const slotStatus = getSlotStatus(dateAvail.date, effectiveSlots, matchesInSlot, slot.endTime);
             const indicatorHtml = slotStatus.indicator ? `<span style="color: ${slotStatus.indicatorColor}; font-size: 16px; margin-left: 4px">${slotStatus.indicator}</span>` : '';
             // 🔧 FIX: prima si passava il conteggio dell'INTERA DATA (che
             // conta solo quante fasce diverse sono usate, es. 2, per un bug
@@ -14963,7 +14974,20 @@ html += `
     // Determina lo stato complessivo di una data (versione semplificata)
     function getDateSimpleStatus(date, courtIdx, dateIdx) {
       const today = new Date().toISOString().split('T')[0];
-      const isPast = date < today;
+      let isPast = date < today;
+
+      // 🆕 Se la data è oggi, considera "passata" anche quando TUTTE le
+      // fasce orarie di quel giorno sono già terminate rispetto ad ora
+      if (!isPast && date === today) {
+        const courtForCheck = config.schedule?.courts?.[courtIdx];
+        const dateAvailForCheck = courtForCheck?.availability?.[dateIdx];
+        const slots = dateAvailForCheck?.timeSlots || [];
+        if (slots.length > 0) {
+          const now = new Date();
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          isPast = slots.every(s => timeStringToMinutes(s.endTime || '00:00') <= nowMinutes);
+        }
+      }
       
       if (isPast) {
         return { bgColor: '#e9e9e9', textColor: '#666', indicator: '●', indicatorColor: '#999' };
@@ -15061,9 +15085,17 @@ html += `
     }
 
     // Determina lo stato dello slot (passato, pieno, parzialmente pieno)
-    function getSlotStatus(date, effectiveSlots, matchesInSlot) {
+    function getSlotStatus(date, effectiveSlots, matchesInSlot, slotEndTime) {
       const today = new Date().toISOString().split('T')[0];
-      const isPast = date < today;
+      let isPast = date < today;
+
+      // 🆕 Se la data è oggi ma l'orario di fine di questa fascia è già
+      // passato rispetto ad ora, considerala comunque "passata"
+      if (!isPast && date === today && slotEndTime) {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        isPast = timeStringToMinutes(slotEndTime) <= nowMinutes;
+      }
       
       if (isPast) {
         return { color: '#d9d9d9', textColor: '#666', indicator: '●', indicatorColor: '#999', status: 'passato', isPast: true };

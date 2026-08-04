@@ -3344,7 +3344,7 @@ function ensurePhases(array &$state): void {
 function getPhase(array &$state, int $phaseIdx): ?array {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if (($phase['phaseIdx'] ?? $phase['phaseNumber'] ?? 0) === $phaseIdx) {
+        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
             return $phase;
         }
     }
@@ -5698,7 +5698,7 @@ function buildGroupMatches(array &$state): void {
     // (sono "da programmare"), quindi l'assegnazione non può ancora
     // verificare i conflitti — verrà rifatta correttamente in
     // admin_auto_schedule_phase, DOPO che le partite hanno un orario vero.
-    assignRefereesToMatches($state['phases'][0]['matches'], approvedTeams($state));
+    assignRefereesToMatches($state['phases'][0]['matches'], approvedTeams($state), 1);
 }
 
 function winnerLoser(?array $match, string $sportType = 'beachvolley'): array {
@@ -6007,9 +6007,22 @@ function addMinutes(string $timeStr, int $minutes): string {
  * e l'orario sono noti) qualunque altra squadra impegnata in un'altra
  * partita nello stesso esatto slot — non si può arbitrare e giocare insieme.
  */
-function assignRefereesToMatches(array &$matches, array $approvedTeams): void {
+function assignRefereesToMatches(array &$matches, array $approvedTeams, ?int $phaseNumber = null): void {
     $config = readConfig();
-    if (!($config['tournament']['autoAssignReferees'] ?? true)) {
+
+    // 🆕 Priorità: impostazione specifica di QUESTA fase, poi quella
+    // generale del torneo (comportamento di prima se non specificata).
+    $autoAssign = $config['tournament']['autoAssignReferees'] ?? true;
+    if ($phaseNumber !== null) {
+        foreach (($config['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $phaseNumber && isset($cp['autoAssignReferees'])) {
+                $autoAssign = (bool)$cp['autoAssignReferees'];
+                break;
+            }
+        }
+    }
+
+    if (!$autoAssign) {
         // Disattivato: rimuove eventuali assegnazioni precedenti invece di lasciarle stantie
         foreach ($matches as &$match) {
             $match['refereeTeamId'] = null;
@@ -6615,7 +6628,7 @@ function buildGroupMatchesWithSchedule(array &$state): void {
         $state['phases'][0] = [];
     }
     // 🆕 Assegna una squadra arbitro (non impegnata nello stesso slot) ad ogni partita, se attivo
-    assignRefereesToMatches($finalMatches, approvedTeams($state));
+    assignRefereesToMatches($finalMatches, approvedTeams($state), 1);
     $state['phases'][0]['matches'] = $finalMatches;
 }
 
@@ -10224,6 +10237,13 @@ if ($action === 'admin_update_phase' && $method === 'POST') {
     } else {
         unset($phase['selectedCourtIds']);
     }
+    // 🆕 Assegnazione automatica arbitro specifica per QUESTA fase — vuoto/
+    // non impostato = ricade sull'impostazione generale del torneo
+    if (isset($body['autoAssignReferees'])) {
+        $phase['autoAssignReferees'] = (bool)$body['autoAssignReferees'];
+    } else {
+        unset($phase['autoAssignReferees']);
+    }
     
     // Parametri specifici per tipo
     if ($phase['type'] === 'groups') {
@@ -10738,21 +10758,20 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
     // Conta partite con risultati
     $matchesWithScore = 0;
     foreach ($phase['matches'] ?? [] as $match) {
-        if ($phase['type'] === 'groups') {
-            if ($match['score1'] !== null && $match['score2'] !== null) {
-                $matchesWithScore++;
-            }
-        } else if ($phase['type'] === 'knockout') {
-            if (!empty($match['sets']) && count($match['sets']) > 0) {
-                $hasAllSets = true;
-                foreach ($match['sets'] as $set) {
-                    if ($set['team1'] === null || $set['team2'] === null) {
-                        $hasAllSets = false;
-                        break;
-                    }
+        // 🔧 FIX: sia gironi che knockout salvano i risultati in 'sets'
+        // (con team1/team2 per ogni set) — i vecchi campi score1/score2
+        // non vengono più impostati da nessuna parte del sistema attuale,
+        // quindi questo conteggio risultava sempre 0 anche a risultati
+        // inseriti.
+        if (!empty($match['sets']) && count($match['sets']) > 0) {
+            $hasAllSets = true;
+            foreach ($match['sets'] as $set) {
+                if (($set['team1'] ?? null) === null || ($set['team2'] ?? null) === null) {
+                    $hasAllSets = false;
+                    break;
                 }
-                if ($hasAllSets) $matchesWithScore++;
             }
+            if ($hasAllSets) $matchesWithScore++;
         }
     }
     $status['matchesCompleted'] = $matchesWithScore;
@@ -11557,7 +11576,7 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         // — prima (quando erano ancora "da programmare", es. dopo un
         // "Ricalcola Gironi") l'assegnazione non poteva verificare i
         // conflitti di orario, quindi va rifatta qui con i dati corretti.
-        assignRefereesToMatches($currentPhase['matches'], approvedTeams($state));
+        assignRefereesToMatches($currentPhase['matches'], approvedTeams($state), $phaseNumber);
 
         // 🔧 FIX: riordina l'array per data/ora reali — altrimenti resta
         // nell'ordine di creazione originale (es. tutto un girone, poi

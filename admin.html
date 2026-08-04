@@ -8509,6 +8509,16 @@
               </div>
 
               <div class="field" style="margin-top: 12px">
+                <label>🏐 Assegnazione arbitro per questa fase</label>
+                <select id="editAutoAssignReferees" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
+                  <option value="" ${phase.autoAssignReferees === undefined ? 'selected' : ''}>Usa l'impostazione generale del torneo</option>
+                  <option value="true" ${phase.autoAssignReferees === true ? 'selected' : ''}>Attiva per questa fase</option>
+                  <option value="false" ${phase.autoAssignReferees === false ? 'selected' : ''}>Disattiva per questa fase</option>
+                </select>
+                <small style="color: #888; display: block; margin-top: 4px; font-size: 12px">Se attiva, assegna automaticamente come arbitro una squadra libera in quello slot (o comunque non impegnata in quella partita, se nessuna è del tutto libera).</small>
+              </div>
+
+              <div class="field" style="margin-top: 12px">
                 <label>Qualificate vanno a:</label>
                 <input type="text" id="editQualifiedGoTo" value="${escapeHtml(phase.qualifiedGoTo || '')}" maxlength="100" placeholder="es. Fase 2" style="width: 100%; padding: 8px; border: 1px solid #d9bf8c; border-radius: 4px">
               </div>
@@ -8705,6 +8715,9 @@
       updates.notes = document.getElementById('editPhaseNotes')?.value || '';
       updates.scheduleMode = document.getElementById('editGroupsScheduleMode')?.value || '';
       updates.selectedCourtIds = Array.from(document.querySelectorAll('.edit-phase-court-checkbox:checked')).map(cb => cb.value);
+      const refValue = document.getElementById('editAutoAssignReferees')?.value;
+      if (refValue === 'true') updates.autoAssignReferees = true;
+      else if (refValue === 'false') updates.autoAssignReferees = false;
       updates.publishedOnHomepage = document.getElementById('editPublishedOnHomepage')?.checked ?? true;
 
       // 🔧 Regole di gioco specifiche della fase: campo vuoto = non impostato,

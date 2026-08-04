@@ -11052,13 +11052,18 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
     $phaseNumber = (int)($body['phaseNumber'] ?? 0);
     $filterDates = $body['dates'] ?? [];      // Date selezionate dall'utente
     $filterSlots = $body['timeSlots'] ?? [];  // Fasce selezionate dall'utente
+    // 🆕 Se true, ripianifica anche le partite che hanno GIÀ un orario
+    // assegnato (purché non abbiano ancora un risultato, cioè non siano in
+    // corso o concluse) — non solo quelle ancora senza data. Utile per
+    // "Rischedula" invece di solo "completa gli orari mancanti".
+    $rescheduleAll = (bool)($body['rescheduleAll'] ?? false);
 
     if ($phaseNumber < 1) {
         jsonResponse(422, ['ok' => false, 'error' => 'phaseNumber richiesto']);
         return;
     }
 
-    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots) {
+    $result = withStateTransaction(function (&$state) use ($phaseNumber, $filterDates, $filterSlots, $rescheduleAll) {
         ensurePhases($state);
 
         $config = readConfig();
@@ -11205,12 +11210,40 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
 
         $scheduled = 0;
         $skippedByes = 0;
+        $skippedWithResult = 0;
 
-        // Partite ancora da schedulare in questa fase (bye e già-schedulate escluse)
+        // Partite ancora da schedulare in questa fase (bye e già-giocate
+        // escluse sempre). 🆕 Se rescheduleAll è true, include anche le
+        // partite che hanno GIÀ un orario ma non hanno ancora un risultato
+        // (non sono in corso né concluse), azzerando il loro vecchio orario
+        // prima di riassegnarlo — così si possono davvero ripianificare, non
+        // solo completare quelle rimaste senza data.
+        $sportTypeForCheck = $config['tournament']['sportType'] ?? 'beachvolley';
         $pendingMatches = [];
         foreach ($currentPhase['matches'] as $idx => $m) {
             if (!empty($m['bye'])) { $skippedByes++; continue; }
-            if (!empty($m['date'])) continue;
+
+            [, , $hasResult] = getMatchSetsWon($m, $sportTypeForCheck);
+            if ($hasResult) { $skippedWithResult++; continue; } // in corso o concluso: mai toccarla
+
+            if (!empty($m['date']) && !$rescheduleAll) continue; // già schedulata, e non stiamo ripianificando tutto
+
+            if (!empty($m['date']) && $rescheduleAll) {
+                // Azzera sia la copia locale sia la struttura reale: se poi
+                // non ci sono abbastanza slot per riassegnare proprio questa
+                // partita, resta correttamente "senza orario" invece di
+                // mantenere quello vecchio.
+                $m['date'] = null; $m['startTime'] = null; $m['endTime'] = null;
+                $m['courtId'] = null; $m['courtName'] = null; $m['courtIdx'] = null; $m['dateIdx'] = null; $m['slotIdx'] = null;
+                $currentPhase['matches'][$idx]['date'] = null;
+                $currentPhase['matches'][$idx]['startTime'] = null;
+                $currentPhase['matches'][$idx]['endTime'] = null;
+                $currentPhase['matches'][$idx]['courtId'] = null;
+                $currentPhase['matches'][$idx]['courtName'] = null;
+                $currentPhase['matches'][$idx]['courtIdx'] = null;
+                $currentPhase['matches'][$idx]['dateIdx'] = null;
+                $currentPhase['matches'][$idx]['slotIdx'] = null;
+            }
             $pendingMatches[] = ['idx' => $idx, 'match' => $m];
         }
 

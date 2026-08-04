@@ -8790,6 +8790,7 @@
           ${unscheduledGroupCount > 0 ? `<div style="color: #e65100"><strong>${unscheduledGroupCount}</strong> partite senza orario</div>` : ''}
         </div>
         ${unscheduledGroupCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
+        ${(phaseData.matches || []).length > 0 ? `<button class="btn" style="background: #6a4fbb; color: white; font-size: 12px; padding: 6px 12px" onclick="autoSchedulePhase(${phaseData.phaseNumber}, true)" title="Ripianifica le partite non ancora giocate su nuovi giorni/orari, senza toccare quelle già concluse o in corso, e senza rigenerare i gironi">🔄 Rischedula Orari</button>` : ''}
         ${phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="openRecalculatePhaseModal(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera questa fase da zero, ripescando di nuovo le squadre reali dalla fase sorgente">🔄 Ricalcola</button>` : ''}
         ${!phaseData.sourcePhaseNumber ? `<button class="btn btn-warning" onclick="recalculateGroupsPhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px" title="Rigenera i gironi da zero (nuova composizione e nuovi orari), ripescando di nuovo le squadre approvate">🔄 Ricalcola Gironi</button>` : ''}
       </div>`;
@@ -9378,7 +9379,7 @@ html += `
       return result;
     }
 
-    async function autoSchedulePhase(phaseNumber) {
+    async function autoSchedulePhase(phaseNumber, rescheduleAll = false) {
       const phase = (state.phases || []).find(p => p.phaseNumber === phaseNumber);
       if (!phase) return;
       
@@ -9489,7 +9490,7 @@ html += `
       }
       
       openModal({
-        title: `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
+        title: rescheduleAll ? `🔄 Rischedula Orari - Fase ${phaseNumber}` : `📅 Configura Giorni e Slot - Fase ${phaseNumber}`,
         bodyHtml,
         buttons: [
           { text: 'Annulla', className: 'btn', closeOnClick: true },
@@ -9527,7 +9528,8 @@ html += `
               const res = await callApi('admin_auto_schedule_phase', 'POST', { 
                 phaseNumber,
                 dates: selectedDates,
-                timeSlots: selectedRangeLabels
+                timeSlots: selectedRangeLabels,
+                rescheduleAll
               }, true);
               
               await refresh();
@@ -9579,6 +9581,7 @@ html += `
           <div>🏆 <strong>${phaseData.matches.length}</strong> partite in questa fase${unscheduledCount > 0 ? ` — <strong style="color: #e65100">${unscheduledCount} senza orario</strong>` : ''}</div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap">
             ${unscheduledCount > 0 ? `<button class="btn btn-primary" onclick="autoSchedulePhase(${phaseData.phaseNumber})" style="font-size: 12px; padding: 6px 12px">📅 Genera Orari</button>` : ''}
+            ${(phaseData.matches || []).filter(m => !m.bye).length > 0 ? `<button class="btn" style="background: #6a4fbb; color: white; font-size: 12px; padding: 6px 12px" onclick="autoSchedulePhase(${phaseData.phaseNumber}, true)" title="Ripianifica le partite non ancora giocate su nuovi giorni/orari, senza toccare quelle già concluse o in corso, e senza rigenerare il tabellone">🔄 Rischedula Orari</button>` : ''}
             <button class="btn" onclick="toggleKnockoutView()" style="font-size: 12px; padding: 6px 12px">
               🔀 Vista: ${knockoutViewMode === 'table' ? 'Tabella (passa a Bracket)' : 'Bracket (passa a Tabella)'}
             </button>

@@ -4360,7 +4360,17 @@ function balancedGroupDistribution(array $teams, int $groupCount): array {
         unset($group['totalWeight']);
     }
     unset($group);
-    
+
+    // 🔧 FIX: durante la distribuzione qui sopra, l'array $groups viene
+    // riordinato ripetutamente in base al peso totale (per bilanciare i
+    // livelli) — questo mescola anche la POSIZIONE FISICA dei gironi
+    // nell'array, non solo quali squadre finiscono in quale girone. Senza
+    // questo riordino finale, un consumatore che itera $groups nell'ordine
+    // in cui li riceve (es. lo scheduler "interleaved", che alterna una
+    // partita per girone seguendo l'ordine dell'array) poteva iniziare
+    // da un girone diverso da "A", anche se le etichette restavano corrette.
+    usort($groups, fn($a, $b) => strcmp($a['label'] ?? $a['name'] ?? '', $b['label'] ?? $b['name'] ?? ''));
+
     return $groups;
 }
 

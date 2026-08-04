@@ -9002,7 +9002,10 @@ html += `
         
         // Check squadre
         const approvedTeams = (state?.teams || []).filter(t => t.approved);
-        const hasTeams = approvedTeams.length >= 1;
+        // 🔧 FIX: il generatore vero richiede almeno 4 squadre approvate, ma
+        // qui si controllava solo che ce ne fosse almeno 1 — il pop-up
+        // poteva quindi dire "pronta" anche quando in realtà non lo era.
+        const hasTeams = approvedTeams.length >= 4;
         console.log('✅ Squadre approvate trovate:', approvedTeams.length);
         requirements.push({
           met: hasTeams,
@@ -9010,7 +9013,7 @@ html += `
           title: 'Squadre Approvate',
           detail: hasTeams 
             ? `${approvedTeams.length} squadra${approvedTeams.length !== 1 ? 's' : ''} pronta${approvedTeams.length !== 1 ? 'e' : ''}` 
-            : 'Registra almeno 1 squadra nella sezione "📋 Squadre"',
+            : `Servono almeno 4 squadre approvate (attualmente: ${approvedTeams.length})`,
           action: !hasTeams ? 'Vai a Squadre' : null,
           actionUrl: !hasTeams ? '#squadreTab' : null
         });
@@ -9139,6 +9142,11 @@ html += `
           ">
             <div style="font-size: 16px; margin-bottom: 4px">🎉 Fase Pronta!</div>
             <div style="color: #27ae60; font-weight: bold">Tutti i requisiti sono soddisfatti</div>
+            ${phaseType === 'groups' ? `
+              <button class="btn btn-primary" onclick="closeModal(); generateGroups();" style="margin-top: 10px; padding: 10px 20px; font-weight: bold">
+                🎲 Genera Gironi Ora
+              </button>
+            ` : ''}
           </div>
         `;
       } else {

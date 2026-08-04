@@ -9901,7 +9901,14 @@ if ($action === 'admin_pay_all_teams' && $method === 'POST') {
 }
 
 if ($action === 'admin_generate_groups' && $method === 'POST') {
-    withStateTransaction(function (&$state) {
+    // 🆕 Se true, genera solo la composizione dei gironi (chi gioca con chi)
+    // SENZA assegnare subito data/ora — utile quando l'admin vuole poi
+    // scegliere lui stesso su quali giornate schedulare (stesso flusso già
+    // usato per il tabellone castello dopo un "Ricalcola").
+    $body = bodyJson();
+    $skipSchedule = (bool)($body['skipSchedule'] ?? false);
+
+    withStateTransaction(function (&$state) use ($skipSchedule) {
         $approved = approvedTeams($state);
         $total = count($state['teams'] ?? []);
         $maxTeams = (int)$state['settings']['maxTeams'];
@@ -10009,20 +10016,27 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         }
         $state['phases'][0]['groups'] = $groups;
         
-        // Valida lo schedule prima di generare le partite
-        $validation = validateScheduleForTournament($state);
-        if (!$validation['valid']) {
-            jsonResponse(422, [
-                'ok' => false,
-                'error' => $validation['message'],
-                'details' => [
-                    'groups_created' => count($groups),
-                    'teams_in_groups' => count($approved)
-                ]
-            ]);
+        if ($skipSchedule) {
+            // 🆕 Genera solo la composizione (chi gioca con chi), senza
+            // assegnare subito data/ora — l'admin sceglierà lui le giornate
+            // subito dopo, tramite "📅 Genera Orari".
+            buildGroupMatches($state);
+        } else {
+            // Valida lo schedule prima di generare le partite
+            $validation = validateScheduleForTournament($state);
+            if (!$validation['valid']) {
+                jsonResponse(422, [
+                    'ok' => false,
+                    'error' => $validation['message'],
+                    'details' => [
+                        'groups_created' => count($groups),
+                        'teams_in_groups' => count($approved)
+                    ]
+                ]);
+            }
+            
+            buildGroupMatchesWithSchedule($state);
         }
-        
-        buildGroupMatchesWithSchedule($state);
         
         // ===== INTEGRAZIONE NUOVO SISTEMA DI FASI =====
         // Le fasi sono state create direttamente da buildGroupMatchesWithSchedule

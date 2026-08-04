@@ -5418,18 +5418,35 @@
     // 🆕 Rigenera la fase gironi da zero — equivalente di "🔄 Ricalcola" per
     // il castello, ma per i gironi (che non hanno una fase sorgente da cui
     // dipendere, essendo la prima fase: qui si ripescano di nuovo le
-    // squadre approvate e si rigenerano composizione + orari).
+    // squadre approvate e si rigenera la composizione). Dopo la rigenerazione,
+    // apre lo stesso selettore di giorno/fascia oraria con anteprima usato
+    // per il castello ("📅 Genera Orari"), invece di schedulare subito in
+    // automatico su tutti i giorni configurati senza dare possibilità di scelta.
     async function recalculateGroupsPhase(phaseNumber) {
       const confirmed = await showConfirmDialog(
         '🔄 Ricalcola Gironi',
-        'Vuoi rigenerare i gironi da zero? Verranno ricreati composizione e orari delle partite, ripescando di nuovo le squadre approvate. Le partite già giocate e i risultati inseriti andranno persi.'
+        'Vuoi rigenerare i gironi da zero? Verrà ricreata la composizione, ripescando di nuovo le squadre approvate. Le partite già giocate e i risultati inseriti andranno persi. Dopo, potrai scegliere tu su quali giornate schedularle.'
       );
       if (!confirmed) return;
-      await generateGroups();
+      // 🆕 skipSchedule=true: genera solo la composizione, senza assegnare
+      // subito data/ora, cosi' il selettore giorni che segue ha davvero
+      // effetto (altrimenti tutte le partite risulterebbero già schedulate
+      // su tutti i giorni configurati, e la scelta non servirebbe a nulla).
+      await generateGroups(true);
+      autoSchedulePhase(phaseNumber);
     }
 
-    async function generateGroups() {
+    async function generateGroups(skipSchedule = false) {
       try {
+        // 🆕 Se si vuole solo la composizione (senza schedulare subito), non
+        // serve nessuna delle verifiche sullo schedule qui sotto — si passa
+        // direttamente alla generazione.
+        if (skipSchedule) {
+          await callApi('admin_generate_groups', 'POST', { skipSchedule: true }, true);
+          await refresh();
+          return;
+        }
+
         // Verifica che lo schedule sia configurato
         const scheduleConfig = await callApi('admin_get_config', 'GET', null, true);
         const courts = scheduleConfig.config?.schedule?.courts || [];

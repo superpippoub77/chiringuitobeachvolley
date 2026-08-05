@@ -7075,11 +7075,15 @@
           console.log(`Saving match ${match.id}: ${score1} vs ${score2} (winScore=${winScore})`);
           
           try {
+            // 🔧 FIX: prima si inviavano solo i vecchi campi score1/score2 —
+            // mai riflessi nell'array 'sets' che le classifiche (e tutto il
+            // resto del sistema) leggono davvero, quindi i risultati
+            // simulati risultavano invisibili al calcolo (tutto a 0). Ora
+            // invia 'sets', lo stesso formato usato per l'inserimento manuale.
             await callApi('admin_update_group_match', 'POST', {
               phaseNumber: currentSelectedPhaseNumber,
               id: match.id,
-              score1: score1,
-              score2: score2,
+              sets: [{ team1: score1, team2: score2 }],
               time: match.time || match.startTime || ''
             }, true); // ✅ true = invia autenticazione
             savedCount++;

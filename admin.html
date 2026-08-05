@@ -13762,6 +13762,13 @@ html += `
 
     function closeCassaOverlay() {
       document.getElementById('cassaOverlay').style.display = 'none';
+      // 🆕 FIX: senza questo reset, riaprendo la cassa restava visibile il
+      // pulsante "Stampa Scontrino" della vendita precedente, e cliccandolo
+      // stampava sempre quella vecchia — ora ogni volta che si chiude la
+      // cassa, si riparte puliti.
+      lastCassaOrder = null;
+      const printBtn = document.getElementById('cassaPrintReceiptBtn');
+      if (printBtn) printBtn.style.display = 'none';
     }
 
     // 🆕 Ultima vendita registrata alla cassa, per poterne stampare lo
@@ -13830,7 +13837,8 @@ html += `
         </html>
       `;
 
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      const printWindow = window.open('', 'cassaReceiptWindow', 'width=400,height=600');
+      printWindow.focus();
       printWindow.document.write(receiptHtml);
       printWindow.document.close();
     }

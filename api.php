@@ -1980,6 +1980,14 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['display']['blinkingTabs'])) {
         $merged['display']['blinkingTabs'] = $existingConfig['display']['blinkingTabs'];
     }
+
+    // 🆕 Preserva i moduli PDF stampabili caricati (manleva/minorenni) —
+    // senza questo, ogni volta che la configurazione veniva ricostruita a
+    // partire dai valori di default, questo campo (non presente nei
+    // default) veniva silenziosamente azzerato.
+    if (isset($existingConfig['printableDocuments'])) {
+        $merged['printableDocuments'] = $existingConfig['printableDocuments'];
+    }
     
     // Preserva la sezione contact (email del gestore, etc.)
     if (isset($existingConfig['contact'])) {

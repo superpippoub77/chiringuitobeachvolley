@@ -1205,6 +1205,17 @@
               <label>Data</label>
               <input type="date" id="expDate">
             </div>
+            <div class="field" style="flex: 1; min-width: 150px">
+              <label>Chi ha pagato</label>
+              <input type="text" id="expPaidBy" placeholder="Es: Marco, Anna...">
+            </div>
+            <div class="field" style="flex: 1; min-width: 170px">
+              <label>Con quali fondi</label>
+              <select id="expPaymentSource">
+                <option value="cassa">💰 Cassa del torneo</option>
+                <option value="own">👤 Soldi propri (da rimborsare)</option>
+              </select>
+            </div>
           </div>
           <button class="btn btn-green" onclick="addExpense()" style="margin-top: 10px">💾 Aggiungi Spesa</button>
         </div>
@@ -13303,6 +13314,21 @@ html += `
           <div style="font-size: 13px; color: #555">Bilancio Netto (Incassi − Spese)</div>
           <div style="font-size: 32px; font-weight: bold; color: ${netColor}">${b.netBalance >= 0 ? '+' : ''}${b.netBalance.toFixed(2)} €</div>
         </div>
+        ${(b.reimbursements && b.reimbursements.length > 0) ? `
+          <div style="margin-top: 12px; background: #fff3e0; border: 2px solid #e65100; border-radius: 8px; padding: 14px">
+            <div style="font-weight: bold; color: #e65100; margin-bottom: 8px">💵 Rimborsi Dovuti (spese anticipate di tasca propria)</div>
+            ${b.reimbursements.map(r => `
+              <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px">
+                <span>${escapeHtml(r.person)}</span>
+                <span style="font-weight: bold">deve recuperare ${r.amount.toFixed(2)} €</span>
+              </div>
+            `).join('')}
+            <div style="border-top: 1px solid #e65100; margin-top: 8px; padding-top: 6px; display: flex; justify-content: space-between; font-weight: bold">
+              <span>Totale da rimborsare</span>
+              <span>${b.totalReimbursementsDue.toFixed(2)} €</span>
+            </div>
+          </div>
+        ` : ''}
       `;
     }
 
@@ -13317,7 +13343,7 @@ html += `
       container.innerHTML = `
         <table style="width: 100%; border-collapse: collapse">
           <thead><tr style="border-bottom: 1px solid #ddd; text-align: left">
-            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
+            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
           </tr></thead>
           <tbody>
             ${sorted.map(e => `
@@ -13325,6 +13351,8 @@ html += `
                 <td style="padding: 6px; font-size: 13px">${e.date || '-'}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.item)}</td>
                 <td style="padding: 6px; font-size: 13px; color: #888">${escapeHtml(e.category || '-')}</td>
+                <td style="padding: 6px; font-size: 13px">${escapeHtml(e.paidBy || '-')}</td>
+                <td style="padding: 6px; font-size: 13px">${e.paymentSource === 'own' ? '👤 Propri' : '💰 Cassa'}</td>
                 <td style="padding: 6px; font-size: 13px; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
                 <td style="padding: 6px">
                   <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteExpense('${e.id}')">🗑️</button>
@@ -13341,6 +13369,8 @@ html += `
       const amount = parseFloat(document.getElementById('expAmount').value);
       const category = document.getElementById('expCategory').value.trim();
       const date = document.getElementById('expDate').value;
+      const paidBy = document.getElementById('expPaidBy').value.trim();
+      const paymentSource = document.getElementById('expPaymentSource').value;
       if (!item) {
         await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per la spesa.');
         return;
@@ -13350,11 +13380,13 @@ html += `
         return;
       }
       try {
-        await callApi('admin_add_expense', 'POST', { item, amount, category, date }, true);
+        await callApi('admin_add_expense', 'POST', { item, amount, category, date, paidBy, paymentSource }, true);
         document.getElementById('expItem').value = '';
         document.getElementById('expAmount').value = '';
         document.getElementById('expCategory').value = '';
         document.getElementById('expDate').value = '';
+        document.getElementById('expPaidBy').value = '';
+        document.getElementById('expPaymentSource').value = 'cassa';
         await loadFinancesData();
       } catch (e) {
         await showInfoDialog('Errore', e.message);

@@ -15180,12 +15180,19 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un importo maggiore di zero']);
     }
 
+    $paidBy = mb_substr(trim((string)($body['paidBy'] ?? '')), 0, 100);
+    $paymentSource = in_array($body['paymentSource'] ?? 'cassa', ['cassa', 'own'], true) ? $body['paymentSource'] : 'cassa';
+
     $expense = [
         'id' => bin2hex(random_bytes(8)),
         'item' => $item,
         'amount' => round($amount, 2),
         'category' => mb_substr(trim((string)($body['category'] ?? '')), 0, 100),
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
+        // 🆕 Chi ha sostenuto la spesa, e se con fondi propri (da rimborsare
+        // dal bilancio) o già dalla cassa del torneo (nessun rimborso dovuto)
+        'paidBy' => $paidBy,
+        'paymentSource' => $paymentSource,
         'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
         'createdAt' => gmdate('c')
     ];
@@ -15216,6 +15223,8 @@ if ($action === 'admin_update_expense' && $method === 'POST') {
             if (isset($body['amount'])) $expense['amount'] = round(max(0, (float)$body['amount']), 2);
             if (isset($body['category'])) $expense['category'] = mb_substr(trim((string)$body['category']), 0, 100);
             if (isset($body['date'])) $expense['date'] = trim((string)$body['date']);
+            if (isset($body['paidBy'])) $expense['paidBy'] = mb_substr(trim((string)$body['paidBy']), 0, 100);
+            if (isset($body['paymentSource']) && in_array($body['paymentSource'], ['cassa', 'own'], true)) $expense['paymentSource'] = $body['paymentSource'];
             if (isset($body['notes'])) $expense['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
             break;
         }
@@ -15302,7 +15311,23 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     // Spese sostenute
     $expensesList = readExpensesState();
     $totalExpenses = 0.0;
-    foreach ($expensesList as $e) { $totalExpenses += (float)($e['amount'] ?? 0); }
+    // 🆕 Rimborsi dovuti: somma per persona di ciò che ha anticipato con
+    // soldi propri (paymentSource='own') — le spese pagate direttamente
+    // dalla cassa non generano nessun rimborso, sono già "regolate".
+    $reimbursementsByPerson = [];
+    foreach ($expensesList as $e) {
+        $totalExpenses += (float)($e['amount'] ?? 0);
+        if (($e['paymentSource'] ?? 'cassa') === 'own') {
+            $person = trim((string)($e['paidBy'] ?? '')) ?: 'Non specificato';
+            $reimbursementsByPerson[$person] = ($reimbursementsByPerson[$person] ?? 0) + (float)($e['amount'] ?? 0);
+        }
+    }
+    $reimbursements = [];
+    foreach ($reimbursementsByPerson as $person => $amount) {
+        $reimbursements[] = ['person' => $person, 'amount' => round($amount, 2)];
+    }
+    usort($reimbursements, fn($a, $b) => $b['amount'] <=> $a['amount']);
+    $totalReimbursementsDue = array_sum(array_column($reimbursements, 'amount'));
 
     $totalIncome = $shopIncome + $eventsIncome + $registrationIncome;
 
@@ -15318,6 +15343,9 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             'paidPlayersCount' => $paidPlayersCount,
             'totalIncome' => round($totalIncome, 2),
             'totalExpenses' => round($totalExpenses, 2),
+            // 🆕 Chi ha anticipato di tasca propria e quanto deve recuperare
+            'reimbursements' => $reimbursements,
+            'totalReimbursementsDue' => round($totalReimbursementsDue, 2),
             'netBalance' => round($totalIncome - $totalExpenses, 2)
         ]
     ]);

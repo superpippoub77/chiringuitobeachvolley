@@ -5419,7 +5419,7 @@ function genericBalancedSeeding(array $teams, int $bracketSize, ?array $teamGrou
 }
 
 
-function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = null, ?array $seedTeamIds = null, bool $maximizeSeedSeparation = false): array {
+function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = null, ?array $seedTeamIds = null, bool $maximizeSeedSeparation = false, bool $includeThirdPlace = false): array {
     $n = count($teams);
     if ($n < 2) return [];
 
@@ -5491,7 +5491,11 @@ function generateGenericKnockoutMatches(array $teams, ?array $teamGroupMap = nul
     }
 
     // Finalina 3°/4° posto, solo se ha senso (bracket con semifinali, cioè almeno 4 squadre)
-    if ($bracketSize >= 4) {
+    // 🔧 FIX: prima si aggiungeva SEMPRE la finalina 3°/4° posto per
+    // qualunque bracket con almeno 4 squadre, ignorando completamente la
+    // checkbox "includeThirdPlace" scelta dall'admin — ora la rispetta
+    // davvero.
+    if ($bracketSize >= 4 && $includeThirdPlace) {
         $matches[] = [
             'id' => uid(), 'label' => '3P', 'type' => 'thirdPlace',
             'team1' => null, 'team1Id' => null, 'team2' => null, 'team2Id' => null,
@@ -11954,7 +11958,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                 ? ($branchResult['groupWinners'] ?? [])
                 : [];
 
-            $matches = generateGenericKnockoutMatches($teams, $teamGroupMap, $seedTeamIds, $maximizeSeedSeparation);
+            $matches = generateGenericKnockoutMatches($teams, $teamGroupMap, $seedTeamIds, $maximizeSeedSeparation, $includeThirdPlace);
             // Aggiungi team1Name/team2Name per comodità di visualizzazione
             foreach ($matches as &$m) {
                 if (!empty($m['team1Id'])) $m['team1Name'] = $teamMap[$m['team1Id']]['name'] ?? '';

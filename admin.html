@@ -12006,6 +12006,42 @@ html += `
       }
     }
 
+    // 🆕 Rinomina una fase del torneo parallelo (prima non era possibile
+    // modificarla in alcun modo dopo averla creata)
+    async function renameSideTournamentPhase(phaseNumber) {
+      if (!currentSideT) return;
+      const phase = (currentSideT.phases || []).find(p => p.phaseNumber === phaseNumber);
+      const newName = prompt('Nuovo nome della fase:', phase?.name || '');
+      if (!newName || !newName.trim()) return;
+      try {
+        await callApi('admin_update_side_tournament_phase', 'POST', {
+          sideId: currentSideT.id, phaseNumber, name: newName.trim()
+        }, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
+    // 🆕 Elimina una fase del torneo parallelo (prima non era possibile in
+    // alcun modo) — chiede conferma perché cancella anche le partite al suo interno
+    async function deleteSideTournamentPhase(phaseNumber) {
+      if (!currentSideT) return;
+      const confirmed = await showConfirmDialog(
+        'Elimina Fase',
+        `⚠️ Vuoi eliminare la Fase ${phaseNumber}? Questa azione è irreversibile e cancellerà tutte le partite e i risultati al suo interno. Le fasi successive verranno rinumerate.`
+      );
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_side_tournament_phase', 'POST', {
+          sideId: currentSideT.id, phaseNumber
+        }, true);
+        await refreshCurrentSideT();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore: ' + e.message);
+      }
+    }
+
     function renderSideTPhases() {
       const container = document.getElementById('sideTPhasesContainer');
       const phases = currentSideT?.phases || [];
@@ -12037,7 +12073,13 @@ html += `
 
         return `
           <div class="card" style="background: #fafafa; padding: 10px; margin-bottom: 10px">
-            <h5 style="margin: 0 0 8px 0">Fase ${ph.phaseNumber}: ${escapeHtml(ph.name)} (${ph.type === 'groups' ? 'Gironi' : 'Eliminazione diretta'})</h5>
+            <h5 style="margin: 0 0 8px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+              <span>Fase ${ph.phaseNumber}: ${escapeHtml(ph.name)} (${ph.type === 'groups' ? 'Gironi' : 'Eliminazione diretta'})</span>
+              <span style="display: flex; gap: 6px">
+                <button class="btn" style="font-size: 11px; padding: 3px 8px" onclick="renameSideTournamentPhase(${ph.phaseNumber})">✎️ Rinomina</button>
+                <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteSideTournamentPhase(${ph.phaseNumber})">🗑️ Elimina</button>
+              </span>
+            </h5>
             ${bodyHtml}
           </div>
         `;

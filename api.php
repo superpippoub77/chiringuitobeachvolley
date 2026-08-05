@@ -7874,7 +7874,7 @@ if ($action === 'admin_add_side_tournament_participant' && $method === 'POST') {
     $body = bodyJson();
     $sideId = (string)($body['sideId'] ?? '');
     $name = mb_substr(trim((string)($body['name'] ?? '')), 0, 80);
-    $sourceType = in_array($body['sourceType'] ?? 'standalone', ['registered', 'standalone'], true) ? $body['sourceType'] : 'standalone';
+    $sourceType = in_array($body['sourceType'] ?? 'standalone', ['registered', 'standalone'], true) ? ($body['sourceType'] ?? 'standalone') : 'standalone';
     $linkedTeamId = (string)($body['linkedTeamId'] ?? '');
 
     if ($sideId === '' || $name === '') {
@@ -8138,6 +8138,90 @@ if ($action === 'admin_create_side_tournament_phase' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => $errorMsg]);
     }
     jsonResponse(200, ['ok' => true, 'phase' => $updatedPhase]);
+}
+
+// 🆕 Rinomina una fase di un torneo parallelo (prima non era possibile
+// modificarla in alcun modo dopo averla creata)
+if ($action === 'admin_update_side_tournament_phase' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+    $newName = mb_substr(trim((string)($body['name'] ?? '')), 0, 60);
+
+    if ($newName === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il nome della fase è obbligatorio']);
+    }
+
+    $found = false;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $phaseNumber, $newName, &$found) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+            foreach ($s['phases'] as &$phase) {
+                if (($phase['phaseNumber'] ?? 0) !== $phaseNumber) continue;
+                $phase['name'] = $newName;
+                $found = true;
+                break 2;
+            }
+        }
+        unset($s, $phase);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Elimina una fase di un torneo parallelo (e rinumera quelle successive,
+// così l'ordine resta sempre continuo 1,2,3... senza buchi) — prima non
+// era possibile eliminarla in alcun modo.
+if ($action === 'admin_delete_side_tournament_phase' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $sideId = (string)($body['sideId'] ?? '');
+    $phaseNumber = (int)($body['phaseNumber'] ?? 0);
+
+    $found = false;
+    withSideTournamentsTransaction(function (&$list) use ($sideId, $phaseNumber, &$found) {
+        foreach ($list['sideTournaments'] as &$s) {
+            if (($s['id'] ?? '') !== $sideId) continue;
+
+            $phases = $s['phases'] ?? [];
+            $existed = false;
+            $remaining = [];
+            foreach ($phases as $phase) {
+                if (($phase['phaseNumber'] ?? 0) === $phaseNumber) { $existed = true; continue; }
+                $remaining[] = $phase;
+            }
+            if (!$existed) break;
+
+            // Rinumera le fasi rimaste in ordine continuo, e aggiorna i
+            // riferimenti sourcePhaseNumber di eventuali fasi successive che
+            // dipendevano dalla numerazione precedente
+            $oldToNew = [];
+            foreach ($remaining as $idx => $ph) {
+                $oldNumber = $ph['phaseNumber'] ?? ($idx + 1);
+                $oldToNew[$oldNumber] = $idx + 1;
+            }
+            foreach ($remaining as &$ph) {
+                $ph['phaseNumber'] = $oldToNew[$ph['phaseNumber']] ?? $ph['phaseNumber'];
+            }
+            unset($ph);
+
+            $s['phases'] = $remaining;
+            $found = true;
+            break;
+        }
+        unset($s);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Fase non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 // Admin: inserisce/aggiorna il punteggio di una partita di un torneo parallelo

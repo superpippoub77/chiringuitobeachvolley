@@ -1189,7 +1189,7 @@
                   </div>
                   <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 12px; width: 100%; font-size: 15px; padding: 10px">✅ Registra Vendita</button>
                   <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
-                  <button class="btn" id="cassaPrintReceiptBtn" onclick="printCassaReceipt()" style="margin-top: 10px; width: 100%; font-size: 13px; display: none; background: #444; color: white">🖨️ Stampa Scontrino</button>
+                  <button class="btn" id="cassaPrintReceiptBtn" onclick="printCassaReceipt()" style="margin-top: 10px; width: 100%; font-size: 13px; background: #444; color: white">🖨️ Stampa Scontrino</button>
                 </div>
               </div>
             </div>
@@ -13778,13 +13778,11 @@ html += `
 
     function closeCassaOverlay() {
       document.getElementById('cassaOverlay').style.display = 'none';
-      // 🆕 FIX: senza questo reset, riaprendo la cassa restava visibile il
-      // pulsante "Stampa Scontrino" della vendita precedente, e cliccandolo
-      // stampava sempre quella vecchia — ora ogni volta che si chiude la
-      // cassa, si riparte puliti.
+      // 🆕 Azzera l'ultima vendita quando si chiude la cassa, cosi'
+      // riaprendola non si puo' ristampare per sbaglio uno scontrino di una
+      // sessione precedente (il pulsante resta comunque sempre visibile,
+      // ma avvisa se non c'e' ancora nessuna vendita registrata)
       lastCassaOrder = null;
-      const printBtn = document.getElementById('cassaPrintReceiptBtn');
-      if (printBtn) printBtn.style.display = 'none';
     }
 
     // 🆕 Ultima vendita registrata alla cassa, per poterne stampare lo
@@ -13795,7 +13793,10 @@ html += `
     // come una stampante termica da banco (largo ~80mm, font monospace),
     // con logo del torneo se caricato, chiaramente indicato come NON FISCALE.
     function printCassaReceipt() {
-      if (!lastCassaOrder) return;
+      if (!lastCassaOrder) {
+        showInfoDialog('Nessuna vendita', 'Registra prima una vendita per poterne stampare lo scontrino.');
+        return;
+      }
       const order = lastCassaOrder;
       const logoHtml = config.display?.logoFile
         ? `<img src="${config.display.logoFile}" style="max-width: 120px; max-height: 120px; margin: 0 auto 8px; display: block">`

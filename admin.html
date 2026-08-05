@@ -1145,31 +1145,43 @@
 
         <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">🛒 Cassa — Registra Vendita al Banco</h4>
-          <p class="muted" style="margin-top: 0">Clicca sui prodotti per aggiungerli al carrello, poi registra la vendita — utile per chi paga di persona al banco, senza passare dall'ordine online.</p>
-          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px">
-            <div style="flex: 2; min-width: 280px">
-              <div id="cassaProductPicker" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow-y: auto; padding: 4px"></div>
+          <p class="muted" style="margin-top: 0">Utile per chi paga di persona al banco, senza passare dall'ordine online.</p>
+          <button class="btn btn-primary" onclick="openCassaOverlay()" style="font-size: 15px; padding: 10px 20px">🛒 Apri Cassa</button>
+        </div>
+
+        <div id="cassaOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center">
+          <div style="background: white; border-radius: 10px; width: 94vw; height: 92vh; max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.4)">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #1565c0; color: white; flex-shrink: 0">
+              <h3 style="margin: 0">🛒 Cassa — Registra Vendita al Banco</h3>
+              <button onclick="closeCassaOverlay()" style="background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; padding: 0 6px">×</button>
             </div>
-            <div style="flex: 1; min-width: 240px; background: white; border-radius: 8px; padding: 12px; border: 1px solid #ccc">
-              <h5 style="margin-top: 0">🧾 Carrello</h5>
-              <div id="cassaCartContainer" style="min-height: 60px"></div>
-              <div style="font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 8px">
-                Totale: <span id="cassaTotalDisplay">0.00 €</span>
+            <div style="flex: 1; overflow-y: auto; padding: 20px">
+              <div style="display: flex; gap: 20px; flex-wrap: wrap; height: 100%">
+                <div style="flex: 2; min-width: 320px">
+                  <div id="cassaProductPicker" style="display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; padding: 4px"></div>
+                </div>
+                <div style="flex: 1; min-width: 300px; background: #fafafa; border-radius: 8px; padding: 16px; border: 1px solid #ccc; align-self: flex-start; position: sticky; top: 0">
+                  <h5 style="margin-top: 0; font-size: 16px">🧾 Carrello</h5>
+                  <div id="cassaCartContainer" style="min-height: 80px"></div>
+                  <div style="font-weight: bold; font-size: 20px; margin-top: 14px; border-top: 1px solid #ddd; padding-top: 10px">
+                    Totale: <span id="cassaTotalDisplay">0.00 €</span>
+                  </div>
+                  <div class="field" style="margin-top: 12px">
+                    <label>Nome cliente (opzionale)</label>
+                    <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
+                  </div>
+                  <div class="field" style="margin-top: 8px">
+                    <label>Modalità di pagamento</label>
+                    <select id="cassaPaymentMethod">
+                      <option value="contanti">💵 Contanti</option>
+                      <option value="carta">💳 Carta</option>
+                      <option value="altro">🔁 Altro</option>
+                    </select>
+                  </div>
+                  <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 12px; width: 100%; font-size: 15px; padding: 10px">✅ Registra Vendita</button>
+                  <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
+                </div>
               </div>
-              <div class="field" style="margin-top: 10px">
-                <label>Nome cliente (opzionale)</label>
-                <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
-              </div>
-              <div class="field" style="margin-top: 8px">
-                <label>Modalità di pagamento</label>
-                <select id="cassaPaymentMethod">
-                  <option value="contanti">💵 Contanti</option>
-                  <option value="carta">💳 Carta</option>
-                  <option value="altro">🔁 Altro</option>
-                </select>
-              </div>
-              <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 10px; width: 100%">✅ Registra Vendita</button>
-              <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
             </div>
           </div>
         </div>
@@ -13343,7 +13355,7 @@ html += `
       container.innerHTML = `
         <table style="width: 100%; border-collapse: collapse">
           <thead><tr style="border-bottom: 1px solid #ddd; text-align: left">
-            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">🧾</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
+            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
           </tr></thead>
           <tbody>
             ${sorted.map(e => `
@@ -13353,7 +13365,6 @@ html += `
                 <td style="padding: 6px; font-size: 13px; color: #888">${escapeHtml(e.category || '-')}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.paidBy || '-')}</td>
                 <td style="padding: 6px; font-size: 13px">${e.paymentSource === 'own' ? '👤 Propri' : '💰 Cassa'}</td>
-                <td style="padding: 6px; font-size: 13px; text-align: center">${e.receiptUrl ? `<a href="${e.receiptUrl}" target="_blank" title="Vedi scontrino">📎</a>` : '<span class="muted">-</span>'}</td>
                 <td style="padding: 6px; font-size: 13px; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
                 <td style="padding: 6px; white-space: nowrap">
                   <button class="btn" style="font-size: 11px; padding: 3px 8px" onclick="openEditExpenseModal('${e.id}')">✎️</button>
@@ -13401,13 +13412,6 @@ html += `
               <option value="own" ${expense.paymentSource === 'own' ? 'selected' : ''}>👤 Soldi propri (da rimborsare)</option>
             </select>
           </div>
-          <div class="field">
-            <label>🧾 Scontrino</label>
-            <div id="editExpReceiptPreview" style="margin: 6px 0"></div>
-            <input type="file" id="editExpReceiptFileInput" accept="image/*,application/pdf" onchange="uploadExpenseReceipt('${expenseId}', this)" style="display: none">
-            <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px" onclick="document.getElementById('editExpReceiptFileInput').click()">📤 Carica Scontrino</button>
-            <button type="button" class="btn" style="font-size: 12px; padding: 5px 10px; background: #dc3545; color: white" onclick="removeExpenseReceipt('${expenseId}')">🗑️ Rimuovi</button>
-          </div>
         </div>
       `;
 
@@ -13424,64 +13428,6 @@ html += `
           { text: '✗ Annulla', className: 'btn btn-secondary', closeOnClick: true }
         ]
       });
-      renderExpenseReceiptPreview(expenseId);
-    }
-
-    // 🆕 Mostra l'anteprima/link dello scontrino allegato (se presente)
-    function renderExpenseReceiptPreview(expenseId) {
-      const container = document.getElementById('editExpReceiptPreview');
-      if (!container) return;
-      const expense = expensesData.find(e => e.id === expenseId);
-      if (expense?.receiptUrl) {
-        const isPdf = expense.receiptUrl.toLowerCase().endsWith('.pdf');
-        container.innerHTML = isPdf
-          ? `<a href="${expense.receiptUrl}" target="_blank">📄 Scontrino PDF caricato — apri</a>`
-          : `<a href="${expense.receiptUrl}" target="_blank"><img src="${expense.receiptUrl}" style="max-width: 140px; max-height: 140px; border-radius: 6px; border: 1px solid #ddd; display: block"></a>`;
-      } else {
-        container.innerHTML = '<span class="muted" style="font-size: 13px">Nessuno scontrino allegato.</span>';
-      }
-    }
-
-    // 🆕 Carica lo scontrino (foto o PDF) per una spesa
-    async function uploadExpenseReceipt(expenseId, input) {
-      const file = input.files?.[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('receipt', file);
-      formData.append('expenseId', expenseId);
-      try {
-        const res = await fetch('api.php?action=admin_upload_expense_receipt', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token },
-          body: formData
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          await showInfoDialog('Errore', data.error || 'Caricamento scontrino fallito');
-          return;
-        }
-        const expense = expensesData.find(e => e.id === expenseId);
-        if (expense) expense.receiptUrl = data.receiptUrl;
-        renderExpenseReceiptPreview(expenseId);
-        renderExpensesList();
-      } catch (e) {
-        await showInfoDialog('Errore', e.message);
-      } finally {
-        input.value = '';
-      }
-    }
-
-    // 🆕 Rimuove lo scontrino allegato
-    async function removeExpenseReceipt(expenseId) {
-      try {
-        await callApi('admin_remove_expense_receipt', 'POST', { expenseId }, true);
-        const expense = expensesData.find(e => e.id === expenseId);
-        if (expense) expense.receiptUrl = '';
-        renderExpenseReceiptPreview(expenseId);
-        renderExpensesList();
-      } catch (e) {
-        await showInfoDialog('Errore', e.message);
-      }
     }
 
     async function saveEditedExpense(expenseId) {
@@ -13647,6 +13593,17 @@ html += `
         `;
       }).join('');
       totalDisplay.textContent = total.toFixed(2) + ' €';
+    }
+
+    // 🆕 Apre/chiude la finestra della cassa a schermo quasi intero
+    function openCassaOverlay() {
+      document.getElementById('cassaOverlay').style.display = 'flex';
+      renderCassaProductPicker();
+      renderCassaCart();
+    }
+
+    function closeCassaOverlay() {
+      document.getElementById('cassaOverlay').style.display = 'none';
     }
 
     function clearCassaCart() {

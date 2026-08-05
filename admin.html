@@ -406,7 +406,11 @@
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.4);
-      z-index: 2000;
+      /* 🔧 FIX: prima z-index:2000 finiva DIETRO overlay a schermo intero
+         come la Cassa (z-index:10000) — il dialog di conferma appariva ma
+         restava invisibile, nascosto dietro. Ora e' sempre il livello piu'
+         alto dell'app. */
+      z-index: 20000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -13729,15 +13733,9 @@ html += `
       };
       try {
         const result = await callApi('admin_place_shop_order', 'POST', payload, true);
-        let msg = `Totale: ${result.order.total.toFixed(2)} €`;
-        if (paymentMethod === 'contanti') {
-          const received = parseFloat(document.getElementById('cassaCashReceived').value);
-          const change = received - result.order.total;
-          msg += `\nContanti ricevuti: ${received.toFixed(2)} €\nResto da dare: ${change.toFixed(2)} €`;
-        }
-        await showInfoDialog('✅ Vendita registrata', msg);
 
-        // 🆕 Salva i dettagli per poter stampare lo scontrino subito dopo
+        // 🆕 Salva subito i dettagli (PRIMA di mostrare il dialog), cosi' il
+        // pulsante di stampa nel dialog stesso puo' gia' usarli
         const cashReceivedForReceipt = paymentMethod === 'contanti' ? parseFloat(document.getElementById('cassaCashReceived').value) : null;
         lastCassaOrder = {
           ...result.order,
@@ -13745,6 +13743,24 @@ html += `
           change: cashReceivedForReceipt !== null ? (cashReceivedForReceipt - result.order.total) : null
         };
         document.getElementById('cassaPrintReceiptBtn').style.display = '';
+
+        let msg = `Totale: ${result.order.total.toFixed(2)} €`;
+        if (paymentMethod === 'contanti') {
+          msg += `\nContanti ricevuti: ${cashReceivedForReceipt.toFixed(2)} €\nResto da dare: ${lastCassaOrder.change.toFixed(2)} €`;
+        }
+
+        // 🔧 FIX: prima il pulsante di stampa compariva solo DOPO aver
+        // chiuso questo dialog (bisognava cercarlo altrove) — ora è già
+        // qui dentro, subito visibile e cliccabile appena la vendita viene
+        // confermata.
+        openModal({
+          title: '✅ Vendita registrata',
+          bodyHtml: `<p style="white-space: pre-line">${escapeHtml(msg)}</p>`,
+          buttons: [
+            { text: '🖨️ Stampa Scontrino', className: 'btn btn-primary', closeOnClick: false, onClick: () => printCassaReceipt() },
+            { text: 'Chiudi', className: 'btn btn-secondary', closeOnClick: true }
+          ]
+        });
 
         clearCassaCart();
         await loadShopData(); // aggiorna scorte e lista ordini

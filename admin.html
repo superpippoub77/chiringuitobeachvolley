@@ -885,6 +885,7 @@
         <button class="tab" data-page="payments" onclick="showPage('payments', this)">💳 Pagamenti e Note</button>
         <button class="tab" data-page="news" onclick="showPage('news', this)">📰 Notizie</button>
         <button class="tab" data-page="shop" onclick="showPage('shop', this)">🍹 Bar</button>
+        <button class="tab" data-page="finances" onclick="showPage('finances', this)">💰 Bilancio</button>
         <button class="tab" data-page="translations" onclick="showPage('translations', this)">🌐 Traduzioni</button>
         <button class="tab" data-page="campaigns" onclick="showPage('campaigns', this)">📧 Campagne Email</button>
         <button class="tab" data-page="gazette" onclick="showPage('gazette', this)">📰 Giornalino TODAY</button>
@@ -1123,9 +1124,75 @@
           <div id="shopCategoriesContainer"></div>
         </div>
 
+        <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
+          <h4 style="margin-top: 0">🛒 Cassa — Registra Vendita al Banco</h4>
+          <p class="muted" style="margin-top: 0">Clicca sui prodotti per aggiungerli al carrello, poi registra la vendita — utile per chi paga di persona al banco, senza passare dall'ordine online.</p>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px">
+            <div style="flex: 2; min-width: 280px">
+              <div id="cassaProductPicker" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow-y: auto; padding: 4px"></div>
+            </div>
+            <div style="flex: 1; min-width: 240px; background: white; border-radius: 8px; padding: 12px; border: 1px solid #ccc">
+              <h5 style="margin-top: 0">🧾 Carrello</h5>
+              <div id="cassaCartContainer" style="min-height: 60px"></div>
+              <div style="font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 8px">
+                Totale: <span id="cassaTotalDisplay">0.00 €</span>
+              </div>
+              <div class="field" style="margin-top: 10px">
+                <label>Nome cliente (opzionale)</label>
+                <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
+              </div>
+              <div class="field" style="margin-top: 8px">
+                <label>Modalità di pagamento</label>
+                <select id="cassaPaymentMethod">
+                  <option value="contanti">💵 Contanti</option>
+                  <option value="carta">💳 Carta</option>
+                  <option value="altro">🔁 Altro</option>
+                </select>
+              </div>
+              <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 10px; width: 100%">✅ Registra Vendita</button>
+              <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
+            </div>
+          </div>
+        </div>
+
         <div class="card" style="background: #f0f0f0; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">🧾 Ordini Ricevuti</h4>
           <div id="shopOrdersContainer"></div>
+        </div>
+      </div>
+
+      <div id="page-finances" class="card page hidden">
+        <h3>💰 Bilancio del Torneo</h3>
+        <p class="muted">Riepilogo di tutto ciò che è stato incassato (bar, eventi, iscrizioni) e di tutto ciò che è stato speso.</p>
+
+        <div id="balanceSummaryContainer" style="margin-top: 12px"></div>
+
+        <div class="card" style="background: #fff8ea; padding: 12px; margin-top: 16px">
+          <h4 style="margin-top: 0">➕ Aggiungi Spesa</h4>
+          <div class="row" style="gap: 12px; flex-wrap: wrap">
+            <div class="field" style="flex: 2; min-width: 180px">
+              <label>Articolo / Descrizione</label>
+              <input type="text" id="expItem" placeholder="Es: Affitto campi, Palloni, Arbitri...">
+            </div>
+            <div class="field" style="flex: 1; min-width: 100px">
+              <label>Importo (€)</label>
+              <input type="number" id="expAmount" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="field" style="flex: 1; min-width: 120px">
+              <label>Categoria (opzionale)</label>
+              <input type="text" id="expCategory" placeholder="Es: Campi, Materiale...">
+            </div>
+            <div class="field" style="flex: 1; min-width: 130px">
+              <label>Data</label>
+              <input type="date" id="expDate">
+            </div>
+          </div>
+          <button class="btn btn-green" onclick="addExpense()" style="margin-top: 10px">💾 Aggiungi Spesa</button>
+        </div>
+
+        <div class="card" style="background: white; padding: 12px; margin-top: 16px; border: 1px solid #ddd">
+          <h4 style="margin-top: 0">📋 Elenco Spese</h4>
+          <div id="expensesListContainer"></div>
         </div>
       </div>
 
@@ -1218,8 +1285,15 @@
               <input id="evName" type="text" style="width: 100%">
             </div>
             <div class="field" style="margin-top: 8px">
-              <label>Descrizione</label>
-              <textarea id="evDescription" rows="2" style="width: 100%"></textarea>
+              <label>🖼️ Locandina</label>
+              <div id="evPosterPreviewContainer" style="margin-bottom: 8px"></div>
+              <input type="file" id="evPosterFileInput" accept="image/*" onchange="uploadEventPoster(this)" style="display: none">
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('evPosterFileInput').click()" style="font-size: 12px; padding: 6px 12px">📤 Carica Locandina</button>
+              <button type="button" class="btn" style="font-size: 12px; padding: 6px 12px; background: #dc3545; color: white" onclick="removeEventPoster()">🗑️ Rimuovi</button>
+            </div>
+            <div class="field" style="margin-top: 8px">
+              <label>Descrizione e Programmazione</label>
+              <textarea id="evDescription" rows="6" style="width: 100%"></textarea>
             </div>
             <div class="row" style="gap: 12px; margin-top: 8px">
               <div class="field" style="flex: 1">
@@ -1291,9 +1365,23 @@
             </div>
 
             <p class="muted">Trascina i posti per posizionarli. Clicca per selezionare — <b>Shift+clic</b> per selezionarne più di uno, oppure <b>disegna un'area col mouse</b> su spazio vuoto per selezionarli in blocco. Clicca due volte su un posto già selezionato da solo per rinominarlo/eliminarlo.</p>
-            <div class="row" style="gap: 8px; margin-bottom: 6px">
+            <div class="row" style="gap: 8px; margin-bottom: 6px; align-items: center; flex-wrap: wrap">
               <button class="btn" onclick="addSeatToMap()">➕ Aggiungi Posto</button>
-              <button class="btn" onclick="addLabelToMap()">🏷️ Aggiungi Etichetta (es. "Palco")</button>
+              <button class="btn" onclick="addLabelToMap()">🏷️ Etichetta Libera</button>
+              <select id="mapPresetElementSelect" style="padding: 6px">
+                <option value="">🧭 Elemento predefinito...</option>
+                <option value="🎤 Palco">🎤 Palco</option>
+                <option value="🚻 Gabinetto">🚻 Gabinetto</option>
+                <option value="🍹 Ingresso Bar">🍹 Ingresso Bar</option>
+                <option value="🚪 Uscita Bar">🚪 Uscita Bar</option>
+                <option value="➡️ Ingresso">➡️ Ingresso</option>
+                <option value="⬅️ Uscita">⬅️ Uscita</option>
+                <option value="🅿️ Parcheggio">🅿️ Parcheggio</option>
+                <option value="🛟 Punto di Soccorso">🛟 Punto di Soccorso</option>
+                <option value="🧯 Estintore">🧯 Estintore</option>
+                <option value="🚧 Transenna">🚧 Transenna</option>
+              </select>
+              <button class="btn" onclick="addPresetMapElement()">➕ Aggiungi Elemento</button>
               <button class="btn btn-green" onclick="saveSeatMap()">💾 Salva Mappa</button>
             </div>
 
@@ -2081,6 +2169,8 @@
         renderNews();
       } else if (page === 'shop') {
         loadShopData();
+      } else if (page === 'finances') {
+        loadFinancesData();
       } else if (page === 'translations') {
         loadTranslationsEditor();
       } else if (page === 'campaigns') {
@@ -12108,6 +12198,74 @@ html += `
       }
     }
 
+    // 🆕 Editor di testo ricco per la descrizione/programmazione dell'evento
+    // (stesso pattern "distruggi e ricrea" usato per kitEditor, perché il
+    // contenitore #evDescription viene ricostruito ogni volta che si apre
+    // il dettaglio di un evento)
+    let eventDescEditor = null;
+    function initEventDescriptionEditor(initialValue) {
+      if (typeof Jodit === 'undefined') return;
+      if (eventDescEditor) {
+        try { eventDescEditor.destroy(); } catch (e) { /* ignora, contenitore già rimosso */ }
+        eventDescEditor = null;
+      }
+      const container = document.getElementById('evDescription');
+      if (!container) return;
+      eventDescEditor = new Jodit('#evDescription', {
+        height: 220,
+        width: '100%',
+        toolbarButtonSize: 'small',
+        buttons: ['bold', 'italic', 'underline', '|', 'ul', 'ol', '|', 'link', 'image', '|', 'align', '|', 'eraser'],
+        placeholder: 'Descrivi l\'evento, orari e programma della giornata...'
+      });
+      eventDescEditor.value = initialValue || '';
+    }
+
+    // 🆕 Mostra l'anteprima della locandina caricata (se presente)
+    function renderEventPosterPreview() {
+      const container = document.getElementById('evPosterPreviewContainer');
+      if (!container) return;
+      if (currentEvent.posterImageUrl) {
+        container.innerHTML = `<img src="${escapeHtml(currentEvent.posterImageUrl)}" style="max-width: 240px; max-height: 320px; border-radius: 6px; border: 1px solid #ddd; display: block">`;
+      } else {
+        container.innerHTML = '<span class="muted" style="font-size: 13px">Nessuna locandina caricata.</span>';
+      }
+    }
+
+    // 🆕 Carica la locandina dell'evento
+    async function uploadEventPoster(input) {
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const res = await fetch('api.php?action=admin_upload_event_poster', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          await showInfoDialog('Errore', data.error || 'Caricamento locandina fallito');
+          return;
+        }
+        currentEvent.posterImageUrl = data.imageFile;
+        await callApi('admin_update_event', 'POST', { id: currentEvent.id, posterImageUrl: data.imageFile }, true);
+        renderEventPosterPreview();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      } finally {
+        input.value = '';
+      }
+    }
+
+    // 🆕 Rimuove la locandina dell'evento
+    async function removeEventPoster() {
+      currentEvent.posterImageUrl = '';
+      await callApi('admin_update_event', 'POST', { id: currentEvent.id, posterImageUrl: '' }, true);
+      renderEventPosterPreview();
+    }
+
     function openEventDetail(eventId) {
       currentEvent = eventsData.find(e => e.id === eventId);
       if (!currentEvent) return;
@@ -12116,7 +12274,8 @@ html += `
       document.getElementById('eventDetailView').style.display = 'block';
 
       document.getElementById('evName').value = currentEvent.name || '';
-      document.getElementById('evDescription').value = currentEvent.description || '';
+      initEventDescriptionEditor(currentEvent.description || '');
+      renderEventPosterPreview();
       document.getElementById('evDate').value = currentEvent.date || '';
       document.getElementById('evTime').value = currentEvent.time || '';
       document.getElementById('evEnabled').checked = !!currentEvent.enabled;
@@ -12154,7 +12313,7 @@ html += `
         const payload = {
           id: currentEvent.id,
           name: document.getElementById('evName').value.trim(),
-          description: document.getElementById('evDescription').value.trim(),
+          description: (eventDescEditor ? eventDescEditor.value : document.getElementById('evDescription').value).trim(),
           date: document.getElementById('evDate').value,
           time: document.getElementById('evTime').value,
           enabled: document.getElementById('evEnabled').checked,
@@ -12377,6 +12536,27 @@ html += `
         x: 20, y: 20, width: 90, height: 30, rotation: 0,
         label: text.trim()
       });
+      renderSeatMapEditor();
+    }
+
+    // 🆕 Elementi predefiniti non prenotabili (palco, gabinetto, ingresso/
+    // uscita bar, ecc.) — stesso tipo 'label' usato per le etichette
+    // libere, solo con testo/icona già pronti per gli oggetti più comuni
+    // di un torneo, così non serve digitarli ogni volta a mano.
+    function addPresetMapElement() {
+      const select = document.getElementById('mapPresetElementSelect');
+      const text = select.value;
+      if (!text) {
+        showInfoDialog('Nessun elemento scelto', 'Scegli prima un elemento predefinito dal menu.');
+        return;
+      }
+      seatMapElements.push({
+        id: bin2hex(4),
+        type: 'label',
+        x: 20, y: 20, width: 130, height: 36, rotation: 0,
+        label: text
+      });
+      select.value = '';
       renderSeatMapEditor();
     }
 
@@ -12971,6 +13151,122 @@ html += `
       }
     }
 
+    // 🆕 Bilancio del torneo — incassi (bar/eventi/iscrizioni) e spese
+    let expensesData = [];
+
+    async function loadFinancesData() {
+      try {
+        const [balanceResult, expensesResult] = await Promise.all([
+          callApi('admin_get_balance', 'GET', null, true),
+          callApi('admin_get_expenses', 'GET', null, true)
+        ]);
+        renderBalanceSummary(balanceResult.balance);
+        expensesData = expensesResult.expenses || [];
+        renderExpensesList();
+      } catch (e) {
+        await showInfoDialog('Errore', 'Errore caricamento bilancio: ' + e.message);
+      }
+    }
+
+    function renderBalanceSummary(b) {
+      const container = document.getElementById('balanceSummaryContainer');
+      if (!container || !b) return;
+      const netColor = b.netBalance >= 0 ? '#2e7d32' : '#c62828';
+      container.innerHTML = `
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <div style="flex: 1; min-width: 160px; background: #e8f5e9; border-radius: 8px; padding: 12px">
+            <div style="font-size: 12px; color: #555">🍹 Incasso Bar</div>
+            <div style="font-size: 20px; font-weight: bold; color: #2e7d32">${b.shopIncome.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati</div>
+          </div>
+          <div style="flex: 1; min-width: 160px; background: #e3f2fd; border-radius: 8px; padding: 12px">
+            <div style="font-size: 12px; color: #555">🎟️ Incasso Eventi</div>
+            <div style="font-size: 20px; font-weight: bold; color: #1565c0">${b.eventsIncome.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">${b.eventBookingsCount} prenotazioni pagate</div>
+          </div>
+          <div style="flex: 1; min-width: 160px; background: #fff3e0; border-radius: 8px; padding: 12px">
+            <div style="font-size: 12px; color: #555">🏐 Incasso Iscrizioni</div>
+            <div style="font-size: 20px; font-weight: bold; color: #e65100">${b.registrationIncome.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">${b.paidTeamsCount || b.paidPlayersCount} pagamenti</div>
+          </div>
+          <div style="flex: 1; min-width: 160px; background: #ffebee; border-radius: 8px; padding: 12px">
+            <div style="font-size: 12px; color: #555">💸 Totale Spese</div>
+            <div style="font-size: 20px; font-weight: bold; color: #c62828">${b.totalExpenses.toFixed(2)} €</div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; background: ${netColor}15; border: 2px solid ${netColor}; border-radius: 8px; padding: 16px; text-align: center">
+          <div style="font-size: 13px; color: #555">Bilancio Netto (Incassi − Spese)</div>
+          <div style="font-size: 32px; font-weight: bold; color: ${netColor}">${b.netBalance >= 0 ? '+' : ''}${b.netBalance.toFixed(2)} €</div>
+        </div>
+      `;
+    }
+
+    function renderExpensesList() {
+      const container = document.getElementById('expensesListContainer');
+      if (!container) return;
+      if (expensesData.length === 0) {
+        container.innerHTML = '<p class="muted">Nessuna spesa registrata.</p>';
+        return;
+      }
+      const sorted = [...expensesData].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      container.innerHTML = `
+        <table style="width: 100%; border-collapse: collapse">
+          <thead><tr style="border-bottom: 1px solid #ddd; text-align: left">
+            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
+          </tr></thead>
+          <tbody>
+            ${sorted.map(e => `
+              <tr style="border-bottom: 1px solid #f0f0f0">
+                <td style="padding: 6px; font-size: 13px">${e.date || '-'}</td>
+                <td style="padding: 6px; font-size: 13px">${escapeHtml(e.item)}</td>
+                <td style="padding: 6px; font-size: 13px; color: #888">${escapeHtml(e.category || '-')}</td>
+                <td style="padding: 6px; font-size: 13px; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
+                <td style="padding: 6px">
+                  <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteExpense('${e.id}')">🗑️</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function addExpense() {
+      const item = document.getElementById('expItem').value.trim();
+      const amount = parseFloat(document.getElementById('expAmount').value);
+      const category = document.getElementById('expCategory').value.trim();
+      const date = document.getElementById('expDate').value;
+      if (!item) {
+        await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per la spesa.');
+        return;
+      }
+      if (!amount || amount <= 0) {
+        await showInfoDialog('Importo non valido', 'Inserisci un importo maggiore di zero.');
+        return;
+      }
+      try {
+        await callApi('admin_add_expense', 'POST', { item, amount, category, date }, true);
+        document.getElementById('expItem').value = '';
+        document.getElementById('expAmount').value = '';
+        document.getElementById('expCategory').value = '';
+        document.getElementById('expDate').value = '';
+        await loadFinancesData();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function deleteExpense(id) {
+      const confirmed = await showConfirmDialog('Elimina Spesa', 'Vuoi eliminare questa spesa?');
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_expense', 'POST', { id }, true);
+        await loadFinancesData();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
     async function loadShopData() {
       try {
         const result = await callApi('admin_get_shop', 'GET', null, true);
@@ -12985,8 +13281,112 @@ html += `
 
         renderShopCategories();
         renderShopOrders();
+        renderCassaProductPicker();
       } catch (e) {
         await showInfoDialog('Errore', 'Errore caricamento bar: ' + e.message);
+      }
+    }
+
+    // 🆕 Cassa — vendita diretta dal pannello admin
+    let cassaCart = []; // [{productId, name, price, qty}]
+
+    function renderCassaProductPicker() {
+      const container = document.getElementById('cassaProductPicker');
+      if (!container) return;
+      const allProducts = [];
+      (shopCategoriesData || []).forEach(cat => {
+        (cat.products || []).forEach(p => {
+          if (p.available === false) return;
+          allProducts.push({ ...p, categoryName: cat.name });
+        });
+      });
+      if (allProducts.length === 0) {
+        container.innerHTML = '<span class="muted" style="font-size: 13px">Nessun prodotto disponibile — aggiungine prima nelle Categorie e Prodotti qui sopra.</span>';
+        return;
+      }
+      container.innerHTML = allProducts.map(p => `
+        <button type="button" onclick="addToCassaCart('${p.id}')" style="display: flex; flex-direction: column; align-items: center; width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 8px; background: white; cursor: pointer; text-align: center">
+          ${p.image ? `<img src="${escapeHtml(p.image)}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px; margin-bottom: 4px">` : '<div style="width:48px;height:48px;background:#eee;border-radius:4px;margin-bottom:4px"></div>'}
+          <span style="font-size: 12px; font-weight: bold">${escapeHtml(p.name)}</span>
+          <span style="font-size: 11px; color: #666">${parseFloat(p.price).toFixed(2)} €</span>
+        </button>
+      `).join('');
+    }
+
+    function addToCassaCart(productId) {
+      let product = null;
+      (shopCategoriesData || []).forEach(cat => {
+        (cat.products || []).forEach(p => { if (p.id === productId) product = p; });
+      });
+      if (!product) return;
+      const existing = cassaCart.find(i => i.productId === productId);
+      if (existing) {
+        existing.qty++;
+      } else {
+        cassaCart.push({ productId: product.id, name: product.name, price: product.price, qty: 1 });
+      }
+      renderCassaCart();
+    }
+
+    function changeCassaCartQty(productId, delta) {
+      const item = cassaCart.find(i => i.productId === productId);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) {
+        cassaCart = cassaCart.filter(i => i.productId !== productId);
+      }
+      renderCassaCart();
+    }
+
+    function renderCassaCart() {
+      const container = document.getElementById('cassaCartContainer');
+      const totalDisplay = document.getElementById('cassaTotalDisplay');
+      if (!container || !totalDisplay) return;
+      if (cassaCart.length === 0) {
+        container.innerHTML = '<span class="muted" style="font-size: 13px">Carrello vuoto — clicca sui prodotti a sinistra.</span>';
+        totalDisplay.textContent = '0.00 €';
+        return;
+      }
+      let total = 0;
+      container.innerHTML = cassaCart.map(item => {
+        const lineTotal = item.price * item.qty;
+        total += lineTotal;
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid #eee">
+            <span style="font-size: 13px; flex: 1">${escapeHtml(item.name)}</span>
+            <button type="button" onclick="changeCassaCartQty('${item.productId}', -1)" style="width: 22px; height: 22px; border-radius: 4px; border: 1px solid #ccc; background: white; cursor: pointer">−</button>
+            <span style="font-size: 13px; min-width: 18px; text-align: center">${item.qty}</span>
+            <button type="button" onclick="changeCassaCartQty('${item.productId}', 1)" style="width: 22px; height: 22px; border-radius: 4px; border: 1px solid #ccc; background: white; cursor: pointer">+</button>
+            <span style="font-size: 13px; font-weight: bold; min-width: 55px; text-align: right">${lineTotal.toFixed(2)} €</span>
+          </div>
+        `;
+      }).join('');
+      totalDisplay.textContent = total.toFixed(2) + ' €';
+    }
+
+    function clearCassaCart() {
+      cassaCart = [];
+      document.getElementById('cassaCustomerName').value = '';
+      renderCassaCart();
+    }
+
+    async function submitCassaOrder() {
+      if (cassaCart.length === 0) {
+        await showInfoDialog('Carrello vuoto', 'Aggiungi almeno un prodotto prima di registrare la vendita.');
+        return;
+      }
+      const payload = {
+        customerName: document.getElementById('cassaCustomerName').value.trim(),
+        items: cassaCart.map(i => ({ productId: i.productId, qty: i.qty })),
+        paymentMethod: document.getElementById('cassaPaymentMethod').value
+      };
+      try {
+        const result = await callApi('admin_place_shop_order', 'POST', payload, true);
+        await showInfoDialog('✅ Vendita registrata', `Totale: ${result.order.total.toFixed(2)} €`);
+        clearCassaCart();
+        await loadShopData(); // aggiorna scorte e lista ordini
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
       }
     }
 

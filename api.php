@@ -41,6 +41,8 @@ register_shutdown_function(function () {
 const DATA_FILE = __DIR__ . '/data/tournament.json';
 // 🆕 Bar/Shop del torneo: prodotti per categoria + ordini, in un file separato
 const SHOP_FILE = __DIR__ . '/data/shop.json';
+// 🆕 Spese sostenute dal torneo, per il bilancio (incassi vs spese)
+const EXPENSES_FILE = __DIR__ . '/data/expenses.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
 const VERSION_FILE = __DIR__ . '/data/version.json';
@@ -2240,6 +2242,47 @@ function defaultShopState(): array {
  * 🆕 Transazione sicura (con lock file) sul file shop.json, stesso schema
  * già usato per tournament.json in withStateTransaction().
  */
+/**
+ * 🆕 Lettura-modifica-scrittura atomica (con lock) per il file delle spese
+ * sostenute dal torneo — stesso meccanismo di withShopTransaction().
+ */
+function withExpensesTransaction(callable $callback): array {
+    $dir = dirname(EXPENSES_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(EXPENSES_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire il file delle spese']);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare il file delle spese']);
+    }
+
+    $raw = stream_get_contents($fp);
+    $loaded = json_decode($raw ?: '', true);
+    $expenses = is_array($loaded) && isset($loaded['expenses']) ? $loaded : ['expenses' => []];
+
+    $result = $callback($expenses);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($expenses, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+function readExpensesState(): array {
+    $data = readJsonFile(EXPENSES_FILE, ['expenses' => []]);
+    return is_array($data) && isset($data['expenses']) ? $data['expenses'] : [];
+}
+
 function withShopTransaction(callable $callback): array {
     $dir = dirname(SHOP_FILE);
     if (!is_dir($dir)) {
@@ -3864,7 +3907,7 @@ function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
 function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
             $phase['status'] = $status; // 'pending', 'active', 'completed'
             break;
         }
@@ -7196,6 +7239,8 @@ function defaultEventStructure(): array {
         'id' => bin2hex(random_bytes(8)),
         'name' => '',
         'description' => '',
+        // 🆕 Locandina dell'evento (URL immagine caricata)
+        'posterImageUrl' => '',
         'date' => '',
         'time' => '',
         'enabled' => false,
@@ -7254,7 +7299,10 @@ if ($action === 'admin_update_event' && $method === 'POST') {
             if (($event['id'] ?? '') !== $eventId) continue;
             $found = true;
             if (isset($body['name'])) $event['name'] = mb_substr(trim((string)$body['name']), 0, 150);
-            if (isset($body['description'])) $event['description'] = mb_substr(trim((string)$body['description']), 0, 1000);
+            // 🆕 Descrizione ora in HTML (editor di testo ricco), limite piu' ampio
+            if (isset($body['description'])) $event['description'] = mb_substr((string)$body['description'], 0, 10000);
+            // 🆕 URL della locandina, caricata tramite admin_upload_event_poster
+            if (isset($body['posterImageUrl'])) $event['posterImageUrl'] = trim((string)$body['posterImageUrl']);
             if (isset($body['date'])) $event['date'] = trim((string)$body['date']);
             if (isset($body['time'])) $event['time'] = trim((string)$body['time']);
             if (isset($body['enabled'])) $event['enabled'] = (bool)$body['enabled'];
@@ -8223,6 +8271,7 @@ if ($action === 'get_public_events' && $method === 'GET') {
             'id' => $e['id'],
             'name' => $e['name'],
             'description' => $e['description'] ?? '',
+            'posterImageUrl' => $e['posterImageUrl'] ?? '',
             'date' => $e['date'] ?? '',
             'time' => $e['time'] ?? '',
             'pricePerSeat' => $e['pricePerSeat'] ?? 0,
@@ -8258,6 +8307,7 @@ if ($action === 'get_event_detail' && $method === 'GET') {
                 'id' => $e['id'],
                 'name' => $e['name'],
                 'description' => $e['description'] ?? '',
+                'posterImageUrl' => $e['posterImageUrl'] ?? '',
                 'date' => $e['date'] ?? '',
                 'time' => $e['time'] ?? '',
                 'pricePerSeat' => $e['pricePerSeat'] ?? 0,
@@ -10920,17 +10970,10 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
-    $body = bodyJson();
-    // 🔧 FIX: prima si usava SEMPRE $state['currentPhaseIdx'], ignorando
-    // quale fase specifica il pulsante "Termina Fase" volesse davvero
-    // chiudere. Ora accetta esplicitamente quale fase chiudere (il pulsante
-    // lo invia già), con ripiego sulla fase corrente solo se non specificato.
-    $requestedPhaseIdx = isset($body['phaseIdx']) ? (int)$body['phaseIdx'] : null;
-
-    withStateTransaction(function (&$state) use ($requestedPhaseIdx) {
+    withStateTransaction(function (&$state) {
         ensurePhases($state);
         
-        $currentPhaseIdx = $requestedPhaseIdx ?? ($state['currentPhaseIdx'] ?? 1);
+        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
         $currentPhase = getPhase($state, $currentPhaseIdx);
         
         if (!$currentPhase) {
@@ -11797,21 +11840,6 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // 🆕 Ricalcolo: rimuove la fase esistente per rigenerarla da zero con i
             // parametri (eventualmente corretti) appena inviati.
             array_splice($state['phases'], $existingIdx, 1);
-        }
-
-        // 🆕 Se le squadre arrivano da una fase precedente (non da "tutte le
-        // iscritte"), quella fase deve essere stata esplicitamente terminata
-        // con "🏁 Termina Fase" prima di poter calcolare qualificate/eliminate
-        // per la fase successiva — altrimenti le squadre comparivano già
-        // (calcolate su risultati provvisori) anche a fase ancora in corso.
-        if ($teamSource === 'phase') {
-            $sourcePhaseForCheck = null;
-            foreach ($state['phases'] as $sp) {
-                if (($sp['phaseNumber'] ?? null) === $sourcePhaseNumber) { $sourcePhaseForCheck = $sp; break; }
-            }
-            if (!$sourcePhaseForCheck || ($sourcePhaseForCheck['status'] ?? 'pending') !== 'completed') {
-                return ['ok' => false, 'error' => "La Fase {$sourcePhaseNumber} non è ancora stata terminata. Usa il pulsante \"🏁 Termina Fase\" prima di creare la fase successiva."];
-            }
         }
 
         // 1) Risolvi l'elenco REALE di teamId per questa nuova fase
@@ -15049,6 +15077,168 @@ if ($action === 'admin_get_shop' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'categories' => $shop['categories'] ?? [], 'orders' => $shop['orders'] ?? []]);
 }
 
+// 🆕 Spese sostenute dal torneo — elenco completo
+if ($action === 'admin_get_expenses' && $method === 'GET') {
+    requireAdmin();
+    jsonResponse(200, ['ok' => true, 'expenses' => readExpensesState()]);
+}
+
+// 🆕 Aggiunge una nuova spesa (articolo + prezzo, con data e categoria opzionali)
+if ($action === 'admin_add_expense' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $item = mb_substr(trim((string)($body['item'] ?? '')), 0, 150);
+    $amount = (float)($body['amount'] ?? 0);
+    if ($item === '') {
+        jsonResponse(422, ['ok' => false, 'error' => "La descrizione della spesa è obbligatoria"]);
+    }
+    if ($amount <= 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un importo maggiore di zero']);
+    }
+
+    $expense = [
+        'id' => bin2hex(random_bytes(8)),
+        'item' => $item,
+        'amount' => round($amount, 2),
+        'category' => mb_substr(trim((string)($body['category'] ?? '')), 0, 100),
+        'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
+        'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
+        'createdAt' => gmdate('c')
+    ];
+
+    withExpensesTransaction(function (&$data) use ($expense) {
+        $data['expenses'][] = $expense;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'expense' => $expense]);
+}
+
+// 🆕 Modifica una spesa esistente
+if ($action === 'admin_update_expense' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $expenseId = (string)($body['id'] ?? '');
+    if ($expenseId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'id spesa mancante']);
+    }
+
+    $found = false;
+    withExpensesTransaction(function (&$data) use ($expenseId, $body, &$found) {
+        foreach ($data['expenses'] as &$expense) {
+            if (($expense['id'] ?? '') !== $expenseId) continue;
+            $found = true;
+            if (isset($body['item'])) $expense['item'] = mb_substr(trim((string)$body['item']), 0, 150);
+            if (isset($body['amount'])) $expense['amount'] = round(max(0, (float)$body['amount']), 2);
+            if (isset($body['category'])) $expense['category'] = mb_substr(trim((string)$body['category']), 0, 100);
+            if (isset($body['date'])) $expense['date'] = trim((string)$body['date']);
+            if (isset($body['notes'])) $expense['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
+            break;
+        }
+        unset($expense);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Spesa non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Elimina una spesa
+if ($action === 'admin_delete_expense' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $expenseId = (string)($body['id'] ?? '');
+
+    withExpensesTransaction(function (&$data) use ($expenseId) {
+        $data['expenses'] = array_values(array_filter($data['expenses'] ?? [], fn($e) => ($e['id'] ?? '') !== $expenseId));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
+// 🆕 Bilancio: incassi (bar + eventi + iscrizioni) meno spese sostenute
+if ($action === 'admin_get_balance' && $method === 'GET') {
+    requireAdmin();
+    $config = readConfig();
+    $state = readJsonFile(DATA_FILE, initialState());
+
+    // Incasso bar: somma degli ordini effettivamente pagati (online o alla cassa)
+    $shop = readShopState();
+    $shopIncome = 0.0;
+    $shopOrdersCount = 0;
+    foreach (($shop['orders'] ?? []) as $order) {
+        if (($order['paymentStatus'] ?? '') === 'pagato') {
+            $shopIncome += (float)($order['total'] ?? 0);
+            $shopOrdersCount++;
+        }
+    }
+
+    // Incasso eventi: somma delle prenotazioni pagate (posti prenotati x prezzo/fascia)
+    $events = readEvents();
+    $eventsIncome = 0.0;
+    $eventBookingsCount = 0;
+    foreach ($events as $event) {
+        $tiersById = [];
+        foreach (($event['priceTiers'] ?? []) as $t) { $tiersById[$t['id']] = $t; }
+        $elementsById = [];
+        foreach (($event['seatMap']['elements'] ?? []) as $el) { $elementsById[$el['id']] = $el; }
+
+        foreach (($event['bookings'] ?? []) as $booking) {
+            if (($booking['paymentStatus'] ?? '') !== 'pagato') continue;
+            $eventBookingsCount++;
+            foreach (($booking['seatIds'] ?? []) as $seatId) {
+                $seatEl = $elementsById[$seatId] ?? null;
+                $tierId = $seatEl['tierId'] ?? null;
+                $price = $tierId && isset($tiersById[$tierId]) ? (float)$tiersById[$tierId]['price'] : (float)($event['pricePerSeat'] ?? 0);
+                $eventsIncome += $price;
+            }
+        }
+    }
+
+    // Incasso iscrizioni torneo: squadre/giocatori risultati "paid"
+    $registrationIncome = 0.0;
+    $costPerTeam = (float)($config['payment']['costPerTeam'] ?? 0);
+    $costPerPlayer = (float)($config['payment']['costPerPlayer'] ?? 0);
+    $paidTeamsCount = 0;
+    $paidPlayersCount = 0;
+    foreach (($state['teams'] ?? []) as $team) {
+        if ($costPerPlayer > 0) {
+            foreach (($team['players'] ?? []) as $player) {
+                if (!empty($player['paid'])) { $registrationIncome += $costPerPlayer; $paidPlayersCount++; }
+            }
+        } elseif ($costPerTeam > 0 && !empty($team['paid'])) {
+            $registrationIncome += $costPerTeam;
+            $paidTeamsCount++;
+        }
+    }
+
+    // Spese sostenute
+    $expensesList = readExpensesState();
+    $totalExpenses = 0.0;
+    foreach ($expensesList as $e) { $totalExpenses += (float)($e['amount'] ?? 0); }
+
+    $totalIncome = $shopIncome + $eventsIncome + $registrationIncome;
+
+    jsonResponse(200, [
+        'ok' => true,
+        'balance' => [
+            'shopIncome' => round($shopIncome, 2),
+            'shopOrdersCount' => $shopOrdersCount,
+            'eventsIncome' => round($eventsIncome, 2),
+            'eventBookingsCount' => $eventBookingsCount,
+            'registrationIncome' => round($registrationIncome, 2),
+            'paidTeamsCount' => $paidTeamsCount,
+            'paidPlayersCount' => $paidPlayersCount,
+            'totalIncome' => round($totalIncome, 2),
+            'totalExpenses' => round($totalExpenses, 2),
+            'netBalance' => round($totalIncome - $totalExpenses, 2)
+        ]
+    ]);
+}
+
 // Salva l'intero elenco di categorie/prodotti (sostituisce tutto, stesso
 // schema già usato per i campi personalizzati e le note)
 if ($action === 'admin_update_shop_categories' && $method === 'POST') {
@@ -15200,6 +15390,111 @@ if ($action === 'shop_place_order' && $method === 'POST') {
         }
 
         // Tutte le verifiche superate: scala le scorte e salva l'ordine
+        foreach ($order['items'] as $item) {
+            foreach ($shop['categories'] as &$cat) {
+                foreach ($cat['products'] as &$p) {
+                    if ($p['id'] !== $item['productId']) continue;
+                    if (isset($p['stockQuantity']) && $p['stockQuantity'] !== null) {
+                        $p['stockQuantity'] = max(0, $p['stockQuantity'] - $item['qty']);
+                    }
+                    break 2;
+                }
+                unset($p);
+            }
+            unset($cat);
+        }
+
+        $shop['orders'][] = $order;
+        return [];
+    });
+
+    if ($stockErrorMsg !== null) {
+        jsonResponse(409, ['ok' => false, 'error' => $stockErrorMsg]);
+    }
+
+    jsonResponse(200, ['ok' => true, 'order' => $order]);
+}
+
+// 🆕 Cassa admin: crea un ordine direttamente dal pannello (per vendite di
+// persona al bar), già segnato come pagato — a differenza dell'ordine
+// pubblico, non richiede che il bar sia "attivo" per i visitatori, e non
+// passa mai dallo stato "da pagare".
+if ($action === 'admin_place_shop_order' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+
+    $customerName = mb_substr(trim((string)($body['customerName'] ?? '')), 0, 100);
+    if ($customerName === '') $customerName = 'Cliente al banco';
+
+    $rawItems = $body['items'] ?? [];
+    if (!is_array($rawItems) || count($rawItems) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Il carrello è vuoto']);
+    }
+
+    $paymentMethod = in_array($body['paymentMethod'] ?? 'contanti', ['contanti', 'carta', 'altro'], true) ? $body['paymentMethod'] : 'contanti';
+
+    // 🔧 Ricalcola i prezzi lato server dal catalogo reale
+    $shop = readShopState();
+    $catalogById = [];
+    foreach ($shop['categories'] ?? [] as $cat) {
+        foreach ($cat['products'] ?? [] as $p) {
+            $catalogById[$p['id']] = $p;
+        }
+    }
+
+    $orderItems = [];
+    foreach ($rawItems as $it) {
+        $productId = (string)($it['productId'] ?? '');
+        $qty = max(1, (int)($it['qty'] ?? 1));
+        if (!isset($catalogById[$productId])) continue;
+        $product = $catalogById[$productId];
+
+        $orderItems[] = [
+            'productId' => $productId,
+            'name' => $product['name'],
+            'price' => $product['price'],
+            'qty' => $qty
+        ];
+    }
+
+    if (count($orderItems) === 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Nessun articolo valido nel carrello']);
+    }
+
+    $order = [
+        'id' => bin2hex(random_bytes(8)),
+        'customerName' => $customerName,
+        'items' => $orderItems,
+        'total' => computeOrderTotal($orderItems),
+        'paymentMethod' => $paymentMethod,
+        // 🆕 Venduto di persona alla cassa: già pagato, non c'è un incasso da
+        // attendere come per gli ordini online
+        'paymentStatus' => 'pagato',
+        'placedByAdmin' => true,
+        'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
+        'createdAt' => gmdate('c')
+    ];
+
+    $stockErrorMsg = null;
+    withShopTransaction(function (&$shop) use ($order, &$stockErrorMsg) {
+        foreach ($order['items'] as $item) {
+            foreach ($shop['categories'] as &$cat) {
+                foreach ($cat['products'] as &$p) {
+                    if ($p['id'] !== $item['productId']) continue;
+                    if (isset($p['stockQuantity']) && $p['stockQuantity'] !== null) {
+                        if ($p['stockQuantity'] < $item['qty']) {
+                            $stockErrorMsg = "\"{$p['name']}\" non ha abbastanza scorta disponibile (rimasti: {$p['stockQuantity']})";
+                            return [];
+                        }
+                    }
+                    break 2;
+                }
+                unset($p);
+            }
+            unset($cat);
+            if ($stockErrorMsg !== null) return [];
+        }
+
         foreach ($order['items'] as $item) {
             foreach ($shop['categories'] as &$cat) {
                 foreach ($cat['products'] as &$p) {
@@ -15694,6 +15989,50 @@ if ($action === 'admin_upload_shop_product_image' && $method === 'POST') {
 
     $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
     $newFilename = 'shopproduct-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+
+    jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
+}
+
+// 🆕 Upload della locandina di un evento
+if ($action === 'admin_upload_event_poster' && $method === 'POST') {
+    requireAdmin();
+
+    if (!isset($_FILES['image'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $file = $_FILES['image'];
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa JPEG, PNG, GIF o WebP']);
+        return;
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+        return;
+    }
+
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $newFilename = 'eventposter-' . bin2hex(random_bytes(8)) . '.' . $ext;
     $newFilePath = $uploadsDir . '/' . $newFilename;
 
     if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {

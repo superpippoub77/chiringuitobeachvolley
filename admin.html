@@ -1145,36 +1145,49 @@
 
         <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">🛒 Cassa — Registra Vendita al Banco</h4>
-          <p class="muted" style="margin-top: 0">Clicca sui prodotti per aggiungerli al carrello, poi registra la vendita — utile per chi paga di persona al banco, senza passare dall'ordine online.</p>
-          <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px">
-            <div style="flex: 2; min-width: 280px">
-              <div id="cassaProductPicker" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 320px; overflow-y: auto; padding: 4px"></div>
+          <p class="muted" style="margin-top: 0">Utile per chi paga di persona al banco, senza passare dall'ordine online.</p>
+          <button class="btn btn-primary" onclick="openCassaOverlay()" style="font-size: 15px; padding: 10px 20px">🛒 Apri Cassa</button>
+        </div>
+
+        <div id="cassaOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center">
+          <div style="background: white; border-radius: 10px; width: 94vw; height: 92vh; max-width: 1400px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.4)">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: #1565c0; color: white; flex-shrink: 0">
+              <h3 style="margin: 0">🛒 Cassa — Registra Vendita al Banco</h3>
+              <button onclick="closeCassaOverlay()" style="background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; padding: 0 6px">×</button>
             </div>
-            <div style="flex: 1; min-width: 240px; background: white; border-radius: 8px; padding: 12px; border: 1px solid #ccc">
-              <h5 style="margin-top: 0">🧾 Carrello</h5>
-              <div id="cassaCartContainer" style="min-height: 60px"></div>
-              <div style="font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 8px">
-                Totale: <span id="cassaTotalDisplay">0.00 €</span>
+            <div style="flex: 1; overflow-y: auto; padding: 20px">
+              <div style="display: flex; gap: 20px; flex-wrap: wrap; height: 100%">
+                <div style="flex: 2; min-width: 320px">
+                  <div id="cassaProductPicker" style="display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; padding: 4px"></div>
+                </div>
+                <div style="flex: 1; min-width: 300px; background: #fafafa; border-radius: 8px; padding: 16px; border: 1px solid #ccc; align-self: flex-start; position: sticky; top: 0">
+                  <h5 style="margin-top: 0; font-size: 16px">🧾 Carrello</h5>
+                  <div id="cassaCartContainer" style="min-height: 80px"></div>
+                  <div style="font-weight: bold; font-size: 20px; margin-top: 14px; border-top: 1px solid #ddd; padding-top: 10px">
+                    Totale: <span id="cassaTotalDisplay">0.00 €</span>
+                  </div>
+                  <div class="field" style="margin-top: 12px">
+                    <label>Nome cliente (opzionale)</label>
+                    <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
+                  </div>
+                  <div class="field" style="margin-top: 8px">
+                    <label>Modalità di pagamento</label>
+                    <select id="cassaPaymentMethod" onchange="toggleCassaCashFields()">
+                      <option value="contanti">💵 Contanti</option>
+                      <option value="carta">💳 Carta</option>
+                      <option value="altro">🔁 Altro</option>
+                    </select>
+                  </div>
+                  <div class="field" id="cassaCashFields" style="margin-top: 8px">
+                    <label>Contanti ricevuti (€)</label>
+                    <input type="number" id="cassaCashReceived" step="0.01" min="0" placeholder="0.00" oninput="updateCassaChangeDisplay()">
+                    <div id="cassaChangeDisplay" style="margin-top: 6px; font-size: 15px; font-weight: bold"></div>
+                  </div>
+                  <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 12px; width: 100%; font-size: 15px; padding: 10px">✅ Registra Vendita</button>
+                  <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
+                  <button class="btn" id="cassaPrintReceiptBtn" onclick="printCassaReceipt()" style="margin-top: 10px; width: 100%; font-size: 13px; display: none; background: #444; color: white">🖨️ Stampa Scontrino</button>
+                </div>
               </div>
-              <div class="field" style="margin-top: 10px">
-                <label>Nome cliente (opzionale)</label>
-                <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
-              </div>
-              <div class="field" style="margin-top: 8px">
-                <label>Modalità di pagamento</label>
-                <select id="cassaPaymentMethod" onchange="toggleCassaCashFields()">
-                  <option value="contanti">💵 Contanti</option>
-                  <option value="carta">💳 Carta</option>
-                  <option value="altro">🔁 Altro</option>
-                </select>
-              </div>
-              <div class="field" id="cassaCashFields" style="margin-top: 8px">
-                <label>Contanti ricevuti (€)</label>
-                <input type="number" id="cassaCashReceived" step="0.01" min="0" placeholder="0.00" oninput="updateCassaChangeDisplay()">
-                <div id="cassaChangeDisplay" style="margin-top: 6px; font-size: 15px; font-weight: bold"></div>
-              </div>
-              <button class="btn btn-green" onclick="submitCassaOrder()" style="margin-top: 10px; width: 100%">✅ Registra Vendita</button>
-              <button class="btn btn-secondary" onclick="clearCassaCart()" style="margin-top: 6px; width: 100%; font-size: 12px">🗑️ Svuota Carrello</button>
             </div>
           </div>
         </div>
@@ -13723,11 +13736,103 @@ html += `
           msg += `\nContanti ricevuti: ${received.toFixed(2)} €\nResto da dare: ${change.toFixed(2)} €`;
         }
         await showInfoDialog('✅ Vendita registrata', msg);
+
+        // 🆕 Salva i dettagli per poter stampare lo scontrino subito dopo
+        const cashReceivedForReceipt = paymentMethod === 'contanti' ? parseFloat(document.getElementById('cassaCashReceived').value) : null;
+        lastCassaOrder = {
+          ...result.order,
+          cashReceived: cashReceivedForReceipt,
+          change: cashReceivedForReceipt !== null ? (cashReceivedForReceipt - result.order.total) : null
+        };
+        document.getElementById('cassaPrintReceiptBtn').style.display = '';
+
         clearCassaCart();
         await loadShopData(); // aggiorna scorte e lista ordini
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }
+    }
+
+    // 🆕 Apre/chiude la finestra della cassa a schermo quasi intero
+    function openCassaOverlay() {
+      document.getElementById('cassaOverlay').style.display = 'flex';
+      renderCassaProductPicker();
+      renderCassaCart();
+    }
+
+    function closeCassaOverlay() {
+      document.getElementById('cassaOverlay').style.display = 'none';
+    }
+
+    // 🆕 Ultima vendita registrata alla cassa, per poterne stampare lo
+    // scontrino subito dopo (il pulsante compare solo dopo una vendita)
+    let lastCassaOrder = null;
+
+    // 🆕 Stampa lo scontrino dell'ultima vendita registrata — formattato
+    // come una stampante termica da banco (largo ~80mm, font monospace),
+    // con logo del torneo se caricato, chiaramente indicato come NON FISCALE.
+    function printCassaReceipt() {
+      if (!lastCassaOrder) return;
+      const order = lastCassaOrder;
+      const logoHtml = config.display?.logoFile
+        ? `<img src="${config.display.logoFile}" style="max-width: 120px; max-height: 120px; margin: 0 auto 8px; display: block">`
+        : '';
+      const tournamentName = escapeHtml(config.tournament?.name || 'Torneo');
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('it-IT');
+      const timeStr = now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+
+      const itemsHtml = order.items.map(it => `
+        <div style="display: flex; justify-content: space-between; margin: 2px 0">
+          <span>${it.qty} x ${escapeHtml(it.name)}</span>
+          <span>${(it.price * it.qty).toFixed(2)} €</span>
+        </div>
+      `).join('');
+
+      const paymentLabel = { contanti: 'Contanti', carta: 'Carta', altro: 'Altro' }[order.paymentMethod] || order.paymentMethod;
+
+      const receiptHtml = `
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Scontrino</title>
+          <style>
+            @media print { @page { margin: 4mm; size: 80mm auto; } }
+            body { font-family: 'Courier New', monospace; width: 76mm; margin: 0 auto; font-size: 12px; color: #000 }
+            .center { text-align: center }
+            .bold { font-weight: bold }
+            hr { border: none; border-top: 1px dashed #000; margin: 8px 0 }
+            .total-row { display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; margin-top: 6px }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <div class="center">
+            ${logoHtml}
+            <div class="bold" style="font-size: 14px">${tournamentName}</div>
+            <div style="margin-top: 4px; font-size: 13px; font-weight: bold">*** SCONTRINO NON FISCALE ***</div>
+            <div style="font-size: 11px">Documento senza valore fiscale</div>
+          </div>
+          <hr>
+          <div>Data: ${dateStr} — Ore: ${timeStr}</div>
+          ${order.customerName ? `<div>Cliente: ${escapeHtml(order.customerName)}</div>` : ''}
+          <hr>
+          ${itemsHtml}
+          <hr>
+          <div class="total-row"><span>TOTALE</span><span>${order.total.toFixed(2)} €</span></div>
+          <div style="margin-top: 6px">Pagamento: ${paymentLabel}</div>
+          ${order.cashReceived !== null && order.cashReceived !== undefined ? `
+            <div>Contanti ricevuti: ${order.cashReceived.toFixed(2)} €</div>
+            <div>Resto: ${order.change.toFixed(2)} €</div>
+          ` : ''}
+          <hr>
+          <div class="center" style="margin-top: 10px">Grazie e buon torneo! 🏐</div>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
     }
 
     function toggleShopPaypalFields() {

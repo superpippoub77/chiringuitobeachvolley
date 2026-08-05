@@ -9389,6 +9389,15 @@ if ($action === 'admin_delete_phase' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Numero fase invalido']);
     }
     
+    // 🔧 FIX: prima si rimuoveva la fase solo dallo stato (gironi, partite,
+    // risultati — tutto ciò che vive dentro la fase stessa), ma non dalla
+    // configurazione (impostazioni: numGroups, teamsAdvance, scheduleMode,
+    // ecc.), lasciandole orfane — quindi "cancellare" una fase non la
+    // eliminava davvero del tutto.
+    $config = readConfig();
+    $config['phases'] = array_values(array_filter($config['phases'] ?? [], fn($p) => ($p['phaseNumber'] ?? 0) !== $phaseNumber));
+    writeConfig($config);
+    
     $result = withStateTransaction(function (&$state) use ($phaseNumber) {
         $phases = $state['phases'] ?? [];
         
@@ -9421,7 +9430,7 @@ if ($action === 'admin_delete_phase' && $method === 'POST') {
             }
         }
         
-        error_log("✅ admin_delete_phase: cancellata fase $phaseNumber. Rimangono " . count($phases) . " fasi. currentPhaseIdx ora = " . $state['currentPhaseIdx']);
+        error_log("✅ admin_delete_phase: cancellata fase $phaseNumber (stato e configurazione). Rimangono " . count($phases) . " fasi. currentPhaseIdx ora = " . $state['currentPhaseIdx']);
         
         return ['ok' => true, 'state' => $state];
     });

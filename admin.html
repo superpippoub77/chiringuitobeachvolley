@@ -8330,7 +8330,7 @@
 
       const confirm = await showConfirmDialog(
         'Cancella Fase',
-        `⚠️ Sei sicuro di voler cancellare la Fase ${phaseNumber} (${phase.name})?\n\nQuesta azione è irreversibile e cancellerà:\n- ✅ Tutti i gironi/gruppi\n- ✅ Tutte le partite\n- ✅ Tutti i risultati`
+        `⚠️ Sei sicuro di voler cancellare la Fase ${phaseNumber} (${phase.name})?\n\nQuesta azione è irreversibile e cancellerà TUTTO ciò che riguarda questa fase:\n- ✅ Tutti i gironi/gruppi\n- ✅ Tutte le partite\n- ✅ Tutti i risultati\n- ✅ Le impostazioni della fase (numero gironi, squadre che passano, distribuzione, ecc.)`
       );
       
       if (!confirm) return;

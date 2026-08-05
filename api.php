@@ -3864,7 +3864,7 @@ function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
 function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if ($phase['phaseIdx'] === $phaseIdx) {
+        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
             $phase['status'] = $status; // 'pending', 'active', 'completed'
             break;
         }
@@ -10899,10 +10899,19 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
-    withStateTransaction(function (&$state) {
+    $body = bodyJson();
+    // 🔧 FIX: prima si usava SEMPRE $state['currentPhaseIdx'], ignorando
+    // quale fase specifica il pulsante "Termina Fase" volesse davvero
+    // chiudere — se l'admin cliccava su una fase diversa da quella
+    // "corrente", veniva chiusa quella sbagliata. Ora accetta esplicitamente
+    // quale fase chiudere (il pulsante lo invia già), con ripiego sulla
+    // fase corrente solo se non specificato (compatibilità).
+    $requestedPhaseIdx = isset($body['phaseIdx']) ? (int)$body['phaseIdx'] : null;
+
+    withStateTransaction(function (&$state) use ($requestedPhaseIdx) {
         ensurePhases($state);
         
-        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
+        $currentPhaseIdx = $requestedPhaseIdx ?? ($state['currentPhaseIdx'] ?? 1);
         $currentPhase = getPhase($state, $currentPhaseIdx);
         
         if (!$currentPhase) {

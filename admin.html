@@ -5626,15 +5626,28 @@
     }
 
     /**
-     * Completa una fase dal workflow tree
+     * Completa una fase dal workflow tree — verifica prima se tutti i
+     * risultati sono stati inseriti: se sì, chiede una conferma semplice;
+     * se no, avvisa cosa manca e chiede se procedere comunque.
      */
     async function completePhaseFromWorkflow(phaseIdx) {
       try {
-        if (!confirm('Sei sicuro di voler completare questa fase?')) {
+        const checkResponse = await callApi('admin_check_phase_completion', 'POST', { phaseIdx }, true);
+        const status = checkResponse.status || {};
+        const missingCount = (status.matchCount || 0) - (status.matchesCompleted || 0);
+
+        let confirmMessage;
+        if (missingCount > 0) {
+          confirmMessage = `⚠️ Mancano ancora ${missingCount} partita/e senza risultato in questa fase.\n\nVuoi terminarla comunque e calcolare la fase successiva con i dati attuali?`;
+        } else {
+          confirmMessage = 'Tutti i risultati sono stati inseriti. Terminare questa fase e passare alla successiva?';
+        }
+
+        if (!confirm(confirmMessage)) {
           return;
         }
         
-        const response = await callApi('admin_complete_phase', 'POST', {}, true);
+        const response = await callApi('admin_complete_phase', 'POST', { phaseIdx }, true);
         
         if (!response.ok) {
           await showInfoDialog('Errore', response.error || 'Non è stato possibile completare la fase');
@@ -16162,17 +16175,16 @@ html += `
               ${phase.type !== 'finale' ? `
                 <!-- Pulsanti minimali: solo verifica e chiusura -->
                 <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
-                  ${phase.status === 'pending' ? `
+                  ${phase.status !== 'completed' ? `
                     <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 10px; background: #ffc107; border: 1px solid #ff9800; color: #333; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s" 
                       title="Verifica lo stato della compilazione"
                       onclick="showPhaseCompletionStatus(${stage.phaseIdx})">
                       🔍 Verifica
                     </button>
-                  ` : phase.status === 'active' ? `
                     <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s; hover:opacity: 0.9" 
-                      title="Chiudi questa fase"
+                      title="Termina questa fase e passa alla successiva"
                       onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
-                      ✅ Chiudi
+                      🏁 Termina Fase
                     </button>
                   ` : `
                     <span style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #e8f5e9; color: #2ecc71; font-weight: bold; border-radius: 4px; text-align: center; border: 1px solid #2ecc71">✓ Chiusa</span>
@@ -16253,17 +16265,16 @@ html += `
               ${phase.type !== 'finale' ? `
                 <!-- Pulsanti minimali: solo verifica e chiusura -->
                 <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-top: 4px">
-                  ${phase.status === 'pending' ? `
+                  ${phase.status !== 'completed' ? `
                     <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 10px; background: #ffc107; border: 1px solid #ff9800; color: #333; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s" 
                       title="Verifica lo stato della compilazione"
                       onclick="showPhaseCompletionStatus(${stage.phaseIdx})">
                       🔍 Verifica
                     </button>
-                  ` : phase.status === 'active' ? `
                     <button class="btn" style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 10px; background: #107c10; border: 1px solid #107c10; color: white; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s; hover:opacity: 0.9" 
-                      title="Chiudi questa fase"
+                      title="Termina questa fase e passa alla successiva"
                       onclick="completePhaseFromWorkflow(${stage.phaseIdx})">
-                      ✅ Chiudi
+                      🏁 Termina Fase
                     </button>
                   ` : `
                     <span style="flex: 1; min-width: 90px; padding: 6px 8px; font-size: 11px; background: #fff3e0; color: #ff9800; font-weight: bold; border-radius: 4px; text-align: center; border: 1px solid #ff9800">✓ Chiusa</span>

@@ -15189,8 +15189,6 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
         'amount' => round($amount, 2),
         'category' => mb_substr(trim((string)($body['category'] ?? '')), 0, 100),
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
-        // 🆕 Chi ha sostenuto la spesa, e se con fondi propri (da rimborsare
-        // dal bilancio) o già dalla cassa del torneo (nessun rimborso dovuto)
         'paidBy' => $paidBy,
         'paymentSource' => $paymentSource,
         'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
@@ -15311,9 +15309,6 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     // Spese sostenute
     $expensesList = readExpensesState();
     $totalExpenses = 0.0;
-    // 🆕 Rimborsi dovuti: somma per persona di ciò che ha anticipato con
-    // soldi propri (paymentSource='own') — le spese pagate direttamente
-    // dalla cassa non generano nessun rimborso, sono già "regolate".
     $reimbursementsByPerson = [];
     foreach ($expensesList as $e) {
         $totalExpenses += (float)($e['amount'] ?? 0);
@@ -15343,7 +15338,6 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             'paidPlayersCount' => $paidPlayersCount,
             'totalIncome' => round($totalIncome, 2),
             'totalExpenses' => round($totalExpenses, 2),
-            // 🆕 Chi ha anticipato di tasca propria e quanto deve recuperare
             'reimbursements' => $reimbursements,
             'totalReimbursementsDue' => round($totalReimbursementsDue, 2),
             'netBalance' => round($totalIncome - $totalExpenses, 2)

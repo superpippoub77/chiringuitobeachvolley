@@ -909,6 +909,25 @@
 
       <div id="page-teams" class="card page hidden">
         <h3>Gestione squadre</h3>
+
+        <div style="background: #fff8ea; border-left: 4px solid #ff9800; border-radius: 4px; padding: 12px; margin-bottom: 12px">
+          <h4 style="margin-top: 0; color: #e65100">📄 Moduli da Stampare</h4>
+          <p style="margin: 8px 0; font-size: 13px; color: #555">Carica i moduli PDF (manleva squadra, autorizzazione minorenni) una volta sola — poi potrai scaricarli e stamparli ogni volta che serve.</p>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap">
+            <div style="flex: 1; min-width: 220px">
+              <label style="font-weight: bold; font-size: 13px">✍️ Foglio Firme / Manleva Squadra</label>
+              <div id="waiverFormStatus" style="margin: 6px 0; font-size: 13px"></div>
+              <input type="file" id="waiverFormFileInput" accept="application/pdf" onchange="uploadPrintableDocument(this, 'waiverForm')" style="display: none">
+              <button class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px" onclick="document.getElementById('waiverFormFileInput').click()">📤 Carica / Sostituisci PDF</button>
+            </div>
+            <div style="flex: 1; min-width: 220px">
+              <label style="font-weight: bold; font-size: 13px">🧒 Autorizzazione Minorenni</label>
+              <div id="minorFormStatus" style="margin: 6px 0; font-size: 13px"></div>
+              <input type="file" id="minorFormFileInput" accept="application/pdf" onchange="uploadPrintableDocument(this, 'minorForm')" style="display: none">
+              <button class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px" onclick="document.getElementById('minorFormFileInput').click()">📤 Carica / Sostituisci PDF</button>
+            </div>
+          </div>
+        </div>
         <div style="background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px; padding: 12px; margin-bottom: 12px">
           <h4 style="margin-top: 0; color: #1565c0; display: flex; align-items: center; gap: 8px">
             <span>🧪 Squadre di Test</span>
@@ -2408,11 +2427,55 @@
       }
     });
 
+    // 🆕 Moduli PDF stampabili (manleva squadra, autorizzazione minorenni)
+    function renderPrintableDocumentsStatus() {
+      const docs = config.printableDocuments || {};
+      const renderStatus = (key, containerId) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (docs[key]) {
+          container.innerHTML = `<a href="${docs[key]}" target="_blank" style="color: #2e7d32; font-weight: bold">⬇️ Scarica PDF</a>`;
+        } else {
+          container.innerHTML = '<span class="muted">Nessun modulo caricato.</span>';
+        }
+      };
+      renderStatus('waiverForm', 'waiverFormStatus');
+      renderStatus('minorForm', 'minorFormStatus');
+    }
+
+    async function uploadPrintableDocument(input, docKey) {
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('docKey', docKey);
+      try {
+        const res = await fetch('api.php?action=admin_upload_printable_document', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          await showInfoDialog('Errore', data.error || 'Caricamento fallito');
+          return;
+        }
+        if (!config.printableDocuments) config.printableDocuments = {};
+        config.printableDocuments[docKey] = data.fileUrl;
+        renderPrintableDocumentsStatus();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      } finally {
+        input.value = '';
+      }
+    }
+
     async function refresh() {
       const r = await callApi('admin_state', 'GET', null, true);
       state = r.data || {};
       await renderSettings();
       renderTeams();
+      renderPrintableDocumentsStatus();
       renderSchedule();
       renderPhases();
       renderPhasesUI();

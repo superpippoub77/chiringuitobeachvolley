@@ -16000,6 +16000,60 @@ if ($action === 'admin_upload_shop_product_image' && $method === 'POST') {
 }
 
 // 🆕 Upload della locandina di un evento
+// 🆕 Upload di un modulo PDF da stampare (es. manleva squadra, autorizzazione
+// minorenni) — salvato in config.printableDocuments, scaricabile da admin.
+if ($action === 'admin_upload_printable_document' && $method === 'POST') {
+    requireAdmin();
+
+    if (!isset($_FILES['document'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $docKey = (string)($_POST['docKey'] ?? '');
+    $allowedKeys = ['waiverForm', 'minorForm'];
+    if (!in_array($docKey, $allowedKeys, true)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Tipo di documento non valido']);
+        return;
+    }
+
+    $file = $_FILES['document'];
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+    if ($file['type'] !== 'application/pdf') {
+        jsonResponse(400, ['ok' => false, 'error' => 'Il file deve essere un PDF']);
+        return;
+    }
+    $maxSize = 10 * 1024 * 1024; // 10MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 10MB)']);
+        return;
+    }
+
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $newFilename = 'document-' . $docKey . '-' . bin2hex(random_bytes(8)) . '.pdf';
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+
+    $fileUrl = 'data/uploads/' . $newFilename;
+    $config = readConfig();
+    if (!isset($config['printableDocuments'])) $config['printableDocuments'] = [];
+    $config['printableDocuments'][$docKey] = $fileUrl;
+    writeConfig($config);
+
+    jsonResponse(200, ['ok' => true, 'fileUrl' => $fileUrl]);
+}
+
 if ($action === 'admin_upload_event_poster' && $method === 'POST') {
     requireAdmin();
 

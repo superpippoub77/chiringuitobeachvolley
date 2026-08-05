@@ -3864,7 +3864,7 @@ function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
 function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
+        if ($phase['phaseIdx'] === $phaseIdx) {
             $phase['status'] = $status; // 'pending', 'active', 'completed'
             break;
         }
@@ -10203,6 +10203,14 @@ if ($action === 'admin_generate_groups' && $method === 'POST') {
         
         error_log('✅ Gruppi e partite create: ' . count($groups) . ' groups con ' . count($state['phases'][0]['matches'] ?? []) . ' matches');
 
+        // 🔧 FIX: la Fase 1 non ha una fase precedente che la "attivi" (questo
+        // avviene solo quando si termina la fase PRECEDENTE, ma la prima
+        // fase non ne ha una) — senza questo, restava bloccata su "pending"
+        // per sempre anche con gironi e partite regolarmente generati.
+        if (($state['phases'][0]['status'] ?? 'pending') !== 'completed') {
+            $state['phases'][0]['status'] = 'active';
+        }
+
         return ['ok' => true];
     });
 
@@ -10899,19 +10907,10 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
-    $body = bodyJson();
-    // 🔧 FIX: prima si usava SEMPRE $state['currentPhaseIdx'], ignorando
-    // quale fase specifica il pulsante "Termina Fase" volesse davvero
-    // chiudere — se l'admin cliccava su una fase diversa da quella
-    // "corrente", veniva chiusa quella sbagliata. Ora accetta esplicitamente
-    // quale fase chiudere (il pulsante lo invia già), con ripiego sulla
-    // fase corrente solo se non specificato (compatibilità).
-    $requestedPhaseIdx = isset($body['phaseIdx']) ? (int)$body['phaseIdx'] : null;
-
-    withStateTransaction(function (&$state) use ($requestedPhaseIdx) {
+    withStateTransaction(function (&$state) {
         ensurePhases($state);
         
-        $currentPhaseIdx = $requestedPhaseIdx ?? ($state['currentPhaseIdx'] ?? 1);
+        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
         $currentPhase = getPhase($state, $currentPhaseIdx);
         
         if (!$currentPhase) {
@@ -12034,6 +12033,12 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // automaticamente, senza dover aspettare l'inserimento di un punteggio)
             advanceKnockoutBracket($newPhase);
         }
+
+        // 🔧 FIX: appena creata con le sue partite, la fase è pronta per
+        // essere giocata — senza questo restava bloccata su "pending" per
+        // sempre (l'attivazione automatica scatta solo terminando la fase
+        // PRECEDENTE, ma una fase appena creata da zero non passa da lì).
+        $newPhase['status'] = 'active';
 
         $state['phases'][] = $newPhase;
 

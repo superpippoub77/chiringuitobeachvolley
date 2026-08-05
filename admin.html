@@ -16688,6 +16688,7 @@ html += `
               <select id="npSourceBranch" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">
                 <option value="qualified" ${(prefill.sourceBranch || 'qualified') === 'qualified' ? 'selected' : ''}>✅ Qualificati / Vincenti</option>
                 <option value="eliminated" ${prefill.sourceBranch === 'eliminated' ? 'selected' : ''}>❌ Eliminati / Perdenti</option>
+                <option value="remainingEliminated" ${prefill.sourceBranch === 'remainingEliminated' ? 'selected' : ''}>🔄 Rimanenti (eliminate escluse dal ripescaggio)</option>
               </select>
             </div>
             <div id="npPreview" style="font-size: 13px; color: #555">Caricamento anteprima...</div>
@@ -17094,7 +17095,7 @@ html += `
         // 🔧 FIX: invia SEMPRE il valore della fase sorgente per il calcolo,
         // non il valore modificato dall'utente nel campo (che è solo per la prossima fase)
         const res = await callApi('admin_preview_phase_branch', 'POST', { sourcePhaseNumber, teamsAdvancePerGroup: teamsAdvanceForPreview }, true);
-        const list = branch === 'eliminated' ? res.eliminated : res.qualified;
+        const list = branch === 'eliminated' ? res.eliminated : (branch === 'remainingEliminated' ? res.remainingEliminated : res.qualified);
         if (!res.complete) {
           preview.innerHTML = `⚠️ La fase ${sourcePhaseNumber} non ha ancora tutti i risultati inseriti: l'elenco squadre potrebbe non essere definitivo.<br>Al momento risultano <b>${list.length}</b> squadre nel ramo selezionato.`;
         } else {

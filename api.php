@@ -4967,6 +4967,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         
         $qualified = [];
         $eliminated = [];
+        $remainingEliminated = []; // 🆕 eliminate ESCLUSE dal limite di ripescaggio, se impostato
         $groupWinners = []; // 🆕 teamId delle squadre arrivate 1e nel proprio girone
         $complete = !empty($standings);
 
@@ -5034,10 +5035,15 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
                     // 🆕 Rispetta il limite di ripescaggio per girone, se
                     // impostato — prende sempre le migliori tra le eliminate
                     // (l'ordine di $rows è già per posizione in classifica),
-                    // non un sottoinsieme casuale.
+                    // non un sottoinsieme casuale. Chi resta fuori dal
+                    // limite finisce in $remainingEliminated, per poter
+                    // eventualmente creare un'altra fase (es. consolazione)
+                    // anche da loro.
                     if ($repescageLimit === null || $eliminatedCountThisGroup < $repescageLimit) {
                         $eliminated[] = $row['teamId'];
                         $eliminatedCountThisGroup++;
+                    } else {
+                        $remainingEliminated[] = $row['teamId'];
                     }
                 }
             }
@@ -5102,7 +5108,7 @@ function getTeamsFromPhaseBranch(array $state, int $sourcePhaseNumber, $teamsAdv
         }
         
         error_log("🔍 DEBUG getTeamsFromPhaseBranch: FINAL qualified count=" . count($qualified) . ", eliminated count=" . count($eliminated) . ", groupWinners count=" . count($groupWinners) . ", complete=" . ($complete ? 'true' : 'false'));
-        return ['qualified' => $qualified, 'eliminated' => $eliminated, 'groupWinners' => $groupWinners, 'complete' => $complete];
+        return ['qualified' => $qualified, 'eliminated' => $eliminated, 'remainingEliminated' => $remainingEliminated, 'groupWinners' => $groupWinners, 'complete' => $complete];
     }
 
     if ($type === 'knockout') {
@@ -11729,7 +11735,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => "teamSource non valido: usare 'phase' o 'registration'"]);
         return;
     }
-    if ($teamSource === 'phase' && (!in_array($sourceBranch, ['qualified', 'eliminated'], true) || $sourcePhaseNumber < 1)) {
+    if ($teamSource === 'phase' && (!in_array($sourceBranch, ['qualified', 'eliminated', 'remainingEliminated'], true) || $sourcePhaseNumber < 1)) {
         jsonResponse(422, ['ok' => false, 'error' => 'sourcePhaseNumber/sourceBranch richiesti quando teamSource=phase']);
         return;
     }
@@ -11778,7 +11784,7 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // non il "3" che l'utente ha messo per la Fase 3.
             $teamsAdvanceForCalculation = $teamsAdvancePerGroup;
             $repescageCountForCalculation = null;
-            if ($sourceBranch === 'eliminated' || $sourceBranch === 'qualified') {
+            if ($sourceBranch === 'eliminated' || $sourceBranch === 'qualified' || $sourceBranch === 'remainingEliminated') {
                 // Leggi il valore della fase sorgente dal config
                 $cfg = readConfig();
                 $sourceConfigPhase = null;
@@ -11792,8 +11798,11 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
                     $teamsAdvanceForCalculation = $sourceConfigPhase['teamsAdvance'];
                 }
                 // 🆕 Numero di eliminate ammesse al ripescaggio (per girone) —
-                // se vuoto/non impostato, nessun limite (tutte le eliminate)
-                if ($sourceBranch === 'eliminated' && $sourceConfigPhase && isset($sourceConfigPhase['repescageCount']) && $sourceConfigPhase['repescageCount'] !== '') {
+                // se vuoto/non impostato, nessun limite (tutte le eliminate).
+                // Serve sia per 'eliminated' (chi entra) sia per
+                // 'remainingEliminated' (chi resta fuori), quindi si legge in
+                // entrambi i casi.
+                if (($sourceBranch === 'eliminated' || $sourceBranch === 'remainingEliminated') && $sourceConfigPhase && isset($sourceConfigPhase['repescageCount']) && $sourceConfigPhase['repescageCount'] !== '') {
                     $repescageCountForCalculation = $sourceConfigPhase['repescageCount'];
                 }
                 error_log("🔍 DEBUG admin_create_phase: sourceBranch=$sourceBranch, teamsAdvancePerGroup=" . json_encode($teamsAdvancePerGroup) . ", teamsAdvanceForCalculation=" . json_encode($teamsAdvanceForCalculation));
@@ -12112,9 +12121,22 @@ if ($action === 'admin_preview_phase_branch' && $method === 'POST') {
         error_log("🔍 DEBUG: ensurePhases");
         ensurePhases($state);
         error_log("🔍 DEBUG: ensurePhases completato");
+
+        // 🆕 Legge il limite di ripescaggio impostato sulla fase sorgente
+        // (se presente), così l'anteprima mostra lo stesso numero che
+        // verrà davvero usato alla creazione della fase successiva.
+        $previewConfig = readConfig();
+        $sourceConfigPhaseForPreview = null;
+        foreach (($previewConfig['phases'] ?? []) as $cp) {
+            if (($cp['phaseNumber'] ?? null) === $sourcePhaseNumber) { $sourceConfigPhaseForPreview = $cp; break; }
+        }
+        $repescageCountForPreview = null;
+        if ($sourceConfigPhaseForPreview && isset($sourceConfigPhaseForPreview['repescageCount']) && $sourceConfigPhaseForPreview['repescageCount'] !== '') {
+            $repescageCountForPreview = $sourceConfigPhaseForPreview['repescageCount'];
+        }
         
         error_log("🔍 DEBUG: getTeamsFromPhaseBranch per fase $sourcePhaseNumber");
-        $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup);
+        $branchResult = getTeamsFromPhaseBranch($state, $sourcePhaseNumber, $teamsAdvancePerGroup, 1, $repescageCountForPreview);
         error_log("🔍 DEBUG: branchResult: " . json_encode($branchResult));
         
         error_log("🔍 DEBUG: getTeamMap");
@@ -12127,7 +12149,10 @@ if ($action === 'admin_preview_phase_branch' && $method === 'POST') {
             'ok' => true,
             'complete' => $branchResult['complete'],
             'qualified' => $resolve($branchResult['qualified'] ?? []),
-            'eliminated' => $resolve($branchResult['eliminated'] ?? [])
+            'eliminated' => $resolve($branchResult['eliminated'] ?? []),
+            // 🆕 Eliminate NON ripescate (oltre il limite impostato) — vuoto
+            // se non c'è nessun limite di ripescaggio impostato
+            'remainingEliminated' => $resolve($branchResult['remainingEliminated'] ?? [])
         ];
         
         error_log("🔍 DEBUG: response preparato: " . json_encode($response));

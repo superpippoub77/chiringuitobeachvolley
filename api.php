@@ -15191,6 +15191,9 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
         'paidBy' => $paidBy,
         'paymentSource' => $paymentSource,
+        // 🆕 Scontrino allegato (foto o PDF) — vuoto finché non caricato con
+        // admin_upload_expense_receipt
+        'receiptUrl' => '',
         'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
         'createdAt' => gmdate('c')
     ];
@@ -15201,6 +15204,96 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true, 'expense' => $expense]);
+}
+
+// 🆕 Carica lo scontrino (foto o PDF) di una spesa già registrata
+if ($action === 'admin_upload_expense_receipt' && $method === 'POST') {
+    requireAdmin();
+
+    $expenseId = (string)($_POST['expenseId'] ?? '');
+    if ($expenseId === '') {
+        jsonResponse(400, ['ok' => false, 'error' => 'id spesa mancante']);
+        return;
+    }
+    if (!isset($_FILES['receipt'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $file = $_FILES['receipt'];
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!in_array($file['type'], $allowedTypes, true)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa una foto (JPEG/PNG/WebP) o un PDF']);
+        return;
+    }
+    $maxSize = 8 * 1024 * 1024; // 8MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 8MB)']);
+        return;
+    }
+
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: ($file['type'] === 'application/pdf' ? 'pdf' : 'jpg');
+    $newFilename = 'receipt-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+
+    $fileUrl = 'data/uploads/' . $newFilename;
+    $found = false;
+    withExpensesTransaction(function (&$data) use ($expenseId, $fileUrl, &$found) {
+        foreach ($data['expenses'] as &$expense) {
+            if (($expense['id'] ?? '') !== $expenseId) continue;
+            $expense['receiptUrl'] = $fileUrl;
+            $found = true;
+            break;
+        }
+        unset($expense);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Spesa non trovata']);
+        return;
+    }
+
+    jsonResponse(200, ['ok' => true, 'receiptUrl' => $fileUrl]);
+}
+
+// 🆕 Rimuove lo scontrino allegato a una spesa (senza eliminare la spesa)
+if ($action === 'admin_remove_expense_receipt' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $expenseId = (string)($body['expenseId'] ?? '');
+
+    $found = false;
+    withExpensesTransaction(function (&$data) use ($expenseId, &$found) {
+        foreach ($data['expenses'] as &$expense) {
+            if (($expense['id'] ?? '') !== $expenseId) continue;
+            $expense['receiptUrl'] = '';
+            $found = true;
+            break;
+        }
+        unset($expense);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Spesa non trovata']);
+        return;
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 // 🆕 Modifica una spesa esistente

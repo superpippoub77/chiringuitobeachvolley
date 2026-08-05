@@ -11054,10 +11054,17 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
-    withStateTransaction(function (&$state) {
+    $body = bodyJson();
+    // 🔧 FIX: prima si usava SEMPRE $state['currentPhaseIdx'], ignorando
+    // quale fase specifica il pulsante "Termina Fase" volesse davvero
+    // chiudere. Ora accetta esplicitamente quale fase chiudere (il pulsante
+    // lo invia già), con ripiego sulla fase corrente solo se non specificato.
+    $requestedPhaseIdx = isset($body['phaseIdx']) ? (int)$body['phaseIdx'] : null;
+
+    withStateTransaction(function (&$state) use ($requestedPhaseIdx) {
         ensurePhases($state);
         
-        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
+        $currentPhaseIdx = $requestedPhaseIdx ?? ($state['currentPhaseIdx'] ?? 1);
         $currentPhase = getPhase($state, $currentPhaseIdx);
         
         if (!$currentPhase) {
@@ -11103,6 +11110,107 @@ if ($action === 'admin_complete_phase' && $method === 'POST') {
             ];
             
             error_log("✅ Fase {$nextPhaseIdx} ({$nextPhase['name']}) ora attiva");
+        }
+
+        // 🆕 Risolve automaticamente qualunque fase (non solo la successiva
+        // immediata — anche più avanti) che aspettava proprio il termine di
+        // QUESTA fase per conoscere le sue squadre reali (creata con "Da
+        // Definire" perché la fase sorgente non era ancora terminata).
+        $resolvedPhaseNumbers = [];
+        foreach ($state['phases'] as &$phaseToCheck) {
+            $pending = $phaseToCheck['pendingResolution'] ?? null;
+            if (!$pending || ($pending['sourcePhaseNumber'] ?? null) !== $currentPhaseIdx) continue;
+
+            $teamsAdvanceForCalc = $pending['teamsAdvancePerGroup'];
+            $repescageCountForCalc = null;
+            $cfgForResolve = readConfig();
+            $sourceConfigPhaseForResolve = null;
+            foreach ($cfgForResolve['phases'] ?? [] as $cp) {
+                if (($cp['phaseNumber'] ?? null) === $currentPhaseIdx) { $sourceConfigPhaseForResolve = $cp; break; }
+            }
+            if ($sourceConfigPhaseForResolve && !empty($sourceConfigPhaseForResolve['teamsAdvance'])) {
+                $teamsAdvanceForCalc = $sourceConfigPhaseForResolve['teamsAdvance'];
+            }
+            if ($sourceConfigPhaseForResolve && isset($sourceConfigPhaseForResolve['repescageCount']) && $sourceConfigPhaseForResolve['repescageCount'] !== '') {
+                $repescageCountForCalc = $sourceConfigPhaseForResolve['repescageCount'];
+            }
+
+            $branchResultForResolve = getTeamsFromPhaseBranch($state, $currentPhaseIdx, $teamsAdvanceForCalc, $pending['sortCriterion'], $repescageCountForCalc);
+            $teamIdsForResolve = $branchResultForResolve[$pending['sourceBranch']] ?? [];
+            if (count($teamIdsForResolve) < 2) continue; // non risolvibile ancora, resta "Da Definire"
+
+            $teamMapForResolve = getTeamMap($state);
+            $teamsForResolve = [];
+            foreach ($teamIdsForResolve as $tid) {
+                if (isset($teamMapForResolve[$tid])) $teamsForResolve[] = $teamMapForResolve[$tid];
+            }
+
+            if ($phaseToCheck['type'] === 'groups') {
+                $groupsForResolve = balancedGroupDistribution($teamsForResolve, max(1, $pending['numGroups']));
+                foreach ($groupsForResolve as &$group) {
+                    if (!isset($group['teamIds'])) {
+                        $group['teamIds'] = array_map(fn($t) => $t['id'] ?? null, $group['teams'] ?? []);
+                    }
+                    unset($group['teams']);
+                }
+                unset($group);
+                $phaseToCheck['groups'] = $groupsForResolve;
+
+                $resolvedMatches = [];
+                foreach ($groupsForResolve as $group) {
+                    $groupTeamIds = $group['teamIds'] ?? [];
+                    $count = count($groupTeamIds);
+                    for ($i = 0; $i < $count; $i++) {
+                        for ($j = $i + 1; $j < $count; $j++) {
+                            $resolvedMatches[] = [
+                                'id' => uid(),
+                                'groupName' => $group['label'] ?? $group['name'] ?? '',
+                                'team1' => $groupTeamIds[$i], 'team1Id' => $groupTeamIds[$i],
+                                'team2' => $groupTeamIds[$j], 'team2Id' => $groupTeamIds[$j],
+                                'team1Name' => $teamMapForResolve[$groupTeamIds[$i]]['name'] ?? '',
+                                'team2Name' => $teamMapForResolve[$groupTeamIds[$j]]['name'] ?? '',
+                                'score1' => null, 'score2' => null,
+                                'date' => null, 'startTime' => null, 'endTime' => null
+                            ];
+                        }
+                    }
+                }
+                $phaseToCheck['matches'] = $resolvedMatches;
+            } else { // knockout
+                $teamGroupMapForResolve = null;
+                if ((!empty($pending['avoidGroupRematches']) || !empty($pending['maximizeSeedSeparation']))) {
+                    $sourcePhaseForResolve = array_values(array_filter($state['phases'], fn($p) => ($p['phaseNumber'] ?? null) === $currentPhaseIdx))[0] ?? null;
+                    if ($sourcePhaseForResolve && ($sourcePhaseForResolve['type'] ?? null) === 'groups' && !empty($sourcePhaseForResolve['groups'])) {
+                        $teamGroupMapForResolve = [];
+                        foreach ($sourcePhaseForResolve['groups'] as $groupIdx => $group) {
+                            $groupId = $group['id'] ?? $group['label'] ?? ('group_' . $groupIdx);
+                            foreach ($group['teamIds'] ?? [] as $tid) {
+                                $teamGroupMapForResolve[$tid] = $groupId;
+                            }
+                        }
+                    }
+                }
+                $seedTeamIdsForResolve = (!empty($pending['maximizeSeedSeparation']) && $pending['sourceBranch'] === 'qualified')
+                    ? ($branchResultForResolve['groupWinners'] ?? [])
+                    : [];
+
+                $resolvedMatches = generateGenericKnockoutMatches($teamsForResolve, $teamGroupMapForResolve, $seedTeamIdsForResolve, !empty($pending['maximizeSeedSeparation']), !empty($pending['includeThirdPlace']));
+                foreach ($resolvedMatches as &$m) {
+                    if (!empty($m['team1Id'])) $m['team1Name'] = $teamMapForResolve[$m['team1Id']]['name'] ?? '';
+                    if (!empty($m['team2Id'])) $m['team2Name'] = $teamMapForResolve[$m['team2Id']]['name'] ?? '';
+                }
+                unset($m);
+                $phaseToCheck['matches'] = $resolvedMatches;
+                advanceKnockoutBracket($phaseToCheck);
+            }
+
+            unset($phaseToCheck['pendingResolution']);
+            $resolvedPhaseNumbers[] = $phaseToCheck['phaseNumber'];
+            error_log("✅ Fase {$phaseToCheck['phaseNumber']}: risolta automaticamente con le squadre reali ora che la Fase {$currentPhaseIdx} è terminata.");
+        }
+        unset($phaseToCheck);
+        if (!empty($resolvedPhaseNumbers)) {
+            $result['resolvedPhases'] = $resolvedPhaseNumbers;
         }
         
         return $result;
@@ -12179,6 +12287,51 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // 🆕 Risolve subito eventuali "bye" (chi non ha avversario passa il turno
             // automaticamente, senza dover aspettare l'inserimento di un punteggio)
             advanceKnockoutBracket($newPhase);
+        }
+
+        // 🆕 Se le squadre arrivano da una fase precedente che NON è ancora
+        // stata terminata (pulsante "🏁 Termina Fase"), la fase va creata
+        // comunque (struttura/tabellone pronti), ma le squadre non sono
+        // ancora definitive — quindi si mostra "Da Definire" al posto dei
+        // nomi reali, e si salvano i parametri per popolarla automaticamente
+        // con le squadre vere non appena la fase sorgente viene terminata.
+        if ($teamSource === 'phase') {
+            $sourcePhaseForCompletionCheck = null;
+            foreach ($state['phases'] as $sp) {
+                if (($sp['phaseNumber'] ?? null) === $sourcePhaseNumber) { $sourcePhaseForCompletionCheck = $sp; break; }
+            }
+            $sourceIsCompleted = ($sourcePhaseForCompletionCheck['status'] ?? 'pending') === 'completed';
+
+            if (!$sourceIsCompleted) {
+                foreach ($newPhase['matches'] as &$m) {
+                    $m['team1Id'] = null;
+                    $m['team2Id'] = null;
+                    $m['team1'] = null;
+                    $m['team2'] = null;
+                    $m['team1Name'] = 'Da Definire';
+                    $m['team2Name'] = 'Da Definire';
+                }
+                unset($m);
+                foreach ($newPhase['groups'] as &$g) {
+                    // Nei gironi le squadre restano nel campo 'teamIds' interno —
+                    // qui si azzerano solo i nomi mostrati nelle partite (sopra),
+                    // i gironi stessi verranno rigenerati alla risoluzione.
+                }
+                unset($g);
+                $newPhase['standings'] = [];
+
+                $newPhase['pendingResolution'] = [
+                    'sourcePhaseNumber' => $sourcePhaseNumber,
+                    'sourceBranch' => $sourceBranch,
+                    'sortCriterion' => $sortCriterion,
+                    'teamsAdvancePerGroup' => $teamsAdvancePerGroup,
+                    'numGroups' => $numGroups,
+                    'avoidGroupRematches' => $avoidGroupRematches,
+                    'maximizeSeedSeparation' => $maximizeSeedSeparation,
+                    'includeThirdPlace' => $includeThirdPlace
+                ];
+                error_log("⏳ Fase {$targetPhaseNumber}: sorgente (Fase {$sourcePhaseNumber}) non ancora terminata — squadre mostrate come 'Da Definire', risoluzione automatica al termine della fase sorgente.");
+            }
         }
 
         // 🔧 FIX: appena creata con le sue partite, la fase è pronta per

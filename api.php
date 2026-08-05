@@ -3864,7 +3864,7 @@ function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
 function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if ($phase['phaseIdx'] === $phaseIdx) {
+        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
             $phase['status'] = $status; // 'pending', 'active', 'completed'
             break;
         }
@@ -10920,10 +10920,17 @@ if ($action === 'admin_check_phase_completion' && $method === 'POST') {
  * Completa la fase corrente e fa avanzare a quella successiva
  */
 if ($action === 'admin_complete_phase' && $method === 'POST') {
-    withStateTransaction(function (&$state) {
+    $body = bodyJson();
+    // 🔧 FIX: prima si usava SEMPRE $state['currentPhaseIdx'], ignorando
+    // quale fase specifica il pulsante "Termina Fase" volesse davvero
+    // chiudere. Ora accetta esplicitamente quale fase chiudere (il pulsante
+    // lo invia già), con ripiego sulla fase corrente solo se non specificato.
+    $requestedPhaseIdx = isset($body['phaseIdx']) ? (int)$body['phaseIdx'] : null;
+
+    withStateTransaction(function (&$state) use ($requestedPhaseIdx) {
         ensurePhases($state);
         
-        $currentPhaseIdx = $state['currentPhaseIdx'] ?? 1;
+        $currentPhaseIdx = $requestedPhaseIdx ?? ($state['currentPhaseIdx'] ?? 1);
         $currentPhase = getPhase($state, $currentPhaseIdx);
         
         if (!$currentPhase) {
@@ -11790,6 +11797,21 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             // 🆕 Ricalcolo: rimuove la fase esistente per rigenerarla da zero con i
             // parametri (eventualmente corretti) appena inviati.
             array_splice($state['phases'], $existingIdx, 1);
+        }
+
+        // 🆕 Se le squadre arrivano da una fase precedente (non da "tutte le
+        // iscritte"), quella fase deve essere stata esplicitamente terminata
+        // con "🏁 Termina Fase" prima di poter calcolare qualificate/eliminate
+        // per la fase successiva — altrimenti le squadre comparivano già
+        // (calcolate su risultati provvisori) anche a fase ancora in corso.
+        if ($teamSource === 'phase') {
+            $sourcePhaseForCheck = null;
+            foreach ($state['phases'] as $sp) {
+                if (($sp['phaseNumber'] ?? null) === $sourcePhaseNumber) { $sourcePhaseForCheck = $sp; break; }
+            }
+            if (!$sourcePhaseForCheck || ($sourcePhaseForCheck['status'] ?? 'pending') !== 'completed') {
+                return ['ok' => false, 'error' => "La Fase {$sourcePhaseNumber} non è ancora stata terminata. Usa il pulsante \"🏁 Termina Fase\" prima di creare la fase successiva."];
+            }
         }
 
         // 1) Risolvi l'elenco REALE di teamId per questa nuova fase

@@ -1617,7 +1617,17 @@
         <div class="card" style="background: #e3f2fd; padding: 12px; margin-top: 12px">
           <h4 style="margin-top: 0">📸 Nuove Foto</h4>
           <p class="muted" style="margin-top: -6px">Puoi trascinare o selezionare una o più foto insieme. Per ognuna potrai indicare un titolo prima di caricarla.</p>
-          <div class="field">
+
+          <div class="field" style="background: white; padding: 10px; border-radius: 6px; border: 1px solid #ddd">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: bold">
+              <input type="checkbox" id="galleryWatermarkEnabled" onchange="onGalleryWatermarkToggle()">
+              🏷️ Aggiungi il logo del torneo a ogni foto caricata
+            </label>
+            <small style="color: #888; display: block; margin-top: 4px">Posizione e dimensione si impostano una volta sola e restano uguali per tutte le foto successive.</small>
+            <button type="button" id="galleryWatermarkPositionBtn" class="btn btn-secondary" style="margin-top: 8px; font-size: 12px; padding: 5px 10px; display: none" onclick="openGalleryWatermarkPositioner()">🎯 Posiziona Logo</button>
+          </div>
+
+          <div class="field" style="margin-top: 10px">
             <div id="galleryDropZone" style="border: 2px dashed #2196F3; border-radius: 8px; padding: 24px; text-align: center; background: #f5f9ff; cursor: pointer; transition: all 0.2s">
               <div style="font-size: 32px; margin-bottom: 8px">📸</div>
               <div style="font-weight: bold; color: #1976d2; margin-bottom: 4px">Trascina una o più foto qui</div>
@@ -2240,6 +2250,7 @@
         loadAttendees();
       } else if (page === 'gallery') {
         renderGallery();
+        loadGalleryWatermarkSettings();
       } else if (page === 'groups') {
         loadPhaseStatus();
       } else if (page === 'fasi-torneo') {
@@ -14643,6 +14654,128 @@ html += `
     // Coda delle foto in attesa di essere caricate: [{ localId, file, title, description }]
     let galleryQueue = [];
 
+    // 🆕 Filigrana logo torneo sulle foto della gallery — impostazioni
+    // (posizione/dimensione) caricate da config e riusate per ogni foto.
+    let galleryWatermarkSettings = { enabled: false, xPercent: 50, yPercent: 90, sizePercent: 15 };
+
+    function loadGalleryWatermarkSettings() {
+      galleryWatermarkSettings = config.gallery?.watermark || { enabled: false, xPercent: 50, yPercent: 90, sizePercent: 15 };
+      const checkbox = document.getElementById('galleryWatermarkEnabled');
+      const btn = document.getElementById('galleryWatermarkPositionBtn');
+      if (checkbox) checkbox.checked = !!galleryWatermarkSettings.enabled;
+      if (btn) btn.style.display = galleryWatermarkSettings.enabled ? '' : 'none';
+    }
+
+    async function onGalleryWatermarkToggle() {
+      const enabled = document.getElementById('galleryWatermarkEnabled').checked;
+      if (enabled && !config.display?.logoFile) {
+        await showInfoDialog('Nessun logo caricato', 'Carica prima il logo del torneo in Impostazioni → Aspetto, poi torna qui.');
+        document.getElementById('galleryWatermarkEnabled').checked = false;
+        return;
+      }
+      galleryWatermarkSettings.enabled = enabled;
+      document.getElementById('galleryWatermarkPositionBtn').style.display = enabled ? '' : 'none';
+      await saveGalleryWatermarkSettings();
+      if (enabled) openGalleryWatermarkPositioner();
+    }
+
+    async function saveGalleryWatermarkSettings() {
+      try {
+        await callApi('admin_update_gallery_watermark', 'POST', galleryWatermarkSettings, true);
+        if (!config.gallery) config.gallery = {};
+        config.gallery.watermark = { ...galleryWatermarkSettings };
+      } catch (e) {
+        console.error('Errore salvataggio filigrana:', e);
+      }
+    }
+
+    // 🆕 Finestra di posizionamento: mostra il logo sopra una foto di
+    // esempio (o un placeholder), trascinabile con il mouse per spostarlo e
+    // con uno slider per ridimensionarlo — al salvataggio, questi valori
+    // (in percentuale) restano validi per ogni foto caricata in seguito.
+    function openGalleryWatermarkPositioner() {
+      const bodyHtml = `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+          <div id="wmPreviewContainer" style="position: relative; width: 320px; height: 320px; background: #ddd repeating-conic-gradient(#ccc 0% 25%, #ddd 0% 50%) 50%/20px 20px; border-radius: 8px; overflow: hidden; cursor: grab">
+            <img id="wmLogoPreview" src="${config.display?.logoFile || ''}" style="position: absolute; cursor: grab; user-select: none; pointer-events: none">
+          </div>
+          <p style="font-size: 12px; color: #888; margin: 0">👆 Trascina il logo per spostarlo</p>
+          <div style="display: flex; align-items: center; gap: 8px; width: 100%; max-width: 300px">
+            <span>🔍</span>
+            <input type="range" id="wmSizeSlider" min="5" max="50" step="1" value="${galleryWatermarkSettings.sizePercent}" style="flex: 1" oninput="updateWatermarkPreview()">
+          </div>
+        </div>
+      `;
+      openModal({
+        title: '🎯 Posiziona il Logo',
+        bodyHtml,
+        buttons: [
+          { text: '✅ Salva Posizione', className: 'btn btn-green', closeOnClick: false, onClick: async () => { await saveGalleryWatermarkSettings(); closeModal(); } },
+          { text: '✗ Chiudi', className: 'btn btn-secondary', closeOnClick: true }
+        ]
+      });
+      setTimeout(initWatermarkDrag, 50);
+    }
+
+    function updateWatermarkPreview() {
+      const logo = document.getElementById('wmLogoPreview');
+      const container = document.getElementById('wmPreviewContainer');
+      if (!logo || !container) return;
+      galleryWatermarkSettings.sizePercent = parseFloat(document.getElementById('wmSizeSlider').value);
+      const logoW = container.clientWidth * (galleryWatermarkSettings.sizePercent / 100);
+      logo.style.width = logoW + 'px';
+      logo.style.left = (container.clientWidth * (galleryWatermarkSettings.xPercent / 100)) - (logoW / 2) + 'px';
+      logo.style.top = (container.clientHeight * (galleryWatermarkSettings.yPercent / 100)) - (logoW / 2) + 'px';
+    }
+
+    function initWatermarkDrag() {
+      const container = document.getElementById('wmPreviewContainer');
+      const logo = document.getElementById('wmLogoPreview');
+      if (!container || !logo) return;
+      updateWatermarkPreview();
+
+      let dragging = false;
+      const setPositionFromEvent = (e) => {
+        const rect = container.getBoundingClientRect();
+        const point = e.touches ? e.touches[0] : e;
+        const x = Math.max(0, Math.min(100, ((point.clientX - rect.left) / rect.width) * 100));
+        const y = Math.max(0, Math.min(100, ((point.clientY - rect.top) / rect.height) * 100));
+        galleryWatermarkSettings.xPercent = x;
+        galleryWatermarkSettings.yPercent = y;
+        updateWatermarkPreview();
+      };
+      container.onmousedown = (e) => { dragging = true; setPositionFromEvent(e); };
+      window.onmousemove = (e) => { if (dragging) setPositionFromEvent(e); };
+      window.onmouseup = () => { dragging = false; };
+      container.ontouchstart = (e) => { dragging = true; setPositionFromEvent(e); e.preventDefault(); };
+      window.ontouchmove = (e) => { if (dragging) { setPositionFromEvent(e); e.preventDefault(); } };
+      window.ontouchend = () => { dragging = false; };
+    }
+
+    // 🆕 Disegna il logo sul canvas (usato durante la compressione di ogni
+    // foto), rispettando posizione/dimensione salvate — se la filigrana non
+    // è attiva o il logo non è ancora caricato, non fa nulla.
+    function applyGalleryWatermark(ctx, canvasWidth, canvasHeight) {
+      return new Promise((resolve) => {
+        if (!galleryWatermarkSettings.enabled || !config.display?.logoFile) {
+          resolve();
+          return;
+        }
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.onload = () => {
+          const logoW = canvasWidth * (galleryWatermarkSettings.sizePercent / 100);
+          const logoH = logoW * (logoImg.height / logoImg.width);
+          const x = canvasWidth * (galleryWatermarkSettings.xPercent / 100) - logoW / 2;
+          const y = canvasHeight * (galleryWatermarkSettings.yPercent / 100) - logoH / 2;
+          ctx.drawImage(logoImg, x, y, logoW, logoH);
+          resolve();
+        };
+        logoImg.onerror = () => resolve(); // se il logo non si carica, procede comunque senza bloccare l'upload
+        logoImg.src = config.display.logoFile;
+      });
+    }
+
     function initGalleryUpload() {
       const dropZone = document.getElementById('galleryDropZone');
       const fileInput = document.getElementById('galleryImageInput');
@@ -14699,7 +14832,7 @@ html += `
         const img = new Image();
         const objectUrl = URL.createObjectURL(file);
 
-        img.onload = () => {
+        img.onload = async () => {
           let { width, height } = img;
           if (width > maxDimension || height > maxDimension) {
             if (width >= height) {
@@ -14718,6 +14851,10 @@ html += `
           ctx.drawImage(img, 0, 0, width, height);
           URL.revokeObjectURL(objectUrl);
 
+          // 🆕 Filigrana logo torneo, se attiva — disegnata DOPO la foto,
+          // così resta sempre visibile sopra
+          await applyGalleryWatermark(ctx, width, height);
+
           canvas.toBlob((blob) => {
             if (!blob) {
               reject(new Error('Compressione immagine fallita'));
@@ -14726,7 +14863,10 @@ html += `
             // Se per qualche motivo la versione ricompressa è più pesante
             // dell'originale (capita con immagini già molto piccole), tieni
             // l'originale invece di peggiorare le cose.
-            if (blob.size >= file.size) {
+            // 🔧 Con la filigrana attiva, la foto DEVE sempre passare dal
+            // canvas (altrimenti l'originale senza logo verrebbe caricato
+            // al posto suo), quindi in quel caso ignora il confronto di peso.
+            if (blob.size >= file.size && !galleryWatermarkSettings.enabled) {
               resolve(file);
               return;
             }

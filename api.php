@@ -1988,6 +1988,12 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     if (isset($existingConfig['printableDocuments'])) {
         $merged['printableDocuments'] = $existingConfig['printableDocuments'];
     }
+
+    // 🆕 Preserva le impostazioni della filigrana logo sulle foto gallery
+    if (isset($existingConfig['gallery']['watermark'])) {
+        if (!isset($merged['gallery'])) $merged['gallery'] = [];
+        $merged['gallery']['watermark'] = $existingConfig['gallery']['watermark'];
+    }
     
     // Preserva la sezione contact (email del gestore, etc.)
     if (isset($existingConfig['contact'])) {
@@ -16620,6 +16626,29 @@ if ($action === 'public_get_gallery' && $method === 'GET') {
 // 🆕 Admin: abilita/disabilita il servizio "Stampa la tua foto" e salva le
 // cornici personalizzate aggiuntive (quelle di default sono disegnate via
 // canvas lato client e non richiedono configurazione).
+// 🆕 Impostazioni della filigrana (logo torneo) applicata automaticamente
+// alle foto caricate nella gallery — posizione e dimensione salvate una
+// volta sola, valgono per ogni foto successiva finché non le cambi di nuovo.
+if ($action === 'admin_update_gallery_watermark' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $config = readConfig();
+
+    $config['gallery']['watermark'] = [
+        'enabled' => (bool)($body['enabled'] ?? false),
+        // Posizione del CENTRO del logo, in percentuale (0-100) rispetto a
+        // larghezza/altezza della foto — così funziona correttamente anche
+        // su foto di dimensioni diverse tra loro.
+        'xPercent' => max(0, min(100, (float)($body['xPercent'] ?? 50))),
+        'yPercent' => max(0, min(100, (float)($body['yPercent'] ?? 90))),
+        // Larghezza del logo, in percentuale della larghezza della foto
+        'sizePercent' => max(2, min(60, (float)($body['sizePercent'] ?? 15)))
+    ];
+
+    writeConfig($config);
+    jsonResponse(200, ['ok' => true, 'watermark' => $config['gallery']['watermark']]);
+}
+
 if ($action === 'admin_update_photo_frames' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();

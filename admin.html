@@ -14662,7 +14662,7 @@ html += `
     let galleryWatermarkSettings = { enabled: false, xPercent: 50, yPercent: 90, sizePercent: 15 };
 
     function loadGalleryWatermarkSettings() {
-      galleryWatermarkSettings = config.gallery?.watermark || { enabled: false, xPercent: 50, yPercent: 90, sizePercent: 15 };
+      galleryWatermarkSettings = config.galleryWatermark || { enabled: false, xPercent: 50, yPercent: 90, sizePercent: 15 };
       const checkbox = document.getElementById('galleryWatermarkEnabled');
       const btn = document.getElementById('galleryWatermarkPositionBtn');
       if (checkbox) checkbox.checked = !!galleryWatermarkSettings.enabled;
@@ -14685,8 +14685,7 @@ html += `
     async function saveGalleryWatermarkSettings() {
       try {
         await callApi('admin_update_gallery_watermark', 'POST', galleryWatermarkSettings, true);
-        if (!config.gallery) config.gallery = {};
-        config.gallery.watermark = { ...galleryWatermarkSettings };
+        config.galleryWatermark = { ...galleryWatermarkSettings };
       } catch (e) {
         console.error('Errore salvataggio filigrana:', e);
       }

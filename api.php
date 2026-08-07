@@ -1995,9 +1995,9 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     }
 
     // 🆕 Preserva le impostazioni della filigrana logo sulle foto gallery
-    if (isset($existingConfig['gallery']['watermark'])) {
-        if (!isset($merged['gallery'])) $merged['gallery'] = [];
-        $merged['gallery']['watermark'] = $existingConfig['gallery']['watermark'];
+    // (chiave separata da 'gallery', che contiene invece l'elenco foto)
+    if (isset($existingConfig['galleryWatermark'])) {
+        $merged['galleryWatermark'] = $existingConfig['galleryWatermark'];
     }
     
     // Preserva la sezione contact (email del gestore, etc.)
@@ -2020,6 +2020,22 @@ function mergeConfig(array $existingConfig, array $defaultConfig): array {
     // le foto appena caricate.
     if (isset($existingConfig['gallery'])) {
         $merged['gallery'] = $existingConfig['gallery'];
+
+        // 🔧 MIGRAZIONE UNA TANTUM: una versione precedente salvava per
+        // errore le impostazioni della filigrana dentro gallery['watermark'],
+        // mescolandole con le foto vere (che sono invece un elenco
+        // numerico) — questo mandava in errore fatale qualunque codice che
+        // elenca le foto. Qui la estraiamo e la spostiamo nella chiave
+        // corretta, ripulendo l'elenco foto una volta per tutte.
+        if (isset($merged['gallery']['watermark'])) {
+            if (!isset($merged['galleryWatermark'])) {
+                $merged['galleryWatermark'] = $merged['gallery']['watermark'];
+            }
+            unset($merged['gallery']['watermark']);
+        }
+        // Assicura che 'gallery' resti un elenco numerico pulito (scarta
+        // eventuali altre chiavi non numeriche finite lì per errore)
+        $merged['gallery'] = array_values(array_filter($merged['gallery'], fn($item) => is_array($item)));
     }
     
     // Preserva payment settings
@@ -16634,12 +16650,19 @@ if ($action === 'public_get_gallery' && $method === 'GET') {
 // 🆕 Impostazioni della filigrana (logo torneo) applicata automaticamente
 // alle foto caricate nella gallery — posizione e dimensione salvate una
 // volta sola, valgono per ogni foto successiva finché non le cambi di nuovo.
+// 🔧 FIX CRITICO: salvate in config['galleryWatermark'], NON dentro
+// config['gallery'] — quest'ultimo è l'ELENCO delle foto (un array
+// numerico), non un contenitore di impostazioni. Annidarcele dentro
+// mescolava le impostazioni con le foto, e qualunque codice che elenca le
+// foto (es. il caricamento della Gallery in admin) provava a leggere
+// 'createdAt' anche dalla voce "watermark", che non è affatto una foto,
+// causando un errore fatale.
 if ($action === 'admin_update_gallery_watermark' && $method === 'POST') {
     requireAdmin();
     $body = bodyJson();
     $config = readConfig();
 
-    $config['gallery']['watermark'] = [
+    $config['galleryWatermark'] = [
         'enabled' => (bool)($body['enabled'] ?? false),
         // Posizione del CENTRO del logo, in percentuale (0-100) rispetto a
         // larghezza/altezza della foto — così funziona correttamente anche
@@ -16651,7 +16674,7 @@ if ($action === 'admin_update_gallery_watermark' && $method === 'POST') {
     ];
 
     writeConfig($config);
-    jsonResponse(200, ['ok' => true, 'watermark' => $config['gallery']['watermark']]);
+    jsonResponse(200, ['ok' => true, 'watermark' => $config['galleryWatermark']]);
 }
 
 if ($action === 'admin_update_photo_frames' && $method === 'POST') {

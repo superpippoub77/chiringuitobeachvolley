@@ -13101,6 +13101,9 @@ html += `
         : '';
 
       const listHtml = (items) => `<ul style="margin: 6px 0; padding-left: 18px">${(items || []).map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
+      // 🆕 Versione SENZA pallini, usata solo per Colonna 1 e Colonna 2 —
+      // ogni voce resta semplicemente su una riga propria, così com'è scritta.
+      const listHtmlPlain = (items) => `<div style="margin: 6px 0">${(items || []).map(i => `<div>${escapeHtml(i)}</div>`).join('')}</div>`;
 
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
@@ -13143,11 +13146,11 @@ html += `
           <div class="gz-columns">
             <div class="gz-col">
               <h3>${escapeHtml(g.teamsColumn?.title || '')}</h3>
-              ${listHtml(g.teamsColumn?.items)}
+              ${listHtmlPlain(g.teamsColumn?.items)}
             </div>
             <div class="gz-col">
               <h3>${escapeHtml(g.phasesColumn?.title || '')}</h3>
-              ${listHtml(g.phasesColumn?.items)}
+              ${listHtmlPlain(g.phasesColumn?.items)}
             </div>
           </div>
 

@@ -7796,16 +7796,26 @@
         console.log('📊 Round Summary:', roundDetails);
       }
       
-      const nextRoundNames = {
-        2: 'Semifinali',
-        3: 'Finali',
-        4: 'Finale 3° Posto'
+      // 🔧 FIX: prima l'etichetta del prossimo turno era fissa (turno 2 =
+      // sempre "Semifinali", turno 3 = sempre "Finali"), corretto solo per
+      // un tabellone standard da 8 squadre. Con un tabellone più piccolo
+      // (es. 4 squadre, dove il turno 1 è già la semifinale e il turno 2 è
+      // l'ultimo), il turno 2 mostrava comunque "Semifinali" invece di
+      // "Finali". Ora l'etichetta si calcola CONTANDO A RITROSO dall'ultimo
+      // turno reale di questo tabellone (quello con un solo match, la
+      // finale), così si adatta a qualunque numero di squadre.
+      const nonThirdPlaceMatches = (phase.matches || []).filter(m => m.type !== 'thirdPlace' && m.round);
+      const maxRound = nonThirdPlaceMatches.length > 0 ? Math.max(...nonThirdPlaceMatches.map(m => m.round)) : 0;
+      const roundNameFromEnd = { 0: 'Finali', 1: 'Semifinali', 2: 'Quarti di Finale', 3: 'Ottavi di Finale', 4: 'Sedicesimi di Finale' };
+      const getRoundName = (round) => {
+        const distanceFromFinal = maxRound - round;
+        return roundNameFromEnd[distanceFromFinal] || `Round ${round}`;
       };
       
       let html = '';
       for (const round of completedRounds) {
         const nextRound = round + 1;
-        const nextRoundName = nextRoundNames[nextRound] || `Round ${nextRound}`;
+        const nextRoundName = nextRound === maxRound ? 'Finali' : getRoundName(nextRound);
         const matchesInNext = (phase.matches || []).filter(m => m.round === nextRound && m.type !== 'thirdPlace').length;
         
         // Se il prossimo round ha già team assegnati in TUTTI i match, il pulsante non serve

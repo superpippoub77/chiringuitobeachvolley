@@ -17811,7 +17811,7 @@ html += `
             </select>
           </div>
 
-          <div id="npPhaseSourceFields" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
+          <div id="npPhaseSourceFields" data-overwrite="${prefill.overwrite ? '1' : '0'}" data-target-phase="${prefill.phaseNumber || ''}" style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #f5f5f5; border-radius: 6px">
             <div>
               <label style="font-weight: bold; display: block; margin-bottom: 4px">Fase sorgente</label>
               <select id="npSourcePhase" onchange="onNewPhaseSourceChange()" style="width: 100%; padding: 6px">${phaseOptions}</select>
@@ -18208,6 +18208,30 @@ html += `
       if (!sourcePhaseNumber || !preview) {
         updateAvoidGroupRematchesVisibility();
         return;
+      }
+
+      // 🆕 Limite massimo di 3 fasi create dalla stessa fase sorgente — non
+      // si applica quando si sta ricalcolando una fase già esistente
+      // (overwrite), dato che in quel caso non se ne sta aggiungendo una
+      // nuova, quella fase stessa va esclusa dal conteggio.
+      const isOverwrite = phaseFields.dataset.overwrite === '1';
+      const targetPhaseBeingEdited = parseInt(phaseFields.dataset.targetPhase, 10) || null;
+      if (!isOverwrite) {
+        const existingChildrenCount = (state.phases || []).filter(p =>
+          p.sourcePhaseNumber === sourcePhaseNumber && p.phaseNumber !== targetPhaseBeingEdited
+        ).length;
+        if (existingChildrenCount >= 3) {
+          await showInfoDialog(
+            '⚠️ Limite raggiunto',
+            `La Fase ${sourcePhaseNumber} ha già il numero massimo di 3 fasi successive create da essa (qualificati/eliminati/rimanenti-eliminati). Per proseguire, scegli "Nuovo torneo" invece di una fase precedente.`
+          );
+          const teamSourceSelect = document.getElementById('npTeamSource');
+          if (teamSourceSelect) {
+            teamSourceSelect.value = 'registration';
+            onNewPhaseSourceChange();
+          }
+          return;
+        }
       }
 
       // 🔧 FIX: Il campo "squadre che avanzano per girone" è SOLO per la prossima fase.

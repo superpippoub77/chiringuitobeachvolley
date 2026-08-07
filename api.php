@@ -12125,6 +12125,29 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             array_splice($state['phases'], $existingIdx, 1);
         }
 
+        // 🆕 Limite massimo di 3 fasi create dalla STESSA fase sorgente (es.
+        // Fase 1 → al massimo Fase 1.1, 1.2, 1.3 tramite qualificati/
+        // eliminati/rimanenti-eliminati). Non si applica quando si sta
+        // ricalcolando una fase già esistente (overwrite), dato che in quel
+        // caso non se ne sta aggiungendo una nuova, e nemmeno quando le
+        // squadre arrivano da "tutte le iscritte" (nuovo torneo), che non
+        // dipende da nessuna fase sorgente.
+        if ($teamSource === 'phase' && !$overwrite) {
+            $existingChildrenCount = 0;
+            foreach ($state['phases'] as $existingPhase) {
+                if (($existingPhase['sourcePhaseNumber'] ?? null) === $sourcePhaseNumber) {
+                    $existingChildrenCount++;
+                }
+            }
+            if ($existingChildrenCount >= 3) {
+                return [
+                    'ok' => false,
+                    'error' => "La Fase {$sourcePhaseNumber} ha già il numero massimo di 3 fasi successive create da essa (qualificati/eliminati/rimanenti-eliminati). Per proseguire, crea la nuova fase partendo da \"Nuovo torneo\" (tutte le squadre iscritte) invece che da questa fase sorgente.",
+                    'limitReached' => true
+                ];
+            }
+        }
+
         // 1) Risolvi l'elenco REALE di teamId per questa nuova fase
         $teamIds = [];
         if ($teamSource === 'registration') {

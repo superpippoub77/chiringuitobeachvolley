@@ -11767,15 +11767,31 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         // Assegna sequenzialmente: match[0]→slot[0], match[1]→slot[1], etc.
         if ($currentPhase['type'] === 'knockout') {
             error_log("⚡ KNOCKOUT: assegnazione sequenziale semplificata");
-            
-            $slotCount = count($allSlots);
+
+            // 🔧 FIX CRITICO: prima si prendeva $allSlots[$matchPos] in ordine
+            // grezzo, SENZA MAI controllare $slotOverlapsOccupied() — la
+            // funzione era definita ma mai chiamata qui. Risultato: le
+            // partite di questa fase venivano schedulate direttamente sopra
+            // orari già occupati da un'ALTRA fase sullo stesso campo/data
+            // (es. partite della Fase 1 ancora in corso), anche se
+            // l'anteprima "Configura Giorni e Slot" mostrava correttamente
+            // quali orari fossero davvero liberi.
+            $freeSlotsForKnockout = array_values(array_filter($allSlots, function ($slot) use ($slotOverlapsOccupied, $timeToMinutes) {
+                $ckey = $slot['courtIdx'] . '_' . $slot['date'];
+                $sMin = $timeToMinutes($slot['startTime']);
+                $eMin = $timeToMinutes($slot['endTime']);
+                if ($sMin === null || $eMin === null) return true;
+                return !$slotOverlapsOccupied($ckey, $sMin, $eMin);
+            }));
+
+            $slotCount = count($freeSlotsForKnockout);
             foreach ($pendingMatches as $matchPos => $item) {
                 if ($matchPos >= $slotCount) {
-                    error_log("⚠️ KNOCKOUT: non ci sono abbastanza slot ({$slotCount}) per le " . count($pendingMatches) . " partite rimaste");
+                    error_log("⚠️ KNOCKOUT: non ci sono abbastanza slot liberi ({$slotCount}) per le " . count($pendingMatches) . " partite rimaste");
                     break;
                 }
                 
-                $slot = $allSlots[$matchPos];
+                $slot = $freeSlotsForKnockout[$matchPos];
                 $idx = $item['idx'];
                 
                 $currentPhase['matches'][$idx]['date'] = $slot['date'];

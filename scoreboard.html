@@ -1211,6 +1211,7 @@
         <a href="#" id="navPaymentLink" class="main-nav-link" data-tab-key="payment" style="display: none" onclick="openPaymentModal(); return false;">💰 <span data-i18n="nav_pay_fee">Paga la quota</span></a>
         <a href="#" id="navEventsLink" class="main-nav-link" data-phase="events" data-tab-key="events" style="display: none" onclick="showPhase('events'); loadEventsForPublic(); return false;">🎉 <span data-i18n="nav_events">Eventi</span></a>
         <a href="#" id="navPredictionsLink" class="main-nav-link" data-phase="predictions" data-tab-key="predictions" style="display: none" onclick="showPhase('predictions'); loadPredictionsForPublic(); return false;">🌭 <span data-i18n="nav_predictions">Pronostici</span></a>
+        <a href="#" id="navTeamVotingLink" class="main-nav-link" data-phase="teamVoting" data-tab-key="teamVoting" style="display: none" onclick="showPhase('teamVoting'); loadTeamVotingForPublic(); return false;">⭐ <span data-i18n="nav_team_voting">Vota la tua Squadra</span></a>
         <a href="#" id="navSideTLink" class="main-nav-link" data-phase="sideTournaments" data-tab-key="sideTournaments" style="display: none" onclick="showPhase('sideTournaments'); loadSideTournamentsForPublic(); return false;">🏓 <span data-i18n="nav_side_tournaments">Tornei Paralleli</span></a>
         <a href="#" id="navSelfEditLink" class="main-nav-link" data-phase="selfEdit" data-tab-key="selfEdit" style="display: none" onclick="showPhase('selfEdit'); renderSelfEditPage(); return false;">🔑 <span data-i18n="nav_self_edit">Modifica Squadra</span></a>
         <a href="#" class="main-nav-link" data-tab-key="contact" onclick="openContactModal(); return false;">📞 <span data-i18n="nav_contact">Contatti</span></a>
@@ -1231,6 +1232,7 @@
       <section class="page" id="page-shop"></section>
       <section class="page" id="page-events"></section>
       <section class="page" id="page-predictions"></section>
+      <section class="page" id="page-teamVoting"></section>
       <section class="page" id="page-sideTournaments"></section>
       <section class="page" id="page-selfEdit"></section>
 
@@ -3996,6 +3998,82 @@
       }
     }
 
+    // 🆕 Voto squadra preferita — verifica disponibilità, mostra classifica
+    // voti e permette di votare (max 2 preferenze diverse per IP).
+    async function checkTeamVotingAvailability() {
+      try {
+        const response = await fetch(`${API}?action=get_team_voting_status`);
+        const data = await response.json();
+        const navLink = document.getElementById('navTeamVotingLink');
+        if (navLink) navLink.style.display = data.enabled ? 'inline-block' : 'none';
+      } catch (e) {
+        console.error('Errore verifica voto squadra:', e);
+      }
+    }
+
+    async function loadTeamVotingForPublic() {
+      const container = document.getElementById('page-teamVoting');
+      if (!container) return;
+      container.innerHTML = `<h3>⭐ Vota la tua Squadra Preferita</h3><p class="muted">Caricamento...</p>`;
+      try {
+        const response = await fetch(`${API}?action=get_team_voting_status`);
+        const data = await response.json();
+        if (!data.enabled) {
+          container.innerHTML = `<h3>⭐ Vota la tua Squadra Preferita</h3><p class="muted">Il voto non è attivo al momento.</p>`;
+          return;
+        }
+        renderTeamVotingPage(data);
+      } catch (e) {
+        container.innerHTML = `<h3>⭐ Vota la tua Squadra Preferita</h3><p style="color:#c62828">Errore di caricamento.</p>`;
+      }
+    }
+
+    function renderTeamVotingPage(data) {
+      const container = document.getElementById('page-teamVoting');
+      if (!container) return;
+      const votesLeft = data.myVotesMax - data.myVotesUsed;
+      const rowsHtml = (data.leaderboard || []).map((row, idx) => {
+        const alreadyVoted = data.myVotedTeamIds.includes(row.teamId);
+        const canVote = !alreadyVoted && votesLeft > 0;
+        return `
+          <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: ${idx % 2 === 0 ? '#faf7f0' : '#fff'}; border-radius: 6px; margin-bottom: 4px">
+            <span style="font-weight: bold; min-width: 24px; color: #888">${idx + 1}</span>
+            <span style="flex: 1; font-weight: ${idx === 0 ? 'bold' : 'normal'}">${esc(row.teamName)}</span>
+            <span style="font-size: 13px; color: #666; min-width: 60px; text-align: right">${row.votes} ⭐</span>
+            <button ${canVote ? '' : 'disabled'} onclick="castTeamVote('${row.teamId}')" class="btn" style="font-size: 12px; padding: 5px 12px; ${canVote ? 'background:#ffb300;color:#333' : 'background:#eee;color:#999'}">
+              ${alreadyVoted ? '✅ Votata' : '⭐ Vota'}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <h3>⭐ Vota la tua Squadra Preferita</h3>
+        <p style="color: #666; font-size: 14px">Hai a disposizione ${data.myVotesMax} preferenze da assegnare a squadre diverse. Ti restano <strong>${votesLeft}</strong> voti.</p>
+        <div style="margin-top: 14px; max-width: 600px">
+          ${rowsHtml || '<p class="muted">Nessuna squadra disponibile al momento.</p>'}
+        </div>
+      `;
+    }
+
+    async function castTeamVote(teamId) {
+      try {
+        const response = await fetch(`${API}?action=vote_for_team`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamId })
+        });
+        const data = await response.json();
+        if (!data.ok) {
+          alert(data.error || 'Voto non riuscito');
+          return;
+        }
+        loadTeamVotingForPublic();
+      } catch (e) {
+        alert('Errore durante il voto. Riprova.');
+      }
+    }
+
     async function loadPredictionsForPublic() {
       const container = document.getElementById('page-predictions');
       container.innerHTML = `<h3>🌭 Pronostici</h3><p class="muted">Caricamento...</p>`;
@@ -5090,6 +5168,7 @@
     loadPaymentStatus();
     checkEventsAvailability();
     checkPredictionsAvailability();
+    checkTeamVotingAvailability();
     checkSideTournamentsAvailability();
 
     // ==================== NEWS SECTION ====================

@@ -8198,14 +8198,22 @@
 
         // Calcola statistiche per ogni squadra
         const standings = groupTeams.map(team => {
-          const teamMatches = (statePhase.matches || []).filter(m => 
-            (m.team1 === team.id || m.team2 === team.id) && m.groupName === groupLabel
-          );
+          // 🔧 FIX: i campi reali sulla partita sono 'group' (non 'groupName')
+          // e 'team1Id'/'team2Id' (non 'team1'/'team2') — con i nomi sbagliati
+          // questo filtro non trovava MAI nessuna partita per nessuna squadra,
+          // motivo per cui la classifica mostrava sempre tutti zeri qui,
+          // anche con risultati regolarmente salvati e visibili altrove.
+          const teamMatches = (statePhase.matches || []).filter(m => {
+            const t1 = m.team1Id ?? m.team1;
+            const t2 = m.team2Id ?? m.team2;
+            const mGroup = m.group ?? m.groupName;
+            return (t1 === team.id || t2 === team.id) && mGroup === groupLabel;
+          });
           
           let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0, playedMatches = 0, wins = 0, losses = 0;
           
           teamMatches.forEach(m => {
-            const isTeam1 = m.team1 === team.id;
+            const isTeam1 = (m.team1Id ?? m.team1) === team.id;
             const [won1, won2] = getSetsWon(m);
             const hasScore = won1 > 0 || won2 > 0;
             if (!hasScore) return;

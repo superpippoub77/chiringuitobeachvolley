@@ -4913,13 +4913,31 @@
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px">`;
         (cat.products || []).forEach(p => {
           const allergensText = (p.allergens || []).length ? `<div style="font-size: 11px; color: #b45309; margin-top: 2px">⚠️ ${(p.allergens || []).map(a => esc(a)).join(', ')}</div>` : '';
+          // 🆕 Immagine prodotto (se caricata) e stato scorte — mancavano
+          // del tutto qui, pur essendo già gestite lato admin.
+          const imageHtml = p.image
+            ? `<img src="${esc(p.image)}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 6px; margin-bottom: 6px">`
+            : '';
+          const hasStockTracking = p.stockQuantity !== null && p.stockQuantity !== undefined;
+          const outOfStock = hasStockTracking && p.stockQuantity <= 0;
+          const lowStock = hasStockTracking && !outOfStock && p.lowStockThreshold != null && p.stockQuantity <= p.lowStockThreshold;
+          let stockHtml = '';
+          if (outOfStock) {
+            stockHtml = `<div style="font-size: 12px; color: #c62828; font-weight: bold; margin-top: 4px">❌ Esaurito</div>`;
+          } else if (lowStock) {
+            stockHtml = `<div style="font-size: 12px; color: #e65100; font-weight: bold; margin-top: 4px">⚠️ Solo ${p.stockQuantity} rimasti</div>`;
+          } else if (hasStockTracking) {
+            stockHtml = `<div style="font-size: 12px; color: #2e7d32; margin-top: 4px">✅ Disponibile</div>`;
+          }
           html += `<div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #fafafa">
+            ${imageHtml}
             <div style="font-weight: bold">${esc(p.name)}</div>
             ${p.description ? `<div style="font-size: 13px; color: #666; margin-top: 2px">${esc(p.description)}</div>` : ''}
             ${allergensText}
+            ${stockHtml}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px">
               <strong style="color: #d32f2f">€ ${(p.price || 0).toFixed(2)}</strong>
-              <button class="btn" style="background: #2e5d1f; color: white" onclick="addToShopCart('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${p.price})">➕ ${i18n('add_to_cart')}</button>
+              <button class="btn" style="background: ${outOfStock ? '#bbb' : '#2e5d1f'}; color: white" ${outOfStock ? 'disabled' : ''} onclick="addToShopCart('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${p.price})">➕ ${i18n('add_to_cart')}</button>
             </div>
           </div>`;
         });

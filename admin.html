@@ -8785,7 +8785,8 @@
                   <div>🚫 Evita rematch dello stesso girone: <strong>${phase.avoidGroupRematches ? 'Sì' : 'No'}</strong></div>
                   <div>🌟 Teste di serie il più lontano possibile: <strong>${phase.maximizeSeedSeparation ? 'Sì' : 'No'}</strong></div>
                 </div>
-                <small style="color: #888; display: block; margin-top: 6px">Queste impostazioni determinano la struttura del tabellone: per cambiarle bisogna rigenerarlo da zero con "🔄 Ricalcola" (le partite già giocate andranno perse).</small>
+                <small style="color: #888; display: block; margin: 6px 0 8px">Per cambiare questi criteri va rigenerato il tabellone da zero (le partite già giocate andranno perse).</small>
+                <button type="button" class="btn btn-warning" style="font-size: 12px; padding: 6px 12px; width: 100%" onclick="closeModal(); openRecalculatePhaseModal(${phase.phaseNumber})">✎️ Modifica questi criteri e Rigenera</button>
               </div>
             </div>
           </div>

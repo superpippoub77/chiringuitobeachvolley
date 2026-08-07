@@ -2515,6 +2515,12 @@
       renderMatches();
       renderTodoList();
       updateButtonStates();
+      // 🔧 FIX: senza questo, il sotto-tab attualmente aperto nella scheda
+      // "Fasi" (Gironi/Partite/Classifiche) restava disegnato con i dati
+      // VECCHI anche dopo un refresh completo — es. salvando un risultato
+      // partita, la Classifica in vista non si aggiornava mai da sola
+      // (bisognava uscire e rientrare nel sotto-tab per vederla corretta).
+      renderPhaseContentForSubTab();
       
       // 🔧 FIX: ripristina la tab su cui l'utente si trovava (non quella nella URL,
       // che poteva non essere aggiornata/affidabile) invece di tornare sempre a "Impostazioni"

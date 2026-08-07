@@ -5409,7 +5409,9 @@
 
     function renderPrintStudioHtml(gallery) {
       const frames = [...DEFAULT_PHOTO_FRAMES, ...(config?.photoFrames?.customFrames || [])];
-      const frameOptionsHtml = frames.map((f, i) =>
+      // 🆕 "Nessuna cornice" come prima opzione: la foto si stampa/scarica
+      // così com'è, senza bordo né alcun testo sovrapposto.
+      const frameOptionsHtml = `<option value="none" data-i18n="print_studio_no_frame">🚫 Nessuna cornice</option>` + frames.map((f, i) =>
         `<option value="${i}">${esc(f.name)}</option>`
       ).join('');
       const photoOptionsHtml = gallery.map((item, i) =>
@@ -5444,6 +5446,11 @@
               <label id="printLogoToggleLabel" style="display: none; align-items: center; gap: 6px; margin-top: 12px; font-weight: normal">
                 <input type="checkbox" id="printIncludeLogo" checked onchange="renderPrintCanvas()">
                 <span data-i18n="print_studio_include_logo">Includi il logo del torneo</span>
+              </label>
+
+              <label id="printNameToggleLabel" style="display: flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: normal">
+                <input type="checkbox" id="printIncludeName" checked onchange="renderPrintCanvas()">
+                <span data-i18n="print_studio_include_name">Mostra il nome del torneo sulla foto</span>
               </label>
 
               <div class="row" style="margin-top: 14px; gap: 8px">
@@ -5609,9 +5616,13 @@
       ctx.fillRect(0, 0, W, H);
 
       const frames = [...DEFAULT_PHOTO_FRAMES, ...(config?.photoFrames?.customFrames || [])];
-      const frameIdx = parseInt(document.getElementById('printFrameSelect')?.value || 0);
-      const frame = frames[frameIdx] || frames[0];
-      const borderWidth = Math.round(W * 0.045);
+      const frameSelectValue = document.getElementById('printFrameSelect')?.value ?? 'none';
+      // 🆕 "Nessuna cornice": niente bordo, foto a piena pagina, niente testo
+      // automatico sovrapposto — la foto resta così com'è.
+      const noFrame = frameSelectValue === 'none';
+      const frameIdx = noFrame ? -1 : parseInt(frameSelectValue);
+      const frame = noFrame ? null : (frames[frameIdx] || frames[0]);
+      const borderWidth = noFrame ? 0 : Math.round(W * 0.045);
 
       const logoToggleLabel = document.getElementById('printLogoToggleLabel');
       const hasLogo = !!config?.display?.logoFile;
@@ -5622,12 +5633,17 @@
       // canvas (la cornice caricata ha già il proprio bordo/apertura
       // disegnati nell'immagine stessa); per una cornice a colore resta
       // l'area ridotta con il margine per bordo + nome torneo, come prima.
-      const isImageFrame = frame.frameType === 'image' && frame.imageUrl;
-      const bottomReserve = (!isImageFrame && frame.showText) ? Math.round(H * 0.1) : 0;
-      const photoX = isImageFrame ? 0 : borderWidth;
-      const photoY = isImageFrame ? 0 : borderWidth;
-      const photoW = isImageFrame ? W : (W - borderWidth * 2);
-      const photoH = isImageFrame ? H : (H - borderWidth * 2 - bottomReserve);
+      const isImageFrame = !noFrame && frame.frameType === 'image' && frame.imageUrl;
+      // 🆕 Mostra il nome torneo solo se: c'è una cornice a colore che lo
+      // prevede, E il checkbox indipendente "Mostra nome torneo" è attivo.
+      const nameToggleLabel = document.getElementById('printNameToggleLabel');
+      if (nameToggleLabel) nameToggleLabel.style.display = (!noFrame && !isImageFrame && frame.showText) ? 'flex' : 'none';
+      const includeName = !noFrame && !isImageFrame && frame.showText && (document.getElementById('printIncludeName')?.checked ?? true);
+      const bottomReserve = includeName ? Math.round(H * 0.1) : 0;
+      const photoX = (isImageFrame || noFrame) ? 0 : borderWidth;
+      const photoY = (isImageFrame || noFrame) ? 0 : borderWidth;
+      const photoW = (isImageFrame || noFrame) ? W : (W - borderWidth * 2);
+      const photoH = (isImageFrame || noFrame) ? H : (H - borderWidth * 2 - bottomReserve);
 
       if (printStudioImage) {
         // Ritaglia la foto per riempire l'area disponibile mantenendo le proporzioni (cover)
@@ -5664,7 +5680,10 @@
         ctx.fillText('Scegli una foto', W / 2, H / 2);
       }
 
-      if (isImageFrame) {
+      if (noFrame) {
+        // 🆕 Nessuna cornice: la foto resta così com'è, nessun bordo né
+        // testo sovrapposto — niente da disegnare qui.
+      } else if (isImageFrame) {
         // 🆕 Cornice a immagine: disegnata SOPRA la foto, riempiendo tutto
         // il canvas — funziona bene con un PNG che ha il centro trasparente
         const frameImg = new Image();
@@ -5689,9 +5708,9 @@
         ctx.setLineDash([]);
       }
 
-      // Nome torneo in basso (se la cornice a colore lo prevede — le cornici
-      // a immagine sono già complete visivamente, non serve aggiungerlo)
-      if (!isImageFrame && frame.showText && config?.tournament?.name) {
+      // Nome torneo in basso (solo se: c'è una cornice a colore che lo
+      // prevede E il checkbox "Mostra nome torneo" è attivo)
+      if (includeName && config?.tournament?.name) {
         ctx.fillStyle = frame.borderColor;
         ctx.font = `bold ${Math.round(W * 0.045)}px 'Original Surfer', cursive, sans-serif`;
         ctx.textAlign = 'center';

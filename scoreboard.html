@@ -5372,8 +5372,14 @@
                 <button class="btn" style="background: #444; color: white" onclick="printPrintCanvas()">🖨️ <span data-i18n="print_studio_print">Stampa</span></button>
               </div>
             </div>
-            <div style="flex: 1; min-width: 260px; display: flex; align-items: center; justify-content: center">
+            <div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
               <canvas id="printStudioCanvas" width="800" height="1000" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.15)"></canvas>
+              <p style="font-size: 12px; color: #888; margin: 0" data-i18n="print_studio_drag_hint">👆 Trascina la foto per spostarla dentro la cornice</p>
+              <div style="display: flex; align-items: center; gap: 8px; width: 100%; max-width: 320px">
+                <span style="font-size: 16px">🔍</span>
+                <input type="range" id="printPhotoZoom" min="1" max="2.5" step="0.05" value="1" oninput="onPrintPhotoZoomChange(this.value)" style="flex: 1">
+                <button type="button" class="btn" style="font-size: 12px; padding: 5px 10px" onclick="centerPrintPhoto()" data-i18n="print_studio_center">🎯 Centra</button>
+              </div>
             </div>
           </div>
         </div>
@@ -5381,6 +5387,14 @@
     }
 
     let printStudioImage = null; // Image() attualmente caricata
+    // 🆕 Spostamento (trascinando con il mouse/dito) e zoom della foto
+    // dentro l'area della cornice, per poterla centrare come si preferisce
+    // prima di stampare — prima la foto veniva sempre e solo centrata
+    // automaticamente, senza possibilità di aggiustarla.
+    let printPhotoOffsetX = 0;
+    let printPhotoOffsetY = 0;
+    let printPhotoScale = 1;
+    let printDragState = null; // { startX, startY, startOffsetX, startOffsetY } durante il trascinamento
 
     function initPrintStudio() {
       const fileInput = document.getElementById('printPhotoUpload');
@@ -5394,6 +5408,65 @@
         };
       }
       onPrintPhotoSourceChange();
+      initPrintCanvasDrag();
+    }
+
+    // 🆕 Permette di trascinare la foto (mouse o dito) direttamente sul
+    // canvas per spostarla/centrarla come si preferisce dentro la cornice,
+    // prima veniva sempre e solo centrata automaticamente senza possibilità
+    // di aggiustarla.
+    function initPrintCanvasDrag() {
+      const canvas = document.getElementById('printStudioCanvas');
+      if (!canvas || canvas.dataset.dragInit) return;
+      canvas.dataset.dragInit = '1';
+      canvas.style.cursor = 'grab';
+
+      const getPoint = (e) => {
+        const touch = e.touches && e.touches[0];
+        return { x: (touch || e).clientX, y: (touch || e).clientY };
+      };
+
+      const startDrag = (e) => {
+        if (!printStudioImage) return;
+        const p = getPoint(e);
+        printDragState = { startX: p.x, startY: p.y, startOffsetX: printPhotoOffsetX, startOffsetY: printPhotoOffsetY };
+        canvas.style.cursor = 'grabbing';
+        e.preventDefault();
+      };
+      const moveDrag = (e) => {
+        if (!printDragState) return;
+        const p = getPoint(e);
+        const scaleFactor = canvas.width / canvas.getBoundingClientRect().width;
+        printPhotoOffsetX = printDragState.startOffsetX + (p.x - printDragState.startX) * scaleFactor;
+        printPhotoOffsetY = printDragState.startOffsetY + (p.y - printDragState.startY) * scaleFactor;
+        renderPrintCanvas();
+        e.preventDefault();
+      };
+      const endDrag = () => {
+        printDragState = null;
+        canvas.style.cursor = 'grab';
+      };
+
+      canvas.addEventListener('mousedown', startDrag);
+      window.addEventListener('mousemove', moveDrag);
+      window.addEventListener('mouseup', endDrag);
+      canvas.addEventListener('touchstart', startDrag, { passive: false });
+      window.addEventListener('touchmove', moveDrag, { passive: false });
+      window.addEventListener('touchend', endDrag);
+    }
+
+    function centerPrintPhoto() {
+      printPhotoOffsetX = 0;
+      printPhotoOffsetY = 0;
+      printPhotoScale = 1;
+      const zoomSlider = document.getElementById('printPhotoZoom');
+      if (zoomSlider) zoomSlider.value = 1;
+      renderPrintCanvas();
+    }
+
+    function onPrintPhotoZoomChange(value) {
+      printPhotoScale = parseFloat(value);
+      renderPrintCanvas();
     }
 
     function onPrintPhotoSourceChange() {
@@ -5423,6 +5496,9 @@
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         printStudioImage = img;
+        printPhotoOffsetX = 0;
+        printPhotoOffsetY = 0;
+        printPhotoScale = 1;
         renderPrintCanvas();
       };
       img.src = src;
@@ -5463,12 +5539,16 @@
       if (logoToggleLabel) logoToggleLabel.style.display = hasLogo ? 'flex' : 'none';
       const includeLogo = hasLogo && (document.getElementById('printIncludeLogo')?.checked ?? true);
 
-      // Area foto (dentro il bordo, con spazio extra in basso solo per il
-      // nome del torneo — il logo ora sta in alto a destra, non qui sotto)
-      const bottomReserve = frame.showText ? Math.round(H * 0.1) : 0;
-      const photoX = borderWidth, photoY = borderWidth;
-      const photoW = W - borderWidth * 2;
-      const photoH = H - borderWidth * 2 - bottomReserve;
+      // Area foto: per una cornice a IMMAGINE la foto occupa tutto il
+      // canvas (la cornice caricata ha già il proprio bordo/apertura
+      // disegnati nell'immagine stessa); per una cornice a colore resta
+      // l'area ridotta con il margine per bordo + nome torneo, come prima.
+      const isImageFrame = frame.frameType === 'image' && frame.imageUrl;
+      const bottomReserve = (!isImageFrame && frame.showText) ? Math.round(H * 0.1) : 0;
+      const photoX = isImageFrame ? 0 : borderWidth;
+      const photoY = isImageFrame ? 0 : borderWidth;
+      const photoW = isImageFrame ? W : (W - borderWidth * 2);
+      const photoH = isImageFrame ? H : (H - borderWidth * 2 - bottomReserve);
 
       if (printStudioImage) {
         // Ritaglia la foto per riempire l'area disponibile mantenendo le proporzioni (cover)
@@ -5486,7 +5566,16 @@
           sx = 0;
           sy = (printStudioImage.height - sh) / 2;
         }
-        ctx.drawImage(printStudioImage, sx, sy, sw, sh, photoX, photoY, photoW, photoH);
+        // 🆕 Applica zoom (ritaglio più piccolo = foto più ravvicinata) e
+        // spostamento (trascinato dall'utente), tenendo il ritaglio sempre
+        // dentro i bordi reali della foto originale.
+        const zoomedSw = sw / printPhotoScale;
+        const zoomedSh = sh / printPhotoScale;
+        sx += (sw - zoomedSw) / 2 - (printPhotoOffsetX / photoW) * zoomedSw;
+        sy += (sh - zoomedSh) / 2 - (printPhotoOffsetY / photoH) * zoomedSh;
+        sx = Math.max(0, Math.min(printStudioImage.width - zoomedSw, sx));
+        sy = Math.max(0, Math.min(printStudioImage.height - zoomedSh, sy));
+        ctx.drawImage(printStudioImage, sx, sy, zoomedSw, zoomedSh, photoX, photoY, photoW, photoH);
       } else {
         ctx.fillStyle = '#eeeeee';
         ctx.fillRect(photoX, photoY, photoW, photoH);
@@ -5496,24 +5585,34 @@
         ctx.fillText('Scegli una foto', W / 2, H / 2);
       }
 
-      // Bordo della cornice
-      ctx.strokeStyle = frame.borderColor;
-      ctx.lineWidth = borderWidth;
-      ctx.setLineDash(
-        frame.style === 'dashed' ? [borderWidth * 1.5, borderWidth] :
-        frame.style === 'dotted' ? [borderWidth * 0.4, borderWidth * 0.8] : []
-      );
-      ctx.strokeRect(borderWidth / 2, borderWidth / 2, W - borderWidth, H - borderWidth);
-      if (frame.style === 'double') {
+      if (isImageFrame) {
+        // 🆕 Cornice a immagine: disegnata SOPRA la foto, riempiendo tutto
+        // il canvas — funziona bene con un PNG che ha il centro trasparente
+        const frameImg = new Image();
+        frameImg.crossOrigin = 'anonymous';
+        frameImg.onload = () => ctx.drawImage(frameImg, 0, 0, W, H);
+        frameImg.src = frame.imageUrl;
+      } else {
+        // Bordo della cornice (programmatico, colore/stile)
+        ctx.strokeStyle = frame.borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.setLineDash(
+          frame.style === 'dashed' ? [borderWidth * 1.5, borderWidth] :
+          frame.style === 'dotted' ? [borderWidth * 0.4, borderWidth * 0.8] : []
+        );
+        ctx.strokeRect(borderWidth / 2, borderWidth / 2, W - borderWidth, H - borderWidth);
+        if (frame.style === 'double') {
+          ctx.setLineDash([]);
+          ctx.lineWidth = Math.max(2, Math.round(borderWidth * 0.25));
+          const inset = borderWidth * 1.6;
+          ctx.strokeRect(inset / 2, inset / 2, W - inset, H - inset);
+        }
         ctx.setLineDash([]);
-        ctx.lineWidth = Math.max(2, Math.round(borderWidth * 0.25));
-        const inset = borderWidth * 1.6;
-        ctx.strokeRect(inset / 2, inset / 2, W - inset, H - inset);
       }
-      ctx.setLineDash([]);
 
-      // Nome torneo in basso (se la cornice lo prevede)
-      if (frame.showText && config?.tournament?.name) {
+      // Nome torneo in basso (se la cornice a colore lo prevede — le cornici
+      // a immagine sono già complete visivamente, non serve aggiungerlo)
+      if (!isImageFrame && frame.showText && config?.tournament?.name) {
         ctx.fillStyle = frame.borderColor;
         ctx.font = `bold ${Math.round(W * 0.045)}px 'Original Surfer', cursive, sans-serif`;
         ctx.textAlign = 'center';

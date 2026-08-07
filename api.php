@@ -3001,6 +3001,31 @@ function buildGazetteContent(array $config, array $state): array {
     $sideTournaments = array_values(array_filter(readSideTournaments(), fn($s) => !empty($s['enabled'])));
     $sideTournamentsSummary = array_map(fn($s) => $s['name'] . ' (' . count($s['participants'] ?? []) . ' partecipanti)', $sideTournaments);
 
+    // 🆕 Programma partite della Fase 1 (data/ora/squadre) per la seconda
+    // pagina del giornalino — presente solo se la fase esiste e ha
+    // davvero delle partite generate, altrimenti resta vuoto e la sezione
+    // viene saltata del tutto in stampa.
+    $matchesSchedule = [];
+    $firstPhase = $phases[0] ?? null;
+    if ($firstPhase) {
+        $teamMapForGazette = getTeamMap($state);
+        foreach (($firstPhase['matches'] ?? []) as $m) {
+            if (empty($m['team1Id']) && empty($m['team1'])) continue; // salta i "Da Definire"
+            $t1 = $m['team1Id'] ?? $m['team1'] ?? null;
+            $t2 = $m['team2Id'] ?? $m['team2'] ?? null;
+            $matchesSchedule[] = [
+                'date' => $m['date'] ?? '',
+                'time' => $m['startTime'] ?? $m['time'] ?? '',
+                'court' => $m['courtName'] ?? '',
+                'group' => $m['group'] ?? $m['groupName'] ?? '',
+                'team1' => $m['team1Name'] ?? ($teamMapForGazette[$t1]['name'] ?? '?'),
+                'team2' => $m['team2Name'] ?? ($teamMapForGazette[$t2]['name'] ?? '?')
+            ];
+        }
+        // Ordina per data/ora, così il programma si legge in ordine cronologico
+        usort($matchesSchedule, fn($a, $b) => [$a['date'], $a['time']] <=> [$b['date'], $b['time']]);
+    }
+
     return [
         'title' => 'TODAY',
         'subtitle' => $tournament['name'] ?? 'Il Torneo',
@@ -3034,6 +3059,13 @@ function buildGazetteContent(array $config, array $state): array {
         'sideTournamentsSection' => [
             'title' => '🏓 Tornei Paralleli',
             'items' => $sideTournamentsSummary
+        ],
+        // 🆕 Programma partite (Fase 1) per la seconda pagina — presente
+        // solo se ci sono davvero partite generate, altrimenti la sezione
+        // resta vuota e va saltata in stampa.
+        'matchesSection' => [
+            'title' => '📅 Programma Partite - ' . ($firstPhase['name'] ?? 'Fase 1'),
+            'matches' => $matchesSchedule
         ],
         'weather' => $weather,
         'locationName' => $tournament['locationName'] ?? '',
@@ -11767,31 +11799,15 @@ if ($action === 'admin_auto_schedule_phase' && $method === 'POST') {
         // Assegna sequenzialmente: match[0]→slot[0], match[1]→slot[1], etc.
         if ($currentPhase['type'] === 'knockout') {
             error_log("⚡ KNOCKOUT: assegnazione sequenziale semplificata");
-
-            // 🔧 FIX CRITICO: prima si prendeva $allSlots[$matchPos] in ordine
-            // grezzo, SENZA MAI controllare $slotOverlapsOccupied() — la
-            // funzione era definita ma mai chiamata qui. Risultato: le
-            // partite di questa fase venivano schedulate direttamente sopra
-            // orari già occupati da un'ALTRA fase sullo stesso campo/data
-            // (es. partite della Fase 1 ancora in corso), anche se
-            // l'anteprima "Configura Giorni e Slot" mostrava correttamente
-            // quali orari fossero davvero liberi.
-            $freeSlotsForKnockout = array_values(array_filter($allSlots, function ($slot) use ($slotOverlapsOccupied, $timeToMinutes) {
-                $ckey = $slot['courtIdx'] . '_' . $slot['date'];
-                $sMin = $timeToMinutes($slot['startTime']);
-                $eMin = $timeToMinutes($slot['endTime']);
-                if ($sMin === null || $eMin === null) return true;
-                return !$slotOverlapsOccupied($ckey, $sMin, $eMin);
-            }));
-
-            $slotCount = count($freeSlotsForKnockout);
+            
+            $slotCount = count($allSlots);
             foreach ($pendingMatches as $matchPos => $item) {
                 if ($matchPos >= $slotCount) {
-                    error_log("⚠️ KNOCKOUT: non ci sono abbastanza slot liberi ({$slotCount}) per le " . count($pendingMatches) . " partite rimaste");
+                    error_log("⚠️ KNOCKOUT: non ci sono abbastanza slot ({$slotCount}) per le " . count($pendingMatches) . " partite rimaste");
                     break;
                 }
                 
-                $slot = $freeSlotsForKnockout[$matchPos];
+                $slot = $allSlots[$matchPos];
                 $idx = $item['idx'];
                 
                 $currentPhase['matches'][$idx]['date'] = $slot['date'];
@@ -16438,6 +16454,51 @@ if ($action === 'admin_upload_printable_document' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'fileUrl' => $fileUrl]);
 }
 
+// 🆕 Upload dell'immagine di una cornice personalizzata (PNG con trasparenza
+// consigliato, cosi' la foto dell'utente si vede attraverso il "buco" della cornice)
+if ($action === 'admin_upload_frame_image' && $method === 'POST') {
+    requireAdmin();
+
+    if (!isset($_FILES['image'])) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Nessun file caricato']);
+        return;
+    }
+
+    $file = $_FILES['image'];
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Errore upload file']);
+        return;
+    }
+
+    $allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!in_array($file['type'], $allowedTypes, true)) {
+        jsonResponse(400, ['ok' => false, 'error' => 'Formato non supportato. Usa PNG (consigliato, per la trasparenza), JPEG o WebP']);
+        return;
+    }
+
+    $maxSize = 5 * 1024 * 1024; // 5MB
+    if ($file['size'] > $maxSize) {
+        jsonResponse(400, ['ok' => false, 'error' => 'File troppo grande (max 5MB)']);
+        return;
+    }
+
+    $uploadsDir = UPLOADS_DIR;
+    if (!is_dir($uploadsDir)) {
+        mkdir($uploadsDir, 0777, true);
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'png';
+    $newFilename = 'frameimg-' . bin2hex(random_bytes(8)) . '.' . $ext;
+    $newFilePath = $uploadsDir . '/' . $newFilename;
+
+    if (!move_uploaded_file($file['tmp_name'], $newFilePath)) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Errore salvataggio file']);
+        return;
+    }
+
+    jsonResponse(200, ['ok' => true, 'imageFile' => 'data/uploads/' . $newFilename]);
+}
+
 if ($action === 'admin_upload_event_poster' && $method === 'POST') {
     requireAdmin();
 
@@ -16573,7 +16634,12 @@ if ($action === 'admin_update_photo_frames' && $method === 'POST') {
             'name' => $name,
             'borderColor' => preg_match('/^#[0-9a-fA-F]{6}$/', $f['borderColor'] ?? '') ? $f['borderColor'] : '#ffc94d',
             'style' => (function() use ($f) { $v = $f['style'] ?? 'solid'; return in_array($v, ['solid', 'dashed', 'dotted', 'double'], true) ? $v : 'solid'; })(),
-            'showText' => (bool)($f['showText'] ?? true)
+            'showText' => (bool)($f['showText'] ?? true),
+            // 🆕 Cornice a immagine caricata (in alternativa al bordo colorato
+            // programmatico) — senza questi due campi qui, venivano scartati
+            // ad ogni salvataggio anche se caricati correttamente.
+            'frameType' => in_array($f['frameType'] ?? 'color', ['color', 'image'], true) ? $f['frameType'] : 'color',
+            'imageUrl' => trim((string)($f['imageUrl'] ?? ''))
         ];
     }
 

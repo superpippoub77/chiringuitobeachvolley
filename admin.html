@@ -13101,6 +13101,11 @@ html += `
             .gz-footer { margin-top: 24px; border-top: 3px double #333; padding-top: 12px; font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap }
             .gz-footer-block { flex: 1; min-width: 180px }
             .gz-footer-block h4 { margin: 0 0 6px 0; font-size: 14px }
+            .gz-page-break { page-break-before: always }
+            .gz-schedule-table { width: 100%; border-collapse: collapse; margin-top: 10px }
+            .gz-schedule-table th { text-align: left; border-bottom: 2px solid #333; padding: 6px 8px; font-size: 13px }
+            .gz-schedule-table td { padding: 6px 8px; border-bottom: 1px solid #ddd; font-size: 13px }
+            .gz-schedule-table tr:nth-child(even) { background: #f7f5f0 }
             @media print { body { padding: 0 } }
           </style>
         </head>
@@ -13152,6 +13157,32 @@ html += `
               ${listHtml(g.footerServices)}
             </div>
           </div>
+
+          ${(g.matchesSection?.matches?.length) ? `
+          <div class="gz-page-break">
+            <div class="gz-header" style="margin-top: 0">
+              <h1 class="gz-title" style="font-size: 36px">${escapeHtml(g.matchesSection.title || 'Programma Partite')}</h1>
+            </div>
+            <table class="gz-schedule-table">
+              <thead><tr>
+                <th>Data</th><th>Ora</th><th>Campo</th><th>Girone</th><th>Squadra 1</th><th></th><th>Squadra 2</th>
+              </tr></thead>
+              <tbody>
+                ${g.matchesSection.matches.map(m => `
+                  <tr>
+                    <td>${escapeHtml(m.date || '')}</td>
+                    <td>${escapeHtml(m.time || '')}</td>
+                    <td>${escapeHtml(m.court || '')}</td>
+                    <td>${escapeHtml(m.group || '')}</td>
+                    <td>${escapeHtml(m.team1 || '')}</td>
+                    <td style="text-align: center; color: #999">vs</td>
+                    <td>${escapeHtml(m.team2 || '')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
         </body>
         </html>
       `);
@@ -14806,22 +14837,72 @@ html += `
       }
 
       container.innerHTML = customFramesData.map((f, idx) => `
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; padding: 6px; background: white; border-radius: 4px; border: 1px solid #eee">
-          <input type="text" value="${escapeHtml(f.name || '')}" data-frame-idx="${idx}" data-frame-field="name" class="frame-input" placeholder="Nome cornice" style="flex: 2; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-          <input type="color" value="${f.borderColor || '#ffc94d'}" data-frame-idx="${idx}" data-frame-field="borderColor" class="frame-input" style="width: 44px; padding: 0; border: 1px solid #ddd; border-radius: 4px">
-          <select data-frame-idx="${idx}" data-frame-field="style" class="frame-input" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px">
-            <option value="solid" ${f.style === 'solid' ? 'selected' : ''}>Continua</option>
-            <option value="dashed" ${f.style === 'dashed' ? 'selected' : ''}>Tratteggiata</option>
-            <option value="dotted" ${f.style === 'dotted' ? 'selected' : ''}>Punteggiata</option>
-            <option value="double" ${f.style === 'double' ? 'selected' : ''}>Doppia</option>
-          </select>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: normal; margin: 0">
-            <input type="checkbox" data-frame-idx="${idx}" data-frame-field="showText" class="frame-input" ${f.showText !== false ? 'checked' : ''}>
-            Nome torneo
-          </label>
-          <button class="btn btn-danger" onclick="removeCustomFrame(${idx})" style="padding: 4px 8px">🗑️</button>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #eee">
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+            <input type="text" value="${escapeHtml(f.name || '')}" data-frame-idx="${idx}" data-frame-field="name" class="frame-input" placeholder="Nome cornice" style="flex: 2; min-width: 120px; padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+            <select data-frame-idx="${idx}" data-frame-field="frameType" class="frame-input" onchange="onFrameTypeChange(${idx})" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+              <option value="color" ${f.frameType !== 'image' ? 'selected' : ''}>🎨 Bordo colorato</option>
+              <option value="image" ${f.frameType === 'image' ? 'selected' : ''}>🖼️ Immagine caricata</option>
+            </select>
+            <button class="btn btn-danger" onclick="removeCustomFrame(${idx})" style="padding: 4px 8px">🗑️</button>
+          </div>
+
+          <div id="frameColorFields-${idx}" style="display: ${f.frameType === 'image' ? 'none' : 'flex'}; gap: 8px; align-items: center; flex-wrap: wrap">
+            <input type="color" value="${f.borderColor || '#ffc94d'}" data-frame-idx="${idx}" data-frame-field="borderColor" class="frame-input" style="width: 44px; padding: 0; border: 1px solid #ddd; border-radius: 4px">
+            <select data-frame-idx="${idx}" data-frame-field="style" class="frame-input" style="padding: 5px; border: 1px solid #ddd; border-radius: 4px">
+              <option value="solid" ${f.style === 'solid' ? 'selected' : ''}>Continua</option>
+              <option value="dashed" ${f.style === 'dashed' ? 'selected' : ''}>Tratteggiata</option>
+              <option value="dotted" ${f.style === 'dotted' ? 'selected' : ''}>Punteggiata</option>
+              <option value="double" ${f.style === 'double' ? 'selected' : ''}>Doppia</option>
+            </select>
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: normal; margin: 0">
+              <input type="checkbox" data-frame-idx="${idx}" data-frame-field="showText" class="frame-input" ${f.showText !== false ? 'checked' : ''}>
+              Nome torneo
+            </label>
+          </div>
+
+          <div id="frameImageFields-${idx}" style="display: ${f.frameType === 'image' ? 'flex' : 'none'}; gap: 10px; align-items: center; flex-wrap: wrap">
+            ${f.imageUrl ? `<img src="${escapeHtml(f.imageUrl)}" style="width: 70px; height: 88px; object-fit: contain; background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50%/16px 16px; border-radius: 4px; border: 1px solid #ccc">` : '<span class="muted" style="font-size: 12px">Nessuna immagine caricata</span>'}
+            <input type="file" id="frameImageInput-${idx}" accept="image/*" onchange="uploadFrameImage(${idx}, this)" style="display: none">
+            <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px" onclick="document.getElementById('frameImageInput-${idx}').click()">📤 Carica Immagine</button>
+            <small style="color: #888; font-size: 11px; display: block; width: 100%">Consigliato: PNG con il centro trasparente, così la foto si vede attraverso la cornice.</small>
+          </div>
         </div>
       `).join('');
+    }
+
+    function onFrameTypeChange(idx) {
+      const select = document.querySelector(`select[data-frame-idx="${idx}"][data-frame-field="frameType"]`);
+      const isImage = select.value === 'image';
+      document.getElementById(`frameColorFields-${idx}`).style.display = isImage ? 'none' : 'flex';
+      document.getElementById(`frameImageFields-${idx}`).style.display = isImage ? 'flex' : 'none';
+      if (customFramesData[idx]) customFramesData[idx].frameType = select.value;
+    }
+
+    async function uploadFrameImage(idx, input) {
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const res = await fetch('api.php?action=admin_upload_frame_image', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          await showInfoDialog('Errore', data.error || 'Caricamento immagine fallito');
+          return;
+        }
+        customFramesData[idx].imageUrl = data.imageFile;
+        customFramesData[idx].frameType = 'image';
+        renderCustomFramesList();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      } finally {
+        input.value = '';
+      }
     }
 
     function addCustomFrame() {

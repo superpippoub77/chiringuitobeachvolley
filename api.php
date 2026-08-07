@@ -3915,7 +3915,7 @@ function setPhaseGroups(array &$state, int $phaseIdx, array $groups): void {
 function setPhaseStatus(array &$state, int $phaseIdx, string $status): void {
     ensurePhases($state);
     foreach ($state['phases'] as &$phase) {
-        if ($phase['phaseIdx'] === $phaseIdx) {
+        if (($phase['phaseNumber'] ?? $phase['phaseIdx'] ?? 0) === $phaseIdx) {
             $phase['status'] = $status; // 'pending', 'active', 'completed'
             break;
         }
@@ -11212,6 +11212,10 @@ if ($action === 'admin_complete_phase' && $method === 'POST') {
                 advanceKnockoutBracket($phaseToCheck);
             }
 
+            // 🆕 Aggiorna anche qui il numero reale di squadre, ora che sono
+            // note (prima della risoluzione era ancora "Da Definire")
+            $phaseToCheck['numTeams'] = count($teamsForResolve);
+
             unset($phaseToCheck['pendingResolution']);
             $resolvedPhaseNumbers[] = $phaseToCheck['phaseNumber'];
             error_log("✅ Fase {$phaseToCheck['phaseNumber']}: risolta automaticamente con le squadre reali ora che la Fase {$currentPhaseIdx} è terminata.");
@@ -12126,6 +12130,10 @@ if ($action === 'admin_create_phase_from_source' && $method === 'POST') {
             'sourcePhaseNumber' => $teamSource === 'phase' ? $sourcePhaseNumber : null,
             'sourceBranch' => $teamSource === 'phase' ? $sourceBranch : null,
             'teamSource' => $teamSource,
+            // 🆕 Numero REALE di squadre in questa fase — mancava del tutto,
+            // quindi "Modifica Fase" mostrava sempre il valore di default (8)
+            // nel campo, anche quando le squadre reali erano molte meno.
+            'numTeams' => count($teams),
             'matches' => [],
             'groups' => [],
             'standings' => [],

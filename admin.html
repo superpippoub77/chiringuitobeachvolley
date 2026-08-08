@@ -1016,10 +1016,13 @@
         </div>
 
         <!-- Sub-Tabs per Gironi / Partite / Classifiche -->
-        <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #ddd; padding-bottom: 8px">
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #ddd; padding-bottom: 8px; align-items: center; flex-wrap: wrap">
           <button id="subtab-groups" class="btn btn-primary" onclick="showPhaseSubTab('groups')" style="background: #2196F3; color: white">📊 Gironi</button>
           <button id="subtab-matches" class="btn btn-info" onclick="showPhaseSubTab('matches')" style="background: #0277BD; color: white">🏆 Partite</button>
           <button id="subtab-standings" class="btn btn-info" onclick="showPhaseSubTab('standings')" style="background: #0277BD; color: white">📈 Classifiche</button>
+          <span style="flex: 1"></span>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px" onclick="printPhaseGroups()">🖨️ Stampa Gironi</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px" onclick="printPhaseMatches()">🖨️ Stampa Partite</button>
         </div>
         
         <!-- Content Area Dinamico -->
@@ -13096,6 +13099,132 @@ html += `
     // vero giornale (titolone, articolo centrale, due colonne, footer) e
     // avvia la stampa — da lì si può scegliere "Salva come PDF" nella
     // finestra di stampa del browser, senza bisogno di librerie PDF lato server.
+    // 🆕 Stampa i gironi della fase attualmente selezionata: una tabella per
+    // girone con l'elenco delle squadre, in un formato pulito pronto per
+    // la stampa (separato dalla vista a schermo, per non doverla adattare).
+    function printPhaseGroups() {
+      const statePhase = findPhaseByNumber(state.phases || [], currentSelectedPhaseNumber);
+      if (!statePhase || statePhase.type !== 'groups' || !(statePhase.groups || []).length) {
+        showInfoDialog('Nessun girone', 'Questa fase non ha gironi da stampare (o non è ancora stata generata).');
+        return;
+      }
+
+      const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      const groupsHtml = statePhase.groups.map((group, idx) => {
+        const label = group.label || group.groupName || group.name || groupNames[idx] || ('G' + (idx + 1));
+        const teams = group.teams || group;
+        const rowsHtml = (teams || []).map((t, i) => `
+          <tr>
+            <td style="padding: 6px 10px; border-bottom: 1px solid #ddd; width: 30px; color: #888">${i + 1}</td>
+            <td style="padding: 6px 10px; border-bottom: 1px solid #ddd">${escapeHtml(t.name || '')}</td>
+          </tr>
+        `).join('');
+        return `
+          <div style="break-inside: avoid; margin-bottom: 20px">
+            <h3 style="background: #2196F3; color: white; padding: 8px 12px; border-radius: 6px 6px 0 0; margin: 0">📊 Girone ${escapeHtml(label)}</h3>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-top: none">
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Gironi - ${escapeHtml(statePhase.name || 'Fase')}</title>
+          <style>
+            @media print { @page { margin: 1.5cm } }
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #222 }
+            h1 { text-align: center; margin-bottom: 4px }
+            .subtitle { text-align: center; color: #888; margin-bottom: 24px }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <h1>📊 ${escapeHtml(config.tournament?.name || 'Torneo')}</h1>
+          <div class="subtitle">Gironi — ${escapeHtml(statePhase.name || '')}</div>
+          ${groupsHtml}
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
+    // 🆕 Stampa il calendario partite della fase attualmente selezionata,
+    // con data/ora/campo/squadre e punteggio se già disponibile.
+    function printPhaseMatches() {
+      const statePhase = findPhaseByNumber(state.phases || [], currentSelectedPhaseNumber);
+      if (!statePhase || !(statePhase.matches || []).length) {
+        showInfoDialog('Nessuna partita', 'Questa fase non ha ancora partite da stampare.');
+        return;
+      }
+
+      const teamMap = {};
+      (state.teams || []).forEach(t => { teamMap[t.id] = t.name; });
+
+      const formatScore = (m) => {
+        if (m.sets && m.sets.length > 0) {
+          return m.sets.map(s => `${s.team1 ?? '-'}-${s.team2 ?? '-'}`).join(', ');
+        }
+        if (m.score1 != null || m.score2 != null) return `${m.score1 ?? '-'} - ${m.score2 ?? '-'}`;
+        return '';
+      };
+
+      const sortedMatches = [...statePhase.matches].sort((a, b) => {
+        const da = (a.date || '') + (a.startTime || a.time || '');
+        const db = (b.date || '') + (b.startTime || b.time || '');
+        return da.localeCompare(db);
+      });
+
+      const rowsHtml = sortedMatches.map(m => {
+        const t1 = m.team1Name || teamMap[m.team1Id ?? m.team1] || 'Da Definire';
+        const t2 = m.team2Name || teamMap[m.team2Id ?? m.team2] || 'Da Definire';
+        return `
+          <tr>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(m.date || '')}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(m.startTime || m.time || '')}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(m.courtName || '')}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(m.group ?? m.groupName ?? '')}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(t1)}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px; text-align: center; color: #999">vs</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px">${escapeHtml(t2)}</td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 13px; font-weight: bold; text-align: center">${escapeHtml(formatScore(m))}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Partite - ${escapeHtml(statePhase.name || 'Fase')}</title>
+          <style>
+            @media print { @page { margin: 1.5cm } }
+            body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #222 }
+            h1 { text-align: center; margin-bottom: 4px }
+            .subtitle { text-align: center; color: #888; margin-bottom: 24px }
+            table { width: 100%; border-collapse: collapse }
+            th { text-align: left; padding: 8px; border-bottom: 2px solid #333; font-size: 13px }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <h1>🏆 ${escapeHtml(config.tournament?.name || 'Torneo')}</h1>
+          <div class="subtitle">Programma Partite — ${escapeHtml(statePhase.name || '')}</div>
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Ora</th><th>Campo</th><th>Girone</th><th>Squadra 1</th><th></th><th>Squadra 2</th><th>Risultato</th>
+            </tr></thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
     function printGazette() {
       if (!currentGazette) return;
       const g = currentGazette;

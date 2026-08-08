@@ -8172,67 +8172,53 @@
       let html = `<div><h4 style="margin-bottom: 16px">📈 Classifiche</h4>`;
 
       const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-      
-      statePhase.groups.forEach((group, groupIdx) => {
-        // 🔧 FIX: prima l'etichetta veniva presa SOLO dalla posizione nell'array
-        // (groupNames[groupIdx]), ignorando il vero group.label/group.name. La
-        // distribuzione bilanciata (snake-draft) può riordinare i gironi nell'array
-        // durante la generazione, quindi la posizione 0 non è detto sia il Girone A:
-        // usiamo lo stesso ordine di priorità di renderPhaseGroups() (la tab Gironi),
-        // così le due viste mostrano sempre la stessa etichetta per lo stesso girone.
+
+      // 🔧 Conta i set vinti da una partita: se 'sets' è popolato ogni elemento
+      // è un set giocato (vince chi ha il punteggio maggiore in quell'elemento);
+      // se è vuoto (girone a set singolo, legacy) score1/score2 sono l'unico set.
+      const getSetsWon = (m) => {
+        if (m.sets && m.sets.length > 0) {
+          let w1 = 0, w2 = 0;
+          m.sets.forEach(s => {
+            const t1 = s.team1 ?? null, t2 = s.team2 ?? null;
+            if (t1 === null || t2 === null) return;
+            if (t1 > t2) w1++; else if (t2 > t1) w2++;
+          });
+          return [w1, w2];
+        }
+        const s1 = m.score1 ?? 0, s2 = m.score2 ?? 0;
+        return [s1 > s2 ? 1 : 0, s2 > s1 ? 1 : 0];
+      };
+
+      const getPointsScored = (m) => {
+        if (m.sets && m.sets.length > 0) {
+          return [
+            m.sets.reduce((sum, s) => sum + (s.team1 || 0), 0),
+            m.sets.reduce((sum, s) => sum + (s.team2 || 0), 0)
+          ];
+        }
+        return [m.score1 ?? 0, m.score2 ?? 0];
+      };
+
+      // 🆕 PRIMO PASSAGGIO: calcola la classifica di OGNI girone (senza
+      // ancora disegnarla), così da poter poi determinare il ripescaggio —
+      // che confronta le eliminate di TUTTI i gironi tra loro, non solo
+      // quelle di un singolo girone.
+      const allGroupsData = statePhase.groups.map((group, groupIdx) => {
         const groupLabel = group.label || group.groupName || group.name || groupNames[groupIdx] || ('G' + (groupIdx + 1));
-        
-        // Gestisci sia il formato nuovo {label, teams} che il vecchio (array diretto)
         const groupTeams = group.teams || group;
-        
-        // 🔧 Punti vittoria: usa l'override della fase se presente, altrimenti il
-        // default centrale del torneo (stessa priorità di resolvePhaseMatchRules
-        // lato server, per non avere classifiche diverse tra le due viste).
         const winPointsForThisPhase = statePhase.matchRules?.winPoints ?? config.tournament?.winPoints ?? 2;
 
-        // 🔧 Conta i set vinti da una partita: se 'sets' è popolato ogni elemento
-        // è un set giocato (vince chi ha il punteggio maggiore in quell'elemento);
-        // se è vuoto (girone a set singolo, legacy) score1/score2 sono l'unico set.
-        const getSetsWon = (m) => {
-          if (m.sets && m.sets.length > 0) {
-            let w1 = 0, w2 = 0;
-            m.sets.forEach(s => {
-              const t1 = s.team1 ?? null, t2 = s.team2 ?? null;
-              if (t1 === null || t2 === null) return;
-              if (t1 > t2) w1++; else if (t2 > t1) w2++;
-            });
-            return [w1, w2];
-          }
-          const s1 = m.score1 ?? 0, s2 = m.score2 ?? 0;
-          return [s1 > s2 ? 1 : 0, s2 > s1 ? 1 : 0];
-        };
-
-        const getPointsScored = (m) => {
-          if (m.sets && m.sets.length > 0) {
-            return [
-              m.sets.reduce((sum, s) => sum + (s.team1 || 0), 0),
-              m.sets.reduce((sum, s) => sum + (s.team2 || 0), 0)
-            ];
-          }
-          return [m.score1 ?? 0, m.score2 ?? 0];
-        };
-
-        // Calcola statistiche per ogni squadra
         const standings = groupTeams.map(team => {
-          // 🔧 FIX: i campi reali sulla partita sono 'group' (non 'groupName')
-          // e 'team1Id'/'team2Id' (non 'team1'/'team2') — con i nomi sbagliati
-          // questo filtro non trovava MAI nessuna partita per nessuna squadra,
-          // motivo per cui la classifica mostrava sempre tutti zeri qui,
-          // anche con risultati regolarmente salvati e visibili altrove.
           const teamMatches = (statePhase.matches || []).filter(m => {
             const t1 = m.team1Id ?? m.team1;
             const t2 = m.team2Id ?? m.team2;
             const mGroup = m.group ?? m.groupName;
             return (t1 === team.id || t2 === team.id) && mGroup === groupLabel;
           });
-          
+
           let points = 0, setsWon = 0, setsLost = 0, pointsFor = 0, pointsAgainst = 0, playedMatches = 0, wins = 0, losses = 0;
-          
+
           teamMatches.forEach(m => {
             const isTeam1 = (m.team1Id ?? m.team1) === team.id;
             const [won1, won2] = getSetsWon(m);
@@ -8255,28 +8241,62 @@
             if (mySetsWon > mySetsLost) { points += winPointsForThisPhase; wins++; }
             else if (mySetsLost > mySetsWon) { losses++; }
           });
-          
+
           return {
-            name: team.name,
-            matches: playedMatches,
-            wins,
-            losses,
-            points,
-            setsWon,
-            setsLost,
-            pointsFor,
-            pointsAgainst,
-            setsDiff: setsWon - setsLost,
-            pointsDiff: pointsFor - pointsAgainst
+            id: team.id, name: team.name, matches: playedMatches, wins, losses, points,
+            setsWon, setsLost, pointsFor, pointsAgainst,
+            setsDiff: setsWon - setsLost, pointsDiff: pointsFor - pointsAgainst
           };
         });
 
-        // Ordina per: punti descending, differenza set descending, differenza punti descending
         standings.sort((a, b) => {
           if (b.points !== a.points) return b.points - a.points;
           if (b.setsDiff !== a.setsDiff) return b.setsDiff - a.setsDiff;
           return b.pointsDiff - a.pointsDiff;
         });
+
+        const alphabeticIdx = groupLabel && groupLabel.length === 1
+          ? groupLabel.toUpperCase().charCodeAt(0) - 65
+          : groupIdx;
+        const teamsAdvanceConfig = configPhase?.teamsAdvance;
+        let teamsAdvanceForThisGroup = 1;
+        if (teamsAdvanceConfig !== undefined && teamsAdvanceConfig !== null && teamsAdvanceConfig !== '') {
+          if (String(teamsAdvanceConfig).includes(',')) {
+            const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
+            teamsAdvanceForThisGroup = values[alphabeticIdx] ?? 0;
+          } else {
+            teamsAdvanceForThisGroup = parseInt(teamsAdvanceConfig) || 1;
+          }
+        }
+
+        return { groupLabel, standings, teamsAdvanceForThisGroup };
+      });
+
+      // 🆕 Determina il ripescaggio GLOBALE: tra tutte le squadre NON
+      // qualificate di tutti i gironi, le prime "repescageCount" (per
+      // punti/differenza, stesso criterio della classifica) vengono
+      // ripescate — le altre restano eliminate. Se il ripescaggio non è
+      // attivo per questa fase, nessuna squadra risulta ripescata.
+      const hasRepescageForThisPhase = !!configPhase?.hasRepescage;
+      const repescageCountForThisPhase = configPhase?.repescageCount !== '' && configPhase?.repescageCount != null
+        ? parseInt(configPhase.repescageCount)
+        : Infinity; // "" o non impostato = nessun limite, tutte le eliminate rientrano nel ripescaggio
+      const repescatedTeamIds = new Set();
+      if (hasRepescageForThisPhase) {
+        const eliminatedPool = [];
+        allGroupsData.forEach(({ standings, teamsAdvanceForThisGroup }) => {
+          standings.slice(teamsAdvanceForThisGroup).forEach(row => eliminatedPool.push(row));
+        });
+        eliminatedPool.sort((a, b) => {
+          if (b.points !== a.points) return b.points - a.points;
+          if (b.setsDiff !== a.setsDiff) return b.setsDiff - a.setsDiff;
+          return b.pointsDiff - a.pointsDiff;
+        });
+        eliminatedPool.slice(0, repescageCountForThisPhase).forEach(row => repescatedTeamIds.add(row.id));
+      }
+
+      statePhase.groups.forEach((group, groupIdx) => {
+        const { groupLabel, standings, teamsAdvanceForThisGroup } = allGroupsData[groupIdx];
 
         html += `<div style="background: white; border: 2px solid #2196F3; border-radius: 8px; padding: 12px; margin-bottom: 16px">
           <h5 style="margin: 0 0 10px 0; color: #2196F3">📊 Girone ${groupLabel}</h5>
@@ -8295,38 +8315,18 @@
               </tr>
             </thead>
             <tbody>`;
-        
-        // ✅ NUOVO: Leggi quante squadre passano da questo girone
-        const teamsAdvanceConfig = configPhase?.teamsAdvance;
-        
-        let teamsAdvanceForThisGroup = 1;
-        
-        // 🔧 FIX: la lista "2,3,3" è pensata per posizione ALFABETICA del girone
-        // (A=indice0, B=indice1, C=indice2...), non per la posizione dell'oggetto
-        // nell'array statePhase.groups - che la distribuzione bilanciata (snake-draft)
-        // può riordinare. Usiamo quindi l'indice ricavato da groupLabel (es. 'C' -> 2),
-        // non il grezzo groupIdx, altrimenti un girone finiva col numero di
-        // qualificati pensato per un girone diverso (stesso bug già visto per le
-        // etichette in classifica).
-        const alphabeticIdx = groupLabel && groupLabel.length === 1
-          ? groupLabel.toUpperCase().charCodeAt(0) - 65
-          : groupIdx;
 
-        if (teamsAdvanceConfig !== undefined && teamsAdvanceConfig !== null && teamsAdvanceConfig !== '') {
-          // Supporta sia numeri singoli che virgole-separati (es: "2,2,3")
-          if (String(teamsAdvanceConfig).includes(',')) {
-            const values = String(teamsAdvanceConfig).split(',').map(v => parseInt(v.trim()) || 0);
-            teamsAdvanceForThisGroup = values[alphabeticIdx] ?? 0;
-          } else {
-            const parsed = parseInt(teamsAdvanceConfig);
-            teamsAdvanceForThisGroup = parsed || 1;
-          }
-        }
-        
         standings.forEach((row, idx) => {
           const isQualified = idx < teamsAdvanceForThisGroup;
           const isLastQualified = idx === teamsAdvanceForThisGroup - 1;
-          html += `<tr style="border-bottom: 3px solid ${isLastQualified ? '#4caf50' : '#eee'}; background: ${isQualified ? '#e8f5e9' : ''}; font-weight: ${isQualified ? '600' : 'normal'}">
+          // 🆕 Colore riga: verde = qualificata, arancione = eliminata ma
+          // ripescata, rosso = eliminata e non ripescata.
+          const isRepescated = !isQualified && repescatedTeamIds.has(row.id);
+          let rowBg = '#ffebee'; // rosso di default (eliminata, non ripescata)
+          if (isQualified) rowBg = '#e8f5e9'; // verde
+          else if (isRepescated) rowBg = '#fff3e0'; // arancione
+
+          html += `<tr style="border-bottom: 3px solid ${isLastQualified ? '#4caf50' : '#eee'}; background: ${rowBg}; font-weight: ${isQualified ? '600' : 'normal'}">
             <td style="padding: 8px; font-weight: bold; color: #2196F3">${idx + 1}</td>
             <td style="padding: 8px; text-decoration: none">${escapeHtml(row.name)}</td>
             <td style="padding: 8px; text-align: center; font-weight: bold; color: #d32f2f; font-size: 14px">${row.points}</td>
@@ -8344,6 +8344,9 @@
 
       html += `<div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-top: 16px; font-size: 12px">
         <strong>Legenda:</strong><br>
+        <span style="display:inline-block;width:12px;height:12px;background:#e8f5e9;border:1px solid #4caf50;vertical-align:middle;margin-right:4px"></span>Qualificata
+        ${hasRepescageForThisPhase ? `&nbsp;&nbsp;<span style="display:inline-block;width:12px;height:12px;background:#fff3e0;border:1px solid #ff9800;vertical-align:middle;margin-right:4px"></span>Eliminata ma ripescata` : ''}
+        &nbsp;&nbsp;<span style="display:inline-block;width:12px;height:12px;background:#ffebee;border:1px solid #f44336;vertical-align:middle;margin-right:4px"></span>Eliminata<br>
         G = Giocate | V = Vinte | S = Sconfitte | Pt = Punti classifica (V=3, P=1) | PF = Punti For | PS = Punti Subiti | Diff = Differenza punti
       </div></div>`;
 

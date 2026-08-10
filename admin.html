@@ -1477,6 +1477,7 @@
                 <input type="checkbox" id="reservedToggleCheckbox" onchange="toggleReservedOnSelection(this.checked)"> Riservato (non prenotabile online)
               </label>
               <button class="btn btn-danger" onclick="deleteSelectedSeats()">🗑️ Elimina selezionati</button>
+              <button class="btn" onclick="duplicateSelectedSeats()">📋 Duplica (con nuova numerazione)</button>
               <button class="btn" onclick="clearSeatSelection()">✖️ Deseleziona</button>
             </div>
 
@@ -12700,6 +12701,54 @@ html += `
           seatMapElements[idx].reserved = checked;
         }
       });
+      renderSeatMapEditor();
+    }
+
+    // 🆕 Duplica gli elementi attualmente selezionati (copia/incolla) —
+    // per i posti (type: 'seat'), assegna automaticamente una nuova
+    // numerazione progressiva, continuando dal numero più alto già
+    // presente sulla mappa (non solo tra i selezionati), così non si
+    // creano mai doppioni. Le copie compaiono leggermente spostate,
+    // pronte da trascinare dove servono, e restano subito selezionate.
+    function duplicateSelectedSeats() {
+      if (!selectedSeatIndices.length) return;
+
+      // Trova il numero più alto già usato tra le etichette dei posti
+      // (ignora le etichette non numeriche, es. su label/forme)
+      let maxSeatNumber = 0;
+      seatMapElements.forEach(el => {
+        if (el.type !== 'seat') return;
+        const n = parseInt(el.label, 10);
+        if (!isNaN(n) && n > maxSeatNumber) maxSeatNumber = n;
+      });
+
+      const OFFSET = 30; // px di spostamento, cosi' le copie non si sovrappongono esattamente agli originali
+      const newIndices = [];
+
+      selectedSeatIndices.forEach(idx => {
+        const original = seatMapElements[idx];
+        if (!original) return;
+
+        const copy = JSON.parse(JSON.stringify(original));
+        copy.id = bin2hex(4);
+        copy.x = (original.x || 0) + OFFSET;
+        copy.y = (original.y || 0) + OFFSET;
+
+        if (copy.type === 'seat') {
+          maxSeatNumber++;
+          copy.label = String(maxSeatNumber);
+        } else if (copy.label) {
+          copy.label = copy.label + ' (copia)';
+        }
+
+        seatMapElements.push(copy);
+        newIndices.push(seatMapElements.length - 1);
+      });
+
+      // Seleziona subito le nuove copie, cosi' l'utente puo' trascinarle
+      // dove preferisce senza doverle ricercare
+      selectedSeatIndices = newIndices;
+      updateSeatSelectionToolbar();
       renderSeatMapEditor();
     }
 

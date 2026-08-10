@@ -1206,7 +1206,10 @@
       </div>
 
       <div id="page-finances" class="card page hidden">
-        <h3>💰 Bilancio del Torneo</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px">
+          <h3 style="margin: 0">💰 Bilancio del Torneo</h3>
+          <button class="btn btn-primary" onclick="printDetailedBalance()">🖨️ Stampa Bilancio Dettagliato</button>
+        </div>
         <p class="muted">Riepilogo di tutto ciò che è stato incassato (bar, eventi, iscrizioni) e di tutto ciò che è stato speso.</p>
 
         <div id="balanceSummaryContainer" style="margin-top: 12px"></div>
@@ -13179,6 +13182,148 @@ html += `
 
     // 🆕 Stampa il calendario partite della fase attualmente selezionata,
     // con data/ora/campo/squadre e punteggio se già disponibile.
+    // 🆕 Stampa un bilancio dettagliato in formato professionale: riepilogo
+    // incassi/spese, tabella completa di ogni spesa (con tipo operativa/
+    // ammortamento), incassi extra bar, rimborsi dovuti e bilancio netto
+    // (sia totale che operativo) in evidenza.
+    function printDetailedBalance() {
+      if (!lastBalanceData) {
+        showInfoDialog('Dati non disponibili', 'Attendi il caricamento del bilancio prima di stampare.');
+        return;
+      }
+      const b = lastBalanceData;
+      const now = new Date();
+      const printedOn = now.toLocaleDateString('it-IT') + ' alle ' + now.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+      const logoHtml = config.display?.logoFile
+        ? `<img src="${config.display.logoFile}" style="max-height: 70px; display: block; margin: 0 auto 10px">`
+        : '';
+
+      const operationalExpensesList = expensesData.filter(e => !e.isAmortized);
+      const amortizedExpensesList = expensesData.filter(e => e.isAmortized);
+
+      const expenseRowsHtml = (list) => list.map(e => `
+        <tr>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.date || '')}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.item)}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; color: #777">${escapeHtml(e.category || '-')}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.paidBy || '-')} ${e.paymentSource === 'own' ? '(propri)' : '(cassa)'}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
+        </tr>
+      `).join('');
+
+      const extraIncomeRowsHtml = extraBarIncomeData.map(e => `
+        <tr>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.date || '')}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.description)}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
+        </tr>
+      `).join('');
+
+      const reimbursementsHtml = (b.reimbursements || []).map(r => `
+        <tr>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(r.person)}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${r.amount.toFixed(2)} €</td>
+        </tr>
+      `).join('');
+
+      const netColor = b.netBalance >= 0 ? '#2e7d32' : '#c62828';
+      const netOpColor = b.netBalanceOperational >= 0 ? '#2e7d32' : '#c62828';
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Bilancio - ${escapeHtml(config.tournament?.name || 'Torneo')}</title>
+          <style>
+            @media print { @page { margin: 1.5cm } }
+            body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #222 }
+            h1 { text-align: center; margin: 0 0 4px 0; font-size: 22px }
+            .subtitle { text-align: center; color: #888; margin-bottom: 4px; font-size: 13px }
+            .printed-on { text-align: center; color: #aaa; font-size: 11px; margin-bottom: 24px }
+            h2 { font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 6px; margin-top: 28px }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px }
+            th { text-align: left; padding: 6px 8px; border-bottom: 2px solid #333; font-size: 12px }
+            .section-total { text-align: right; font-weight: bold; padding: 8px; border-top: 2px solid #333; font-size: 13px }
+            .summary-grid { display: flex; gap: 14px; margin-top: 10px; flex-wrap: wrap }
+            .summary-box { flex: 1; min-width: 150px; border: 1px solid #ddd; border-radius: 6px; padding: 10px }
+            .summary-box .label { font-size: 11px; color: #777 }
+            .summary-box .value { font-size: 18px; font-weight: bold; margin-top: 2px }
+            .net-box { margin-top: 20px; display: flex; gap: 14px; flex-wrap: wrap }
+            .net-box > div { flex: 1; min-width: 260px; border: 2px solid; border-radius: 8px; padding: 16px; text-align: center }
+            .net-box .label { font-size: 13px; color: #555 }
+            .net-box .value { font-size: 30px; font-weight: bold; margin-top: 4px }
+            .net-box .hint { font-size: 11px; color: #888; margin-top: 4px }
+          </style>
+        </head>
+        <body onload="window.print()">
+          ${logoHtml}
+          <h1>💰 Bilancio Dettagliato</h1>
+          <div class="subtitle">${escapeHtml(config.tournament?.name || 'Torneo')}</div>
+          <div class="printed-on">Documento generato il ${printedOn}</div>
+
+          <h2>📊 Riepilogo Incassi</h2>
+          <div class="summary-grid">
+            <div class="summary-box"><div class="label">🍹 Incasso Bar</div><div class="value">${b.shopIncome.toFixed(2)} €</div></div>
+            <div class="summary-box"><div class="label">🎟️ Incasso Eventi</div><div class="value">${b.eventsIncome.toFixed(2)} €</div></div>
+            <div class="summary-box"><div class="label">🏐 Incasso Iscrizioni</div><div class="value">${b.registrationIncome.toFixed(2)} €</div></div>
+            <div class="summary-box"><div class="label">Totale Incassi</div><div class="value" style="color: #2e7d32">${b.totalIncome.toFixed(2)} €</div></div>
+          </div>
+
+          ${extraBarIncomeData.length > 0 ? `
+          <h2>➕ Incassi Bar Extra</h2>
+          <table>
+            <thead><tr><th>Data</th><th>Descrizione</th><th style="text-align: right">Importo</th></tr></thead>
+            <tbody>${extraIncomeRowsHtml}</tbody>
+          </table>
+          <div class="section-total">Totale incassi extra: ${b.extraBarIncome.toFixed(2)} €</div>
+          ` : ''}
+
+          <h2>📦 Spese Operative (consumate per questo evento)</h2>
+          ${operationalExpensesList.length > 0 ? `
+          <table>
+            <thead><tr><th>Data</th><th>Articolo</th><th>Categoria</th><th>Pagato da</th><th style="text-align: right">Importo</th></tr></thead>
+            <tbody>${expenseRowsHtml(operationalExpensesList)}</tbody>
+          </table>
+          <div class="section-total">Totale spese operative: ${b.operationalExpenses.toFixed(2)} €</div>
+          ` : '<p style="color: #888; font-size: 13px">Nessuna spesa operativa registrata.</p>'}
+
+          ${amortizedExpensesList.length > 0 ? `
+          <h2>🔁 Beni Ammortizzabili (riutilizzabili nei prossimi eventi)</h2>
+          <table>
+            <thead><tr><th>Data</th><th>Articolo</th><th>Categoria</th><th>Pagato da</th><th style="text-align: right">Importo</th></tr></thead>
+            <tbody>${expenseRowsHtml(amortizedExpensesList)}</tbody>
+          </table>
+          <div class="section-total">Totale beni ammortizzabili: ${b.amortizedExpenses.toFixed(2)} €</div>
+          ` : ''}
+
+          ${(b.reimbursements && b.reimbursements.length > 0) ? `
+          <h2>💵 Rimborsi Dovuti</h2>
+          <table>
+            <thead><tr><th>Persona</th><th style="text-align: right">Da recuperare</th></tr></thead>
+            <tbody>${reimbursementsHtml}</tbody>
+          </table>
+          <div class="section-total">Totale da rimborsare: ${b.totalReimbursementsDue.toFixed(2)} €</div>
+          ` : ''}
+
+          <div class="net-box">
+            <div style="border-color: ${netOpColor}">
+              <div class="label">Bilancio Netto Operativo</div>
+              <div class="value" style="color: ${netOpColor}">${b.netBalanceOperational >= 0 ? '+' : ''}${b.netBalanceOperational.toFixed(2)} €</div>
+              <div class="hint">Incassi − sole spese operative (esclusi ammortamenti)</div>
+            </div>
+            <div style="border-color: ${netColor}">
+              <div class="label">Bilancio Netto Totale</div>
+              <div class="value" style="color: ${netColor}">${b.netBalance >= 0 ? '+' : ''}${b.netBalance.toFixed(2)} €</div>
+              <div class="hint">Incassi − tutte le spese, ammortamenti inclusi</div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+
     function printPhaseMatches() {
       const statePhase = findPhaseByNumber(state.phases || [], currentSelectedPhaseNumber);
       if (!statePhase || !(statePhase.matches || []).length) {
@@ -13518,6 +13663,7 @@ html += `
 
     // 🆕 Bilancio del torneo — incassi (bar/eventi/iscrizioni) e spese
     let expensesData = [];
+    let lastBalanceData = null;
 
     async function loadFinancesData() {
       try {
@@ -13526,6 +13672,7 @@ html += `
           callApi('admin_get_expenses', 'GET', null, true),
           callApi('admin_get_extra_bar_income', 'GET', null, true)
         ]);
+        lastBalanceData = balanceResult.balance;
         renderBalanceSummary(balanceResult.balance);
         expensesData = expensesResult.expenses || [];
         renderExpensesList();

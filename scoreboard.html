@@ -4182,11 +4182,14 @@
       }
 
       container.innerHTML = `<h3>🎉 Eventi</h3>` + publicEventsCache.map(ev => `
-        <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 14px; margin-bottom: 12px">
-          <strong style="font-size: 16px">${esc(ev.name)}</strong>
-          ${ev.description ? `<div style="font-size: 13px; color: #666; margin: 6px 0; line-height: 1.5">${ev.description}</div>` : ''}
-          <div style="font-size: 13px; color: #555">${ev.date ? esc(ev.date) : ''} ${ev.time ? esc(ev.time) : ''} ${ev.pricePerSeat > 0 ? `· € ${ev.pricePerSeat.toFixed(2)} a posto` : '· Gratuito'}</div>
-          <button class="btn" style="background: #7b1fa2; color: white; margin-top: 10px" onclick="openPublicEventDetail('${ev.id}')">🪑 Vedi mappa e prenota</button>
+        <div class="card" style="background: #fafafa; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin-bottom: 16px">
+          ${ev.posterImageUrl ? `<img src="${esc(ev.posterImageUrl)}" style="width: 100%; max-height: 320px; object-fit: cover; display: block">` : ''}
+          <div style="padding: 14px">
+            <strong style="font-size: 16px">${esc(ev.name)}</strong>
+            ${ev.description ? `<div style="font-size: 13px; color: #666; margin: 6px 0; line-height: 1.5">${ev.description}</div>` : ''}
+            <div style="font-size: 13px; color: #555">${ev.date ? esc(ev.date) : ''} ${ev.time ? esc(ev.time) : ''} ${ev.pricePerSeat > 0 ? `· € ${ev.pricePerSeat.toFixed(2)} a posto` : '· Gratuito'}</div>
+            <button class="btn" style="background: #7b1fa2; color: white; margin-top: 10px" onclick="openPublicEventDetail('${ev.id}')">🪑 Vedi mappa e prenota</button>
+          </div>
         </div>
       `).join('');
     }
@@ -4234,6 +4237,7 @@
 
       container.innerHTML = `
         <button class="btn" onclick="loadEventsForPublic()" style="margin-bottom: 12px">← Torna agli eventi</button>
+        ${ev.posterImageUrl ? `<img src="${esc(ev.posterImageUrl)}" style="width: 100%; max-height: 400px; object-fit: cover; border-radius: 8px; margin-bottom: 14px; display: block">` : ''}
         <h3>${esc(ev.name)}</h3>
         ${ev.description ? `<div style="color: #666; line-height: 1.5">${ev.description}</div>` : ''}
         <div style="font-size: 13px; color: #555; margin-bottom: 12px">${ev.date ? esc(ev.date) : ''} ${ev.time ? esc(ev.time) : ''}</div>

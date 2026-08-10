@@ -43,6 +43,11 @@ const DATA_FILE = __DIR__ . '/data/tournament.json';
 const SHOP_FILE = __DIR__ . '/data/shop.json';
 // 🆕 Spese sostenute dal torneo, per il bilancio (incassi vs spese)
 const EXPENSES_FILE = __DIR__ . '/data/expenses.json';
+// 🆕 Incassi bar extra, non legati a un ordine specifico della cassa (es.
+// mancia, offerta libera, incasso a fine giornata non passato per ordini
+// singoli) — per completare il bilancio anche con incassi non tracciati
+// come vendite di prodotti specifici.
+const EXTRA_BAR_INCOME_FILE = __DIR__ . '/data/extra_bar_income.json';
 const SESSION_FILE = __DIR__ . '/data/sessions.json';
 const CONFIG_FILE = __DIR__ . '/data/config.json';
 const VERSION_FILE = __DIR__ . '/data/version.json';
@@ -2336,6 +2341,47 @@ function withExpensesTransaction(callable $callback): array {
 function readExpensesState(): array {
     $data = readJsonFile(EXPENSES_FILE, ['expenses' => []]);
     return is_array($data) && isset($data['expenses']) ? $data['expenses'] : [];
+}
+
+/**
+ * 🆕 Transazione sicura (con lock) per gli incassi bar extra, non legati a
+ * un ordine specifico della cassa — stesso meccanismo di withExpensesTransaction().
+ */
+function withExtraBarIncomeTransaction(callable $callback): array {
+    $dir = dirname(EXTRA_BAR_INCOME_FILE);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+
+    $fp = fopen(EXTRA_BAR_INCOME_FILE, 'c+');
+    if ($fp === false) {
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile aprire il file degli incassi extra']);
+    }
+
+    if (!flock($fp, LOCK_EX)) {
+        fclose($fp);
+        jsonResponse(500, ['ok' => false, 'error' => 'Impossibile bloccare il file degli incassi extra']);
+    }
+
+    $raw = stream_get_contents($fp);
+    $loaded = json_decode($raw ?: '', true);
+    $entries = is_array($loaded) && isset($loaded['entries']) ? $loaded : ['entries' => []];
+
+    $result = $callback($entries);
+
+    ftruncate($fp, 0);
+    rewind($fp);
+    fwrite($fp, json_encode($entries, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    return is_array($result) ? $result : [];
+}
+
+function readExtraBarIncomeState(): array {
+    $data = readJsonFile(EXTRA_BAR_INCOME_FILE, ['entries' => []]);
+    return is_array($data) && isset($data['entries']) ? $data['entries'] : [];
 }
 
 function withShopTransaction(callable $callback): array {
@@ -15432,6 +15478,58 @@ if ($action === 'admin_get_shop' && $method === 'GET') {
     jsonResponse(200, ['ok' => true, 'categories' => $shop['categories'] ?? [], 'orders' => $shop['orders'] ?? []]);
 }
 
+// 🆕 Incassi bar extra (non legati a un ordine specifico della cassa) —
+// elenco completo
+if ($action === 'admin_get_extra_bar_income' && $method === 'GET') {
+    requireAdmin();
+    jsonResponse(200, ['ok' => true, 'entries' => readExtraBarIncomeState()]);
+}
+
+// 🆕 Aggiunge un incasso bar extra (es. mancia, offerta libera, incasso di
+// fine giornata non passato per la cassa/ordini singoli)
+if ($action === 'admin_add_extra_bar_income' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $description = mb_substr(trim((string)($body['description'] ?? '')), 0, 150);
+    $amount = (float)($body['amount'] ?? 0);
+    if ($description === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'La descrizione è obbligatoria']);
+    }
+    if ($amount <= 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un importo maggiore di zero']);
+    }
+
+    $entry = [
+        'id' => bin2hex(random_bytes(8)),
+        'description' => $description,
+        'amount' => round($amount, 2),
+        'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
+        'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
+        'createdAt' => gmdate('c')
+    ];
+
+    withExtraBarIncomeTransaction(function (&$data) use ($entry) {
+        $data['entries'][] = $entry;
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true, 'entry' => $entry]);
+}
+
+// 🆕 Elimina un incasso bar extra
+if ($action === 'admin_delete_extra_bar_income' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $entryId = (string)($body['id'] ?? '');
+
+    withExtraBarIncomeTransaction(function (&$data) use ($entryId) {
+        $data['entries'] = array_values(array_filter($data['entries'] ?? [], fn($e) => ($e['id'] ?? '') !== $entryId));
+        return [];
+    });
+
+    jsonResponse(200, ['ok' => true]);
+}
+
 // 🆕 Spese sostenute dal torneo — elenco completo
 if ($action === 'admin_get_expenses' && $method === 'GET') {
     requireAdmin();
@@ -15452,7 +15550,7 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
     }
 
     $paidBy = mb_substr(trim((string)($body['paidBy'] ?? '')), 0, 100);
-    $paymentSource = in_array($body['paymentSource'] ?? 'cassa', ['cassa', 'own'], true) ? $body['paymentSource'] : 'cassa';
+    $paymentSource = in_array($body['paymentSource'] ?? 'cassa', ['cassa', 'own'], true) ? ($body['paymentSource'] ?? 'cassa') : 'cassa';
 
     $expense = [
         'id' => bin2hex(random_bytes(8)),
@@ -15462,6 +15560,13 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
         'paidBy' => $paidBy,
         'paymentSource' => $paymentSource,
+        // 🆕 Bene riutilizzabile/ammortizzabile: materiale che resta di
+        // proprietà e verrà usato anche in futuri eventi (es. attrezzatura,
+        // arredi, strumenti) — è comunque un costo sostenuto ORA, ma non va
+        // trattato come una perdita secca di QUESTO evento, perché il suo
+        // valore resta disponibile per quelli successivi. Nel bilancio
+        // viene mostrato separatamente dalle spese operative pure.
+        'isAmortized' => (bool)($body['isAmortized'] ?? false),
         // 🆕 Scontrino allegato (foto o PDF) — vuoto finché non caricato con
         // admin_upload_expense_receipt
         'receiptUrl' => '',
@@ -15587,6 +15692,7 @@ if ($action === 'admin_update_expense' && $method === 'POST') {
             if (isset($body['date'])) $expense['date'] = trim((string)$body['date']);
             if (isset($body['paidBy'])) $expense['paidBy'] = mb_substr(trim((string)$body['paidBy']), 0, 100);
             if (isset($body['paymentSource']) && in_array($body['paymentSource'], ['cassa', 'own'], true)) $expense['paymentSource'] = $body['paymentSource'];
+            if (isset($body['isAmortized'])) $expense['isAmortized'] = (bool)$body['isAmortized'];
             if (isset($body['notes'])) $expense['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
             break;
         }
@@ -15631,6 +15737,16 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         }
     }
 
+    // 🆕 Incassi bar extra, non legati a un ordine specifico (es. mance,
+    // offerte libere, incasso di fine giornata non passato per la cassa) —
+    // si sommano all'incasso bar per completare il quadro reale.
+    $extraBarIncomeList = readExtraBarIncomeState();
+    $extraBarIncome = 0.0;
+    foreach ($extraBarIncomeList as $e) {
+        $extraBarIncome += (float)($e['amount'] ?? 0);
+    }
+    $shopIncome += $extraBarIncome;
+
     // Incasso eventi: somma delle prenotazioni pagate (posti prenotati x prezzo/fascia)
     $events = readEvents();
     $eventsIncome = 0.0;
@@ -15671,14 +15787,29 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     }
 
     // Spese sostenute
+    // 🆕 Distingue le spese OPERATIVE pure (consumate per questo evento —
+    // es. cibo, bevande, arbitri) dai beni AMMORTIZZABILI (materiale
+    // riutilizzabile che resta di proprietà e servirà anche in futuri
+    // eventi — es. attrezzatura, arredi). Entrambe sono un costo sostenuto
+    // ORA, ma solo le prime rappresentano una vera perdita netta di
+    // QUESTO evento — i beni ammortizzabili mantengono valore per il
+    // futuro, quindi vengono mostrati separatamente nel bilancio.
     $expensesList = readExpensesState();
     $totalExpenses = 0.0;
+    $operationalExpenses = 0.0;
+    $amortizedExpenses = 0.0;
     $reimbursementsByPerson = [];
     foreach ($expensesList as $e) {
-        $totalExpenses += (float)($e['amount'] ?? 0);
+        $amount = (float)($e['amount'] ?? 0);
+        $totalExpenses += $amount;
+        if (!empty($e['isAmortized'])) {
+            $amortizedExpenses += $amount;
+        } else {
+            $operationalExpenses += $amount;
+        }
         if (($e['paymentSource'] ?? 'cassa') === 'own') {
             $person = trim((string)($e['paidBy'] ?? '')) ?: 'Non specificato';
-            $reimbursementsByPerson[$person] = ($reimbursementsByPerson[$person] ?? 0) + (float)($e['amount'] ?? 0);
+            $reimbursementsByPerson[$person] = ($reimbursementsByPerson[$person] ?? 0) + $amount;
         }
     }
     $reimbursements = [];
@@ -15695,6 +15826,10 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         'balance' => [
             'shopIncome' => round($shopIncome, 2),
             'shopOrdersCount' => $shopOrdersCount,
+            // 🆕 Quota dell'incasso bar che arriva da voci extra (non da
+            // ordini specifici) — già inclusa in shopIncome, mostrata
+            // separatamente per trasparenza
+            'extraBarIncome' => round($extraBarIncome, 2),
             'eventsIncome' => round($eventsIncome, 2),
             'eventBookingsCount' => $eventBookingsCount,
             'registrationIncome' => round($registrationIncome, 2),
@@ -15702,9 +15837,20 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             'paidPlayersCount' => $paidPlayersCount,
             'totalIncome' => round($totalIncome, 2),
             'totalExpenses' => round($totalExpenses, 2),
+            // 🆕 Spese suddivise: operative pure (perdita netta di questo
+            // evento) vs ammortizzabili (beni riutilizzabili, valore
+            // mantenuto per il futuro)
+            'operationalExpenses' => round($operationalExpenses, 2),
+            'amortizedExpenses' => round($amortizedExpenses, 2),
             'reimbursements' => $reimbursements,
             'totalReimbursementsDue' => round($totalReimbursementsDue, 2),
-            'netBalance' => round($totalIncome - $totalExpenses, 2)
+            // Bilancio netto "completo": incassi meno TUTTE le spese, ammortamenti inclusi
+            'netBalance' => round($totalIncome - $totalExpenses, 2),
+            // 🆕 Bilancio netto "operativo": incassi meno le sole spese
+            // operative pure — esclude i beni ammortizzabili, dando il vero
+            // guadagno/perdita di QUESTO evento, dato che il valore dei
+            // beni riutilizzabili resta disponibile per i prossimi.
+            'netBalanceOperational' => round($totalIncome - $operationalExpenses, 2)
         ]
     ]);
 }

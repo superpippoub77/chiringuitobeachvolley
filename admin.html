@@ -1242,7 +1242,32 @@
               </select>
             </div>
           </div>
+          <label style="display: flex; align-items: center; gap: 6px; margin-top: 10px; font-weight: normal">
+            <input type="checkbox" id="expIsAmortized">
+            🔁 È un bene riutilizzabile (attrezzatura, arredi, materiale che resterà disponibile anche per i prossimi eventi)
+          </label>
           <button class="btn btn-green" onclick="addExpense()" style="margin-top: 10px">💾 Aggiungi Spesa</button>
+        </div>
+
+        <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 16px">
+          <h4 style="margin-top: 0">➕ Incasso Bar Extra</h4>
+          <p class="muted" style="margin-top: -6px">Per incassi bar non legati a un ordine specifico della cassa — es. mance, offerte libere, incasso di fine giornata.</p>
+          <div class="row" style="gap: 12px; flex-wrap: wrap">
+            <div class="field" style="flex: 2; min-width: 180px">
+              <label>Descrizione</label>
+              <input type="text" id="extraIncomeDescription" placeholder="Es: Offerte libere serata, mance...">
+            </div>
+            <div class="field" style="flex: 1; min-width: 100px">
+              <label>Importo (€)</label>
+              <input type="number" id="extraIncomeAmount" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="field" style="flex: 1; min-width: 130px">
+              <label>Data</label>
+              <input type="date" id="extraIncomeDate">
+            </div>
+          </div>
+          <button class="btn btn-green" onclick="addExtraBarIncome()" style="margin-top: 10px">💾 Aggiungi Incasso</button>
+          <div id="extraIncomeListContainer" style="margin-top: 12px"></div>
         </div>
 
         <div class="card" style="background: white; padding: 12px; margin-top: 16px; border: 1px solid #ddd">
@@ -13496,13 +13521,16 @@ html += `
 
     async function loadFinancesData() {
       try {
-        const [balanceResult, expensesResult] = await Promise.all([
+        const [balanceResult, expensesResult, extraIncomeResult] = await Promise.all([
           callApi('admin_get_balance', 'GET', null, true),
-          callApi('admin_get_expenses', 'GET', null, true)
+          callApi('admin_get_expenses', 'GET', null, true),
+          callApi('admin_get_extra_bar_income', 'GET', null, true)
         ]);
         renderBalanceSummary(balanceResult.balance);
         expensesData = expensesResult.expenses || [];
         renderExpensesList();
+        extraBarIncomeData = extraIncomeResult.entries || [];
+        renderExtraBarIncomeList();
       } catch (e) {
         await showInfoDialog('Errore', 'Errore caricamento bilancio: ' + e.message);
       }
@@ -13512,12 +13540,13 @@ html += `
       const container = document.getElementById('balanceSummaryContainer');
       if (!container || !b) return;
       const netColor = b.netBalance >= 0 ? '#2e7d32' : '#c62828';
+      const netOpColor = b.netBalanceOperational >= 0 ? '#2e7d32' : '#c62828';
       container.innerHTML = `
         <div style="display: flex; gap: 12px; flex-wrap: wrap">
           <div style="flex: 1; min-width: 160px; background: #e8f5e9; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">🍹 Incasso Bar</div>
             <div style="font-size: 20px; font-weight: bold; color: #2e7d32">${b.shopIncome.toFixed(2)} €</div>
-            <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati</div>
+            <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati${b.extraBarIncome > 0 ? ` + ${b.extraBarIncome.toFixed(2)} € extra` : ''}</div>
           </div>
           <div style="flex: 1; min-width: 160px; background: #e3f2fd; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">🎟️ Incasso Eventi</div>
@@ -13532,11 +13561,20 @@ html += `
           <div style="flex: 1; min-width: 160px; background: #ffebee; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">💸 Totale Spese</div>
             <div style="font-size: 20px; font-weight: bold; color: #c62828">${b.totalExpenses.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">${b.operationalExpenses.toFixed(2)} € operative + ${b.amortizedExpenses.toFixed(2)} € ammortamenti</div>
           </div>
         </div>
-        <div style="margin-top: 12px; background: ${netColor}15; border: 2px solid ${netColor}; border-radius: 8px; padding: 16px; text-align: center">
-          <div style="font-size: 13px; color: #555">Bilancio Netto (Incassi − Spese)</div>
-          <div style="font-size: 32px; font-weight: bold; color: ${netColor}">${b.netBalance >= 0 ? '+' : ''}${b.netBalance.toFixed(2)} €</div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px">
+          <div style="flex: 1; min-width: 260px; background: ${netOpColor}15; border: 2px solid ${netOpColor}; border-radius: 8px; padding: 16px; text-align: center">
+            <div style="font-size: 13px; color: #555">Bilancio Netto Operativo</div>
+            <div style="font-size: 28px; font-weight: bold; color: ${netOpColor}">${b.netBalanceOperational >= 0 ? '+' : ''}${b.netBalanceOperational.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">Incassi − sole spese operative (esclusi i beni ammortizzabili)</div>
+          </div>
+          <div style="flex: 1; min-width: 260px; background: ${netColor}15; border: 2px solid ${netColor}; border-radius: 8px; padding: 16px; text-align: center">
+            <div style="font-size: 13px; color: #555">Bilancio Netto Totale</div>
+            <div style="font-size: 28px; font-weight: bold; color: ${netColor}">${b.netBalance >= 0 ? '+' : ''}${b.netBalance.toFixed(2)} €</div>
+            <div style="font-size: 11px; color: #888">Incassi − tutte le spese, ammortamenti inclusi</div>
+          </div>
         </div>
         ${(b.reimbursements && b.reimbursements.length > 0) ? `
           <div style="margin-top: 12px; background: #fff3e0; border: 2px solid #e65100; border-radius: 8px; padding: 14px">
@@ -13567,7 +13605,7 @@ html += `
       container.innerHTML = `
         <table style="width: 100%; border-collapse: collapse">
           <thead><tr style="border-bottom: 1px solid #ddd; text-align: left">
-            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">🧾</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
+            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Tipo</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">🧾</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
           </tr></thead>
           <tbody>
             ${sorted.map(e => `
@@ -13575,6 +13613,7 @@ html += `
                 <td style="padding: 6px; font-size: 13px">${e.date || '-'}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.item)}</td>
                 <td style="padding: 6px; font-size: 13px; color: #888">${escapeHtml(e.category || '-')}</td>
+                <td style="padding: 6px; font-size: 13px">${e.isAmortized ? '🔁 Ammortamento' : '📦 Operativa'}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.paidBy || '-')}</td>
                 <td style="padding: 6px; font-size: 13px">${e.paymentSource === 'own' ? '👤 Propri' : '💰 Cassa'}</td>
                 <td style="padding: 6px; font-size: 13px; text-align: center">${e.receiptUrl ? `<a href="${e.receiptUrl}" target="_blank" title="Vedi scontrino">📎</a>` : '<span class="muted">-</span>'}</td>
@@ -13625,6 +13664,10 @@ html += `
               <option value="own" ${expense.paymentSource === 'own' ? 'selected' : ''}>👤 Soldi propri (da rimborsare)</option>
             </select>
           </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
+            <input type="checkbox" id="editExpIsAmortized" ${expense.isAmortized ? 'checked' : ''}>
+            🔁 È un bene riutilizzabile (ammortamento)
+          </label>
           <div class="field">
             <label>🧾 Scontrino</label>
             <div id="editExpReceiptPreview" style="margin: 6px 0"></div>
@@ -13727,7 +13770,8 @@ html += `
           category: document.getElementById('editExpCategory').value.trim(),
           date: document.getElementById('editExpDate').value,
           paidBy: document.getElementById('editExpPaidBy').value.trim(),
-          paymentSource: document.getElementById('editExpPaymentSource').value
+          paymentSource: document.getElementById('editExpPaymentSource').value,
+          isAmortized: document.getElementById('editExpIsAmortized').checked
         }, true);
         closeModal();
         await loadFinancesData();
@@ -13743,6 +13787,7 @@ html += `
       const date = document.getElementById('expDate').value;
       const paidBy = document.getElementById('expPaidBy').value.trim();
       const paymentSource = document.getElementById('expPaymentSource').value;
+      const isAmortized = document.getElementById('expIsAmortized').checked;
       if (!item) {
         await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per la spesa.');
         return;
@@ -13752,17 +13797,74 @@ html += `
         return;
       }
       try {
-        await callApi('admin_add_expense', 'POST', { item, amount, category, date, paidBy, paymentSource }, true);
+        await callApi('admin_add_expense', 'POST', { item, amount, category, date, paidBy, paymentSource, isAmortized }, true);
         document.getElementById('expItem').value = '';
         document.getElementById('expAmount').value = '';
         document.getElementById('expCategory').value = '';
         document.getElementById('expDate').value = '';
         document.getElementById('expPaidBy').value = '';
         document.getElementById('expPaymentSource').value = 'cassa';
+        document.getElementById('expIsAmortized').checked = false;
         await loadFinancesData();
       } catch (e) {
         await showInfoDialog('Errore', e.message);
       }
+    }
+
+    // 🆕 Incasso bar extra, non legato a un ordine specifico della cassa
+    let extraBarIncomeData = [];
+
+    async function addExtraBarIncome() {
+      const description = document.getElementById('extraIncomeDescription').value.trim();
+      const amount = parseFloat(document.getElementById('extraIncomeAmount').value);
+      const date = document.getElementById('extraIncomeDate').value;
+      if (!description) {
+        await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per l\'incasso.');
+        return;
+      }
+      if (!amount || amount <= 0) {
+        await showInfoDialog('Importo non valido', 'Inserisci un importo maggiore di zero.');
+        return;
+      }
+      try {
+        await callApi('admin_add_extra_bar_income', 'POST', { description, amount, date }, true);
+        document.getElementById('extraIncomeDescription').value = '';
+        document.getElementById('extraIncomeAmount').value = '';
+        document.getElementById('extraIncomeDate').value = '';
+        await loadFinancesData();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    async function deleteExtraBarIncome(id) {
+      const confirmed = await showConfirmDialog('Elimina Incasso', 'Vuoi eliminare questo incasso extra?');
+      if (!confirmed) return;
+      try {
+        await callApi('admin_delete_extra_bar_income', 'POST', { id }, true);
+        await loadFinancesData();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
+    }
+
+    function renderExtraBarIncomeList() {
+      const container = document.getElementById('extraIncomeListContainer');
+      if (!container) return;
+      if (extraBarIncomeData.length === 0) {
+        container.innerHTML = '<p class="muted" style="font-size: 13px">Nessun incasso extra registrato.</p>';
+        return;
+      }
+      const sorted = [...extraBarIncomeData].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      container.innerHTML = sorted.map(e => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #dcedc8; font-size: 13px">
+          <span>${e.date || '-'} — ${escapeHtml(e.description)}</span>
+          <span style="display: flex; align-items: center; gap: 8px">
+            <strong>${parseFloat(e.amount).toFixed(2)} €</strong>
+            <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteExtraBarIncome('${e.id}')">🗑️</button>
+          </span>
+        </div>
+      `).join('');
     }
 
     async function deleteExpense(id) {

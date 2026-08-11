@@ -15730,22 +15730,32 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     $shop = readShopState();
     $shopIncome = 0.0;
     $shopOrdersCount = 0;
+    // 🆕 Incasso bar suddiviso per provenienza (torneo/evento/torneo
+    // parallelo/prenotazione/altro) — per capire quanto incasso genera
+    // ciascuna attività, non solo il totale del bar.
+    $shopIncomeBySource = ['torneo' => 0.0, 'evento' => 0.0, 'torneo_parallelo' => 0.0, 'prenotazione' => 0.0, 'altro' => 0.0];
     foreach (($shop['orders'] ?? []) as $order) {
         if (($order['paymentStatus'] ?? '') === 'pagato') {
-            $shopIncome += (float)($order['total'] ?? 0);
+            $orderTotal = (float)($order['total'] ?? 0);
+            $shopIncome += $orderTotal;
             $shopOrdersCount++;
+            $orderSource = $order['source'] ?? 'altro';
+            if (!isset($shopIncomeBySource[$orderSource])) $orderSource = 'altro';
+            $shopIncomeBySource[$orderSource] += $orderTotal;
         }
     }
 
     // 🆕 Incassi bar extra, non legati a un ordine specifico (es. mance,
     // offerte libere, incasso di fine giornata non passato per la cassa) —
-    // si sommano all'incasso bar per completare il quadro reale.
+    // si sommano all'incasso bar per completare il quadro reale. Non hanno
+    // una provenienza specifica, restano in "altro".
     $extraBarIncomeList = readExtraBarIncomeState();
     $extraBarIncome = 0.0;
     foreach ($extraBarIncomeList as $e) {
         $extraBarIncome += (float)($e['amount'] ?? 0);
     }
     $shopIncome += $extraBarIncome;
+    $shopIncomeBySource['altro'] += $extraBarIncome;
 
     // Incasso eventi: somma delle prenotazioni pagate (posti prenotati x prezzo/fascia)
     $events = readEvents();
@@ -15830,6 +15840,9 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             // ordini specifici) — già inclusa in shopIncome, mostrata
             // separatamente per trasparenza
             'extraBarIncome' => round($extraBarIncome, 2),
+            // 🆕 Incasso bar per provenienza (torneo/eventi/tornei
+            // paralleli/prenotazioni/altro)
+            'shopIncomeBySource' => array_map(fn($v) => round($v, 2), $shopIncomeBySource),
             'eventsIncome' => round($eventsIncome, 2),
             'eventBookingsCount' => $eventBookingsCount,
             'registrationIncome' => round($registrationIncome, 2),
@@ -15937,6 +15950,12 @@ if ($action === 'shop_place_order' && $method === 'POST') {
 
     $paymentMethod = ($body['paymentMethod'] ?? 'cassa') === 'paypal' ? 'paypal' : 'cassa';
 
+    // 🆕 Provenienza dell'ordine: da dove arriva il cliente che sta
+    // ordinando — utile poi nel bilancio per capire quanto incasso genera
+    // ciascuna attività del torneo, non solo il totale del bar.
+    $allowedSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
+    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? $body['source'] : 'altro';
+
     // 🔧 Ricalcola i prezzi lato server dal catalogo reale (non fidarsi del
     // prezzo inviato dal client, che potrebbe essere manomesso)
     $shop = readShopState();
@@ -15973,6 +15992,9 @@ if ($action === 'shop_place_order' && $method === 'POST') {
         'items' => $orderItems,
         'total' => computeOrderTotal($orderItems),
         'paymentMethod' => $paymentMethod,
+        // 🆕 Da dove arriva questo ordine (torneo/evento/torneo parallelo/
+        // prenotazione/altro) — per il dettaglio incassi nel bilancio
+        'source' => $source,
         // 🆕 Un ordine pagato con PayPal risulta già "pagato" solo se il
         // client conferma la cattura del pagamento (vedi shop_confirm_paypal_payment);
         // qui viene creato provvisoriamente come "da_pagare".
@@ -16049,6 +16071,10 @@ if ($action === 'admin_place_shop_order' && $method === 'POST') {
 
     $paymentMethod = in_array($body['paymentMethod'] ?? 'contanti', ['contanti', 'carta', 'altro'], true) ? $body['paymentMethod'] : 'contanti';
 
+    // 🆕 Provenienza dell'ordine, scelta dall'admin alla cassa
+    $allowedSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
+    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? $body['source'] : 'altro';
+
     // 🔧 Ricalcola i prezzi lato server dal catalogo reale
     $shop = readShopState();
     $catalogById = [];
@@ -16083,6 +16109,9 @@ if ($action === 'admin_place_shop_order' && $method === 'POST') {
         'items' => $orderItems,
         'total' => computeOrderTotal($orderItems),
         'paymentMethod' => $paymentMethod,
+        // 🆕 Da dove arriva questo ordine (torneo/evento/torneo parallelo/
+        // prenotazione/altro) — per il dettaglio incassi nel bilancio
+        'source' => $source,
         // 🆕 Venduto di persona alla cassa: già pagato, non c'è un incasso da
         // attendere come per gli ordini online
         'paymentStatus' => 'pagato',

@@ -1178,6 +1178,16 @@
                     <input type="text" id="cassaCustomerName" placeholder="Cliente al banco">
                   </div>
                   <div class="field" style="margin-top: 8px">
+                    <label>Provenienza</label>
+                    <select id="cassaOrderSource">
+                      <option value="torneo">🏐 Torneo principale</option>
+                      <option value="evento">🎉 Evento</option>
+                      <option value="torneo_parallelo">🏓 Torneo parallelo</option>
+                      <option value="prenotazione">🪑 Prenotazione</option>
+                      <option value="altro">❓ Altro</option>
+                    </select>
+                  </div>
+                  <div class="field" style="margin-top: 8px">
                     <label>Modalità di pagamento</label>
                     <select id="cassaPaymentMethod" onchange="toggleCassaCashFields()">
                       <option value="contanti">💵 Contanti</option>
@@ -13319,6 +13329,21 @@ html += `
             <div class="summary-box"><div class="label">Totale Incassi</div><div class="value" style="color: #2e7d32">${b.totalIncome.toFixed(2)} €</div></div>
           </div>
 
+          ${b.shopIncomeBySource ? `
+          <h2>🍹 Incasso Bar per Provenienza</h2>
+          <table>
+            <thead><tr><th>Provenienza</th><th style="text-align: right">Importo</th></tr></thead>
+            <tbody>
+              ${Object.entries(b.shopIncomeBySource).filter(([, v]) => v > 0).map(([key, v]) => `
+                <tr>
+                  <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${{torneo:'🏐 Torneo principale',evento:'🎉 Eventi',torneo_parallelo:'🏓 Tornei paralleli',prenotazione:'🪑 Prenotazioni',altro:'❓ Altro'}[key] || key}</td>
+                  <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${v.toFixed(2)} €</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          ` : ''}
+
           ${extraBarIncomeData.length > 0 ? `
           <h2>➕ Incassi Bar Extra</h2>
           <table>
@@ -13737,12 +13762,20 @@ html += `
       if (!container || !b) return;
       const netColor = b.netBalance >= 0 ? '#2e7d32' : '#c62828';
       const netOpColor = b.netBalanceOperational >= 0 ? '#2e7d32' : '#c62828';
+      const sourceLabels = { torneo: '🏐 Torneo', evento: '🎉 Eventi', torneo_parallelo: '🏓 Tornei paralleli', prenotazione: '🪑 Prenotazioni', altro: '❓ Altro' };
+      const sourceBreakdownHtml = b.shopIncomeBySource
+        ? Object.entries(b.shopIncomeBySource).filter(([, v]) => v > 0).map(([key, v]) =>
+            `<div style="display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-top: 2px"><span>${sourceLabels[key] || key}</span><span>${v.toFixed(2)} €</span></div>`
+          ).join('')
+        : '';
+
       container.innerHTML = `
         <div style="display: flex; gap: 12px; flex-wrap: wrap">
           <div style="flex: 1; min-width: 160px; background: #e8f5e9; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">🍹 Incasso Bar</div>
             <div style="font-size: 20px; font-weight: bold; color: #2e7d32">${b.shopIncome.toFixed(2)} €</div>
             <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati${b.extraBarIncome > 0 ? ` + ${b.extraBarIncome.toFixed(2)} € extra` : ''}</div>
+            ${sourceBreakdownHtml ? `<div style="border-top: 1px solid #c8e6c9; margin-top: 6px; padding-top: 6px">${sourceBreakdownHtml}</div>` : ''}
           </div>
           <div style="flex: 1; min-width: 160px; background: #e3f2fd; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">🎟️ Incasso Eventi</div>
@@ -14229,7 +14262,8 @@ html += `
       const payload = {
         customerName: document.getElementById('cassaCustomerName').value.trim(),
         items: cassaCart.map(i => ({ productId: i.productId, qty: i.qty })),
-        paymentMethod
+        paymentMethod,
+        source: document.getElementById('cassaOrderSource').value
       };
       try {
         const result = await callApi('admin_place_shop_order', 'POST', payload, true);

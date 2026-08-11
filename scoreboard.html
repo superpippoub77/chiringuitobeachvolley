@@ -5012,6 +5012,14 @@
       html += `<div style="margin-top: 14px">
         <label style="display: block; margin-bottom: 4px; font-weight: bold">${i18n('your_name_label')}</label>
         <input id="shopCustomerName" type="text" placeholder="${i18n('placeholder_name_surname')}" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+        <label style="display: block; margin: 10px 0 4px 0; font-weight: bold" data-i18n="order_source_label">Da dove ci scrivi?</label>
+        <select id="shopOrderSource" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
+          <option value="torneo" data-i18n="order_source_tournament">🏐 Torneo principale</option>
+          <option value="evento" data-i18n="order_source_event">🎉 Evento</option>
+          <option value="torneo_parallelo" data-i18n="order_source_side_tournament">🏓 Torneo parallelo</option>
+          <option value="prenotazione" data-i18n="order_source_booking">🪑 Prenotazione</option>
+          <option value="altro" selected data-i18n="order_source_other">❓ Altro</option>
+        </select>
         <label style="display: block; margin: 10px 0 4px 0; font-weight: bold">${i18n('notes_optional_label')}</label>
         <input id="shopOrderNotes" type="text" placeholder="${i18n('placeholder_order_notes')}" style="width: 100%; box-sizing: border-box; padding: 8px; border-radius: 6px; border: 1px solid #ddd">
       </div>`;
@@ -5048,6 +5056,7 @@
           customerName,
           items: shopCart.map(i => ({ productId: i.productId, qty: i.qty })),
           paymentMethod: 'cassa',
+          source: document.getElementById('shopOrderSource')?.value || 'altro',
           notes: document.getElementById('shopOrderNotes')?.value.trim() || ''
         };
         const r = await fetch(`${API}?action=shop_place_order`, {
@@ -5115,6 +5124,7 @@
                 customerName,
                 items: shopCart.map(i => ({ productId: i.productId, qty: i.qty })),
                 paymentMethod: 'paypal',
+                source: document.getElementById('shopOrderSource')?.value || 'altro',
                 notes: document.getElementById('shopOrderNotes')?.value.trim() || ''
               };
               const r = await fetch(`${API}?action=shop_place_order`, {

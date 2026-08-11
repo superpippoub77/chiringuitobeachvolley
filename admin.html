@@ -1254,6 +1254,16 @@
                 <option value="own">👤 Soldi propri (da rimborsare)</option>
               </select>
             </div>
+            <div class="field" style="flex: 1; min-width: 170px">
+              <label>Per quale attività</label>
+              <select id="expSource">
+                <option value="torneo">🏐 Torneo principale</option>
+                <option value="evento">🎉 Evento</option>
+                <option value="torneo_parallelo">🏓 Torneo parallelo</option>
+                <option value="prenotazione">🪑 Prenotazione</option>
+                <option value="altro" selected>❓ Altro / generale</option>
+              </select>
+            </div>
           </div>
           <label style="display: flex; align-items: center; gap: 6px; margin-top: 10px; font-weight: normal">
             <input type="checkbox" id="expIsAmortized">
@@ -13805,6 +13815,28 @@ html += `
             <div style="font-size: 11px; color: #888">Incassi − tutte le spese, ammortamenti inclusi</div>
           </div>
         </div>
+        ${(() => {
+          const sourceLabelsBal = { torneo: '🏐 Torneo', evento: '🎉 Eventi', torneo_parallelo: '🏓 Tornei paralleli', prenotazione: '🪑 Prenotazioni', altro: '❓ Altro' };
+          const activeSources = Object.keys(b.shopIncomeBySource || {}).filter(k => (b.shopIncomeBySource[k] > 0) || (b.expensesBySource[k] > 0));
+          if (activeSources.length === 0) return '';
+          return `
+            <div style="margin-top: 12px; background: #f5f5f5; border-radius: 8px; padding: 14px">
+              <div style="font-weight: bold; margin-bottom: 8px">📌 Bilancio Bar per Attività</div>
+              ${activeSources.map(key => {
+                const net = b.netBalanceBySource[key] || 0;
+                const netColorSrc = net >= 0 ? '#2e7d32' : '#c62828';
+                return `
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #e0e0e0">
+                    <span>${sourceLabelsBal[key]}</span>
+                    <span style="color: #666">incasso bar ${b.shopIncomeBySource[key].toFixed(2)} € − spese ${b.expensesBySource[key].toFixed(2)} €</span>
+                    <span style="font-weight: bold; color: ${netColorSrc}">${net >= 0 ? '+' : ''}${net.toFixed(2)} €</span>
+                  </div>
+                `;
+              }).join('')}
+              <div style="font-size: 11px; color: #888; margin-top: 6px">Nota: qui è considerato solo l'incasso bar per attività — eventi e iscrizioni hanno le proprie voci di incasso separate sopra.</div>
+            </div>
+          `;
+        })()}
         ${(b.reimbursements && b.reimbursements.length > 0) ? `
           <div style="margin-top: 12px; background: #fff3e0; border: 2px solid #e65100; border-radius: 8px; padding: 14px">
             <div style="font-weight: bold; color: #e65100; margin-bottom: 8px">💵 Rimborsi Dovuti (spese anticipate di tasca propria)</div>
@@ -13831,10 +13863,11 @@ html += `
         return;
       }
       const sorted = [...expensesData].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const sourceLabelsExp = { torneo: '🏐 Torneo', evento: '🎉 Evento', torneo_parallelo: '🏓 Torneo par.', prenotazione: '🪑 Prenotazione', altro: '❓ Altro' };
       container.innerHTML = `
         <table style="width: 100%; border-collapse: collapse">
           <thead><tr style="border-bottom: 1px solid #ddd; text-align: left">
-            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Tipo</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">🧾</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
+            <th style="padding: 6px">Data</th><th style="padding: 6px">Articolo</th><th style="padding: 6px">Categoria</th><th style="padding: 6px">Attività</th><th style="padding: 6px">Tipo</th><th style="padding: 6px">Chi ha pagato</th><th style="padding: 6px">Fondi</th><th style="padding: 6px">🧾</th><th style="padding: 6px">Importo</th><th style="padding: 6px">Azioni</th>
           </tr></thead>
           <tbody>
             ${sorted.map(e => `
@@ -13842,6 +13875,7 @@ html += `
                 <td style="padding: 6px; font-size: 13px">${e.date || '-'}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.item)}</td>
                 <td style="padding: 6px; font-size: 13px; color: #888">${escapeHtml(e.category || '-')}</td>
+                <td style="padding: 6px; font-size: 13px">${sourceLabelsExp[e.source || 'altro']}</td>
                 <td style="padding: 6px; font-size: 13px">${e.isAmortized ? '🔁 Ammortamento' : '📦 Operativa'}</td>
                 <td style="padding: 6px; font-size: 13px">${escapeHtml(e.paidBy || '-')}</td>
                 <td style="padding: 6px; font-size: 13px">${e.paymentSource === 'own' ? '👤 Propri' : '💰 Cassa'}</td>
@@ -13891,6 +13925,16 @@ html += `
             <select id="editExpPaymentSource" style="width: 100%">
               <option value="cassa" ${expense.paymentSource !== 'own' ? 'selected' : ''}>💰 Cassa del torneo</option>
               <option value="own" ${expense.paymentSource === 'own' ? 'selected' : ''}>👤 Soldi propri (da rimborsare)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Per quale attività</label>
+            <select id="editExpSource" style="width: 100%">
+              <option value="torneo" ${(expense.source || 'altro') === 'torneo' ? 'selected' : ''}>🏐 Torneo principale</option>
+              <option value="evento" ${expense.source === 'evento' ? 'selected' : ''}>🎉 Evento</option>
+              <option value="torneo_parallelo" ${expense.source === 'torneo_parallelo' ? 'selected' : ''}>🏓 Torneo parallelo</option>
+              <option value="prenotazione" ${expense.source === 'prenotazione' ? 'selected' : ''}>🪑 Prenotazione</option>
+              <option value="altro" ${(!expense.source || expense.source === 'altro') ? 'selected' : ''}>❓ Altro / generale</option>
             </select>
           </div>
           <label style="display: flex; align-items: center; gap: 6px; font-weight: normal">
@@ -14000,6 +14044,7 @@ html += `
           date: document.getElementById('editExpDate').value,
           paidBy: document.getElementById('editExpPaidBy').value.trim(),
           paymentSource: document.getElementById('editExpPaymentSource').value,
+          source: document.getElementById('editExpSource').value,
           isAmortized: document.getElementById('editExpIsAmortized').checked
         }, true);
         closeModal();
@@ -14016,6 +14061,7 @@ html += `
       const date = document.getElementById('expDate').value;
       const paidBy = document.getElementById('expPaidBy').value.trim();
       const paymentSource = document.getElementById('expPaymentSource').value;
+      const source = document.getElementById('expSource').value;
       const isAmortized = document.getElementById('expIsAmortized').checked;
       if (!item) {
         await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per la spesa.');
@@ -14026,13 +14072,14 @@ html += `
         return;
       }
       try {
-        await callApi('admin_add_expense', 'POST', { item, amount, category, date, paidBy, paymentSource, isAmortized }, true);
+        await callApi('admin_add_expense', 'POST', { item, amount, category, date, paidBy, paymentSource, source, isAmortized }, true);
         document.getElementById('expItem').value = '';
         document.getElementById('expAmount').value = '';
         document.getElementById('expCategory').value = '';
         document.getElementById('expDate').value = '';
         document.getElementById('expPaidBy').value = '';
         document.getElementById('expPaymentSource').value = 'cassa';
+        document.getElementById('expSource').value = 'altro';
         document.getElementById('expIsAmortized').checked = false;
         await loadFinancesData();
       } catch (e) {

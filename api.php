@@ -15551,6 +15551,11 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
 
     $paidBy = mb_substr(trim((string)($body['paidBy'] ?? '')), 0, 100);
     $paymentSource = in_array($body['paymentSource'] ?? 'cassa', ['cassa', 'own'], true) ? ($body['paymentSource'] ?? 'cassa') : 'cassa';
+    // 🆕 Provenienza/attività a cui si riferisce la spesa (torneo/evento/
+    // torneo parallelo/prenotazione/altro) — stessa classificazione usata
+    // per gli incassi bar, per poter leggere il bilancio per attività.
+    $allowedExpenseSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
+    $expenseSource = in_array($body['source'] ?? 'altro', $allowedExpenseSources, true) ? $body['source'] : 'altro';
 
     $expense = [
         'id' => bin2hex(random_bytes(8)),
@@ -15560,6 +15565,8 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
         'paidBy' => $paidBy,
         'paymentSource' => $paymentSource,
+        // 🆕 A quale attività si riferisce questa spesa
+        'source' => $expenseSource,
         // 🆕 Bene riutilizzabile/ammortizzabile: materiale che resta di
         // proprietà e verrà usato anche in futuri eventi (es. attrezzatura,
         // arredi, strumenti) — è comunque un costo sostenuto ORA, ma non va
@@ -15692,6 +15699,7 @@ if ($action === 'admin_update_expense' && $method === 'POST') {
             if (isset($body['date'])) $expense['date'] = trim((string)$body['date']);
             if (isset($body['paidBy'])) $expense['paidBy'] = mb_substr(trim((string)$body['paidBy']), 0, 100);
             if (isset($body['paymentSource']) && in_array($body['paymentSource'], ['cassa', 'own'], true)) $expense['paymentSource'] = $body['paymentSource'];
+            if (isset($body['source']) && in_array($body['source'], ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'], true)) $expense['source'] = $body['source'];
             if (isset($body['isAmortized'])) $expense['isAmortized'] = (bool)$body['isAmortized'];
             if (isset($body['notes'])) $expense['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
             break;
@@ -15808,6 +15816,11 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     $totalExpenses = 0.0;
     $operationalExpenses = 0.0;
     $amortizedExpenses = 0.0;
+    // 🆕 Spese suddivise per provenienza/attività (torneo/evento/torneo
+    // parallelo/prenotazione/altro) — stessa classificazione usata per gli
+    // incassi bar, per poter leggere il bilancio per attività, non solo
+    // il totale generale.
+    $expensesBySource = ['torneo' => 0.0, 'evento' => 0.0, 'torneo_parallelo' => 0.0, 'prenotazione' => 0.0, 'altro' => 0.0];
     $reimbursementsByPerson = [];
     foreach ($expensesList as $e) {
         $amount = (float)($e['amount'] ?? 0);
@@ -15817,6 +15830,9 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         } else {
             $operationalExpenses += $amount;
         }
+        $expenseSourceKey = $e['source'] ?? 'altro';
+        if (!isset($expensesBySource[$expenseSourceKey])) $expenseSourceKey = 'altro';
+        $expensesBySource[$expenseSourceKey] += $amount;
         if (($e['paymentSource'] ?? 'cassa') === 'own') {
             $person = trim((string)($e['paidBy'] ?? '')) ?: 'Non specificato';
             $reimbursementsByPerson[$person] = ($reimbursementsByPerson[$person] ?? 0) + $amount;
@@ -15855,6 +15871,18 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             // mantenuto per il futuro)
             'operationalExpenses' => round($operationalExpenses, 2),
             'amortizedExpenses' => round($amortizedExpenses, 2),
+            // 🆕 Spese per provenienza/attività
+            'expensesBySource' => array_map(fn($v) => round($v, 2), $expensesBySource),
+            // 🆕 Bilancio netto per attività: incasso bar di quell'attività
+            // meno le spese attribuite alla stessa attività — dà una
+            // fotografia di quanto ha reso (o costato) ciascuna attività
+            // singolarmente, non solo il totale generale. Nota: l'incasso
+            // qui è solo quello del bar per quell'attività (eventi/iscrizioni
+            // hanno le proprie voci di incasso separate, sopra).
+            'netBalanceBySource' => array_map(
+                fn($key) => round(($shopIncomeBySource[$key] ?? 0) - ($expensesBySource[$key] ?? 0), 2),
+                array_combine(array_keys($shopIncomeBySource), array_keys($shopIncomeBySource))
+            ),
             'reimbursements' => $reimbursements,
             'totalReimbursementsDue' => round($totalReimbursementsDue, 2),
             // Bilancio netto "completo": incassi meno TUTTE le spese, ammortamenti inclusi

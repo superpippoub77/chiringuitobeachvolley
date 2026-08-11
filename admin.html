@@ -1490,6 +1490,7 @@
 
             <div id="seatSelectionToolbar" style="display: none; background: #fff3e0; padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; align-items: center; gap: 8px; flex-wrap: wrap">
               <strong id="seatSelectionCount" style="font-size: 13px"></strong>
+              <button id="renameSelectedBtn" class="btn" onclick="editSeatMapElement(selectedSeatIndices[0])" style="display: none">✎️ Rinomina Etichetta</button>
               <select id="assignTierSelect" style="padding: 5px"></select>
               <button class="btn" onclick="assignTierToSelection()">🎨 Assegna fascia</button>
               <button class="btn" onclick="assignTierToSelection(null)">↩️ Rimuovi fascia (prezzo base)</button>
@@ -12694,6 +12695,12 @@ html += `
       const allReserved = selectedSeatIndices.every(i => seatMapElements[i]?.reserved);
       document.getElementById('reservedToggleCheckbox').checked = allReserved;
 
+      // 🆕 Il pulsante "Rinomina" ha senso solo con UN elemento selezionato
+      // (posto o etichetta) — apre lo stesso prompt gia' raggiungibile con
+      // il doppio clic, ma reso qui piu' visibile e scopribile.
+      const renameBtn = document.getElementById('renameSelectedBtn');
+      if (renameBtn) renameBtn.style.display = selectedSeatIndices.length === 1 ? '' : 'none';
+
       const select = document.getElementById('assignTierSelect');
       select.innerHTML = currentPriceTiers.map(t => `<option value="${t.id}">${escapeHtml(t.name)} (€${t.price.toFixed(2)})</option>`).join('')
         || '<option value="">Nessuna fascia creata — creane una qui sotto</option>';
@@ -12790,6 +12797,7 @@ html += `
       } else {
         el.label = newLabel.trim();
       }
+      updateSeatSelectionToolbar();
       renderSeatMapEditor();
     }
 

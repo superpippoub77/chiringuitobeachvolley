@@ -13026,6 +13026,29 @@ html += `
         </tr>
       `).join('');
 
+      // 🆕 Mappa visiva completa dei posti, con lo stato di ciascuno
+      // (occupato/riservato/libero) colorato — così, insieme all'elenco,
+      // si può controllare a colpo d'occhio chi si è prenotato dove.
+      const allElements = currentEvent?.seatMap?.elements || [];
+      const bookedSeatIds = new Set();
+      bookings.forEach(b => (b.seatIds || []).forEach(id => bookedSeatIds.add(id)));
+      const rawCanvasW = currentEvent?.seatMap?.canvasWidth || 900;
+      const rawCanvasH = currentEvent?.seatMap?.canvasHeight || 600;
+      const PRINT_MAP_WIDTH = 750; // px, larghezza massima per stare bene su una pagina A4
+      const mapScale = Math.min(1, PRINT_MAP_WIDTH / rawCanvasW);
+      const scaledCanvasW = rawCanvasW * mapScale;
+      const scaledCanvasH = rawCanvasH * mapScale;
+
+      const mapElementsHtml = allElements.map(el => {
+        const isSeat = el.type === 'seat';
+        const isBooked = isSeat && bookedSeatIds.has(el.id);
+        const isReserved = isSeat && !!el.reserved;
+        const bg = !isSeat ? '#fff3cd' : (isBooked ? '#e57373' : (isReserved ? '#9e9e9e' : '#81c784'));
+        const w = (el.width || 40) * mapScale;
+        const h = (el.height || 40) * mapScale;
+        return `<div style="position: absolute; left: ${el.x * mapScale}px; top: ${el.y * mapScale}px; width: ${w}px; height: ${h}px; background: ${bg}; border: 1px solid rgba(0,0,0,0.3); border-radius: ${isSeat ? '50%' : '3px'}; display: flex; align-items: center; justify-content: center; font-size: ${Math.max(7, 10 * mapScale)}px; font-weight: bold; color: #333; overflow: hidden; box-sizing: border-box">${escapeHtml(el.label || '')}</div>`;
+      }).join('');
+
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
         <html>
@@ -13040,6 +13063,10 @@ html += `
             .summary { text-align: center; color: #555; font-size: 13px; margin-bottom: 20px }
             table { width: 100%; border-collapse: collapse }
             th { text-align: left; padding: 8px; border-bottom: 2px solid #333; font-size: 12px }
+            .map-section { page-break-before: always; padding-top: 10px }
+            .map-legend { display: flex; gap: 16px; justify-content: center; margin: 10px 0 16px 0; font-size: 12px }
+            .map-legend span { display: flex; align-items: center; gap: 5px }
+            .map-legend .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.3) }
           </style>
         </head>
         <body onload="window.print()">
@@ -13052,6 +13079,18 @@ html += `
             </tr></thead>
             <tbody>${rowsHtml}</tbody>
           </table>
+
+          <div class="map-section">
+            <h1 style="font-size: 20px">🗺️ Mappa Posti — ${escapeHtml(currentEvent.name || '')}</h1>
+            <div class="map-legend">
+              <span><span class="dot" style="background:#81c784"></span> Libero</span>
+              <span><span class="dot" style="background:#e57373"></span> Occupato</span>
+              <span><span class="dot" style="background:#9e9e9e"></span> Riservato</span>
+            </div>
+            <div style="position: relative; width: ${scaledCanvasW}px; height: ${scaledCanvasH}px; margin: 0 auto; background: #fafafa; border: 1px solid #ccc; border-radius: 6px">
+              ${mapElementsHtml}
+            </div>
+          </div>
         </body>
         </html>
       `);

@@ -7598,6 +7598,42 @@ if ($action === 'admin_update_event_booking_payment' && $method === 'POST') {
     jsonResponse(200, ['ok' => true]);
 }
 
+// 🆕 Modifica l'importo effettivamente pagato di una prenotazione — utile
+// se differisce dal prezzo di listino (sconto, pagamento parziale, ecc.),
+// così il bilancio riflette davvero quanto incassato.
+if ($action === 'admin_update_event_booking_amount' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $eventId = (string)($body['eventId'] ?? '');
+    $bookingId = (string)($body['bookingId'] ?? '');
+    $amount = (float)($body['amount'] ?? -1);
+    if ($amount < 0) {
+        jsonResponse(422, ['ok' => false, 'error' => 'Importo non valido']);
+    }
+
+    $found = false;
+    withEventsTransaction(function (&$list) use ($eventId, $bookingId, $amount, &$found) {
+        foreach ($list['events'] as &$event) {
+            if (($event['id'] ?? '') !== $eventId) continue;
+            foreach ($event['bookings'] as &$booking) {
+                if (($booking['id'] ?? '') !== $bookingId) continue;
+                $booking['totalAmount'] = round($amount, 2);
+                $found = true;
+                break;
+            }
+            unset($booking);
+            break;
+        }
+        unset($event);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Prenotazione non trovata']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
 // Admin: elimina una prenotazione (libera i posti)
 if ($action === 'admin_delete_event_booking' && $method === 'POST') {
     requireAdmin();
@@ -15765,25 +15801,23 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     $shopIncome += $extraBarIncome;
     $shopIncomeBySource['altro'] += $extraBarIncome;
 
-    // Incasso eventi: somma delle prenotazioni pagate (posti prenotati x prezzo/fascia)
+    // 🔧 FIX CRITICO: prima si controllava $booking['paymentStatus'] === 'pagato',
+    // ma questo campo non viene MAI impostato sulle prenotazioni evento — il
+    // campo realmente usato quando l'admin segna una prenotazione come pagata
+    // è 'paid' (booleano, vedi admin_update_event_booking_payment). Risultato:
+    // le prenotazioni pagate non venivano MAI conteggiate nel bilancio.
+    // 🆕 Inoltre ora usa l'importo REALE registrato sulla prenotazione
+    // (totalAmount, ora modificabile dall'admin) invece di ricalcolarlo
+    // sempre dal prezzo di listino — così un importo corretto manualmente
+    // (es. sconto, pagamento parziale) si riflette davvero nel bilancio.
     $events = readEvents();
     $eventsIncome = 0.0;
     $eventBookingsCount = 0;
     foreach ($events as $event) {
-        $tiersById = [];
-        foreach (($event['priceTiers'] ?? []) as $t) { $tiersById[$t['id']] = $t; }
-        $elementsById = [];
-        foreach (($event['seatMap']['elements'] ?? []) as $el) { $elementsById[$el['id']] = $el; }
-
         foreach (($event['bookings'] ?? []) as $booking) {
-            if (($booking['paymentStatus'] ?? '') !== 'pagato') continue;
+            if (empty($booking['paid'])) continue;
             $eventBookingsCount++;
-            foreach (($booking['seatIds'] ?? []) as $seatId) {
-                $seatEl = $elementsById[$seatId] ?? null;
-                $tierId = $seatEl['tierId'] ?? null;
-                $price = $tierId && isset($tiersById[$tierId]) ? (float)$tiersById[$tierId]['price'] : (float)($event['pricePerSeat'] ?? 0);
-                $eventsIncome += $price;
-            }
+            $eventsIncome += (float)($booking['totalAmount'] ?? 0);
         }
     }
 

@@ -4258,7 +4258,7 @@
         </div>
 
         <div id="eventBookingFormBox" style="margin-top: 16px; padding: 14px; background: #f3e5f5; border-radius: 10px; display: ${selectedSeatIds.length ? 'block' : 'none'}">
-          <div style="font-weight: bold; margin-bottom: 8px">Posti selezionati: ${selectedSeatIds.join(', ') || '-'} — Totale: € ${total.toFixed(2)}</div>
+          <div style="font-weight: bold; margin-bottom: 8px">Posti selezionati: ${selectedSeatIds.map(id => esc((seats.find(s => s.id === id)?.label) || id)).join(', ') || '-'} — Totale: € ${total.toFixed(2)}</div>
           <div class="field">
             <label>Nome e cognome</label>
             <input id="evBookName" type="text" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 6px; box-sizing: border-box">

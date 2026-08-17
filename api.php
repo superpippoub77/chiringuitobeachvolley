@@ -15560,6 +15560,38 @@ if ($action === 'admin_add_extra_bar_income' && $method === 'POST') {
     jsonResponse(200, ['ok' => true, 'entry' => $entry]);
 }
 
+// 🆕 Modifica un incasso extra già registrato
+if ($action === 'admin_update_extra_bar_income' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $entryId = (string)($body['id'] ?? '');
+    if ($entryId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'id incasso mancante']);
+    }
+
+    $allowedCategories = ['bar', 'donazione', 'sponsor', 'altro'];
+    $found = false;
+    withExtraBarIncomeTransaction(function (&$data) use ($entryId, $body, $allowedCategories, &$found) {
+        foreach ($data['entries'] as &$entry) {
+            if (($entry['id'] ?? '') !== $entryId) continue;
+            $found = true;
+            if (isset($body['description'])) $entry['description'] = mb_substr(trim((string)$body['description']), 0, 150);
+            if (isset($body['amount'])) $entry['amount'] = round(max(0, (float)$body['amount']), 2);
+            if (isset($body['category']) && in_array($body['category'], $allowedCategories, true)) $entry['category'] = $body['category'];
+            if (isset($body['date'])) $entry['date'] = trim((string)$body['date']);
+            if (isset($body['notes'])) $entry['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
+            break;
+        }
+        unset($entry);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Incasso non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
+}
+
 // 🆕 Elimina un incasso bar extra
 if ($action === 'admin_delete_extra_bar_income' && $method === 'POST') {
     requireAdmin();

@@ -14336,10 +14336,85 @@ html += `
           <span>${e.date || '-'} — ${escapeHtml(e.description)} <span style="color: #888">(${categoryLabelsExtra[e.category || 'altro']})</span></span>
           <span style="display: flex; align-items: center; gap: 8px">
             <strong>${parseFloat(e.amount).toFixed(2)} €</strong>
+            <button class="btn" style="font-size: 11px; padding: 3px 8px" onclick="openEditExtraIncomeModal('${e.id}')">✎️</button>
             <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteExtraBarIncome('${e.id}')">🗑️</button>
           </span>
         </div>
       `).join('');
+    }
+
+    // 🆕 Apre una finestra per modificare un incasso extra gia' registrato
+    // (descrizione, importo, motivo, data) — prima si poteva solo eliminarlo
+    // e reinserirlo da capo.
+    function openEditExtraIncomeModal(entryId) {
+      const entry = extraBarIncomeData.find(e => e.id === entryId);
+      if (!entry) return;
+
+      const bodyHtml = `
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 300px">
+          <div class="field">
+            <label>Descrizione</label>
+            <input type="text" id="editExtraIncomeDescription" value="${escapeHtml(entry.description || '')}" style="width: 100%">
+          </div>
+          <div class="field">
+            <label>Importo (€)</label>
+            <input type="number" id="editExtraIncomeAmount" step="0.01" min="0" value="${parseFloat(entry.amount).toFixed(2)}" style="width: 100%">
+          </div>
+          <div class="field">
+            <label>Motivo</label>
+            <select id="editExtraIncomeCategory" style="width: 100%">
+              <option value="bar" ${(entry.category || 'altro') === 'bar' ? 'selected' : ''}>🍹 Bar</option>
+              <option value="donazione" ${entry.category === 'donazione' ? 'selected' : ''}>🎁 Donazione</option>
+              <option value="sponsor" ${entry.category === 'sponsor' ? 'selected' : ''}>🤝 Sponsor</option>
+              <option value="altro" ${(!entry.category || entry.category === 'altro') ? 'selected' : ''}>❓ Altro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Data</label>
+            <input type="date" id="editExtraIncomeDate" value="${escapeHtml(entry.date || '')}" style="width: 100%">
+          </div>
+        </div>
+      `;
+
+      openModal({
+        title: '✎️ Modifica Incasso Extra',
+        bodyHtml,
+        buttons: [
+          {
+            text: '✅ Salva',
+            className: 'btn btn-green',
+            onClick: () => saveEditedExtraIncome(entryId),
+            closeOnClick: false
+          },
+          { text: '✗ Annulla', className: 'btn btn-secondary', closeOnClick: true }
+        ]
+      });
+    }
+
+    async function saveEditedExtraIncome(entryId) {
+      const description = document.getElementById('editExtraIncomeDescription').value.trim();
+      const amount = parseFloat(document.getElementById('editExtraIncomeAmount').value);
+      if (!description) {
+        await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per l\'incasso.');
+        return;
+      }
+      if (!amount || amount <= 0) {
+        await showInfoDialog('Importo non valido', 'Inserisci un importo maggiore di zero.');
+        return;
+      }
+      try {
+        await callApi('admin_update_extra_bar_income', 'POST', {
+          id: entryId,
+          description,
+          amount,
+          category: document.getElementById('editExtraIncomeCategory').value,
+          date: document.getElementById('editExtraIncomeDate').value
+        }, true);
+        closeModal();
+        await loadFinancesData();
+      } catch (e) {
+        await showInfoDialog('Errore', e.message);
+      }
     }
 
     async function deleteExpense(id) {

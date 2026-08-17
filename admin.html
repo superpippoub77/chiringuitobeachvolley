@@ -1273,16 +1273,25 @@
         </div>
 
         <div class="card" style="background: #e8f5e9; padding: 12px; margin-top: 16px">
-          <h4 style="margin-top: 0">➕ Incasso Bar Extra</h4>
-          <p class="muted" style="margin-top: -6px">Per incassi bar non legati a un ordine specifico della cassa — es. mance, offerte libere, incasso di fine giornata.</p>
+          <h4 style="margin-top: 0">➕ Incasso Extra</h4>
+          <p class="muted" style="margin-top: -6px">Per incassi non legati a un ordine/prenotazione specifica — es. mance, offerte libere, donazioni, sponsor.</p>
           <div class="row" style="gap: 12px; flex-wrap: wrap">
             <div class="field" style="flex: 2; min-width: 180px">
               <label>Descrizione</label>
-              <input type="text" id="extraIncomeDescription" placeholder="Es: Offerte libere serata, mance...">
+              <input type="text" id="extraIncomeDescription" placeholder="Es: Offerta sponsor, donazione, mance...">
             </div>
             <div class="field" style="flex: 1; min-width: 100px">
               <label>Importo (€)</label>
               <input type="number" id="extraIncomeAmount" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="field" style="flex: 1; min-width: 140px">
+              <label>Motivo</label>
+              <select id="extraIncomeCategory">
+                <option value="bar">🍹 Bar</option>
+                <option value="donazione">🎁 Donazione</option>
+                <option value="sponsor">🤝 Sponsor</option>
+                <option value="altro" selected>❓ Altro</option>
+              </select>
             </div>
             <div class="field" style="flex: 1; min-width: 130px">
               <label>Data</label>
@@ -13427,10 +13436,12 @@ html += `
         </tr>
       `).join('');
 
+      const extraCategoryLabelsPrint = { bar: '🍹 Bar', donazione: '🎁 Donazione', sponsor: '🤝 Sponsor', altro: '❓ Altro' };
       const extraIncomeRowsHtml = extraBarIncomeData.map(e => `
         <tr>
           <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.date || '')}</td>
           <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${escapeHtml(e.description)}</td>
+          <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">${extraCategoryLabelsPrint[e.category || 'altro']}</td>
           <td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${parseFloat(e.amount).toFixed(2)} €</td>
         </tr>
       `).join('');
@@ -13502,12 +13513,12 @@ html += `
           ` : ''}
 
           ${extraBarIncomeData.length > 0 ? `
-          <h2>➕ Incassi Bar Extra</h2>
+          <h2>➕ Incasso Extra</h2>
           <table>
-            <thead><tr><th>Data</th><th>Descrizione</th><th style="text-align: right">Importo</th></tr></thead>
+            <thead><tr><th>Data</th><th>Descrizione</th><th>Motivo</th><th style="text-align: right">Importo</th></tr></thead>
             <tbody>${extraIncomeRowsHtml}</tbody>
           </table>
-          <div class="section-total">Totale incassi extra: ${b.extraBarIncome.toFixed(2)} €</div>
+          <div class="section-total">Totale incasso extra: ${b.extraIncome.toFixed(2)} €</div>
           ` : ''}
 
           ${b.incomeByPaymentMethod ? `
@@ -13939,13 +13950,19 @@ html += `
             `<div style="display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-top: 2px"><span>${sourceLabels[key] || key}</span><span>${v.toFixed(2)} €</span></div>`
           ).join('')
         : '';
+      const extraCategoryLabels = { bar: '🍹 Bar', donazione: '🎁 Donazioni', sponsor: '🤝 Sponsor', altro: '❓ Altro' };
+      const extraBreakdownHtml = b.extraIncomeByCategory
+        ? Object.entries(b.extraIncomeByCategory).filter(([, v]) => v > 0).map(([key, v]) =>
+            `<div style="display: flex; justify-content: space-between; font-size: 11px; color: #555; margin-top: 2px"><span>${extraCategoryLabels[key] || key}</span><span>${v.toFixed(2)} €</span></div>`
+          ).join('')
+        : '';
 
       container.innerHTML = `
         <div style="display: flex; gap: 12px; flex-wrap: wrap">
           <div style="flex: 1; min-width: 160px; background: #e8f5e9; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">🍹 Incasso Bar</div>
             <div style="font-size: 20px; font-weight: bold; color: #2e7d32">${b.shopIncome.toFixed(2)} €</div>
-            <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati${b.extraBarIncome > 0 ? ` + ${b.extraBarIncome.toFixed(2)} € extra` : ''}</div>
+            <div style="font-size: 11px; color: #888">${b.shopOrdersCount} ordini pagati</div>
             ${sourceBreakdownHtml ? `<div style="border-top: 1px solid #c8e6c9; margin-top: 6px; padding-top: 6px">${sourceBreakdownHtml}</div>` : ''}
           </div>
           <div style="flex: 1; min-width: 160px; background: #e3f2fd; border-radius: 8px; padding: 12px">
@@ -13958,6 +13975,13 @@ html += `
             <div style="font-size: 20px; font-weight: bold; color: #e65100">${b.registrationIncome.toFixed(2)} €</div>
             <div style="font-size: 11px; color: #888">${b.paidTeamsCount || b.paidPlayersCount} pagamenti</div>
           </div>
+          ${b.extraIncome > 0 ? `
+          <div style="flex: 1; min-width: 160px; background: #f3e5f5; border-radius: 8px; padding: 12px">
+            <div style="font-size: 12px; color: #555">➕ Incasso Extra</div>
+            <div style="font-size: 20px; font-weight: bold; color: #6a1b9a">${b.extraIncome.toFixed(2)} €</div>
+            ${extraBreakdownHtml ? `<div style="border-top: 1px solid #e1bee7; margin-top: 6px; padding-top: 6px">${extraBreakdownHtml}</div>` : ''}
+          </div>
+          ` : ''}
           <div style="flex: 1; min-width: 160px; background: #ffebee; border-radius: 8px; padding: 12px">
             <div style="font-size: 12px; color: #555">💸 Totale Spese</div>
             <div style="font-size: 20px; font-weight: bold; color: #c62828">${b.totalExpenses.toFixed(2)} €</div>
@@ -14265,6 +14289,7 @@ html += `
     async function addExtraBarIncome() {
       const description = document.getElementById('extraIncomeDescription').value.trim();
       const amount = parseFloat(document.getElementById('extraIncomeAmount').value);
+      const category = document.getElementById('extraIncomeCategory').value;
       const date = document.getElementById('extraIncomeDate').value;
       if (!description) {
         await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per l\'incasso.');
@@ -14275,9 +14300,10 @@ html += `
         return;
       }
       try {
-        await callApi('admin_add_extra_bar_income', 'POST', { description, amount, date }, true);
+        await callApi('admin_add_extra_bar_income', 'POST', { description, amount, category, date }, true);
         document.getElementById('extraIncomeDescription').value = '';
         document.getElementById('extraIncomeAmount').value = '';
+        document.getElementById('extraIncomeCategory').value = 'altro';
         document.getElementById('extraIncomeDate').value = '';
         await loadFinancesData();
       } catch (e) {
@@ -14303,10 +14329,11 @@ html += `
         container.innerHTML = '<p class="muted" style="font-size: 13px">Nessun incasso extra registrato.</p>';
         return;
       }
+      const categoryLabelsExtra = { bar: '🍹 Bar', donazione: '🎁 Donazione', sponsor: '🤝 Sponsor', altro: '❓ Altro' };
       const sorted = [...extraBarIncomeData].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       container.innerHTML = sorted.map(e => `
         <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #dcedc8; font-size: 13px">
-          <span>${e.date || '-'} — ${escapeHtml(e.description)}</span>
+          <span>${e.date || '-'} — ${escapeHtml(e.description)} <span style="color: #888">(${categoryLabelsExtra[e.category || 'altro']})</span></span>
           <span style="display: flex; align-items: center; gap: 8px">
             <strong>${parseFloat(e.amount).toFixed(2)} €</strong>
             <button class="btn" style="font-size: 11px; padding: 3px 8px; background: #dc3545; color: white" onclick="deleteExtraBarIncome('${e.id}')">🗑️</button>

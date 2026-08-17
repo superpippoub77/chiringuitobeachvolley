@@ -15535,10 +15535,18 @@ if ($action === 'admin_add_extra_bar_income' && $method === 'POST') {
         jsonResponse(422, ['ok' => false, 'error' => 'Inserisci un importo maggiore di zero']);
     }
 
+    // 🆕 Generalizzato: non è più solo "incasso bar extra" — può essere
+    // una donazione, uno sponsor, o qualunque altro incasso che non passa
+    // per un ordine/prenotazione specifica. Il motivo aiuta a distinguerlo
+    // nel bilancio invece di finire tutto genericamente in "bar".
+    $allowedCategories = ['bar', 'donazione', 'sponsor', 'altro'];
+    $category = in_array($body['category'] ?? 'altro', $allowedCategories, true) ? ($body['category'] ?? 'altro') : 'altro';
+
     $entry = [
         'id' => bin2hex(random_bytes(8)),
         'description' => $description,
         'amount' => round($amount, 2),
+        'category' => $category,
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
         'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
         'createdAt' => gmdate('c')
@@ -15801,19 +15809,23 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         }
     }
 
-    // 🆕 Incassi bar extra, non legati a un ordine specifico (es. mance,
-    // offerte libere, incasso di fine giornata non passato per la cassa) —
-    // si sommano all'incasso bar per completare il quadro reale. Non hanno
-    // una provenienza specifica, restano in "altro"; si presumono in
-    // contanti (mance/offerte raccolte di persona), salvo diversa indicazione.
-    $extraBarIncomeList = readExtraBarIncomeState();
-    $extraBarIncome = 0.0;
-    foreach ($extraBarIncomeList as $e) {
-        $extraBarIncome += (float)($e['amount'] ?? 0);
+    // 🆕 Incasso extra, generalizzato — NON è più necessariamente legato al
+    // bar: può essere una donazione, uno sponsor, o qualunque altro incasso
+    // che non passa per un ordine/prenotazione specifica. Per questo resta
+    // una categoria di incasso SEPARATA (non più sommata dentro shopIncome),
+    // con la propria suddivisione per motivo.
+    $extraIncomeList = readExtraBarIncomeState();
+    $extraIncome = 0.0;
+    $extraIncomeByCategory = ['bar' => 0.0, 'donazione' => 0.0, 'sponsor' => 0.0, 'altro' => 0.0];
+    foreach ($extraIncomeList as $e) {
+        $amount = (float)($e['amount'] ?? 0);
+        $extraIncome += $amount;
+        $entryCategory = $e['category'] ?? 'altro';
+        if (!isset($extraIncomeByCategory[$entryCategory])) $entryCategory = 'altro';
+        $extraIncomeByCategory[$entryCategory] += $amount;
+        // Si presume in contanti (raccolto di persona), salvo diversa indicazione
+        $incomeByPaymentMethod['contanti'] += $amount;
     }
-    $shopIncome += $extraBarIncome;
-    $shopIncomeBySource['altro'] += $extraBarIncome;
-    $incomeByPaymentMethod['contanti'] += $extraBarIncome;
 
     // 🔧 FIX CRITICO: prima si controllava $booking['paymentStatus'] === 'pagato',
     // ma questo campo non viene MAI impostato sulle prenotazioni evento — il
@@ -15895,7 +15907,7 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     usort($reimbursements, fn($a, $b) => $b['amount'] <=> $a['amount']);
     $totalReimbursementsDue = array_sum(array_column($reimbursements, 'amount'));
 
-    $totalIncome = $shopIncome + $eventsIncome + $registrationIncome;
+    $totalIncome = $shopIncome + $eventsIncome + $registrationIncome + $extraIncome;
 
     jsonResponse(200, [
         'ok' => true,
@@ -15905,7 +15917,10 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             // 🆕 Quota dell'incasso bar che arriva da voci extra (non da
             // ordini specifici) — già inclusa in shopIncome, mostrata
             // separatamente per trasparenza
-            'extraBarIncome' => round($extraBarIncome, 2),
+            // 🆕 Incasso extra, ora separato dal bar (può essere donazioni,
+            // sponsor, ecc.), con la propria suddivisione per motivo
+            'extraIncome' => round($extraIncome, 2),
+            'extraIncomeByCategory' => array_map(fn($v) => round($v, 2), $extraIncomeByCategory),
             // 🆕 Incasso bar per provenienza (torneo/eventi/tornei
             // paralleli/prenotazioni/altro)
             'shopIncomeBySource' => array_map(fn($v) => round($v, 2), $shopIncomeBySource),

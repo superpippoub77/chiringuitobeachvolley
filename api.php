@@ -15591,7 +15591,7 @@ if ($action === 'admin_add_expense' && $method === 'POST') {
     // torneo parallelo/prenotazione/altro) — stessa classificazione usata
     // per gli incassi bar, per poter leggere il bilancio per attività.
     $allowedExpenseSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
-    $expenseSource = in_array($body['source'] ?? 'altro', $allowedExpenseSources, true) ? $body['source'] : 'altro';
+    $expenseSource = in_array($body['source'] ?? 'altro', $allowedExpenseSources, true) ? ($body['source'] ?? 'altro') : 'altro';
 
     $expense = [
         'id' => bin2hex(random_bytes(8)),
@@ -15778,6 +15778,17 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     // parallelo/prenotazione/altro) — per capire quanto incasso genera
     // ciascuna attività, non solo il totale del bar.
     $shopIncomeBySource = ['torneo' => 0.0, 'evento' => 0.0, 'torneo_parallelo' => 0.0, 'prenotazione' => 0.0, 'altro' => 0.0];
+    // 🆕 Incasso complessivo (bar + eventi) suddiviso per modalità di
+    // pagamento (contanti vs elettronico) — utile per sapere quanto
+    // contante è effettivamente in cassa rispetto a quanto è arrivato via
+    // carta/PayPal.
+    $incomeByPaymentMethod = ['contanti' => 0.0, 'elettronico' => 0.0, 'altro' => 0.0];
+    $classifyPaymentMethod = function (?string $method): string {
+        $method = $method ?? '';
+        if (in_array($method, ['contanti', 'cassa'], true)) return 'contanti';
+        if (in_array($method, ['paypal', 'carta'], true)) return 'elettronico';
+        return 'altro';
+    };
     foreach (($shop['orders'] ?? []) as $order) {
         if (($order['paymentStatus'] ?? '') === 'pagato') {
             $orderTotal = (float)($order['total'] ?? 0);
@@ -15786,13 +15797,15 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             $orderSource = $order['source'] ?? 'altro';
             if (!isset($shopIncomeBySource[$orderSource])) $orderSource = 'altro';
             $shopIncomeBySource[$orderSource] += $orderTotal;
+            $incomeByPaymentMethod[$classifyPaymentMethod($order['paymentMethod'] ?? null)] += $orderTotal;
         }
     }
 
     // 🆕 Incassi bar extra, non legati a un ordine specifico (es. mance,
     // offerte libere, incasso di fine giornata non passato per la cassa) —
     // si sommano all'incasso bar per completare il quadro reale. Non hanno
-    // una provenienza specifica, restano in "altro".
+    // una provenienza specifica, restano in "altro"; si presumono in
+    // contanti (mance/offerte raccolte di persona), salvo diversa indicazione.
     $extraBarIncomeList = readExtraBarIncomeState();
     $extraBarIncome = 0.0;
     foreach ($extraBarIncomeList as $e) {
@@ -15800,6 +15813,7 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     }
     $shopIncome += $extraBarIncome;
     $shopIncomeBySource['altro'] += $extraBarIncome;
+    $incomeByPaymentMethod['contanti'] += $extraBarIncome;
 
     // 🔧 FIX CRITICO: prima si controllava $booking['paymentStatus'] === 'pagato',
     // ma questo campo non viene MAI impostato sulle prenotazioni evento — il
@@ -15817,7 +15831,9 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         foreach (($event['bookings'] ?? []) as $booking) {
             if (empty($booking['paid'])) continue;
             $eventBookingsCount++;
-            $eventsIncome += (float)($booking['totalAmount'] ?? 0);
+            $bookingAmount = (float)($booking['totalAmount'] ?? 0);
+            $eventsIncome += $bookingAmount;
+            $incomeByPaymentMethod[$classifyPaymentMethod($booking['paymentMethod'] ?? null)] += $bookingAmount;
         }
     }
 
@@ -15893,6 +15909,8 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
             // 🆕 Incasso bar per provenienza (torneo/eventi/tornei
             // paralleli/prenotazioni/altro)
             'shopIncomeBySource' => array_map(fn($v) => round($v, 2), $shopIncomeBySource),
+            // 🆕 Incasso (bar + eventi) suddiviso per modalità di pagamento
+            'incomeByPaymentMethod' => array_map(fn($v) => round($v, 2), $incomeByPaymentMethod),
             'eventsIncome' => round($eventsIncome, 2),
             'eventBookingsCount' => $eventBookingsCount,
             'registrationIncome' => round($registrationIncome, 2),
@@ -16016,7 +16034,7 @@ if ($action === 'shop_place_order' && $method === 'POST') {
     // ordinando — utile poi nel bilancio per capire quanto incasso genera
     // ciascuna attività del torneo, non solo il totale del bar.
     $allowedSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
-    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? $body['source'] : 'altro';
+    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? ($body['source'] ?? 'altro') : 'altro';
 
     // 🔧 Ricalcola i prezzi lato server dal catalogo reale (non fidarsi del
     // prezzo inviato dal client, che potrebbe essere manomesso)
@@ -16135,7 +16153,7 @@ if ($action === 'admin_place_shop_order' && $method === 'POST') {
 
     // 🆕 Provenienza dell'ordine, scelta dall'admin alla cassa
     $allowedSources = ['torneo', 'evento', 'torneo_parallelo', 'prenotazione', 'altro'];
-    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? $body['source'] : 'altro';
+    $source = in_array($body['source'] ?? 'altro', $allowedSources, true) ? ($body['source'] ?? 'altro') : 'altro';
 
     // 🔧 Ricalcola i prezzi lato server dal catalogo reale
     $shop = readShopState();

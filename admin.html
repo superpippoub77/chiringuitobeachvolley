@@ -13510,6 +13510,20 @@ html += `
           <div class="section-total">Totale incassi extra: ${b.extraBarIncome.toFixed(2)} €</div>
           ` : ''}
 
+          ${b.incomeByPaymentMethod ? `
+          <h2>💳 Incasso per Modalità di Pagamento (Bar + Eventi)</h2>
+          <table>
+            <thead><tr><th>Modalità</th><th style="text-align: right">Importo</th></tr></thead>
+            <tbody>
+              ${b.incomeByPaymentMethod.contanti > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">💵 Contanti</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${b.incomeByPaymentMethod.contanti.toFixed(2)} €</td></tr>` : ''}
+              ${b.incomeByPaymentMethod.elettronico > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">💳 Elettronico (carta/PayPal)</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${b.incomeByPaymentMethod.elettronico.toFixed(2)} €</td></tr>` : ''}
+              ${b.incomeByPaymentMethod.altro > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px">❓ Altro / non specificato</td><td style="padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 12px; text-align: right; font-weight: bold">${b.incomeByPaymentMethod.altro.toFixed(2)} €</td></tr>` : ''}
+            </tbody>
+          </table>
+          <div class="section-total">Totale: ${(b.incomeByPaymentMethod.contanti + b.incomeByPaymentMethod.elettronico + b.incomeByPaymentMethod.altro).toFixed(2)} €</div>
+          <p style="font-size: 11px; color: #888; margin-top: 4px">Nota: le iscrizioni al torneo non hanno una modalità di pagamento tracciata, quindi non sono incluse in questa tabella.</p>
+          ` : ''}
+
           <h2>📦 Spese Operative (consumate per questo evento)</h2>
           ${operationalExpensesList.length > 0 ? `
           <table>
@@ -13984,6 +13998,17 @@ html += `
             </div>
           `;
         })()}
+        ${b.incomeByPaymentMethod ? `
+          <div style="margin-top: 12px; background: #e1f5fe; border-radius: 8px; padding: 14px">
+            <div style="font-weight: bold; margin-bottom: 8px">💳 Incasso per Modalità di Pagamento (Bar + Eventi)</div>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap">
+              ${b.incomeByPaymentMethod.contanti > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">💵 Contanti</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.contanti.toFixed(2)} €</div></div>` : ''}
+              ${b.incomeByPaymentMethod.elettronico > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">💳 Elettronico (carta/PayPal)</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.elettronico.toFixed(2)} €</div></div>` : ''}
+              ${b.incomeByPaymentMethod.altro > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">❓ Altro</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.altro.toFixed(2)} €</div></div>` : ''}
+            </div>
+            <div style="font-size: 11px; color: #888; margin-top: 6px">Bar + eventi — le iscrizioni non hanno una modalità di pagamento tracciata.</div>
+          </div>
+        ` : ''}
         ${(b.reimbursements && b.reimbursements.length > 0) ? `
           <div style="margin-top: 12px; background: #fff3e0; border: 2px solid #e65100; border-radius: 8px; padding: 14px">
             <div style="font-weight: bold; color: #e65100; margin-bottom: 8px">💵 Rimborsi Dovuti (spese anticipate di tasca propria)</div>

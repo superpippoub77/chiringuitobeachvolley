@@ -1294,6 +1294,13 @@
               </select>
             </div>
             <div class="field" style="flex: 1; min-width: 130px">
+              <label>Metodo</label>
+              <select id="extraIncomePaymentMethod">
+                <option value="contanti" selected>💵 Contanti</option>
+                <option value="elettronico">💳 Elettronico</option>
+              </select>
+            </div>
+            <div class="field" style="flex: 1; min-width: 130px">
               <label>Data</label>
               <input type="date" id="extraIncomeDate">
             </div>
@@ -4586,6 +4593,10 @@
           </div>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_approved" ${team.approved ? 'checked' : ''}> Confermata</label>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_paid" data-initial="${team.paid ? '1' : '0'}" ${team.paid ? 'checked' : ''}> Pagato (squadra intera)</label>
+          <select id="row_${team.id}_paymentMethod" style="font-size: 12px; padding: 2px 4px" title="Metodo di pagamento dell'iscrizione">
+            <option value="contanti" ${team.paymentMethod !== 'elettronico' ? 'selected' : ''}>💵 Contanti</option>
+            <option value="elettronico" ${team.paymentMethod === 'elettronico' ? 'selected' : ''}>💳 Elettronico</option>
+          </select>
           <label style="font-size: 13px; font-weight: normal"><input type="checkbox" id="row_${team.id}_kit" ${team.kitDelivered ? 'checked' : ''}> Kit consegnato</label>
         </div>
         <div class="team-card-players">
@@ -4642,6 +4653,7 @@
         phone: document.getElementById(`row_${team.id}_phone`)?.value.trim() || '',
         approved: document.getElementById(`row_${team.id}_approved`)?.checked || false,
         kitDelivered: document.getElementById(`row_${team.id}_kit`)?.checked || false,
+        paymentMethod: document.getElementById(`row_${team.id}_paymentMethod`)?.value || 'contanti',
         players
       };
       if (paidChanged) {
@@ -5270,6 +5282,7 @@
               phone: document.getElementById('mPhone').value.trim(),
               approved: document.getElementById('mApproved').checked,
               kitDelivered: document.getElementById('mKitDelivered').checked,
+              paymentMethod: document.getElementById('mPaymentMethod')?.value || 'contanti',
               customFieldValues
             };
 
@@ -5423,6 +5436,13 @@
             </div>
             <div class="field">
               <label><input id="mPaid" type="checkbox" data-initial="${team.paid ? '1' : '0'}" ${team.paid ? 'checked' : ''}> Pagamento registrato (squadra intera)</label>
+            </div>
+            <div class="field">
+              <label>Metodo di pagamento</label>
+              <select id="mPaymentMethod">
+                <option value="contanti" ${team.paymentMethod !== 'elettronico' ? 'selected' : ''}>💵 Contanti</option>
+                <option value="elettronico" ${team.paymentMethod === 'elettronico' ? 'selected' : ''}>💳 Elettronico</option>
+              </select>
             </div>
             <div class="field">
               <label><input id="mKitDelivered" type="checkbox" ${team.kitDelivered ? 'checked' : ''}> ✓ Kit consegnato</label>
@@ -13522,7 +13542,7 @@ html += `
           ` : ''}
 
           ${b.incomeByPaymentMethod ? `
-          <h2>💳 Incasso per Modalità di Pagamento (Bar + Eventi)</h2>
+          <h2>💳 Incasso per Modalità di Pagamento (Bar + Eventi + Iscrizioni + Extra)</h2>
           <table>
             <thead><tr><th>Modalità</th><th style="text-align: right">Importo</th></tr></thead>
             <tbody>
@@ -13532,7 +13552,7 @@ html += `
             </tbody>
           </table>
           <div class="section-total">Totale: ${(b.incomeByPaymentMethod.contanti + b.incomeByPaymentMethod.elettronico + b.incomeByPaymentMethod.altro).toFixed(2)} €</div>
-          <p style="font-size: 11px; color: #888; margin-top: 4px">Nota: le iscrizioni al torneo non hanno una modalità di pagamento tracciata, quindi non sono incluse in questa tabella.</p>
+          <p style="font-size: 11px; color: #888; margin-top: 4px">Copre bar, eventi, iscrizioni al torneo ed eventuali incassi extra.</p>
           ` : ''}
 
           <h2>📦 Spese Operative (consumate per questo evento)</h2>
@@ -14024,13 +14044,13 @@ html += `
         })()}
         ${b.incomeByPaymentMethod ? `
           <div style="margin-top: 12px; background: #e1f5fe; border-radius: 8px; padding: 14px">
-            <div style="font-weight: bold; margin-bottom: 8px">💳 Incasso per Modalità di Pagamento (Bar + Eventi)</div>
+            <div style="font-weight: bold; margin-bottom: 8px">💳 Incasso per Modalità di Pagamento (Bar + Eventi + Iscrizioni + Extra)</div>
             <div style="display: flex; gap: 16px; flex-wrap: wrap">
               ${b.incomeByPaymentMethod.contanti > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">💵 Contanti</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.contanti.toFixed(2)} €</div></div>` : ''}
               ${b.incomeByPaymentMethod.elettronico > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">💳 Elettronico (carta/PayPal)</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.elettronico.toFixed(2)} €</div></div>` : ''}
               ${b.incomeByPaymentMethod.altro > 0 ? `<div style="flex: 1; min-width: 140px"><div style="font-size: 12px; color: #555">❓ Altro</div><div style="font-size: 18px; font-weight: bold">${b.incomeByPaymentMethod.altro.toFixed(2)} €</div></div>` : ''}
             </div>
-            <div style="font-size: 11px; color: #888; margin-top: 6px">Bar + eventi — le iscrizioni non hanno una modalità di pagamento tracciata.</div>
+            <div style="font-size: 11px; color: #888; margin-top: 6px">Copre bar, eventi, iscrizioni al torneo ed eventuali incassi extra.</div>
           </div>
         ` : ''}
         ${(b.reimbursements && b.reimbursements.length > 0) ? `
@@ -14290,6 +14310,7 @@ html += `
       const description = document.getElementById('extraIncomeDescription').value.trim();
       const amount = parseFloat(document.getElementById('extraIncomeAmount').value);
       const category = document.getElementById('extraIncomeCategory').value;
+      const paymentMethod = document.getElementById('extraIncomePaymentMethod').value;
       const date = document.getElementById('extraIncomeDate').value;
       if (!description) {
         await showInfoDialog('Descrizione mancante', 'Inserisci una descrizione per l\'incasso.');
@@ -14300,10 +14321,11 @@ html += `
         return;
       }
       try {
-        await callApi('admin_add_extra_bar_income', 'POST', { description, amount, category, date }, true);
+        await callApi('admin_add_extra_bar_income', 'POST', { description, amount, category, paymentMethod, date }, true);
         document.getElementById('extraIncomeDescription').value = '';
         document.getElementById('extraIncomeAmount').value = '';
         document.getElementById('extraIncomeCategory').value = 'altro';
+        document.getElementById('extraIncomePaymentMethod').value = 'contanti';
         document.getElementById('extraIncomeDate').value = '';
         await loadFinancesData();
       } catch (e) {
@@ -14370,6 +14392,13 @@ html += `
             </select>
           </div>
           <div class="field">
+            <label>Metodo</label>
+            <select id="editExtraIncomePaymentMethod" style="width: 100%">
+              <option value="contanti" ${entry.paymentMethod !== 'elettronico' ? 'selected' : ''}>💵 Contanti</option>
+              <option value="elettronico" ${entry.paymentMethod === 'elettronico' ? 'selected' : ''}>💳 Elettronico</option>
+            </select>
+          </div>
+          <div class="field">
             <label>Data</label>
             <input type="date" id="editExtraIncomeDate" value="${escapeHtml(entry.date || '')}" style="width: 100%">
           </div>
@@ -14408,6 +14437,7 @@ html += `
           description,
           amount,
           category: document.getElementById('editExtraIncomeCategory').value,
+          paymentMethod: document.getElementById('editExtraIncomePaymentMethod').value,
           date: document.getElementById('editExtraIncomeDate').value
         }, true);
         closeModal();

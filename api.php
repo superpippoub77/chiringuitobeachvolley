@@ -9807,6 +9807,15 @@ if ($action === 'admin_update_team' && $method === 'POST') {
             $teamPaidExplicitlySet = isset($body['paid']);
             if ($teamPaidExplicitlySet) {
                 $team['paid'] = (bool)$body['paid'];
+            }
+            // 🆕 Metodo di pagamento dell'iscrizione (contanti/elettronico)
+            // — indipendente dal flag "paid", così anche marcando la
+            // squadra come pagata in un secondo momento si può specificare
+            // come, per il dettaglio nel bilancio.
+            if (isset($body['paymentMethod']) && in_array($body['paymentMethod'], ['contanti', 'elettronico'], true)) {
+                $team['paymentMethod'] = $body['paymentMethod'];
+            }
+            if ($teamPaidExplicitlySet) {
                 // 🔧 FIX: applica subito la cascata sui giocatori GIÀ
                 // presenti, indipendentemente dal fatto che questa stessa
                 // richiesta includa anche un elenco giocatori aggiornato —
@@ -15541,12 +15550,17 @@ if ($action === 'admin_add_extra_bar_income' && $method === 'POST') {
     // nel bilancio invece di finire tutto genericamente in "bar".
     $allowedCategories = ['bar', 'donazione', 'sponsor', 'altro'];
     $category = in_array($body['category'] ?? 'altro', $allowedCategories, true) ? ($body['category'] ?? 'altro') : 'altro';
+    // 🆕 Metodo di pagamento esplicito (contanti/elettronico) — prima si
+    // presumeva sempre "contanti", ora è indicato dall'admin per riflettere
+    // davvero come è arrivato l'incasso.
+    $paymentMethod = in_array($body['paymentMethod'] ?? 'contanti', ['contanti', 'elettronico'], true) ? $body['paymentMethod'] : 'contanti';
 
     $entry = [
         'id' => bin2hex(random_bytes(8)),
         'description' => $description,
         'amount' => round($amount, 2),
         'category' => $category,
+        'paymentMethod' => $paymentMethod,
         'date' => trim((string)($body['date'] ?? '')) ?: date('Y-m-d'),
         'notes' => mb_substr(trim((string)($body['notes'] ?? '')), 0, 300),
         'createdAt' => gmdate('c')
@@ -15558,6 +15572,39 @@ if ($action === 'admin_add_extra_bar_income' && $method === 'POST') {
     });
 
     jsonResponse(200, ['ok' => true, 'entry' => $entry]);
+}
+
+// 🆕 Modifica un incasso extra già registrato
+if ($action === 'admin_update_extra_bar_income' && $method === 'POST') {
+    requireAdmin();
+    $body = bodyJson();
+    $entryId = (string)($body['id'] ?? '');
+    if ($entryId === '') {
+        jsonResponse(422, ['ok' => false, 'error' => 'id incasso mancante']);
+    }
+
+    $allowedCategories = ['bar', 'donazione', 'sponsor', 'altro'];
+    $found = false;
+    withExtraBarIncomeTransaction(function (&$data) use ($entryId, $body, $allowedCategories, &$found) {
+        foreach ($data['entries'] as &$entry) {
+            if (($entry['id'] ?? '') !== $entryId) continue;
+            $found = true;
+            if (isset($body['description'])) $entry['description'] = mb_substr(trim((string)$body['description']), 0, 150);
+            if (isset($body['amount'])) $entry['amount'] = round(max(0, (float)$body['amount']), 2);
+            if (isset($body['category']) && in_array($body['category'], $allowedCategories, true)) $entry['category'] = $body['category'];
+            if (isset($body['paymentMethod']) && in_array($body['paymentMethod'], ['contanti', 'elettronico'], true)) $entry['paymentMethod'] = $body['paymentMethod'];
+            if (isset($body['date'])) $entry['date'] = trim((string)$body['date']);
+            if (isset($body['notes'])) $entry['notes'] = mb_substr(trim((string)$body['notes']), 0, 300);
+            break;
+        }
+        unset($entry);
+        return [];
+    });
+
+    if (!$found) {
+        jsonResponse(404, ['ok' => false, 'error' => 'Incasso non trovato']);
+    }
+    jsonResponse(200, ['ok' => true]);
 }
 
 // 🆕 Elimina un incasso bar extra
@@ -15794,7 +15841,7 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     $classifyPaymentMethod = function (?string $method): string {
         $method = $method ?? '';
         if (in_array($method, ['contanti', 'cassa'], true)) return 'contanti';
-        if (in_array($method, ['paypal', 'carta'], true)) return 'elettronico';
+        if (in_array($method, ['paypal', 'carta', 'elettronico'], true)) return 'elettronico';
         return 'altro';
     };
     foreach (($shop['orders'] ?? []) as $order) {
@@ -15823,8 +15870,9 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
         $entryCategory = $e['category'] ?? 'altro';
         if (!isset($extraIncomeByCategory[$entryCategory])) $entryCategory = 'altro';
         $extraIncomeByCategory[$entryCategory] += $amount;
-        // Si presume in contanti (raccolto di persona), salvo diversa indicazione
-        $incomeByPaymentMethod['contanti'] += $amount;
+        // 🆕 Usa il metodo di pagamento REALE indicato dall'admin (prima si
+        // presumeva sempre "contanti")
+        $incomeByPaymentMethod[$classifyPaymentMethod($e['paymentMethod'] ?? null)] += $amount;
     }
 
     // 🔧 FIX CRITICO: prima si controllava $booking['paymentStatus'] === 'pagato',
@@ -15858,11 +15906,18 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     foreach (($state['teams'] ?? []) as $team) {
         if ($costPerPlayer > 0) {
             foreach (($team['players'] ?? []) as $player) {
-                if (!empty($player['paid'])) { $registrationIncome += $costPerPlayer; $paidPlayersCount++; }
+                if (!empty($player['paid'])) {
+                    $registrationIncome += $costPerPlayer;
+                    $paidPlayersCount++;
+                    // 🆕 Il metodo di pagamento è tracciato a livello di
+                    // squadra, non per singolo giocatore
+                    $incomeByPaymentMethod[$classifyPaymentMethod($team['paymentMethod'] ?? null)] += $costPerPlayer;
+                }
             }
         } elseif ($costPerTeam > 0 && !empty($team['paid'])) {
             $registrationIncome += $costPerTeam;
             $paidTeamsCount++;
+            $incomeByPaymentMethod[$classifyPaymentMethod($team['paymentMethod'] ?? null)] += $costPerTeam;
         }
     }
 

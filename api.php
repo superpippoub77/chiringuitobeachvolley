@@ -15903,6 +15903,19 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
     $costPerPlayer = (float)($config['payment']['costPerPlayer'] ?? 0);
     $paidTeamsCount = 0;
     $paidPlayersCount = 0;
+    // 🔧 FIX: le squadre pagate DAVVERO online tramite PayPal hanno già un
+    // campo 'paidVia' => 'paypal' impostato automaticamente dal flusso di
+    // pagamento reale — il calcolo qui controllava SOLO il campo manuale
+    // 'paymentMethod' (impostato a mano dall'admin per i pagamenti in
+    // contanti/cassa), ignorando completamente 'paidVia'. Risultato: le
+    // squadre pagate elettronicamente per davvero finivano tutte in
+    // "altro" invece che in "elettronico". Ora 'paidVia' ha la priorità
+    // quando presente, con 'paymentMethod' come ripiego per i pagamenti
+    // non tracciati automaticamente (contanti/cassa registrati a mano).
+    $teamPaymentMethodFor = function (array $team): ?string {
+        if (($team['paidVia'] ?? null) === 'paypal') return 'paypal';
+        return $team['paymentMethod'] ?? null;
+    };
     foreach (($state['teams'] ?? []) as $team) {
         if ($costPerPlayer > 0) {
             foreach (($team['players'] ?? []) as $player) {
@@ -15911,13 +15924,13 @@ if ($action === 'admin_get_balance' && $method === 'GET') {
                     $paidPlayersCount++;
                     // 🆕 Il metodo di pagamento è tracciato a livello di
                     // squadra, non per singolo giocatore
-                    $incomeByPaymentMethod[$classifyPaymentMethod($team['paymentMethod'] ?? null)] += $costPerPlayer;
+                    $incomeByPaymentMethod[$classifyPaymentMethod($teamPaymentMethodFor($team))] += $costPerPlayer;
                 }
             }
         } elseif ($costPerTeam > 0 && !empty($team['paid'])) {
             $registrationIncome += $costPerTeam;
             $paidTeamsCount++;
-            $incomeByPaymentMethod[$classifyPaymentMethod($team['paymentMethod'] ?? null)] += $costPerTeam;
+            $incomeByPaymentMethod[$classifyPaymentMethod($teamPaymentMethodFor($team))] += $costPerTeam;
         }
     }
 
